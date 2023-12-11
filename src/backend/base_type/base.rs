@@ -6,6 +6,8 @@ use std::ops::Deref;
 use super::function::FSRFunction;
 use super::integer::FSRInteger;
 use super::string::FSRString;
+
+#[derive(Debug)]
 pub enum FSRObjectType {
     Function,
     Class,
@@ -16,6 +18,7 @@ pub enum FSRObjectType {
     MetaClass,
 }
 
+#[derive(Debug)]
 pub enum FSRValue {
     Function(FSRFunction),
     Integer(FSRInteger),
@@ -27,7 +30,7 @@ impl FSRValue {
     
 }
 
-#[derive(Hash)]
+#[derive(Debug)]
 pub struct FSRClass<'a> {
     name        : &'a str,
 }
@@ -38,6 +41,7 @@ impl<'a> FSRClass<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct FSRObject<'a> {
     obj_type    : FSRObjectType,
     cls         : &'static FSRClass<'static>,
@@ -62,7 +66,7 @@ impl<'a> FSRObject<'a> {
     pub fn new() -> FSRObject<'a> {
         FSRObject { obj_type: FSRObjectType::Object, 
             cls: &OBJECT_CLASS, 
-            ref_count: 1, 
+            ref_count: 0, 
             value: FSRValue::None, 
             attrs: HashMap::new() 
         }
@@ -217,13 +221,12 @@ impl<'a> FSRObjectManager<'a> {
         }
     }
 
-    pub fn call_object_method(&self, object: &FSRObject, fn_name: &str, args: &FSRArgs) {
+    pub fn call_object_method(&self, object: &FSRObject, fn_name: &str, args: &FSRArgs) -> Result<FSRObject<'static>, Error> {
         let name = object.get_cls_name();
         let attrs = self.cls_maps.get(name).unwrap();
         let func_obj: &FSRObject<'_> = attrs.get(fn_name).unwrap();
         let func = func_obj.get_function().unwrap();
-        func.invoke(args, self);
-        unimplemented!()
+        func.invoke(args, self)
     }
 
     pub fn new_object(&mut self, cls_name: &str, args: &FSRArgs) -> Result<&FSRObject, Error>{

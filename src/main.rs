@@ -14,8 +14,8 @@ fn main() {
     let integer2 = i_vm.get_obj_by_id(&i2_id).unwrap();
     
     let args = &HashMap::from([("other", i2_id),("self", i1_id)]);
-    i_to_m(i_vm).call_object_method(&integer1, "add", &args);
-    
+    let obj = i_to_m(i_vm).call_object_method(&integer1, "add", &args).unwrap();
+    println!("{:?}", obj);
 
 }
  

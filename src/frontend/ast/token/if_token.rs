@@ -1,4 +1,6 @@
-use super::state::{ASTTokenEnum, ASTTokenInterface};
+use super::statement::ASTTokenInterface;
+use super::statement::ASTTokenEnum;
+
 
 pub struct FSRIfToken {
 

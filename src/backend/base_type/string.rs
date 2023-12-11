@@ -4,6 +4,7 @@ use crate::backend::base_type::function::FSRFunction;
 
 use super::{base::{FSRClassRegister, FSRObject, FSRObjectManager, FSRClass, FSRValue}, integer::FSRInteger};
 
+#[derive(Debug)]
 pub struct FSRString {
     value       : String
 }

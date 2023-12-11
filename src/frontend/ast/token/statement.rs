@@ -12,12 +12,23 @@ pub enum ASTFunctionToken {
 }
 
 pub enum ASTTokenEnum {
-    Start,
+    KeyToken,
+    VariableNameToken,
     ImportToken,
     FunctionToken,
     ClassToken,
     VariableAssign,
+}
 
+pub enum ASTStatement {
+    FunctionDef,
+    ClassDef,
+    Assign,
+    Return,
+    ForState,
+    WhileState,
+    IfState,
+    Continue,
 }
 
 pub struct ASTToken {

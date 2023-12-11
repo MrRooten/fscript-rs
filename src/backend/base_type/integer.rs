@@ -4,6 +4,7 @@ use crate::backend::base_type::base::FSRValue;
 
 use super::{base::{FSRObject, FSRObjectManager, FSRClassRegister, FSRAttrs, FSRClass}, function::FSRFunction};
 
+#[derive(Debug)]
 enum _FSRInteger {
     Unsigned32(u32),
     Unsigned64(u64),
@@ -19,6 +20,7 @@ pub struct FSRIntegerAttrs {
 }
 
 
+#[derive(Debug)]
 pub struct FSRInteger {
     value       : _FSRInteger,
 }
