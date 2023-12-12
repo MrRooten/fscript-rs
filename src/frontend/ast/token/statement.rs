@@ -1,6 +1,7 @@
 
 #[derive(PartialEq, Clone)]
 pub enum ASTState {
+    WaitToken,
     StartToken,
     ContinueToken,
     TokenEnd
