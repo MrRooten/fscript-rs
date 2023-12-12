@@ -1,5 +1,5 @@
-use std::{fmt::Error, ops::Range};
-use crate::frontend::ast::token::statement::ASTState;
+use std::{fmt::Error, ops::Range, ascii::AsciiExt};
+use crate::frontend::ast::token::{statement::ASTState, base::FSRTokenState, if_statement::FSRIfState};
 
 use super::token::statement::{ASTTokenEnum, ASTToken};
 
@@ -16,41 +16,32 @@ fn is_token_letter(c: char) -> bool {
 type FnExpectTokens = fn() -> Vec<ASTTokenEnum>;
 
 impl ASTParser {
-    fn get_max_token_length() -> usize {
+    pub fn get_max_token_length() -> usize {
         unimplemented!()
     }
 
-    fn match_token(token: &str) -> (Option<ASTTokenEnum>, bool) {
+    pub fn match_token(token: &str) -> (Option<ASTToken>, bool) {
         unimplemented!()
     }
 
-    fn get_fn_expect_token(token: &ASTTokenEnum) -> FnExpectTokens {
+    pub fn get_fn_expect_token(token: &ASTTokenEnum) -> FnExpectTokens {
         unimplemented!()
     }
 
-    fn is_black_char(c: char) -> bool {
-        return c == ' ' || c == '\n' || c == '\t';
+    pub fn is_black_char(c: u8) -> bool {
+        return c as char == ' ' || c as char == '\n' || c as char == '\t';
+    }
+
+    pub fn end_token_char(c: u8) -> bool {
+        unimplemented!()
     }
 
     fn token_process(token: &ASTTokenEnum, source: &str) {}
 
 
+
     pub fn parse(source: &str) -> Result<ASTParser, Error> {
-        let mut cur_range = Range {
-            start: 0,
-            end: 0,
-        };
-
-        let mut state = ASTState::WaitToken;
-        for (i, c) in source.chars().enumerate() {
-            cur_range.end = i;
-            if state == ASTState::WaitToken && ASTParser::is_black_char(c)   {
-                continue;
-            }
-
-            cur_range.start = i;
-            
-        }
+        
         unimplemented!()
     }
 }
