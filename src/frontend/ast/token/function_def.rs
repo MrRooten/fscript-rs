@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Error};
 
-use crate::{frontend::ast::{token::{base::FSRTokenState, statement::ASTState, if_statement::FSRIf}, parse::ASTParser}, backend::base_type::function};
+use crate::{frontend::ast::{token::{base::FSRTokenState, statement::ASTState, if_statement::FSRIf, assign::FSRAssign, call::FSRCall}, parse::ASTParser}, backend::base_type::function};
 
 use super::{base::FSRToken, hashtable::FSRHashtable};
 
@@ -34,7 +34,7 @@ impl FSRFunctionDef<'_> {
             state = ASTState::StartToken;
 
             if ASTParser::end_token_char(c) {
-                cur_length += 1;
+                
                 let token_s = &source[cur_start..cur_start+cur_length];
 
                 if token_s.eq("if".as_bytes()) {
@@ -51,7 +51,9 @@ impl FSRFunctionDef<'_> {
                 }
 
                 if token_s.eq("let".as_bytes()) {
-
+                    let assign = FSRAssign::parse(&source[cur_start..]).unwrap();
+                    i += assign.parse_len();
+                    body.push(FSRToken::Assign(assign));
                 }
 
                 if token_s.eq("for".as_bytes()) {
@@ -62,7 +64,11 @@ impl FSRFunctionDef<'_> {
 
                 }
 
-
+                if c as char == '(' {
+                    let call = FSRCall::parse(&source[cur_start..]).unwrap();
+                    i += call.parse_len();
+                    body.push(FSRToken::Call(call));
+                }
             }
             
         }
