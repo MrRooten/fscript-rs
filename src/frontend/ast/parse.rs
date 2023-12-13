@@ -28,8 +28,12 @@ impl ASTParser {
         unimplemented!()
     }
 
-    pub fn is_black_char(c: u8) -> bool {
+    pub fn is_blank_char(c: u8) -> bool {
         return c as char == ' ' || c as char == '\n' || c as char == '\t';
+    }
+
+    pub fn is_name_letter(c: u8) -> bool {
+        unimplemented!()
     }
 
     pub fn end_token_char(c: u8) -> bool {

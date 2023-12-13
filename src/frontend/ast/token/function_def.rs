@@ -26,7 +26,7 @@ impl FSRFunctionDef<'_> {
         let mut i = 0;
         while i < source.len() {
             let c = source[i];
-            if state == ASTState::WaitToken && ASTParser::is_black_char(c)   {
+            if state == ASTState::WaitToken && ASTParser::is_blank_char(c)   {
                 continue;
             }
 
