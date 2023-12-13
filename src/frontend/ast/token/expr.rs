@@ -7,7 +7,7 @@ pub struct FSRExpr<'a> {
     len         : usize
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 enum ExprState {
     ExprStart,
     EscapeNewline,
