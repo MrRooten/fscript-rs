@@ -6,7 +6,7 @@ pub enum FSRToken<'a> {
     FunctionDef(FSRFunctionDef<'a>),
     Name(FSRName),
     IfExp(FSRIf<'a>),
-    Constant(FSRConstant),
+    Constant(FSRConstant<'a>),
     Assign(FSRAssign<'a>),
     Expr(FSRExpr<'a>),
     Call(FSRCall<'a>),
@@ -17,3 +17,5 @@ pub enum FSRToken<'a> {
 pub enum FSRTokenState {
     If(FSRIfState),
 }
+
+
