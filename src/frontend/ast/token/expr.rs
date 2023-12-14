@@ -19,7 +19,8 @@ enum ExprState {
     EndToken,
     Function,
     Operator,
-    WaitToken
+    WaitToken,
+    Variable
 }
 enum Operator {
     Add,
@@ -58,29 +59,39 @@ impl FSROpreatorTree<'_> {
 
 impl FSRExpr<'_> {
     pub fn is_op_one_char(op: char) -> bool {
-        unimplemented!()
+        if op == '+' || op == '-' || op == '=' || op == '>' || op == '<' {
+            return true;
+        }
+
+        return false;
     }
 
     pub fn parse(source: &[u8]) -> Result<Self, &str> {
         let mut pre_state = ExprState::ExprStart;
-        let mut state = ExprState::ExprStart;
+        let mut state = ExprState::WaitToken;
         let mut start = 0;
         let mut length = 0;
         let mut len = 0;
         let mut t = vec![];
         let mut operators = vec![];
         loop {
-            let c = source[start + length];
-            len += 1;
+            if start + length >= source.len() {
+                
+                break;
+            }
+            let i = source[start];
+            let c = i as char;
+            let t_c = source[start+length];
 
-            if c as char == '\\' {
+            
+            if i as char == '\\' {
                 start += 1;
                 pre_state = state;
                 state = ExprState::EscapeNewline;
                 continue;
             }
 
-            if state != ExprState::EscapeNewline && c as char == '\n' {
+            if state != ExprState::EscapeNewline && i as char == '\n' {
                 start += 1;
                 len += 1;
                 break;
@@ -88,65 +99,68 @@ impl FSRExpr<'_> {
 
 
 
-            if state == ExprState::EscapeNewline && c as char == '\n' {
+            if state == ExprState::EscapeNewline && i as char == '\n' {
                 start += 1;
                 state = pre_state;
                 continue;
             }
 
-            if state == ExprState::EscapeNewline && c as char != '\n' {
+            if state == ExprState::EscapeNewline && i as char != '\n' {
                 return Err("not new line char");
             }
 
-            if state == ExprState::WaitToken && ASTParser::is_blank_char(c) {
+            if state == ExprState::WaitToken && ASTParser::is_blank_char(i) {
                 start += 1;
+                length = 0;
                 continue;
             }
 
-            if state == ExprState::WaitToken && c as char == '"' {
+            if state == ExprState::WaitToken && i as char == '"' {
                 state = ExprState::String;
+                length = 1;
+                continue;
+            }
+
+            if state == ExprState::String && source[start+length] as char != '"' {
                 length += 1;
                 continue;
             }
 
-            if state == ExprState::String && c as char != '"' {
-                length += 1;
-                continue;
-            }
-
-            if state == ExprState::String && c as char == '"' {
+            if state == ExprState::String && i as char == '"' {
                 let string = str::from_utf8(&source[start..start+length]).unwrap();
                 let s = FSRConstant::from_str(string);
                 t.push(s);
             }
 
-            if state == ExprState::WaitToken && (c as char).is_digit(10) {
+            if state == ExprState::WaitToken && (t_c as char).is_digit(10) {
                 state = ExprState::Number;
+                length = 1;
+                continue;
+            }
+
+            if state == ExprState::Number && (t_c as char).is_digit(10) {
                 length += 1;
                 continue;
             }
 
-            if state == ExprState::Number && (c as char).is_digit(10) {
-                length += 1;
-                continue;
-            }
 
-            if state == ExprState::Number && (c as char).is_digit(10) == false && (c as char) == '.' {
+            if state == ExprState::Number && (t_c as char).is_digit(10) == false && (t_c as char) == '.' {
                 state = ExprState::Float;
                 length += 1;
                 continue;
             }
 
-            if state == ExprState::Number && (c as char).is_digit(10) == false && (c as char) != '.' {
+            if state == ExprState::Number && (t_c as char).is_digit(10) == false && (t_c as char) != '.' {
                 state = ExprState::WaitToken;
                 let parse_int = str::from_utf8(&source[start..start+length]).unwrap();
                 let i = parse_int.parse::<i64>().unwrap();
                 let i = FSRConstant::from_int(i);
                 t.push(i);
+                start = start + length;
                 continue;
             }
 
-            if state == ExprState::Float && (c as char).is_digit(10) == false {
+            if state == ExprState::Float && (t_c as char).is_digit(10) == false {
                 state = ExprState::WaitToken;
                 let parse_int = str::from_utf8(&source[start..start+length]).unwrap();
                 let f = parse_int.parse::<f64>().unwrap();
@@ -155,19 +169,30 @@ impl FSRExpr<'_> {
                 continue;
             }
 
-            if state == ExprState::WaitToken && Self::is_op_one_char(c as char) {
+            if state == ExprState::WaitToken && Self::is_op_one_char(i as char) {
                 state = ExprState::Operator;
-                length += 1;
+                start = start + length;
+                length = 1;
                 continue;
             }
 
-            if state == ExprState::Operator && Self::is_op_one_char(c as char) {
+            if state == ExprState::Operator && Self::is_op_one_char(t_c as char) {
                 length += 1;
                 continue;
             } else if state == ExprState::Operator {
                 let op_s = str::from_utf8(&source[start..start+length]).unwrap();
-                let op = Operator::parse(op_s).unwrap();
-                operators.push(op);
+                // let op = Operator::parse(op_s).unwrap();
+                operators.push(op_s);
+                state = ExprState::WaitToken;
+                start = start + length;
+                length = 0;
+                continue;
+            }
+
+            if state == ExprState::WaitToken && ASTParser::is_name_letter(i) {
+                state = ExprState::Variable;
+                length = 1;
+                continue;
             }
 
         }

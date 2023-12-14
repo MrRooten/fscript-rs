@@ -29,11 +29,11 @@ impl ASTParser {
     }
 
     pub fn is_blank_char(c: u8) -> bool {
-        return c as char == ' ' || c as char == '\n' || c as char == '\t';
+        return c as char == ' ' || c as char == '\r' || c as char == '\t';
     }
 
     pub fn is_name_letter(c: u8) -> bool {
-        unimplemented!()
+        return (c as char).is_lowercase() || (c as char).is_uppercase() || (c as char).is_digit(10) || (c as char) == '_';
     }
 
     pub fn end_token_char(c: u8) -> bool {
