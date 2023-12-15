@@ -16,8 +16,8 @@ fn main() {
     // let args = &HashMap::from([("other", i2_id),("self", i1_id)]);
     // let obj = i_to_m(i_vm).call_object_method(&integer1, "add", &args).unwrap();
     // println!("{:?}", obj);
-
-    let expr = FSRBinOp::parse("abc(abc)+456".as_bytes()).unwrap();
-    println!("{:#?}", expr);
+    let s = "(345 + (456 + 789))";
+    let expr = FSRBinOp::parse(s.as_bytes()).unwrap();
+    println!("{:#?}, {}", expr, s.len());
 }
  

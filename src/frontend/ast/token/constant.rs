@@ -30,4 +30,8 @@ impl<'a> FSRConstant<'a> {
             constant: FSRConstantType::Integer(i)
         };
     }
+
+    pub fn parse_len(&self) -> usize {
+        unimplemented!()
+    }
 }

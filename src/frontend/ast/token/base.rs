@@ -12,7 +12,8 @@ pub enum FSRToken<'a> {
     Expr(FSRBinOp<'a>),
     Call(FSRCall<'a>),
     Hashtable(FSRHashtable),
-    Variable(FSRVariable<'a>)
+    Variable(FSRVariable<'a>),
+    Bracket()
 }
 
 pub enum FSRTokenState {

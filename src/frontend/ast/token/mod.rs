@@ -10,3 +10,4 @@ pub mod expr;
 pub mod hashtable;
 pub mod bin_op;
 pub mod variable;
+pub mod bracket;

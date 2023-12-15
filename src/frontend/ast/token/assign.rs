@@ -65,7 +65,7 @@ impl<'a> FSRAssign<'a> {
 
             if state == FSRAssignState::RightValue {
                 let expr = FSRBinOp::parse(&source[start..start+length]).unwrap();
-                value = Some(expr);
+                value = Some(expr.0);
                 
                 break;
             }
