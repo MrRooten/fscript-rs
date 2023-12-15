@@ -3,12 +3,12 @@ use std::fmt::Display;
 use std::str;
 use crate::frontend::ast::{parse::ASTParser, token::constant::{FSRConstant, FSRConstantType}};
 
-use super::base::FSRToken;
+use super::{base::FSRToken, variable::{FSRVariable, self}, call::FSRCall};
 
 #[derive(Debug)]
 pub struct FSRBinOp<'a> {
-    left        : Box<Option<FSRToken<'a>>>,
-    right       : Box<Option<FSRToken<'a>>>,
+    left        : Option<Box<FSRToken<'a>>>,
+    right       : Option<Box<FSRToken<'a>>>,
     op          : Option<&'a str>,
     len         : usize
 }
@@ -70,6 +70,12 @@ impl FSROpreatorTree<'_> {
     
 }
 
+#[derive(Debug)]
+pub enum FSRBinOpResult<'a> {
+    BinOp(FSRBinOp<'a>),
+    Constant(FSRConstant<'a>),
+}
+
 impl<'a> FSRBinOp<'a> {
     pub fn is_op_one_char(op: char) -> bool {
         if op == '+' || op == '-' || op == '=' || op == '>' || op == '<' {
@@ -79,14 +85,14 @@ impl<'a> FSRBinOp<'a> {
         return false;
     }
 
-    pub fn parse(source: &'a [u8]) -> Result<Self, &str> {
+    pub fn parse(source: &'a [u8]) -> Result<Box<FSRToken>, &str> {
         let mut pre_state = ExprState::ExprStart;
         let mut state = ExprState::WaitToken;
         let mut start = 0;
         let mut length = 0;
         let mut len = 0;
-        let mut left: Option<FSRToken> = None;
-        let mut right: Option<FSRToken> = None;
+        let mut left: Option<Box<FSRToken>> = None;
+        let mut right: Option<Box<FSRToken>> = None;
         let mut operator: Option<&str> = None;
         loop {
             if start + length >= source.len() {
@@ -94,7 +100,8 @@ impl<'a> FSRBinOp<'a> {
             }
             let i = source[start];
             let c = i as char;
-            let t_c = source[start+length];
+            let t_i = source[start+length];
+            let t_c = t_i as char;
 
             
             if i as char == '\\' {
@@ -155,15 +162,42 @@ impl<'a> FSRBinOp<'a> {
             if state == ExprState::DoubleString && source[start+length] as char == '"' {
                 let string = str::from_utf8(&source[start..start+length]).unwrap();
                 let s = FSRConstant::from_str(string);
-                left = Some(FSRToken::Constant(s));
+                left = Some(Box::new(FSRToken::Constant(s)));
+                start = start + length + 1;
+                length = 0;
+                state = ExprState::WaitToken;
+                continue;
             }
 
             if state == ExprState::SingleString && source[start+length] as char == '\'' {
                 let string = str::from_utf8(&source[start..start+length]).unwrap();
                 let s = FSRConstant::from_str(string);
-                left = Some(FSRToken::Constant(s));
+                left = Some(Box::new(FSRToken::Constant(s)));
+                start = start + length + 1;
+                length = 0;
+                state = ExprState::WaitToken;
+                continue;
             }
 
+            if state == ExprState::Variable && t_i as char == '(' {
+                state = ExprState::Function;
+                length += 1;
+                continue;
+            }
+
+            if state == ExprState::Function && t_i as char != ')' {
+                length += 1;
+                continue;
+            }
+
+            if state == ExprState::Function && t_i as char == ')' {
+                length += 1;
+                let s = &source[start..start+length];
+                let call = FSRCall::parse(s).unwrap();
+                left = Some(Box::new(FSRToken::Call(call)));
+                state = ExprState::WaitToken;
+                continue;
+            }
 
             if state == ExprState::WaitToken && c == '(' {
                 state = ExprState::Bracket;
@@ -174,65 +208,101 @@ impl<'a> FSRBinOp<'a> {
 
             if state == ExprState::Bracket && source[start+length] as char != ')' {
                 length += 1;
+                continue;
             }
 
             if state == ExprState::Bracket && source[start+length] as char == ')' {
                 let sub_expr = &source[start..start+length];
                 let sub_expr = FSRBinOp::parse(sub_expr).unwrap();
-                left = Some(FSRToken::Expr(sub_expr));
+                left = Some(sub_expr);
+                start = start + length + 1;
+                length = 0;
+                state = ExprState::WaitToken;
+                continue;
             }
 
-            if state == ExprState::WaitToken && (t_c as char).is_digit(10) {
+            if state == ExprState::WaitToken && (t_i as char).is_digit(10) {
                 state = ExprState::Number;
-                length = 1;
+                length = 0;
                 continue;
             }
 
-            if state == ExprState::Number && (t_c as char).is_digit(10) {
-                length += 1;
-                continue;
-            }
-
-
-            if state == ExprState::Number && (t_c as char).is_digit(10) == false && (t_c as char) == '.' {
+            if state == ExprState::Number && (t_i as char).is_digit(10) == false && (t_i as char) == '.' {
                 state = ExprState::Float;
                 length += 1;
                 continue;
             }
 
-            if state == ExprState::Number && (t_c as char).is_digit(10) == false && (t_c as char) != '.' {
+            if state == ExprState::Number && (t_i as char).is_digit(10) {
+                length += 1;
+                if start + length >= source.len() {
+                    let parse_int = str::from_utf8(&source[start..start+length]).unwrap();
+                    let i = parse_int.parse::<i64>().unwrap();
+                    let i = FSRConstant::from_int(i);
+                    left = Some(Box::new(FSRToken::Constant(i)));
+                    start = start + length;
+                    continue;
+                }
+                continue;
+            }
+
+            if state == ExprState::Number && ((t_i as char).is_digit(10) == false && (t_i as char) != '.') {
                 state = ExprState::WaitToken;
                 let parse_int = str::from_utf8(&source[start..start+length]).unwrap();
                 let i = parse_int.parse::<i64>().unwrap();
                 let i = FSRConstant::from_int(i);
-                left = Some(FSRToken::Constant(i));
+                left = Some(Box::new(FSRToken::Constant(i)));
                 start = start + length;
+                length = 0;
                 continue;
             }
 
-            if state == ExprState::Float && (t_c as char).is_digit(10) == false {
+            if state == ExprState::Float && (t_i as char).is_digit(10) == false {
                 state = ExprState::WaitToken;
                 let parse_int = str::from_utf8(&source[start..start+length]).unwrap();
                 let f = parse_int.parse::<f64>().unwrap();
                 let i = FSRConstant::from_float(f);
-                left = Some(FSRToken::Constant(i));
+                left = Some(Box::new(FSRToken::Constant(i)));
                 continue;
             }
 
             if state == ExprState::WaitToken && ASTParser::is_name_letter(i) {
                 state = ExprState::Variable;
-                length = 1;
+                length = 0;
                 continue;
             }
+
+            if state == ExprState::Variable && ASTParser::is_name_letter(t_i) {
+                length += 1;
+                if start + length + 1 >= source.len() {
+                    let name = str::from_utf8(&source[start..start+length]).unwrap();
+                    let variable = FSRVariable::parse(name).unwrap();
+                    left = Some(Box::new(FSRToken::Variable(variable)));
+                    start = start + length;
+                    continue;
+                }
+            }
+
+            if state == ExprState::Variable && ASTParser::is_name_letter(t_i) == false {
+                state = ExprState::WaitToken;
+                let name = str::from_utf8(&source[start..start+length]).unwrap();
+                let variable = FSRVariable::parse(name).unwrap();
+                left = Some(Box::new(FSRToken::Variable(variable)));
+                start = start + length;
+                length = 0;
+                continue;
+            }
+
+
 
             if state == ExprState::WaitToken && Self::is_op_one_char(i as char) {
                 state = ExprState::Operator;
                 start = start + length;
-                length = 1;
+                length = 0;
                 continue;
             }
 
-            if state == ExprState::Operator && Self::is_op_one_char(t_c as char) {
+            if state == ExprState::Operator && Self::is_op_one_char(t_i as char) {
                 length += 1;
                 continue;
             } else if state == ExprState::Operator {
@@ -243,7 +313,7 @@ impl<'a> FSRBinOp<'a> {
                 start = start + length;
                 length = 0;
                 let expr = FSRBinOp::parse(&source[start..]).unwrap();
-                right = Some(FSRToken::Expr(expr));
+                right = Some(expr);
                 break;
             }
 
@@ -251,13 +321,22 @@ impl<'a> FSRBinOp<'a> {
 
         }
         
+        if right.is_none() {
+            match left {
+                Some(s) => return Ok(s),
+                None => {
+                    return Err("error");
+                }
+            }
+        } else {
+            return Ok(Box::new(FSRToken::Expr(Self {
+                left: left,
+                right: right,
+                op: operator,
+                len: 0,
+            })));
+        }
 
-        return Ok(Self {
-            left: Box::new(left),
-            right: Box::new(right),
-            op: operator,
-            len: 0,
-        });
     }
 
     pub fn parse_len(&self) -> usize {

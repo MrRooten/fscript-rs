@@ -21,12 +21,12 @@ enum FSRAssignState {
 }
 
 impl<'a> FSRAssign<'a> {
-    pub fn parse(source: &'a [u8]) -> Result<Self, Error> {
+    pub fn parse(source: &'a [u8]) -> Result<FSRAssign, Error> {
         let mut start = 0;
         let mut length = 0;
         let mut state = FSRAssignState::IdKeyLetStart;
         let mut name: Option<&[u8]> = None;
-        let mut value: FSRToken;
+        let mut value: Option<Box<FSRToken>> = None;
         let mut len = 0;
         loop {
             let c = source[start + length];
@@ -65,8 +65,7 @@ impl<'a> FSRAssign<'a> {
 
             if state == FSRAssignState::RightValue {
                 let expr = FSRBinOp::parse(&source[start..start+length]).unwrap();
-                len += expr.parse_len();
-                value = FSRToken::Expr(expr);
+                value = Some(expr);
                 
                 break;
             }
@@ -74,10 +73,7 @@ impl<'a> FSRAssign<'a> {
             start += 1;
         }
 
-        return Ok(Self {
-            expr: Box::new(value),
-            name: name.unwrap(),
-        });
+        unimplemented!()
     }
 
     pub fn parse_len(&self) -> usize {

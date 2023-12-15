@@ -17,7 +17,7 @@ fn main() {
     // let obj = i_to_m(i_vm).call_object_method(&integer1, "add", &args).unwrap();
     // println!("{:?}", obj);
 
-    let expr = FSRBinOp::parse("111 + 1 - 3".as_bytes()).unwrap();
-    println!("{:?}", expr);
+    let expr = FSRBinOp::parse("abc(abc)+456".as_bytes()).unwrap();
+    println!("{:#?}", expr);
 }
  

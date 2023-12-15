@@ -53,7 +53,7 @@ impl FSRFunctionDef<'_> {
 
                 if token_s.eq("let".as_bytes()) {
                     let assign = FSRAssign::parse(&source[cur_start..]).unwrap();
-                    i += assign.parse_len();
+                    
                     body.push(FSRToken::Assign(assign));
                 }
 
