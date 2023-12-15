@@ -1,9 +1,10 @@
 use std::fmt::Error;
 
-use crate::frontend::ast::{parse::ASTParser, token::expr::FSRExpr};
+use crate::frontend::ast::{parse::ASTParser, token::expr::FSRBinOp};
 
 use super::base::FSRToken;
 
+#[derive(Debug)]
 pub struct FSRAssign<'a> {
     expr        : Box<FSRToken<'a>>,
     name        : &'a [u8]
@@ -63,7 +64,7 @@ impl<'a> FSRAssign<'a> {
             }
 
             if state == FSRAssignState::RightValue {
-                let expr = FSRExpr::parse(&source[start..start+length]).unwrap();
+                let expr = FSRBinOp::parse(&source[start..start+length]).unwrap();
                 len += expr.parse_len();
                 value = FSRToken::Expr(expr);
                 

@@ -4,6 +4,7 @@ use crate::{frontend::ast::{token::{base::FSRTokenState, statement::ASTState, if
 
 use super::{base::FSRToken, hashtable::FSRHashtable};
 
+#[derive(Debug)]
 pub struct FSRFunctionDef<'a> {
     name        : &'a str,
     args        : Vec<&'a str>,

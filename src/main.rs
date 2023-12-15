@@ -1,6 +1,6 @@
 use std::collections::{HashMap, btree_set::Intersection};
 
-use fscript_rs::{backend::base_type::{integer::FSRInteger, base::FSRObjectManager, utils::{m_to_i, i_to_m}}, frontend::ast::token::expr::FSRExpr};
+use fscript_rs::{backend::base_type::{integer::FSRInteger, base::FSRObjectManager, utils::{m_to_i, i_to_m}}, frontend::ast::token::expr::FSRBinOp};
 
 fn main() {
     // let mut vm = FSRObjectManager::new();
@@ -17,6 +17,7 @@ fn main() {
     // let obj = i_to_m(i_vm).call_object_method(&integer1, "add", &args).unwrap();
     // println!("{:?}", obj);
 
-    let expr = FSRExpr::parse("111 + 1 + 333 ".as_bytes());
+    let expr = FSRBinOp::parse("111 + 1 - 3".as_bytes()).unwrap();
+    println!("{:?}", expr);
 }
  

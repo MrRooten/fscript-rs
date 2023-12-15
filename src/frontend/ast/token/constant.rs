@@ -1,10 +1,12 @@
 
+#[derive(Debug)]
 pub enum FSRConstantType<'a> {
     String(&'a str),
     Integer(i64),
     Float(f64)
 }
 
+#[derive(Debug)]
 pub struct FSRConstant<'a> {
     constant    : FSRConstantType<'a>
 }

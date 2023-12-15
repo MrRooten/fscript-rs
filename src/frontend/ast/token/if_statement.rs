@@ -6,6 +6,7 @@ use super::statement::ASTTokenEnum;
 
 
 
+#[derive(Debug)]
 pub struct FSRIf<'a> {
     test    : Box<FSRToken<'a>>,
     body    : Vec<FSRToken<'a>>,

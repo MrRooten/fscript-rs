@@ -2,6 +2,7 @@ use std::fmt::Error;
 
 use super::base::FSRToken;
 
+#[derive(Debug)]
 pub struct FSRCall<'a> {
     name        : &'a str,
     args        : Vec<FSRToken<'a>>
