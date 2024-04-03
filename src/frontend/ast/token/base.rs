@@ -1,0 +1,76 @@
+use std::fmt::Display;
+
+use crate::backend::base_type::function::FSRFn;
+use crate::frontend::ast::token::block::FSRBlock;
+use crate::frontend::ast::token::module::FSRModule;
+use crate::frontend::ast::token::slice::FSRSlice;
+
+use super::{assign::FSRAssign, call::FSRCall, constant::FSRConstant, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, hashtable::FSRHashtable, if_statement::{FSRIf, FSRIfState}, import::FSRImport, list::FSRListFrontEnd, name::FSRName, return_def::FSRReturn, variable::FSRVariable};
+
+#[derive(Debug, Clone)]
+pub enum FSRToken<'a> {
+    FunctionDef(FSRFnDef<'a>),
+    IfExp(FSRIf<'a>),
+    Constant(FSRConstant<'a>),
+    Assign(FSRAssign<'a>),
+    Expr(FSRExpr<'a>),
+    Call(FSRCall<'a>),
+    Variable(FSRVariable<'a>),
+    Return(FSRReturn<'a>),
+    Block(FSRBlock<'a>),
+    ForExp(FSRFor<'a>),
+    Module(FSRModule<'a>),
+    Import(FSRImport),
+    List(FSRListFrontEnd<'a>),
+    EmptyExpr,
+    None
+}
+
+impl<'a> FSRToken<'a> {
+    pub fn get_meta(&self) -> &FSRMeta {
+        match self {
+            FSRToken::FunctionDef(e) => e.get_meta(),
+            FSRToken::IfExp(e) => e.get_meta(),
+            FSRToken::Constant(e) => e.get_meta(),
+            FSRToken::Assign(e) => e.get_meta(),
+            FSRToken::Expr(e) => e.get_meta(),
+            FSRToken::Call(e) => e.get_meta(),
+            FSRToken::Variable(e) => e.get_meta(),
+            FSRToken::Return(e) => e.get_meta(),
+            FSRToken::Block(e) => e.get_meta(),
+            FSRToken::ForExp(e) => e.get_meta(),
+            FSRToken::Module(e) => e.get_meta(),
+            FSRToken::Import(e) => e.get_meta(),
+            FSRToken::EmptyExpr => todo!(),
+            FSRToken::None => todo!(),
+            FSRToken::List(e) => e.get_meta(),
+        }
+    }
+}
+
+pub enum FSRTokenState {
+    If(FSRIfState),
+}
+
+pub trait FSRTokenMatcher {
+    fn match_token() -> bool;
+}
+
+#[derive(Clone, Debug)]
+pub struct FSRMeta {
+    pub(crate) offset: usize,
+}
+
+impl FSRMeta {
+    pub fn new() -> Self {
+        return Self {
+            offset: 0
+        }
+    }
+}
+
+impl Display for FSRMeta {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.offset)
+    }
+}
