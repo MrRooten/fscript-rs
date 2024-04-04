@@ -113,7 +113,7 @@ mod frontend_tests {
     #[test]
     fn test_for() {
         let s = 
-        "for abc==123 {
+        "while abc==123 {
             a = print(123)
         }
         ";
@@ -141,7 +141,7 @@ mod frontend_tests {
     fn test_function() {
         let s = 
         "fn abc(test) {
-            for a + b {
+            while a + b {
                 abc
             }
             if abc == 123 {
