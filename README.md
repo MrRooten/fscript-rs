@@ -59,5 +59,10 @@ fn test_fn() {
 
 ```
 
+```
+45
+56
+```
+
 ## Introduce
 Not running on bytecode, just interpret AST, simple and useless program language, zero dependence script language
