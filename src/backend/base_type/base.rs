@@ -2,13 +2,14 @@ use crate::backend::base_type::bool::FSRBool;
 use std::collections::HashMap;
 use std::fmt::Error;
 
-use crate::backend::vm::module::FSRRuntimeModule;
+use crate::backend::vm::runtime::FSRThreadRuntime;
 use crate::backend::vm::vm::FSRVirtualMachine;
 use crate::utils::error::{FSRRuntimeError, FSRRuntimeType};
 
 use super::function::FSRFn;
 use super::integer::FSRInteger;
 use super::list::FSRList;
+use super::module::FSRModule;
 use super::none::FSRNone;
 use super::string::FSRString;
 use super::utils::i_to_m;
@@ -32,6 +33,7 @@ pub enum FSRValue<'a> {
     String(FSRString),
     List(FSRList),
     Bool(FSRBool),
+    Module(FSRModule<'a>),
     None,
 }
 
@@ -169,7 +171,7 @@ impl<'a> FSRObject<'a> {
         &self,
         fn_name: &str,
         vm: &'a FSRVirtualMachine<'a>,
-        rt: &'a FSRRuntimeModule<'a>,
+        rt: &'a FSRThreadRuntime<'a>,
     ) -> Result<u64, FSRRuntimeError> {
         let fn_id = match self.cls {
             Some(s) => {
@@ -205,7 +207,7 @@ impl<'a> FSRObject<'a> {
                     rt.get_cur_meta(),
                 );
                 return Err(err);
-            },
+            }
         };
 
         if let FSRValue::Function(f) = &fn_obj.value {
@@ -217,7 +219,11 @@ impl<'a> FSRObject<'a> {
         let err = FSRRuntimeError::new(
             rt.get_call_stack(),
             FSRRuntimeType::TypeNotMatch,
-            format!("{}::{} is not method or function", self.get_cls_name(), fn_name),
+            format!(
+                "{}::{} is not method or function",
+                self.get_cls_name(),
+                fn_name
+            ),
             rt.get_cur_meta(),
         );
         return Err(err);
@@ -254,12 +260,48 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
+    pub fn get_module(&self) -> Result<&FSRModule, Error> {
+        if let FSRValue::Module(s) = &self.value {
+            return Ok(&s);
+        }
+
+        unimplemented!()
+    }
+
     pub fn is_function(&self) -> bool {
         if let FSRValue::Function(_) = &self.value {
             return true;
         }
 
         return false;
+    }
+
+    pub fn get_static_attr(
+        &self,
+        name: &str,
+        vm: &'a FSRVirtualMachine<'a>,
+        rt: &'a FSRThreadRuntime<'a>,
+    ) -> Result<u64, FSRRuntimeError> {
+        let cls = self.cls.unwrap();
+        let id = match cls.get_id_by_name(name) {
+            Some(s) => s,
+            None => {
+                let err = FSRRuntimeError::new(
+                    rt.get_call_stack(),
+                    FSRRuntimeType::NotFoundObject,
+                    format!(
+                        "not found symbol in module {}::{}",
+                        self.get_cls_name(),
+                        name
+                    ),
+                    rt.get_cur_meta(),
+                );
+                return Err(err);
+            }
+        };
+
+
+        return Ok(id.clone());
     }
 }
 
@@ -363,8 +405,8 @@ impl FSRVMClsMgr {
             FSRString::get_class(vm),
         );
         mgr.cls_map.insert(
-            FSRList::get_class_name().to_string(), 
-            FSRList::get_class(vm)
+            FSRList::get_class_name().to_string(),
+            FSRList::get_class(vm),
         );
         return mgr;
     }

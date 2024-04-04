@@ -48,12 +48,12 @@ impl<'a> FSRCall<'a> {
                 continue;
             }
 
-            if ASTParser::is_name_letter_first(i) && state == CallState::Start {
+            if ASTParser::is_name_letter(i) && state == CallState::Start {
                 state = CallState::Name;
                 continue;
             }
 
-            if state == CallState::Name && ASTParser::is_name_letter_first(t_i) {
+            if state == CallState::Name && ASTParser::is_name_letter(t_i) {
                 length += 1;
                 continue;
             }

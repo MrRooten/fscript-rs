@@ -1,8 +1,8 @@
-use fscript_rs::backend::vm::{module::FSRRuntimeModule, vm::FSRVirtualMachine};
+use fscript_rs::backend::vm::{runtime::FSRThreadRuntime, vm::FSRVirtualMachine};
 
 fn main() {
     let mut vm = FSRVirtualMachine::new().unwrap();
-    let mut context = FSRRuntimeModule::new();
+    let mut context = FSRThreadRuntime::new();
     let code = "
         fn abc(b) {
             c = b + 3

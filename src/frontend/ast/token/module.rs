@@ -1,6 +1,6 @@
 use crate::{frontend::ast::{parse::ASTParser, utils::automaton::{FSTrie, NodeType}}, utils::error::SyntaxError};
 
-use super::{base::{FSRMeta, FSRToken}, block::FSRBlock, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf, import::FSRImport, return_def::FSRReturn};
+use super::{base::{FSRMeta, FSRToken}, block::FSRBlock, expr::FSRExpr, while_statement::FSRWhile, function_def::FSRFnDef, if_statement::FSRIf, import::FSRImport, return_def::FSRReturn};
 
 
 
@@ -48,13 +48,13 @@ impl ModuleStates {
 
 
 #[derive(Debug, Clone)]
-pub struct FSRModule<'a> {
+pub struct FSRModuleFrontEnd<'a> {
     pub(crate) tokens: Vec<FSRToken<'a>>,
     len: usize,
     meta: FSRMeta
 }
 
-impl<'a> FSRModule<'a> {
+impl<'a> FSRModuleFrontEnd<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
         return &self.meta;
     }
@@ -63,7 +63,7 @@ impl<'a> FSRModule<'a> {
         return self.len;
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<FSRModule<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<FSRModuleFrontEnd<'a>, SyntaxError> {
         let mut trie = FSTrie::new();
         let mut start = 0;
         let mut length = 0;
@@ -150,12 +150,12 @@ impl<'a> FSRModule<'a> {
                 start = length + start;
                 length = 0;
             }
-            else if t == &NodeType::ForState {
+            else if t == &NodeType::WhileState {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
-                let for_block = FSRFor::parse(&source[start..], sub_meta)?;
+                let for_block = FSRWhile::parse(&source[start..], sub_meta)?;
                 length += for_block.get_len();
-                module.tokens.push(FSRToken::ForExp(for_block));
+                module.tokens.push(FSRToken::WhileExp(for_block));
                 start = length + start;
                 length = 0;
             }

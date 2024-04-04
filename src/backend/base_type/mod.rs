@@ -6,3 +6,4 @@ pub mod utils;
 pub mod none;
 pub mod bool;
 pub mod list;
+pub mod module;

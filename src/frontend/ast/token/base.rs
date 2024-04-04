@@ -2,10 +2,10 @@ use std::fmt::Display;
 
 use crate::backend::base_type::function::FSRFn;
 use crate::frontend::ast::token::block::FSRBlock;
-use crate::frontend::ast::token::module::FSRModule;
+use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::frontend::ast::token::slice::FSRSlice;
 
-use super::{assign::FSRAssign, call::FSRCall, constant::FSRConstant, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, hashtable::FSRHashtable, if_statement::{FSRIf, FSRIfState}, import::FSRImport, list::FSRListFrontEnd, name::FSRName, return_def::FSRReturn, variable::FSRVariable};
+use super::{assign::FSRAssign, call::FSRCall, constant::FSRConstant, expr::FSRExpr, while_statement::FSRWhile, function_def::FSRFnDef, hashtable::FSRHashtable, if_statement::{FSRIf, FSRIfState}, import::FSRImport, list::FSRListFrontEnd, name::FSRName, return_def::FSRReturn, variable::FSRVariable};
 
 #[derive(Debug, Clone)]
 pub enum FSRToken<'a> {
@@ -18,8 +18,8 @@ pub enum FSRToken<'a> {
     Variable(FSRVariable<'a>),
     Return(FSRReturn<'a>),
     Block(FSRBlock<'a>),
-    ForExp(FSRFor<'a>),
-    Module(FSRModule<'a>),
+    WhileExp(FSRWhile<'a>),
+    Module(FSRModuleFrontEnd<'a>),
     Import(FSRImport),
     List(FSRListFrontEnd<'a>),
     EmptyExpr,
@@ -38,7 +38,7 @@ impl<'a> FSRToken<'a> {
             FSRToken::Variable(e) => e.get_meta(),
             FSRToken::Return(e) => e.get_meta(),
             FSRToken::Block(e) => e.get_meta(),
-            FSRToken::ForExp(e) => e.get_meta(),
+            FSRToken::WhileExp(e) => e.get_meta(),
             FSRToken::Module(e) => e.get_meta(),
             FSRToken::Import(e) => e.get_meta(),
             FSRToken::EmptyExpr => todo!(),

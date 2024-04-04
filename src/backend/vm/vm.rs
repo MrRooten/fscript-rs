@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    backend::{base_type::{base::{FSRClass, FSRObject, FSRObjectManager, FSRVMClsMgr}, utils::i_to_m}, internal_lib::io::register_io},
+    backend::{base_type::{base::{FSRClass, FSRObject, FSRObjectManager, FSRVMClsMgr}, utils::i_to_m}, std::io::register_io},
     utils::error::FSRRuntimeError,
 };
 use crate::backend::base_type::bool::FSRBool;
 use crate::backend::base_type::none::FSRNone;
-use crate::backend::vm::module::FSRRuntimeModule;
+use crate::backend::vm::runtime::FSRThreadRuntime;
 
 use super::thread::FSRThread;
 
@@ -17,8 +17,8 @@ pub struct FSRVirtualMachine<'a> {
     base_id     : u64,
     var_mgr     : FSRObjectManager<'a>,
     register    : Option<FSRVMClsMgr>,
-    threads     : HashMap<u64, FSRThread>,
-    global_var  : HashMap<&'static str, u64>,
+    global_var  : HashMap<&'a str, u64>,
+    
 }
 
 impl<'a> FSRVirtualMachine<'a> {
@@ -80,7 +80,6 @@ impl<'a> FSRVirtualMachine<'a> {
         let mut s = Self {
             var_mgr: obj_mgr,
             register: None,
-            threads: HashMap::new(),
             base_id: 1000,
             global_var: Default::default(),
 
@@ -97,20 +96,20 @@ impl<'a> FSRVirtualMachine<'a> {
         return self.base_id;
     }
 
-    pub fn init_context(&self, context: &mut FSRRuntimeModule) {
-        context.init(&self.global_var);
+    pub fn init_context(&'a self, context: &'a mut FSRThreadRuntime<'a>) {
+        context.init(&self.global_var, self);
     }
 
     pub fn register_obj(&mut self, obj: FSRObject<'a>) {
         self.var_mgr.register_obj(obj.get_id(), obj);
     }
 
-    pub fn run_code(&mut self, code: &[u8], context: &FSRRuntimeModule) {
+    pub fn run_code(&mut self, code: &[u8], context: &FSRThreadRuntime) {
         i_to_m(context).run_code(code, self);
 
     }
 
-    pub fn get_obj_by_name(&mut self, name: &'a str, context: &'a FSRRuntimeModule<'a>) -> Option<u64> {
+    pub fn get_obj_by_name(&self, name: &'a str, context: &'a FSRThreadRuntime<'a>) -> Option<u64> {
         let obj = context.get_obj_by_name(name, self).unwrap();
         return Some(obj.get_id());
     }

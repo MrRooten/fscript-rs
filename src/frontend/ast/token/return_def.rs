@@ -12,6 +12,10 @@ impl<'a> FSRReturn<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
         return &self.meta;
     }
+
+    pub fn get_return_expr(&self) -> &Box<FSRToken<'a>> {
+        return &self.expr;
+    }
     
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;

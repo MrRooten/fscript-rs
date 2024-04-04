@@ -2,7 +2,7 @@
 use std::error::Error;
 use std::fmt::Display;
 
-use crate::backend::vm::module::VMCallState;
+use crate::backend::vm::runtime::VMCallState;
 use crate::frontend::ast::token::base::FSRMeta;
 
 #[derive(Debug)]

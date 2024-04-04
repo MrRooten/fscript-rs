@@ -4,8 +4,10 @@ use crate::backend::base_type::base::{FSRArgs, FSRObject};
 use crate::backend::base_type::function::FSRFn;
 use crate::backend::base_type::integer::FSRInteger;
 use crate::backend::base_type::list::FSRList;
+use crate::backend::base_type::module::{self, FSRModule};
 use crate::backend::base_type::string::FSRString;
 use crate::backend::base_type::utils::i_to_m;
+use crate::backend::std::path::register_path;
 use crate::backend::vm::vm::FSRVirtualMachine;
 use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::token::base::{FSRMeta, FSRToken};
@@ -13,15 +15,17 @@ use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::call::FSRCall;
 use crate::frontend::ast::token::constant::{FSRConstant, FSRConstantType};
 use crate::frontend::ast::token::expr::FSRExpr;
-use crate::frontend::ast::token::for_statement::FSRFor;
+use crate::frontend::ast::token::while_statement::FSRWhile;
 use crate::frontend::ast::token::function_def::FSRFnDef;
 use crate::frontend::ast::token::if_statement::FSRIf;
 use crate::frontend::ast::token::list::FSRListFrontEnd;
-use crate::frontend::ast::token::module::FSRModule;
+use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::utils::error::{FSRRuntimeError, FSRRuntimeType};
 use std::collections::HashMap;
 use std::rc::Weak;
 use std::str;
+
+use super::thread::FSRThread;
 
 #[derive(Debug, Clone)]
 pub struct FSRLocalVars<'a> {
@@ -32,7 +36,7 @@ pub struct FSRLocalVars<'a> {
 pub struct VMCallState<'a> {
     fn_name: String,
     local_vars: Vec<FSRLocalVars<'a>>,
-    cur_token   : Option<* const FSRToken<'a>>
+    cur_token: Option<*const FSRToken<'a>>,
 }
 
 impl<'a> VMCallState<'a> {
@@ -62,7 +66,7 @@ impl<'a> VMCallState<'a> {
         Self {
             fn_name: name.to_string(),
             local_vars: vec![FSRLocalVars::new()],
-            cur_token: None
+            cur_token: None,
         }
     }
 }
@@ -83,13 +87,16 @@ impl FSRLocalVars<'_> {
     }
 }
 
-pub struct FSRRuntimeModule<'a> {
+pub struct FSRThreadRuntime<'a> {
     call_stack: Vec<VMCallState<'a>>,
-    global_vars: HashMap<&'a str, u64>,
-    meta        : FSRMeta
+    modules: HashMap<String, FSRModule<'a>>,
+    threads: HashMap<u64, FSRThread<'a>>,
+    meta: FSRMeta,
+    is_ret      : bool,
+    ret_value   : Option<u64>
 }
 
-impl<'a> FSRRuntimeModule<'a> {
+impl<'a> FSRThreadRuntime<'a> {
     pub fn get_cur_meta(&self) -> &FSRMeta {
         return &self.meta;
     }
@@ -119,20 +126,29 @@ impl<'a> FSRRuntimeModule<'a> {
         return self.call_stack.len();
     }
 
-    pub fn new() -> FSRRuntimeModule<'a> {
+    pub fn new() -> FSRThreadRuntime<'a> {
         let mut module = Self {
-            call_stack: vec![],
-            global_vars: Default::default(),
+            call_stack: vec![VMCallState::new("base")],
             meta: FSRMeta::new(),
+            modules: HashMap::new(),
+            threads: HashMap::new(),
+            is_ret: false,
+            ret_value: None,
         };
-        module.call_stack.push(VMCallState::new("root"));
         return module;
     }
 
-    pub fn init(&mut self, vars: &HashMap<&'static str, u64>) {
+    pub fn init(&mut self, vars: &HashMap<&'a str, u64>, vm: &'a FSRVirtualMachine<'a>) {
         for kv in vars {
-            self.global_vars.insert(kv.0, *kv.1);
+            self.assign_module_variable(kv.0, *kv.1, vm);
         }
+    }
+
+    pub fn init_with_vm(&mut self, vm: &'a FSRVirtualMachine<'a>) {
+        let module = register_path(vm);
+        self.modules.insert(module.get_name().to_string(), module);
+        let self_module = FSRModule::self_module();
+        self.modules.insert(self_module.get_name().to_string(), self_module);
     }
 
     pub fn find_symbol(
@@ -141,6 +157,27 @@ impl<'a> FSRRuntimeModule<'a> {
         vm: &'a FSRVirtualMachine<'a>,
         stack_id: Option<usize>,
     ) -> Result<u64, FSRRuntimeError> {
+        let f = name.find("::");
+        if let Some(s) = f {
+            let module_name = &name[0..s];
+            let variable = &name[s + 2..];
+            let module = self.modules.get(module_name).unwrap();
+
+            let v = match module.colon_operator(variable) {
+                Some(s) => s,
+                None => {
+                    let err = FSRRuntimeError::new(
+                        &self.call_stack,
+                        FSRRuntimeType::NotFoundObject,
+                        format!("not found object in module: {}: {}", variable, module_name),
+                        self.get_cur_meta(),
+                    );
+                    return Err(err);
+                }
+            };
+
+            return Ok(v);
+        }
         if let Some(id) = stack_id {
             for local_var in i_to_m(self).get_stack(id).local_vars.iter().rev() {
                 if let Some(id) = local_var.get_var(name) {
@@ -148,7 +185,7 @@ impl<'a> FSRRuntimeModule<'a> {
                 }
             }
 
-            if let Some(id) = self.global_vars.get(name) {
+            if let Some(id) = self.get_module_variable(name) {
                 return Ok(id.clone());
             }
 
@@ -157,10 +194,11 @@ impl<'a> FSRRuntimeModule<'a> {
             }
 
             let err = FSRRuntimeError::new(
-                &self.call_stack, 
-                FSRRuntimeType::NotFoundObject, 
-                format!("not found object: {}", name), 
-                self.get_cur_meta());
+                &self.call_stack,
+                FSRRuntimeType::NotFoundObject,
+                format!("not found object: {}", name),
+                self.get_cur_meta(),
+            );
             return Err(err);
         }
         for local_var in i_to_m(self).get_cur_stack().local_vars.iter().rev() {
@@ -168,20 +206,24 @@ impl<'a> FSRRuntimeModule<'a> {
                 return Ok(id);
             }
         }
-
-        if let Some(id) = self.global_vars.get(name) {
-            return Ok(id.clone());
-        }
-
         if let Some(id) = vm.get_global_by_name(name) {
             return Ok(id.clone());
         }
 
+
+        let module_name = "Self";
+        let module = self.modules.get(module_name).unwrap();
+
+        if let Some(id) = module.colon_operator(name) {
+            return Ok(id.clone());
+        }
+
         let err = FSRRuntimeError::new(
-            &self.call_stack, 
-            FSRRuntimeType::NotFoundObject, 
-            format!("not found object: {}", name), 
-            self.get_cur_meta());
+            &self.call_stack,
+            FSRRuntimeType::NotFoundObject,
+            format!("not found object: {}", name),
+            self.get_cur_meta(),
+        );
         return Err(err);
     }
 
@@ -253,7 +295,11 @@ impl<'a> FSRRuntimeModule<'a> {
         unimplemented!()
     }
 
-    fn call_func(&self, c: &FSRCall, vm: &'a FSRVirtualMachine<'a>) -> Result<u64, FSRRuntimeError> {
+    fn call_func(
+        &self,
+        c: &FSRCall,
+        vm: &'a FSRVirtualMachine<'a>,
+    ) -> Result<u64, FSRRuntimeError> {
         let fn_id = self.find_symbol(&c.get_name(), vm, None).unwrap();
         let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
         let fn_obj = match fn_obj.get_value() {
@@ -300,18 +346,33 @@ impl<'a> FSRRuntimeModule<'a> {
     ) -> Result<(), FSRRuntimeError> {
         let obj = i_to_m(vm).get_mut_obj_by_id(&id).unwrap();
         obj.ref_object();
+        // if self.get_call_stack().len() == 1 && self.get_cur_stack().local_vars.len() == 1 {
+        //     self.assign_module_variable(name, id, vm);
+        //     return Ok(());
+        // }
         let l = self.get_cur_stack().local_vars.len() - 1;
         let cur_stack = self.get_cur_stack();
         let local_vars = cur_stack.get_local_vars();
-        local_vars
+        let mut found = false;
+        for local in local_vars.iter_mut().rev() {
+            if local.get_var(name).is_some() {
+                local.local_vars.insert(name, obj.get_id());
+                found = true;
+            }
+        }
+        
+        if found == false {
+            local_vars
             .get_mut(l)
             .unwrap()
             .local_vars
             .insert(name, obj.get_id());
+        }
+        
         return Ok(());
     }
 
-    pub fn assign_global_variable(
+    pub fn assign_module_variable(
         &mut self,
         name: &'a str,
         id: u64,
@@ -319,23 +380,42 @@ impl<'a> FSRRuntimeModule<'a> {
     ) -> Result<(), &str> {
         let obj = i_to_m(vm).get_mut_obj_by_id(&id).unwrap();
         obj.ref_object();
-        self.global_vars.insert(name, obj.get_id());
+        let self_module = self.modules.get_mut("Self").unwrap();
+        self_module.register_obj(name, id);
         return Ok(());
     }
 
-    fn run_list(&self, e: &'a FSRListFrontEnd<'a>, vm: &'a FSRVirtualMachine<'a>) -> Result<u64, FSRRuntimeError> {
+    pub fn get_module_variable(
+        &self,
+        name: &'a str
+    ) -> Option<&u64> {
+        let self_module = self.modules.get("Self").unwrap();
+        return self_module.get_obj(name);
+    }
+
+    fn run_list(
+        &self,
+        e: &'a FSRListFrontEnd<'a>,
+        vm: &'a FSRVirtualMachine<'a>,
+    ) -> Result<u64, FSRRuntimeError> {
         let items = e.get_items();
         let mut vs = vec![];
         for t in items {
             let v = self.run_token(t, vm, None)?;
             vs.push(v);
         }
-        
+
         let v = FSRList::from_list(vs, vm)?;
         return Ok(v);
     }
 
-    fn run_assign(&self, e: &'a FSRAssign<'a>, vm: &'a FSRVirtualMachine<'a>) -> Result<(), FSRRuntimeError> {
+    
+
+    fn run_assign(
+        &self,
+        e: &'a FSRAssign<'a>,
+        vm: &'a FSRVirtualMachine<'a>,
+    ) -> Result<(), FSRRuntimeError> {
         let right = e.get_assign_expr();
         i_to_m(self).get_cur_stack().set_cur_token(&*right);
         if let FSRToken::Expr(ex) = &**right {
@@ -349,8 +429,8 @@ impl<'a> FSRRuntimeModule<'a> {
                 }
             }
 
-            if self.global_vars.get(e.get_name()).is_none() == false {
-                i_to_m(self).global_vars.insert(e.get_name(), v);
+            if self.get_module_variable(e.get_name()).is_none() == false {
+                i_to_m(self).assign_module_variable(e.get_name(), v, vm);
             }
 
             i_to_m(self).assign_variable(e.get_name(), v, vm)?;
@@ -365,8 +445,8 @@ impl<'a> FSRRuntimeModule<'a> {
                 }
             }
 
-            if self.global_vars.get(e.get_name()).is_none() == false {
-                i_to_m(self).global_vars.insert(e.get_name(), v);
+            if self.get_module_variable(e.get_name()).is_none() == false {
+                i_to_m(self).assign_module_variable(e.get_name(), v, vm);
             }
 
             i_to_m(self).assign_variable(e.get_name(), v, vm)?;
@@ -382,8 +462,8 @@ impl<'a> FSRRuntimeModule<'a> {
                 }
             }
 
-            if self.global_vars.get(e.get_name()).is_none() == false {
-                i_to_m(self).global_vars.insert(e.get_name(), v);
+            if self.get_module_variable(e.get_name()).is_none() == false {
+                i_to_m(self).assign_module_variable(e.get_name(), v, vm);
             }
 
             i_to_m(self).assign_variable(e.get_name(), obj.get_id(), vm)?;
@@ -392,6 +472,10 @@ impl<'a> FSRRuntimeModule<'a> {
             let v = self.run_list(l, vm)?;
             i_to_m(self).assign_variable(e.get_name(), v, vm)?;
             return Ok(());
+        } else if let FSRToken::Call(c) = &**right {
+            let v = self.call_func(c, vm)?;
+            i_to_m(self).assign_variable(e.get_name(), v, vm)?;
+            return Ok(())
         }
 
         unimplemented!()
@@ -443,7 +527,6 @@ impl<'a> FSRRuntimeModule<'a> {
             }
             i_to_m(self).get_cur_stack().set_cur_token(&*e.get_right());
             if let FSRToken::Call(call) = &**e.get_right() {
-
                 let mut l_value = 0;
                 if let FSRToken::Expr(l) = &**e.get_left() {
                     l_value = self.run_expr(l, vm)?;
@@ -560,6 +643,9 @@ impl<'a> FSRRuntimeModule<'a> {
                 Ok(o) => o,
                 Err(e) => return Err("run error"),
             };
+            if self.is_ret == true {
+                break;
+            }
         }
         self.get_cur_stack().pop_local_block_vars();
         return Ok(v);
@@ -583,10 +669,11 @@ impl<'a> FSRRuntimeModule<'a> {
             l_value = Some(self.find_symbol(v.get_name(), vm, None)?);
         } else {
             let err = FSRRuntimeError::new(
-                &self.call_stack, 
-                FSRRuntimeType::TokenNotMatch, 
-                format!("Not match token: {:?}", expr), 
-                if_expr.get_meta());
+                &self.call_stack,
+                FSRRuntimeType::TokenNotMatch,
+                format!("Not match token: {:?}", expr),
+                if_expr.get_meta(),
+            );
             return Err(err);
         }
 
@@ -594,19 +681,18 @@ impl<'a> FSRRuntimeModule<'a> {
             Some(s) => s,
             None => {
                 let err = FSRRuntimeError::new(
-                    &self.call_stack, 
-                    FSRRuntimeType::TokenNotMatch, 
-                    format!("Not match token: {:?}", expr), 
-                    if_expr.get_meta());
+                    &self.call_stack,
+                    FSRRuntimeType::TokenNotMatch,
+                    format!("Not match token: {:?}", expr),
+                    if_expr.get_meta(),
+                );
                 return Err(err);
             }
         };
 
         if v != vm.get_false_id() && v != vm.get_none_id() {
             let block = &**if_expr.get_block();
-            i_to_m(self).get_cur_stack().push_local_block_vars();
             i_to_m(self).run_block(block, vm);
-            i_to_m(self).get_cur_stack().pop_local_block_vars();
         }
 
         return Ok(());
@@ -631,12 +717,20 @@ impl<'a> FSRRuntimeModule<'a> {
             self.run_assign(a, vm);
         } else if let FSRToken::IfExp(if_def) = &*token {
             self.run_if_block(if_def, vm);
+        } else if let FSRToken::WhileExp(while_exp) = &*token {
+            self.run_while_block(while_exp, vm);
+        } else if let FSRToken::Return(r) = &*token {
+            let ret = r.get_return_expr();
+            let v = self.run_token(&**ret, vm, None)?;
+            i_to_m(self).is_ret = true;
+            i_to_m(self).ret_value = Some(v);
         } else {
             let err = FSRRuntimeError::new(
-                &self.call_stack, 
-                FSRRuntimeType::TokenNotMatch, 
-                format!("Not match token: {:?}", token), 
-                token.get_meta());
+                &self.call_stack,
+                FSRRuntimeType::TokenNotMatch,
+                format!("Not match token: {:?}", token),
+                token.get_meta(),
+            );
             return Err(err);
         }
 
@@ -649,9 +743,9 @@ impl<'a> FSRRuntimeModule<'a> {
         return Ok(v);
     }
 
-    pub fn run_for_block(
+    pub fn run_while_block(
         &self,
-        for_expr: &'a FSRFor<'a>,
+        for_expr: &'a FSRWhile<'a>,
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<(), FSRRuntimeError> {
         let expr = for_expr.get_test();
@@ -660,9 +754,21 @@ impl<'a> FSRRuntimeModule<'a> {
         while v != vm.get_false_id() && v != vm.get_none_id() {
             i_to_m(self).run_block(&**for_expr.get_block(), vm);
             v = self.run_token(&**expr, vm, None)?;
+            if self.is_ret == true {
+                break;
+            }
         }
 
-        unimplemented!()
+        return Ok(());
+    }
+
+    pub fn run_return(
+        &self,
+        expr: &'a FSRToken<'a>,
+        vm: &'a FSRVirtualMachine<'a>,
+    ) -> Result<u64, FSRRuntimeError> {
+        let v = self.run_token(expr, vm, None)?;
+        return Ok(v);
     }
 
     pub fn define_function(
@@ -684,7 +790,7 @@ impl<'a> FSRRuntimeModule<'a> {
         let fn_obj = FSRFn::from_ast(fn_def.clone(), vm, fn_args);
 
         let fn_id = fn_obj.get_id();
-        self.assign_global_variable(fn_def.get_name(), fn_id, vm);
+        self.assign_variable(fn_def.get_name(), fn_id, vm);
         return Ok(fn_id);
     }
 
@@ -693,12 +799,28 @@ impl<'a> FSRRuntimeModule<'a> {
         fn_def: &FSRFnDef<'a>,
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<u64, &str> {
+        let mut v = 0;
         let body = fn_def.get_body();
-        let v = i_to_m(self).run_block(body, vm);
-        match v {
-            Ok(o) => Ok(o),
-            Err(e) => Err("run_ast_fn error"),
+        i_to_m(self).get_cur_stack().push_local_block_vars();
+        let mut v = 0;
+        for token in body.get_tokens() {
+            i_to_m(self).get_cur_stack().set_cur_token(token);
+            v = match self.run_token(token, vm, None) {
+                Ok(o) => o,
+                Err(e) => return Err("run error"),
+            };
+            if self.is_ret == true {
+                i_to_m(self).is_ret = false;
+                v = match self.ret_value {
+                    Some(s) => s,
+                    None => 0
+                };
+                i_to_m(self).ret_value = None;
+                break;
+            }
         }
+        i_to_m(self).get_cur_stack().pop_local_block_vars();
+        return Ok(v);
     }
 
     pub fn run_ast(
@@ -711,11 +833,9 @@ impl<'a> FSRRuntimeModule<'a> {
             self.run_expr(e, vm);
         }
         if let FSRToken::Module(m) = &ast {
-            self.get_cur_stack().push_local_block_vars();
             for token in &m.tokens {
                 self.run_ast(token, vm);
             }
-            self.get_cur_stack().pop_local_block_vars();
         }
 
         if let FSRToken::IfExp(if_block) = &ast {
@@ -738,6 +858,10 @@ impl<'a> FSRRuntimeModule<'a> {
             self.define_function(fn_def, vm);
         }
 
+        if let FSRToken::WhileExp(for_expr) = &ast {
+            self.run_while_block(for_expr, vm);
+        }
+
         return Ok(());
     }
 
@@ -747,7 +871,8 @@ impl<'a> FSRRuntimeModule<'a> {
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<(), FSRRuntimeError> {
         let meta = FSRMeta::new();
-        let code = FSRModule::parse(code, meta).unwrap();
+        let code = FSRModuleFrontEnd::parse(code, meta).unwrap();
+        self.init_with_vm(vm);
         let m = FSRToken::Module(code);
         self.run_ast(&m, vm);
         return Ok(());

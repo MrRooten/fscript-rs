@@ -1,4 +1,4 @@
-use crate::{backend::{base_type::base::FSRValue, vm::{module::FSRRuntimeModule, vm::FSRVirtualMachine}}, utils::error::FSRRuntimeError};
+use crate::{backend::{base_type::base::FSRValue, vm::{runtime::FSRThreadRuntime, vm::FSRVirtualMachine}}, utils::error::FSRRuntimeError};
 
 use super::{base::{FSRClass, FSRObject, IFSRObject}, function::FSRFn, string::FSRString};
 
@@ -21,7 +21,7 @@ impl FSRList {
         return Ok(list_obj.get_id());
     }
 
-    fn register_to_string_func<'a>(vm: &'a FSRVirtualMachine<'a>, rt: &'a mut FSRRuntimeModule<'a>) -> Result<u64, FSRRuntimeError<'a>> {
+    fn register_to_string_func<'a>(vm: &'a FSRVirtualMachine<'a>, rt: &'a mut FSRThreadRuntime<'a>) -> Result<u64, FSRRuntimeError<'a>> {
         let s = rt.find_symbol("self", vm, None).unwrap();
         let self_obj = vm.get_obj_by_id(&s).unwrap();
         let mut s = String::new();

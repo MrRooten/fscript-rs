@@ -3,13 +3,13 @@
 mod frontend_tests {
     use crate::frontend::ast::parse::ASTParser;
     use crate::frontend::ast::token::base::FSRMeta;
-    use crate::frontend::ast::token::for_statement::FSRFor;
+    use crate::frontend::ast::token::while_statement::FSRWhile;
     use crate::frontend::ast::token::function_def::FSRFnDef;
     use crate::frontend::ast::token::if_statement::FSRIf;
     use crate::frontend::ast::token::list::FSRListFrontEnd;
     use crate::frontend::ast::token::{base::FSRToken, expr::FSRExpr};
     use crate::frontend::ast::token::block::FSRBlock;
-    use crate::frontend::ast::token::module::FSRModule;
+    use crate::frontend::ast::token::module::FSRModuleFrontEnd;
     use crate::frontend::ast::utils::automaton::{FSTrie, NodeType};
 
     #[test]
@@ -97,7 +97,7 @@ mod frontend_tests {
         c = 3 + 4
         ";
         let meta = FSRMeta::new();
-        let b = FSRModule::parse(s.as_bytes(), meta).unwrap();
+        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.get_len(), s.len());
 
@@ -118,7 +118,7 @@ mod frontend_tests {
         }
         ";
         let meta = FSRMeta::new();
-        let i = FSRFor::parse(s.as_bytes(), meta).unwrap();
+        let i = FSRWhile::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -174,6 +174,14 @@ mod frontend_tests {
     #[test]
     fn test_list() {
         let s = "a = [(1+1),2,3,4]";
+        let meta = FSRMeta::new();
+        let s = FSRExpr::parse(s.as_bytes(), false,  meta).unwrap();
+        println!("{:#?}", s);
+    }
+
+    #[test]
+    fn test_module_name() {
+        let s = "path::test('adf')";
         let meta = FSRMeta::new();
         let s = FSRExpr::parse(s.as_bytes(), false,  meta).unwrap();
         println!("{:#?}", s);

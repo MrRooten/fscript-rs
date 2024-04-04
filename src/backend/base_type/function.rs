@@ -1,11 +1,11 @@
 
 
-use crate::{backend::{base_type::base::FSRValue, vm::{module::FSRRuntimeModule, vm::FSRVirtualMachine}}, frontend::ast::token::function_def::FSRFnDef, utils::error::FSRRuntimeError};
+use crate::{backend::{base_type::base::FSRValue, vm::{runtime::FSRThreadRuntime, vm::FSRVirtualMachine}}, frontend::ast::token::function_def::FSRFnDef, utils::error::FSRRuntimeError};
 
 use super::base::FSRObject;
 
 
-type FSRFuncType = for<'a> fn(manager: &'a FSRVirtualMachine<'a>, rt: &'a mut FSRRuntimeModule<'a>) -> Result<u64, FSRRuntimeError<'a>>;
+type FSRFuncType = for<'a> fn(manager: &'a FSRVirtualMachine<'a>, rt: &'a mut FSRThreadRuntime<'a>) -> Result<u64, FSRRuntimeError<'a>>;
 
 
 enum FSRFnValue<'a> {
@@ -52,7 +52,7 @@ impl<'a> FSRFn<'a> {
 
 
     pub fn invoke(&self, vm: &'a FSRVirtualMachine<'a>, 
-        module: &'a mut FSRRuntimeModule<'a>) -> Result<u64, FSRRuntimeError> {
+        module: &'a mut FSRThreadRuntime<'a>) -> Result<u64, FSRRuntimeError> {
         if let FSRFnValue::RustImpl(v) = &self.value {
             let v = (*v)(vm, module);
             return v;

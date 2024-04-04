@@ -11,7 +11,7 @@ use super::statement::ASTTokenEnum;
 use super::statement::ASTTokenInterface;
 
 #[derive(Debug, Clone)]
-pub struct FSRFor<'a> {
+pub struct FSRWhile<'a> {
     test: Box<FSRToken<'a>>,
     body: Box<FSRBlock<'a>>,
     len: usize,
@@ -27,7 +27,7 @@ enum State {
     Continue,
 }
 
-impl<'a> FSRFor<'a> {
+impl<'a> FSRWhile<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
         return &self.meta;
     }
@@ -41,20 +41,20 @@ impl<'a> FSRFor<'a> {
     }
 
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<Self, SyntaxError> {
-        let s = unsafe { std::str::from_utf8_unchecked(&source[0..3]) };
-        if source.len() < 3 {
+        let s = unsafe { std::str::from_utf8_unchecked(&source[0..5]) };
+        if source.len() < 5 {
             unimplemented!()
         }
-        if s != "for" {
+        if s != "while" {
             let mut sub_meta = meta.clone();
             sub_meta.offset = meta.offset;
             let err = SyntaxError::new(&sub_meta, "not if token");
             return Err(err);
         }
 
-        if source[3] as char != ' ' && source[3] as char != '(' {
+        if source[5] as char != ' ' && source[5] as char != '(' {
             let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset + 3;
+            sub_meta.offset = meta.offset + 5;
             let err = SyntaxError::new(&sub_meta, "not a valid if delemiter");
             return Err(err);
         }
@@ -62,7 +62,7 @@ impl<'a> FSRFor<'a> {
         let mut state = State::Continue;
         let mut pre_state = State::Continue;
         let mut len = 0;
-        for c in &source[3..] {
+        for c in &source[5..] {
             let c = c.clone() as char;
             len += 1;
             if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {
@@ -108,12 +108,12 @@ impl<'a> FSRFor<'a> {
             }
         }
 
-        let test = &source[3..3 + len];
+        let test = &source[5..5 + len];
         let mut test_meta = meta.clone();
-        test_meta.offset = meta.offset + 3;
+        test_meta.offset = meta.offset + 5;
         let test_expr = FSRExpr::parse(test, false, test_meta)?.0;
 
-        let start = 3 + len;
+        let start = 5 + len;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
         let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;

@@ -2,4 +2,4 @@ pub mod vm;
 pub mod track;
 pub mod thread;
 pub mod bytecode;
-pub mod module;
+pub mod runtime;

@@ -1,4 +1,4 @@
-use crate::backend::vm::module::FSRRuntimeModule;
+use crate::backend::vm::runtime::FSRThreadRuntime;
 use crate::backend::{base_type::function::FSRFn, vm::vm::FSRVirtualMachine};
 use crate::backend::base_type::utils::i_to_m;
 use crate::utils::error::FSRRuntimeError;
@@ -11,7 +11,7 @@ pub struct FSRString {
 }
 
 impl FSRString {
-    fn register_len_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRRuntimeModule) -> Result<u64, FSRRuntimeError<'a>> {
+    fn register_len_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
         let s = rt.find_symbol("self", vm, None).unwrap();
 
         let self_obj = vm.get_obj_by_id(&s).unwrap();
@@ -20,7 +20,7 @@ impl FSRString {
         return Ok(len.get_id());
     }
 
-    fn register_to_string_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRRuntimeModule) -> Result<u64, FSRRuntimeError<'a>> {
+    fn register_to_string_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
         let s = rt.find_symbol("self", vm, None).unwrap();
         return Ok(s.clone());
     }

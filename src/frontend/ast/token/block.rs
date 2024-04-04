@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use super::base::{FSRMeta, FSRToken};
-use super::for_statement::FSRFor;
+use super::while_statement::FSRWhile;
 use super::function_def::FSRFnDef;
 use super::if_statement::FSRIf;
 use super::return_def::FSRReturn;
@@ -163,12 +163,12 @@ impl<'a> FSRBlock<'a> {
                     start = length + start;
                     length = 0;
                 } 
-                else if t == &NodeType::ForState {
+                else if t == &NodeType::WhileState {
                     let mut sub_meta = meta.clone();
                     sub_meta.offset = meta.offset + start;
-                    let for_block = FSRFor::parse(&source[start..], sub_meta)?;
-                    length += for_block.get_len();
-                    block.tokens.push(FSRToken::ForExp(for_block));
+                    let while_block = FSRWhile::parse(&source[start..], sub_meta)?;
+                    length += while_block.get_len();
+                    block.tokens.push(FSRToken::WhileExp(while_block));
                     start = length + start;
                     length = 0;
                 }
