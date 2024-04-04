@@ -51,7 +51,7 @@ mod backend_tests {
     }
 
     #[test]
-    fn test_for() {
+    fn test_while() {
         let mut vm = FSRVirtualMachine::new().unwrap();
         let mut thread = FSRThreadRuntime::new();
         let code = "
@@ -73,6 +73,25 @@ mod backend_tests {
 
         c = abc()
         println(c)
+        ";
+        
+        vm.run_code(code.as_bytes(), &mut thread);
+    }
+
+    #[test]
+    fn test_fn() {
+        let mut vm = FSRVirtualMachine::new().unwrap();
+        let mut thread = FSRThreadRuntime::new();
+        let code = "
+
+        fn abc(bbc, ddc) {
+            
+            println(bbc)
+            println(ddc)
+            return 'abc'
+        }
+
+        abc(45, 56)
         ";
         
         vm.run_code(code.as_bytes(), &mut thread);
