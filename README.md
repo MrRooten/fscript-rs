@@ -64,5 +64,30 @@ fn test_fn() {
 56
 ```
 
+```rust
+class Abc {
+    abc = 1
+
+    fn test(self) {
+        println('abc')
+    }
+
+    fn bbc(self) {
+        println(self)
+    }
+
+    fn __new__(self, test) {
+        self.cccc = 123 
+    }
+}
+
+b = Abc('abc')
+b.test()
+```
+
+```
+abc
+```
+
 ## Introduce
 Not running on bytecode, just interpret AST, simple and useless program language, zero dependence script language

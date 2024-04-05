@@ -79,7 +79,7 @@ impl<'a> FSRCall<'a> {
         for s in exprs {
             let mut sub_meta = meta.clone();
             sub_meta.offset += first;
-            let expr = FSRExpr::parse(s, false, sub_meta)?;
+            let expr = FSRExpr::parse(s, true, sub_meta)?;
             fn_args.push(expr.0);
         }
         return Ok(

@@ -630,12 +630,13 @@ impl<'a> FSRExpr<'a> {
         if candidates.len() == 2 {
             let left = candidates.remove(0);
             let right = candidates.remove(0);
-
+            let n_left = left.clone();
             let op = operators.remove(0).0;
             if op.eq("=") {
                 if let FSRToken::Variable(name) = left {
                     return Ok((
                         FSRToken::Assign(FSRAssign {
+                            left: Rc::new(n_left),
                             name: name.get_name(),
                             expr: Rc::new(right),
                             len: start + length,
@@ -681,10 +682,12 @@ impl<'a> FSRExpr<'a> {
             let mut sub_meta = meta.clone();
             sub_meta.offset = 0 + meta.offset;
             let right = FSRExpr::parse(&source[split_offset + 1..], false, sub_meta.clone())?.0;
+            let n_left = left.clone();
             if operator.0.eq("=") {
                 if let FSRToken::Variable(name) = left {
                     return Ok((
                         FSRToken::Assign(FSRAssign {
+                            left: Rc::new(n_left),
                             name: name.get_name(),
                             expr: Rc::new(right),
                             len: start + length,
@@ -693,10 +696,15 @@ impl<'a> FSRExpr<'a> {
                         start + length,
                     ));
                 } else {
-                    let sub_meta = sub_meta.clone();
-                    return Err(SyntaxError::new(
-                        &sub_meta,
-                        "can not assign to not variable",
+                    return Ok((
+                        FSRToken::Assign(FSRAssign {
+                            left: Rc::new(n_left),
+                            name: "",
+                            expr: Rc::new(right),
+                            len: start + length,
+                            meta,
+                        }),
+                        start + length,
                     ));
                 }
             }

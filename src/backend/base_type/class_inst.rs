@@ -23,6 +23,9 @@ impl<'a> FSRClassInstance<'a> {
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<u64, FSRRuntimeError<'a>> {
         let object = FSRObject::new(vm);
+        if object.has_method("__new__", vm) {
+
+        }
         object.set_value(FSRValue::ClassInst(inst));
         return Ok(object.get_id());
     }
@@ -37,7 +40,7 @@ impl<'a> FSRClassInstance<'a> {
             return Ok(s.clone());
         }
 
-        if let Some(s) = self.cls.get_attr(name) {
+        if let Some(s) = self.cls.get_cls_attr(name) {
             return Ok(s.clone());
         }
 
@@ -48,5 +51,44 @@ impl<'a> FSRClassInstance<'a> {
             &meta,
         );
         return Err(err);
+    }
+
+    pub fn get_attr_option(
+        &self,
+        name: &str,
+    ) -> Option<u64> {
+        if let Some(s) = self.attrs.get(name) {
+            return Some(s.clone());
+        }
+
+        if let Some(s) = self.cls.get_cls_attr(name) {
+            return Some(s.clone());
+        }
+
+        return None;
+    }
+
+    pub fn set_attr(
+        &mut self,
+        name: &'a str,
+        value: u64) {
+        self.attrs.insert(name, value);
+    }
+
+    pub fn has_method(&self, method: &str, vm: &'a FSRVirtualMachine<'a>) -> bool {
+        let obj = match self.get_attr_option(method) {
+            Some(s) => s,
+            None => {
+                return false;
+            }
+        };
+        let obj = match vm.get_obj_by_id(&obj) {
+            Some(s) => s,
+            None => {
+                unimplemented!()
+            }
+        };
+
+        return obj.is_function();
     }
 }

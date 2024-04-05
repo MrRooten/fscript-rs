@@ -9,6 +9,7 @@ use super::base::{FSRMeta, FSRToken};
 #[derive(Debug, Clone)]
 pub struct FSRAssign<'a> {
     pub(crate) expr        : Rc<FSRToken<'a>>,
+    pub(crate) left        : Rc<FSRToken<'a>>,
     pub(crate) name        : &'a str,
     pub(crate) len         : usize,
     pub(crate) meta        : FSRMeta
@@ -26,6 +27,10 @@ enum FSRAssignState {
 }
 
 impl<'a> FSRAssign<'a> {
+
+    pub fn get_left(&self) -> &Rc<FSRToken<'a>> {
+        return &self.left
+    }
 
     pub fn get_meta(&self) -> &FSRMeta {
         return &self.meta;

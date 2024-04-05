@@ -14,6 +14,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct FSRClassBackEnd<'a> {
+    name    : &'a str,
     attrs: HashMap<&'a str, FSRToken<'a>>,
     cls_attrs: HashMap<&'a str, u64>,
 }
@@ -32,6 +33,7 @@ impl<'a> FSRClassBackEnd<'a> {
         rt: &'a FSRThreadRuntime<'a>,
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<u64, FSRRuntimeError<'a>> {
+        let name = cls.get_name();
         let mut attrs = HashMap::new();
         let mut cls_attrs = HashMap::new();
         let block = cls.get_block();
@@ -49,21 +51,32 @@ impl<'a> FSRClassBackEnd<'a> {
             }
 
             else if let FSRToken::FunctionDef(fn_def) = token {
+                if fn_def.get_name().eq("__new__") {
+
+                }
                 let fn_obj = FSRFn::from_ast(fn_def, vm);
                 cls_attrs.insert(fn_def.get_name(), fn_obj.get_id());
             }
         }
 
         let cls_obj = FSRObject::new(vm);
-        let v = Self { attrs, cls_attrs };
+        let v = Self { attrs, cls_attrs, name };
         cls_obj.set_value(FSRValue::Class(v));
         return Ok(cls_obj.get_id());
     }
 
-    pub fn get_attr(&self, name: &str) -> Option<u64> {
+    pub fn get_cls_attr(&self, name: &str) -> Option<u64> {
         match self.cls_attrs.get(name) {
             Some(s) => Some(s.clone()),
             None => None
         }
+    }
+
+    pub fn set_cls_attr(&mut self, name: &'a str, value: u64) {
+        self.cls_attrs.insert(name, value);
+    }
+
+    pub fn init_object(&self, rt: &'a FSRThreadRuntime<'a>, vm: &'a FSRVirtualMachine<'a>) {
+        
     }
 }

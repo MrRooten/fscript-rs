@@ -50,6 +50,10 @@ impl<'a> FSRModule<'a> {
         return Some(obj.clone());
     }
 
+    pub fn set_colon_operator(&mut self, name: &'a str, v: u64) {
+        self.export_object.insert(name, v);
+    }
+
     pub fn self_module() -> Self {
         let module = Self {
             export_object: HashMap::new(),

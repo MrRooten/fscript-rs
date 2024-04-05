@@ -2,7 +2,7 @@ use crate::backend::base_type::bool::FSRBool;
 use std::collections::HashMap;
 use std::fmt::Error;
 
-use crate::backend::vm::runtime::FSRThreadRuntime;
+use crate::backend::vm::runtime::{FSRArg, FSRThreadRuntime};
 use crate::backend::vm::vm::FSRVirtualMachine;
 use crate::utils::error::{FSRRuntimeError, FSRRuntimeType};
 
@@ -106,6 +106,29 @@ impl<'a> FSRObject<'a> {
         return &self.value;
     }
 
+    pub fn get_mut_value(&mut self) -> &'a mut FSRValue {
+        return &mut self.value;
+    }
+
+    pub fn has_method(&self, method: &str, vm: &'a FSRVirtualMachine<'a>) -> bool {
+        if let FSRValue::ClassInst(inst) = self.get_value() {
+            return inst.has_method(method, vm);
+        }
+        
+        for attr in &self.attrs {
+            let obj = match vm.get_obj_by_id(attr.1) {
+                Some(s) => s,
+                None => continue
+            };
+
+            if obj.is_function() {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     pub fn new(vm: &'a FSRVirtualMachine<'a>) -> &'a mut FSRObject<'a> {
         let obj = FSRObject {
             obj_type: FSRObjectType::Object,
@@ -153,6 +176,8 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn get_attr(&self, name: &str, vm: &'a FSRVirtualMachine<'a>) -> Option<&u64> {
+
+
         if let Some(s) = self.attrs.get(name) {
             return Some(s);
         }
@@ -177,7 +202,43 @@ impl<'a> FSRObject<'a> {
         vm: &'a FSRVirtualMachine<'a>,
         rt: &'a FSRThreadRuntime<'a>,
     ) -> Result<u64, FSRRuntimeError> {
-        let mut fn_id = match self.cls {
+        if let FSRValue::ClassInst(inst) = &self.value {
+            let v = inst.get_attr(fn_name, rt, rt.get_cur_meta().clone())?;
+    
+            let fn_obj = match vm.get_obj_by_id(&v) {
+                Some(s) => s,
+                None => {
+                    let err = FSRRuntimeError::new(
+                        rt.get_call_stack(),
+                        FSRRuntimeType::NotFoundObject,
+                        format!("Not found object id, {:?}", v),
+                        rt.get_cur_meta(),
+                    );
+                    return Err(err);
+                }
+            };
+    
+            if let FSRValue::Function(f) = &fn_obj.value {
+                i_to_m(rt).assign_variable(FSRArg::String("self"), self.get_id(), vm)?;
+                let v = f.invoke(vm, i_to_m(rt)).unwrap();
+                return Ok(v);
+            }
+    
+            let err = FSRRuntimeError::new(
+                rt.get_call_stack(),
+                FSRRuntimeType::TypeNotMatch,
+                format!(
+                    "{}::{} is not method or function",
+                    self.get_cls_name(),
+                    fn_name
+                ),
+                rt.get_cur_meta(),
+            );
+            return Err(err);
+        }
+
+
+        let fn_id = match self.cls {
             Some(s) => {
                 let cls = vm.get_cls(s.get_name()).unwrap();
                 cls.get_id_by_name(fn_name)
@@ -187,12 +248,8 @@ impl<'a> FSRObject<'a> {
                 cls.get_id_by_name(fn_name)
             }
         };
-        let mut fn_id: Option<u64> = None;
 
-        if let FSRValue::ClassInst(inst) = &self.value {
-            let v = inst.get_attr(fn_name, rt, rt.get_cur_meta().clone())?;
-            fn_id = Some(v);
-        }
+        
 
         let fn_obj = match fn_id {
             Some(s) => vm.get_obj_by_id(&s),
@@ -221,7 +278,7 @@ impl<'a> FSRObject<'a> {
         };
 
         if let FSRValue::Function(f) = &fn_obj.value {
-            i_to_m(rt).assign_variable("self", self.get_id(), vm)?;
+            i_to_m(rt).assign_variable(FSRArg::String("self"), self.get_id(), vm)?;
             let v = f.invoke(vm, i_to_m(rt)).unwrap();
             return Ok(v);
         }
@@ -240,6 +297,11 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn set_attr(&mut self, name: &'a str, value: u64) {
+        if let FSRValue::ClassInst(inst) = &mut self.value {
+            inst.set_attr(name, value);
+            return ;
+        }
+
         self.attrs.insert(name, value);
     }
 

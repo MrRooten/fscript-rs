@@ -105,12 +105,21 @@ println(c)
         class Abc {
             abc = 1
 
-            fn test() {
-                
+            fn test(self) {
+                println('abc')
+            }
+
+            fn bbc(self) {
+                println(self)
+            }
+
+            fn __new__(self, test) {
+                self.cccc = 123 
             }
         }
 
-        dump_obj(Abc)
+        b = Abc('abc')
+        b.test()
         ";
         
         vm.run_code(code.as_bytes(), &mut thread);
