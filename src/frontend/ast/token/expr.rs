@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use std::rc::Rc;
 use std::{cmp::Ordering, fmt::Display};
 
 use crate::frontend::ast::token;
@@ -390,7 +391,7 @@ impl<'a> FSRExpr<'a> {
                 continue;
             }
 
-            if states.eq_peek(&ExprState::WaitToken) && ASTParser::is_blank_char(ord) {
+            if states.eq_peek(&ExprState::WaitToken) && ASTParser::is_blank_char_with_new_line(ord) {
                 start += 1;
                 continue;
             }
@@ -636,7 +637,7 @@ impl<'a> FSRExpr<'a> {
                     return Ok((
                         FSRToken::Assign(FSRAssign {
                             name: name.get_name(),
-                            expr: Box::new(right),
+                            expr: Rc::new(right),
                             len: start + length,
                             meta,
                         }),
@@ -685,7 +686,7 @@ impl<'a> FSRExpr<'a> {
                     return Ok((
                         FSRToken::Assign(FSRAssign {
                             name: name.get_name(),
-                            expr: Box::new(right),
+                            expr: Rc::new(right),
                             len: start + length,
                             meta,
                         }),

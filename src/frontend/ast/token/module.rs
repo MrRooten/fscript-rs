@@ -1,6 +1,6 @@
 use crate::{frontend::ast::{parse::ASTParser, utils::automaton::{FSTrie, NodeType}}, utils::error::SyntaxError};
 
-use super::{base::{FSRMeta, FSRToken}, block::FSRBlock, expr::FSRExpr, while_statement::FSRWhile, function_def::FSRFnDef, if_statement::FSRIf, import::FSRImport, return_def::FSRReturn};
+use super::{base::{FSRMeta, FSRToken}, block::FSRBlock, class::FSRClassFrontEnd, expr::FSRExpr, function_def::FSRFnDef, if_statement::FSRIf, import::{self, FSRImport}, return_def::FSRReturn, while_statement::FSRWhile};
 
 
 
@@ -81,7 +81,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
 
             let mut c = source[start + length] as char;
             if (states.peek() == &ModuleState::Start || states.peek() == &ModuleState::Block)
-                && ASTParser::is_blank_char(c as u8)
+                && ASTParser::is_blank_char_with_new_line(c as u8)
             {
                 start += 1;
                 continue;
@@ -110,7 +110,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             }
 
 
-            while ASTParser::is_blank_char(c as u8) {
+            while ASTParser::is_blank_char_with_new_line(c as u8) {
                 start += 1;
                 c = source[start+length] as char;
                 continue;
@@ -182,7 +182,16 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 sub_meta.offset = meta.offset + start;
                 let import_statement = FSRImport::parse(&source[start..], sub_meta)?;
                 length += import_statement.1;
-                module.tokens.push(FSRToken::Import(import_statement.0));
+                module.tokens.push(FSRToken::Import(import_statement.0.to_owned()));
+                start = start + length;
+                length = 0;
+            }
+            else if t == &NodeType::ClassState {
+                let mut sub_meta = meta.clone();
+                sub_meta.offset = meta.offset + start;
+                let class_def = FSRClassFrontEnd::parse(&source[start..], sub_meta)?;
+                length += class_def.1;
+                module.tokens.push(FSRToken::Class(class_def.0.to_owned()));
                 start = start + length;
                 length = 0;
             }

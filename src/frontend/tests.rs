@@ -3,6 +3,7 @@
 mod frontend_tests {
     use crate::frontend::ast::parse::ASTParser;
     use crate::frontend::ast::token::base::FSRMeta;
+    use crate::frontend::ast::token::class::FSRClassFrontEnd;
     use crate::frontend::ast::token::while_statement::FSRWhile;
     use crate::frontend::ast::token::function_def::FSRFnDef;
     use crate::frontend::ast::token::if_statement::FSRIf;
@@ -184,6 +185,20 @@ mod frontend_tests {
         let s = "path::test('adf')";
         let meta = FSRMeta::new();
         let s = FSRExpr::parse(s.as_bytes(), false,  meta).unwrap();
+        println!("{:#?}", s);
+    }
+
+    #[test]
+    fn test_class() {
+        let s = "class Abc {
+            a = 1
+            fn abc() {
+
+            }
+        }
+        ";
+        let meta = FSRMeta::new();
+        let s = FSRClassFrontEnd::parse(s.as_bytes(),  meta).unwrap();
         println!("{:#?}", s);
     }
 }

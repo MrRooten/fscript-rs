@@ -83,8 +83,12 @@ impl ASTParser {
         unimplemented!()
     }
 
-    pub fn is_blank_char(c: u8) -> bool {
+    pub fn is_blank_char_with_new_line(c: u8) -> bool {
         return c as char == ' ' || c as char == '\r' || c as char == '\t' || c as char == '\n';
+    }
+
+    pub fn is_blank_char(c : u8) -> bool {
+        return c as char == ' ' || c as char == '\r' || c as char == '\t';
     }
 
 

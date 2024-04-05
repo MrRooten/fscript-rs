@@ -1,6 +1,6 @@
 
 
-use crate::{backend::{base_type::base::FSRValue, vm::{runtime::FSRThreadRuntime, vm::FSRVirtualMachine}}, frontend::ast::token::function_def::FSRFnDef, utils::error::FSRRuntimeError};
+use crate::{backend::{base_type::base::FSRValue, vm::{runtime::FSRThreadRuntime, vm::FSRVirtualMachine}}, frontend::ast::token::{base::FSRToken, function_def::FSRFnDef}, utils::error::FSRRuntimeError};
 
 use super::base::FSRObject;
 
@@ -10,7 +10,7 @@ type FSRFuncType = for<'a> fn(manager: &'a FSRVirtualMachine<'a>, rt: &'a mut FS
 
 enum FSRFnValue<'a> {
     RustImpl(FSRFuncType),
-    FSRImpl(FSRFnDef<'a>)
+    FSRImpl(&'a FSRFnDef<'a>)
 }
 
 pub struct FSRFn<'a> {
@@ -38,10 +38,21 @@ impl<'a> FSRFn<'a> {
         return obj;
     }
 
-    pub fn from_ast(fn_def: FSRFnDef<'a>, vm: &'a FSRVirtualMachine<'a>, args: Vec<&'a str>) -> &'a FSRObject<'a> {
+    pub fn from_ast(fn_def: &'a FSRFnDef<'a>, vm: &'a FSRVirtualMachine<'a>) -> &'a FSRObject<'a> {
+        let args = fn_def.get_args();
+        let mut fn_args = vec![];
+        for arg in args {
+            if let FSRToken::Variable(v) = arg {
+                fn_args.push(v.get_name());
+            } else if let FSRToken::Assign(a) = arg {
+                fn_args.push(a.get_name());
+            } else {
+                unimplemented!()
+            }
+        }
         let v = Self {
             value: FSRFnValue::FSRImpl(fn_def),
-            args: args,
+            args: fn_args,
             identify: 0
         };
         let obj = FSRObject::new(vm);

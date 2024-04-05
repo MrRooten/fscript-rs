@@ -6,6 +6,8 @@ use crate::backend::vm::runtime::FSRThreadRuntime;
 use crate::backend::vm::vm::FSRVirtualMachine;
 use crate::utils::error::{FSRRuntimeError, FSRRuntimeType};
 
+use super::class::FSRClassBackEnd;
+use super::class_inst::FSRClassInstance;
 use super::function::FSRFn;
 use super::integer::FSRInteger;
 use super::list::FSRList;
@@ -34,6 +36,8 @@ pub enum FSRValue<'a> {
     List(FSRList),
     Bool(FSRBool),
     Module(FSRModule<'a>),
+    Class(FSRClassBackEnd<'a>),
+    ClassInst(FSRClassInstance<'a>),
     None,
 }
 
@@ -173,7 +177,7 @@ impl<'a> FSRObject<'a> {
         vm: &'a FSRVirtualMachine<'a>,
         rt: &'a FSRThreadRuntime<'a>,
     ) -> Result<u64, FSRRuntimeError> {
-        let fn_id = match self.cls {
+        let mut fn_id = match self.cls {
             Some(s) => {
                 let cls = vm.get_cls(s.get_name()).unwrap();
                 cls.get_id_by_name(fn_name)
@@ -183,9 +187,15 @@ impl<'a> FSRObject<'a> {
                 cls.get_id_by_name(fn_name)
             }
         };
+        let mut fn_id: Option<u64> = None;
+
+        if let FSRValue::ClassInst(inst) = &self.value {
+            let v = inst.get_attr(fn_name, rt, rt.get_cur_meta().clone())?;
+            fn_id = Some(v);
+        }
 
         let fn_obj = match fn_id {
-            Some(s) => vm.get_obj_by_id(s),
+            Some(s) => vm.get_obj_by_id(&s),
             None => {
                 let err = FSRRuntimeError::new(
                     rt.get_call_stack(),

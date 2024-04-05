@@ -1,12 +1,14 @@
 #![allow(unused)]
 
+use std::rc::Rc;
+
 use crate::{frontend::ast::{parse::ASTParser, token::expr::FSRExpr}, utils::error::SyntaxError};
 
 use super::base::{FSRMeta, FSRToken};
 
 #[derive(Debug, Clone)]
 pub struct FSRAssign<'a> {
-    pub(crate) expr        : Box<FSRToken<'a>>,
+    pub(crate) expr        : Rc<FSRToken<'a>>,
     pub(crate) name        : &'a str,
     pub(crate) len         : usize,
     pub(crate) meta        : FSRMeta
@@ -33,7 +35,7 @@ impl<'a> FSRAssign<'a> {
         return &self.name;
     }
 
-    pub fn get_assign_expr(&self) -> &Box<FSRToken<'a>> {
+    pub fn get_assign_expr(&self) -> &Rc<FSRToken<'a>> {
         return &self.expr;
     }
 
@@ -51,7 +53,7 @@ impl<'a> FSRAssign<'a> {
         while start + length < source.len() {
             let c = source[start + length];
             len += 1;
-            if ASTParser::is_blank_char(c) && state == FSRAssignState::Start {
+            if ASTParser::is_blank_char_with_new_line(c) && state == FSRAssignState::Start {
                 start += 1;
                 length = 0;
                 continue;
@@ -68,7 +70,7 @@ impl<'a> FSRAssign<'a> {
                 continue;
             }
 
-            if (ASTParser::is_blank_char(c) || c as char == '=') && state == FSRAssignState::NameStart {
+            if (ASTParser::is_blank_char_with_new_line(c) || c as char == '=') && state == FSRAssignState::NameStart {
                 state = FSRAssignState::NameEnd;
                 name = Some(&source[start..start+length]);
             }

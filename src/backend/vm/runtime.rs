@@ -1,6 +1,8 @@
 #![allow(unused)]
 
 use crate::backend::base_type::base::{FSRArgs, FSRObject};
+use crate::backend::base_type::class::FSRClassBackEnd;
+use crate::backend::base_type::class_inst::FSRClassInstance;
 use crate::backend::base_type::function::FSRFn;
 use crate::backend::base_type::integer::FSRInteger;
 use crate::backend::base_type::list::FSRList;
@@ -13,6 +15,7 @@ use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::token::base::{FSRMeta, FSRToken};
 use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::call::FSRCall;
+use crate::frontend::ast::token::class::FSRClassFrontEnd;
 use crate::frontend::ast::token::constant::{FSRConstant, FSRConstantType};
 use crate::frontend::ast::token::expr::FSRExpr;
 use crate::frontend::ast::token::while_statement::FSRWhile;
@@ -54,6 +57,10 @@ impl<'a> VMCallState<'a> {
 
     pub fn set_cur_token(&mut self, token: &FSRToken<'a>) {
         self.cur_token = Some(token);
+    }
+
+    pub fn get_cur_token(&self) -> &Option<*const FSRToken<'a>> {
+        return &self.cur_token
     }
 }
 
@@ -97,6 +104,11 @@ pub struct FSRThreadRuntime<'a> {
 }
 
 impl<'a> FSRThreadRuntime<'a> {
+    pub fn get_cur_token(&self) -> &Option<*const FSRToken<'a>> {
+        let cur = self.get_cur_stack();
+        return cur.get_cur_token();
+    }
+
     pub fn get_cur_meta(&self) -> &FSRMeta {
         return &self.meta;
     }
@@ -113,7 +125,12 @@ impl<'a> FSRThreadRuntime<'a> {
         self.call_stack.pop();
     }
 
-    fn get_cur_stack(&mut self) -> &mut VMCallState<'a> {
+    fn get_cur_stack(&self) -> &VMCallState<'a> {
+        let len = self.call_stack.len();
+        return self.call_stack.get(len - 1).unwrap();
+    }
+
+    fn get_mut_cur_stack(&mut self) -> &mut VMCallState<'a> {
         let len = self.call_stack.len();
         return self.call_stack.get_mut(len - 1).unwrap();
     }
@@ -201,7 +218,7 @@ impl<'a> FSRThreadRuntime<'a> {
             );
             return Err(err);
         }
-        for local_var in i_to_m(self).get_cur_stack().local_vars.iter().rev() {
+        for local_var in i_to_m(self).get_mut_cur_stack().local_vars.iter().rev() {
             if let Some(id) = local_var.get_var(name) {
                 return Ok(id);
             }
@@ -295,6 +312,26 @@ impl<'a> FSRThreadRuntime<'a> {
         unimplemented!()
     }
 
+    fn new_object(
+        &self,
+        cls: &'a FSRClassBackEnd<'a>,
+        vm: &'a FSRVirtualMachine<'a>
+    ) -> Result<u64, FSRRuntimeError> {
+        let mut inst_attrs = HashMap::new();
+        for attr in cls.get_attrs() {
+            let v = self.run_token(attr.1, vm, None)?;
+            inst_attrs.insert(*attr.0, v);
+        }
+
+        let inst = FSRClassInstance {
+            attrs: inst_attrs,
+            cls: cls,
+        };
+
+        let inst = FSRClassInstance::from_inst(inst, vm)?;
+        return Ok(inst);
+    }
+
     fn call_func(
         &self,
         c: &FSRCall,
@@ -350,8 +387,8 @@ impl<'a> FSRThreadRuntime<'a> {
         //     self.assign_module_variable(name, id, vm);
         //     return Ok(());
         // }
-        let l = self.get_cur_stack().local_vars.len() - 1;
-        let cur_stack = self.get_cur_stack();
+        let l = self.get_mut_cur_stack().local_vars.len() - 1;
+        let cur_stack = self.get_mut_cur_stack();
         let local_vars = cur_stack.get_local_vars();
         let mut found = false;
         for local in local_vars.iter_mut().rev() {
@@ -417,10 +454,10 @@ impl<'a> FSRThreadRuntime<'a> {
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<(), FSRRuntimeError> {
         let right = e.get_assign_expr();
-        i_to_m(self).get_cur_stack().set_cur_token(&*right);
+        i_to_m(self).get_mut_cur_stack().set_cur_token(&*right);
         if let FSRToken::Expr(ex) = &**right {
             let v = self.run_expr(ex, vm)?;
-            let cur_stack = i_to_m(self).get_cur_stack();
+            let cur_stack = i_to_m(self).get_mut_cur_stack();
             let local_vars = cur_stack.get_local_vars();
             for local_var in local_vars.iter_mut().rev() {
                 if local_var.local_vars.get(e.get_name()).is_none() == false {
@@ -438,7 +475,7 @@ impl<'a> FSRThreadRuntime<'a> {
         } else if let FSRToken::Constant(c) = &**right {
             let v = i_to_m(self).register_constant(c, vm)?;
 
-            for local_var in i_to_m(self).get_cur_stack().local_vars.iter_mut().rev() {
+            for local_var in i_to_m(self).get_mut_cur_stack().local_vars.iter_mut().rev() {
                 if local_var.local_vars.get(e.get_name()).is_none() == false {
                     local_var.local_vars.insert(e.get_name(), v).unwrap();
                     return Ok(());
@@ -455,7 +492,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let v = self.find_symbol(v.get_name(), vm, None)?;
             let obj = i_to_m(vm).get_mut_obj_by_id(&v).unwrap();
 
-            for local_var in i_to_m(self).get_cur_stack().local_vars.iter_mut().rev() {
+            for local_var in i_to_m(self).get_mut_cur_stack().local_vars.iter_mut().rev() {
                 if local_var.local_vars.get(e.get_name()).is_none() == false {
                     local_var.local_vars.insert(e.get_name(), v).unwrap();
                     return Ok(());
@@ -487,7 +524,7 @@ impl<'a> FSRThreadRuntime<'a> {
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<u64, FSRRuntimeError> {
         if e.get_op().eq(".") {
-            i_to_m(self).get_cur_stack().set_cur_token(&*e.get_left());
+            i_to_m(self).get_mut_cur_stack().set_cur_token(&*e.get_left());
             if let FSRToken::Variable(v) = &**e.get_right() {
                 let mut l_value = 0;
                 if let FSRToken::Expr(l) = &**e.get_left() {
@@ -525,7 +562,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 return Ok(attr_id.clone());
             }
-            i_to_m(self).get_cur_stack().set_cur_token(&*e.get_right());
+            i_to_m(self).get_mut_cur_stack().set_cur_token(&*e.get_right());
             if let FSRToken::Call(call) = &**e.get_right() {
                 let mut l_value = 0;
                 if let FSRToken::Expr(l) = &**e.get_left() {
@@ -563,7 +600,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         let mut l_value: Option<u64> = None;
         let mut r_value: Option<u64> = None;
-        i_to_m(self).get_cur_stack().set_cur_token(&*e.get_left());
+        i_to_m(self).get_mut_cur_stack().set_cur_token(&*e.get_left());
         if let FSRToken::Expr(l) = &**e.get_left() {
             l_value = Some(self.run_expr(l, vm)?);
         } else if let FSRToken::Constant(c) = &**e.get_left() {
@@ -582,7 +619,7 @@ impl<'a> FSRThreadRuntime<'a> {
             return Err(err);
         }
 
-        i_to_m(self).get_cur_stack().set_cur_token(&*e.get_right());
+        i_to_m(self).get_mut_cur_stack().set_cur_token(&*e.get_right());
         if let FSRToken::Expr(r) = &**e.get_right() {
             r_value = Some(self.run_expr(r, vm)?);
         } else if let FSRToken::Constant(c) = &**e.get_right() {
@@ -635,10 +672,10 @@ impl<'a> FSRThreadRuntime<'a> {
         block: &FSRBlock<'a>,
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<u64, &str> {
-        self.get_cur_stack().push_local_block_vars();
+        self.get_mut_cur_stack().push_local_block_vars();
         let mut v = 0;
         for token in block.get_tokens() {
-            self.get_cur_stack().set_cur_token(token);
+            self.get_mut_cur_stack().set_cur_token(token);
             v = match self.run_token(token, vm, None) {
                 Ok(o) => o,
                 Err(e) => return Err("run error"),
@@ -647,7 +684,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 break;
             }
         }
-        self.get_cur_stack().pop_local_block_vars();
+        self.get_mut_cur_stack().pop_local_block_vars();
         return Ok(v);
     }
 
@@ -657,7 +694,7 @@ impl<'a> FSRThreadRuntime<'a> {
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<(), FSRRuntimeError> {
         let expr = if_expr.get_test();
-        i_to_m(self).get_cur_stack().set_cur_token(&*expr);
+        i_to_m(self).get_mut_cur_stack().set_cur_token(&*expr);
         let mut l_value: Option<u64> = None;
         if let FSRToken::Expr(l) = &**expr {
             l_value = Some(self.run_expr(l, vm)?);
@@ -776,22 +813,21 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_def: &FSRFnDef<'a>,
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<u64, &str> {
-        let args = fn_def.get_args();
-        let mut fn_args = vec![];
-        for arg in args {
-            if let FSRToken::Variable(v) = arg {
-                fn_args.push(v.get_name());
-            } else if let FSRToken::Assign(a) = arg {
-                fn_args.push(a.get_name());
-            } else {
-                return Err("Not valid fn define args");
-            }
-        }
-        let fn_obj = FSRFn::from_ast(fn_def.clone(), vm, fn_args);
+        
+        let fn_obj = FSRFn::from_ast(&fn_def, vm);
 
         let fn_id = fn_obj.get_id();
         self.assign_variable(fn_def.get_name(), fn_id, vm);
         return Ok(fn_id);
+    }
+
+    pub fn define_class(&'a self,
+        cls_def: &FSRClassFrontEnd<'a>,
+        vm: &'a FSRVirtualMachine<'a>,
+    ) -> Result<u64, FSRRuntimeError> {
+        let cls_id = FSRClassBackEnd::from_cls(cls_def, self, vm).unwrap();
+        i_to_m(self).assign_variable(cls_def.get_name(), cls_id, vm)?;
+        return Ok(cls_id);
     }
 
     pub fn run_ast_fn(
@@ -801,10 +837,10 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<u64, &str> {
         let mut v = 0;
         let body = fn_def.get_body();
-        i_to_m(self).get_cur_stack().push_local_block_vars();
+        i_to_m(self).get_mut_cur_stack().push_local_block_vars();
         let mut v = 0;
         for token in body.get_tokens() {
-            i_to_m(self).get_cur_stack().set_cur_token(token);
+            i_to_m(self).get_mut_cur_stack().set_cur_token(token);
             v = match self.run_token(token, vm, None) {
                 Ok(o) => o,
                 Err(e) => return Err("run error"),
@@ -819,16 +855,18 @@ impl<'a> FSRThreadRuntime<'a> {
                 break;
             }
         }
-        i_to_m(self).get_cur_stack().pop_local_block_vars();
+        i_to_m(self).get_mut_cur_stack().pop_local_block_vars();
         return Ok(v);
     }
+
+    
 
     pub fn run_ast(
         &mut self,
         ast: &FSRToken<'a>,
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<(), FSRRuntimeError> {
-        self.get_cur_stack().set_cur_token(ast);
+        self.get_mut_cur_stack().set_cur_token(ast);
         if let FSRToken::Expr(e) = &ast {
             self.run_expr(e, vm);
         }
@@ -860,6 +898,10 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if let FSRToken::WhileExp(for_expr) = &ast {
             self.run_while_block(for_expr, vm);
+        }
+
+        if let FSRToken::Class(class_def) = &ast {
+            self.define_class(class_def, vm)?;
         }
 
         return Ok(());

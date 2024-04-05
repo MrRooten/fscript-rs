@@ -7,3 +7,5 @@ pub mod none;
 pub mod bool;
 pub mod list;
 pub mod module;
+pub mod class;
+pub mod class_inst;

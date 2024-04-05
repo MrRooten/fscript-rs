@@ -43,7 +43,7 @@ impl<'a> FSRCall<'a> {
         loop {
             let i = source[start];
             let t_i = source[start + length];
-            if state == CallState::Start && ASTParser::is_blank_char(i) {
+            if state == CallState::Start && ASTParser::is_blank_char_with_new_line(i) {
                 start += 1;
                 continue;
             }

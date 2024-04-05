@@ -5,7 +5,7 @@ use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::frontend::ast::token::slice::FSRSlice;
 
-use super::{assign::FSRAssign, call::FSRCall, constant::FSRConstant, expr::FSRExpr, while_statement::FSRWhile, function_def::FSRFnDef, hashtable::FSRHashtable, if_statement::{FSRIf, FSRIfState}, import::FSRImport, list::FSRListFrontEnd, name::FSRName, return_def::FSRReturn, variable::FSRVariable};
+use super::{assign::FSRAssign, call::FSRCall, class::FSRClassFrontEnd, constant::FSRConstant, expr::FSRExpr, function_def::FSRFnDef, hashtable::FSRHashtable, if_statement::{FSRIf, FSRIfState}, import::FSRImport, list::FSRListFrontEnd, name::FSRName, return_def::FSRReturn, variable::FSRVariable, while_statement::FSRWhile};
 
 #[derive(Debug, Clone)]
 pub enum FSRToken<'a> {
@@ -22,6 +22,7 @@ pub enum FSRToken<'a> {
     Module(FSRModuleFrontEnd<'a>),
     Import(FSRImport),
     List(FSRListFrontEnd<'a>),
+    Class(FSRClassFrontEnd<'a>),
     EmptyExpr,
     None
 }
@@ -44,6 +45,7 @@ impl<'a> FSRToken<'a> {
             FSRToken::EmptyExpr => todo!(),
             FSRToken::None => todo!(),
             FSRToken::List(e) => e.get_meta(),
+            FSRToken::Class(e) => e.get_meta(),
         }
     }
 }

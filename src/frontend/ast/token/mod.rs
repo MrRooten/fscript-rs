@@ -17,3 +17,5 @@ pub mod while_statement;
 pub mod import;
 pub mod module;
 pub mod list;
+pub mod hashmap;
+pub mod class;

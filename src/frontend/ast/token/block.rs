@@ -92,7 +92,7 @@ impl<'a> FSRBlock<'a> {
 
             let mut c = source[start + length] as char;
             if (states.peek() == &BlockState::Start || states.peek() == &BlockState::Block)
-                && ASTParser::is_blank_char(c as u8)
+                && ASTParser::is_blank_char_with_new_line(c as u8)
             {
                 start += 1;
                 continue;
@@ -134,7 +134,7 @@ impl<'a> FSRBlock<'a> {
             }
 
             if states.peek() == &BlockState::Block {
-                while ASTParser::is_blank_char(c as u8) {
+                while ASTParser::is_blank_char_with_new_line(c as u8) {
                     start += 1;
                     c = source[start+length] as char;
                     continue;
