@@ -65,6 +65,9 @@ fn test_fn() {
 ```
 
 ```rust
+let mut vm = FSRVirtualMachine::new().unwrap();
+let mut thread = FSRThreadRuntime::new();
+let code = "
 class Abc {
     abc = 1
 
@@ -83,10 +86,51 @@ class Abc {
 
 b = Abc('abc')
 b.test()
+dump_obj(b)
+";
+
+vm.run_code(code.as_bytes(), &mut thread);
 ```
 
 ```
 abc
+FSRObject {
+    id: 1024,
+    obj_type: Object,
+    cls: None,
+    ref_count: 4,
+    value: ClassInst(
+        FSRClassInstance {
+            attrs: {
+                "abc": 1023,
+                "cccc": 1025,
+            },
+            cls: FSRClassBackEnd {
+                name: "Abc",
+                attrs: {
+                    "abc": Constant(
+                        FSRConstant {
+                            constant: Integer(
+                                1,
+                            ),
+                            len: 0,
+                            single_op: None,
+                            meta: FSRMeta {
+                                offset: 39,
+                            },
+                        },
+                    ),
+                },
+                cls_attrs: {
+                    "test": 1018,
+                    "bbc": 1019,
+                    "__new__": 1020,
+                },
+            },
+        },
+    ),
+    attrs: {},
+}
 ```
 
 ## Introduce

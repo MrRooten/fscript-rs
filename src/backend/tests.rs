@@ -120,6 +120,7 @@ println(c)
 
         b = Abc('abc')
         b.test()
+        dump_obj(b)
         ";
         
         vm.run_code(code.as_bytes(), &mut thread);
