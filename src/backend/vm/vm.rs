@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::atomic::{AtomicIsize, AtomicU64, Ordering}};
 
 use crate::{
     backend::{base_type::{base::{FSRBaseType, FSRObject, FSRObjectManager, FSRVMClsMgr}, utils::i_to_m}, std::io::register_io},
@@ -14,7 +14,7 @@ use super::thread::FSRThread;
 
 
 pub struct FSRVirtualMachine<'a> {
-    base_id     : u64,
+    base_id     : AtomicU64,
     var_mgr     : FSRObjectManager<'a>,
     register    : Option<FSRVMClsMgr>,
     global_var  : HashMap<&'a str, u64>,
@@ -80,7 +80,7 @@ impl<'a> FSRVirtualMachine<'a> {
         let mut s = Self {
             var_mgr: obj_mgr,
             register: None,
-            base_id: 1000,
+            base_id: AtomicU64::new(1000),
             global_var: Default::default(),
 
         };
@@ -92,8 +92,8 @@ impl<'a> FSRVirtualMachine<'a> {
     }
 
     pub fn new_id(&mut self) -> u64 {
-        self.base_id += 1;
-        return self.base_id;
+        self.base_id.fetch_add(1, Ordering::Relaxed);
+        return self.base_id.get_mut().clone();
     }
 
     pub fn init_context(&'a self, context: &'a mut FSRThreadRuntime<'a>) {

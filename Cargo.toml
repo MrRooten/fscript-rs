@@ -8,4 +8,7 @@ edition = "2021"
 [profile.release]
 opt-level = 0
 
+[profile.dev]
+opt-level = 0
+
 [dependencies]

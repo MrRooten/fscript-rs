@@ -138,8 +138,7 @@ println(c)
         f = c.t('this is t func')
         println(f)
         a = 1
-        while a < 3 {
-            println('abc')
+        while a < 300000 {
             a += 1
         }
         ";

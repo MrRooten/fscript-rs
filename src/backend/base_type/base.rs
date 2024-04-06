@@ -137,7 +137,7 @@ impl<'a> FSRObject<'a> {
             ref_count: 0,
             value: FSRValue::None,
             attrs: HashMap::new(),
-            id: i_to_m(vm).new_id(),
+            id: i_to_m(vm).new_id() as u64,
         };
         let id = obj.id;
         i_to_m(vm).register_obj(obj);
