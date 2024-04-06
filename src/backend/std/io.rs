@@ -12,7 +12,7 @@ fn io_print<'a>(
 ) -> Result<u64, FSRRuntimeError<'a>> {
     let s = rt.find_symbol("value", vm, None)?;
     let obj = vm.get_obj_by_id(&s).unwrap();
-    let str_object = obj.invoke_method("to_string", vm, rt)?;
+    let str_object = obj.invoke_method("__str__", vm, rt)?;
     let obj = vm.get_obj_by_id(&str_object).unwrap();
     if let FSRValue::String(s) = obj.get_value() {
         print!("{}", s.get_string());
@@ -26,7 +26,7 @@ fn io_println<'a>(
 ) -> Result<u64, FSRRuntimeError<'a>> {
     let s = rt.find_symbol("value", vm, None).unwrap();
     let obj = vm.get_obj_by_id(&s).unwrap();
-    let str_object = obj.invoke_method("to_string", vm, rt)?;
+    let str_object = obj.invoke_method("__str__", vm, rt)?;
     let obj = vm.get_obj_by_id(&str_object).unwrap();
     if let FSRValue::String(s) = obj.get_value() {
         println!("{}", s.get_string());

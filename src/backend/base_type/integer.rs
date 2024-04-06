@@ -49,6 +49,23 @@ impl FSRInteger {
         }
     }
 
+    fn register_not_equal_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
+        let s = rt.find_symbol("self", vm, None).unwrap();
+        let id = rt.find_symbol("other", vm, None).unwrap();
+        if s == id {
+            return Ok(vm.get_true_id());
+        }
+        let self_obj = vm.get_obj_by_id(&s).unwrap();
+        let obj = vm.get_obj_by_id(&id).unwrap();
+        let self_i = self_obj.get_integer().unwrap();
+        let i = obj.get_integer().unwrap();
+        if self_i.value != i.value {
+            return Ok(vm.get_true_id());
+        } else {
+            return Ok(vm.get_false_id());
+        }
+    }
+
     fn register_greater_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
         let s = rt.find_symbol("self", vm, None).unwrap();
         let id = rt.find_symbol("other", vm, None).unwrap();
@@ -209,23 +226,25 @@ impl IFSRObject for FSRInteger {
     fn get_class(vm: &FSRVirtualMachine) -> FSRBaseType {
         let mut cls = FSRBaseType::new("Integer");
         let fn_obj = FSRFn::from_func(FSRInteger::register_add_func, vm, vec!["self", "other"]);
-        cls.register_obj("add", fn_obj.get_id());
+        cls.register_obj("__add__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_sub_func, vm, vec!["self", "other"]);
-        cls.register_obj("sub", fn_obj.get_id());
+        cls.register_obj("__sub__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_mul_func, vm, vec!["self", "other"]);
-        cls.register_obj("mul", fn_obj.get_id());
+        cls.register_obj("__mul__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_equal_func, vm, vec!["self", "other"]);
-        cls.register_obj("eq", fn_obj.get_id());
+        cls.register_obj("__eq__", fn_obj.get_id());
+        let fn_obj = FSRFn::from_func(FSRInteger::register_not_equal_func, vm, vec!["self", "other"]);
+        cls.register_obj("__not_eq__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_to_string_func, vm, vec!["self"]);
-        cls.register_obj("to_string", fn_obj.get_id());
+        cls.register_obj("__str__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_greater_func, vm, vec!["self", "other"]);
-        cls.register_obj("greater", fn_obj.get_id());
+        cls.register_obj("__gt__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_greater_equal_func, vm, vec!["self", "other"]);
-        cls.register_obj("greater_equal", fn_obj.get_id());
+        cls.register_obj("__gte__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_less_func, vm, vec!["self", "other"]);
-        cls.register_obj("less", fn_obj.get_id());
+        cls.register_obj("__lt__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_less_equal_func, vm, vec!["self", "other"]);
-        cls.register_obj("less_equal", fn_obj.get_id());
+        cls.register_obj("__lte__", fn_obj.get_id());
         return cls;
     }
     

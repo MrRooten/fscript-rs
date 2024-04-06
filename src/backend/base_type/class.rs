@@ -106,7 +106,7 @@ impl IFSRObject for FSRClassBackEnd<'_> {
     fn get_class(vm: &FSRVirtualMachine) -> super::base::FSRBaseType {
         let mut cls = FSRBaseType::new("Class");
         let fn_obj = FSRFn::from_func(register_to_string_func, vm, vec!["self"]);
-        cls.register_obj("to_string", fn_obj.get_id());
+        cls.register_obj("__str__", fn_obj.get_id());
         return cls;
     }
 }

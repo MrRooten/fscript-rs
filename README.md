@@ -106,3 +106,50 @@ sdf
 asfs
 ```
 
+```rust
+let mut vm = FSRVirtualMachine::new().unwrap();
+let mut thread = FSRThreadRuntime::new();
+let code = "
+class Abc {
+    abc = 1
+
+    fn test(self) {
+        println('abc')
+    }
+
+    fn bbc(self) {
+        println(self)
+    }
+
+    fn __new__(self, cdf) {
+        self.cccc = cdf 
+    }
+
+    fn t(self, cdf) {
+        return cdf
+    }
+
+    fn __str__(self) {
+        return 'this is __str__'
+    }
+}
+
+b = 1 + 1
+println(b)
+
+c = Abc('')
+println(c)
+
+f = c.t('this is t func')
+println(f)
+";
+
+vm.run_code(code.as_bytes(), &mut thread);
+```
+
+```
+2
+this is __str__
+this is t func
+test backend::tests::backend_tests::test_class ... ok
+```

@@ -113,20 +113,27 @@ println(c)
                 println(self)
             }
 
-            fn __new__(self) {
-                self.cccc = 123 
+            fn __new__(self, cdf) {
+                self.cccc = cdf 
             }
 
             fn t(self, cdf) {
                 return cdf
             }
+
+            fn __str__(self) {
+                return 'this is __str__'
+            }
         }
 
-        b = Abc()
-        c = b.t('sdf')
+        b = 1 + 1
+        println(b)
+
+        c = Abc('')
         println(c)
-        d = b.t('asfd')
-        println(d)
+
+        f = c.t('this is t func')
+        println(f)
         ";
         
         vm.run_code(code.as_bytes(), &mut thread);

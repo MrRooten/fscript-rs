@@ -62,7 +62,7 @@ impl IFSRObject for FSRString {
         let fn_obj = FSRFn::from_func(FSRString::register_len_func, vm, vec!["self"]);
         cls.register_obj("len", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRString::register_to_string_func, vm, vec!["self"]);
-        cls.register_obj("to_string", fn_obj.get_id());
+        cls.register_obj("__str__", fn_obj.get_id());
         return cls;
     }
     

@@ -288,29 +288,29 @@ impl<'a> FSRThreadRuntime<'a> {
         i_to_m(self).assign_variable(FSRArg::String("other"), right.get_id(), vm)?;
         let mut v = 0;
         if op.eq("+") {
-            v = left.invoke_method("add", vm, i_to_m(self))?;
+            v = left.invoke_method("__add__", vm, i_to_m(self))?;
         } else if op.eq("-") {
-            v = left.invoke_method("sub", vm, i_to_m(self))?;
+            v = left.invoke_method("__sub__", vm, i_to_m(self))?;
         } else if op.eq("*") {
-            v = left.invoke_method("mul", vm, i_to_m(self))?;
+            v = left.invoke_method("__mul__", vm, i_to_m(self))?;
         } else if op.eq("/") {
-            v = left.invoke_method("div", vm, i_to_m(self))?;
+            v = left.invoke_method("__div__", vm, i_to_m(self))?;
         } else if op.eq("==") {
-            v = left.invoke_method("eq", vm, i_to_m(self))?;
+            v = left.invoke_method("__eq__", vm, i_to_m(self))?;
         } else if op.eq("!=") {
-            v = left.invoke_method("not_eq", vm, i_to_m(self))?;
+            v = left.invoke_method("__not_eq__", vm, i_to_m(self))?;
         } else if op.eq("<<") {
-            v = left.invoke_method("left_shift", vm, i_to_m(self))?;
+            v = left.invoke_method("__left_shift__", vm, i_to_m(self))?;
         } else if op.eq(">>") {
-            v = left.invoke_method("right_shift", vm, i_to_m(self))?;
+            v = left.invoke_method("__right_shift__", vm, i_to_m(self))?;
         } else if op.eq(">") {
-            v = left.invoke_method("greater", vm, i_to_m(self))?;
+            v = left.invoke_method("__gt__", vm, i_to_m(self))?;
         } else if op.eq("<") {
-            v = left.invoke_method("less", vm, i_to_m(self))?;
+            v = left.invoke_method("__lt__", vm, i_to_m(self))?;
         } else if op.eq(">=") {
-            v = left.invoke_method("greater_equal", vm, i_to_m(self))?;
+            v = left.invoke_method("__gte__", vm, i_to_m(self))?;
         } else if op.eq("<=") {
-            v = left.invoke_method("less_equal", vm, i_to_m(self))?;
+            v = left.invoke_method("__lte__", vm, i_to_m(self))?;
         }
 
         return Ok(v);
@@ -399,22 +399,26 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
             let args = fn_obj.get_args();
+            let mut new_args = vec![];
+            for a in args {
+                new_args.push(a.to_string())
+            }
             let target_args = c.get_args();
             let mut i = 0;
             let mut fn_args = vec![];
-            while i < args.len() {
-                let mut v = 0;
-                if i < target_args.len() {
-                    v = self.run_token(&target_args[i], vm, None).unwrap();
-                }
-
-                fn_args.push((&args[i], v));
-                i += 1;
-            }
 
             i_to_m(self).push_call_stack(c.get_name());
+            let mut start = true;
+            while i < target_args.len() {
+                let mut v = 0;
+                v = self.run_token(&target_args[i], vm, None).unwrap();
+                fn_args.push((&new_args[i+1], v));
+                i += 1;
+
+            }
+
             for a in fn_args {
-                i_to_m(self).assign_variable(FSRArg::String(a.0), a.1, vm)?;
+                i_to_m(self).assign_variable(FSRArg::String(&a.0), a.1, vm);
             }
 
             let cls_obj_id = self.new_object(cls, vm)?;

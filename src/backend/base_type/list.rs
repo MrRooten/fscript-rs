@@ -40,7 +40,7 @@ impl FSRList {
         if let FSRValue::List(l) = self_obj.get_value() {
             for id in &l.value {
                 let obj = vm.get_obj_by_id(&id).unwrap();
-                let str_object = obj.invoke_method("to_string", vm, rt)?;
+                let str_object = obj.invoke_method("__str__", vm, rt)?;
                 let obj = vm.get_obj_by_id(&str_object).unwrap();
                 if let FSRValue::String(_s) = obj.get_value() {
                     s.push_str(_s.get_string());
@@ -84,7 +84,7 @@ impl IFSRObject for FSRList {
     fn get_class(vm: &FSRVirtualMachine) -> FSRBaseType {
         let mut cls = FSRBaseType::new("List");
         let fn_obj = FSRFn::from_func(FSRList::register_to_string_func, vm, vec!["self", "other"]);
-        cls.register_obj("to_string", fn_obj.get_id());
+        cls.register_obj("__str__", fn_obj.get_id());
 
         let fn_obj = FSRFn::from_func(FSRList::register_to_index_func, vm, vec!["self", "index"]);
         cls.register_obj("index", fn_obj.get_id());
