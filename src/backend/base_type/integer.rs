@@ -1,6 +1,6 @@
 use crate::{backend::{base_type::base::FSRValue, vm::{runtime::FSRThreadRuntime, vm::FSRVirtualMachine}}, utils::error::FSRRuntimeError};
 
-use super::{base::{FSRClass, FSRObject, IFSRObject}, function::FSRFn, string::FSRString};
+use super::{base::{FSRBaseType, FSRObject, IFSRObject}, function::FSRFn, string::FSRString};
 
 
 pub struct FSRIntegerAttrs {
@@ -206,8 +206,8 @@ impl IFSRObject for FSRInteger {
         "Integer"
     }
     
-    fn get_class(vm: &FSRVirtualMachine) -> FSRClass {
-        let mut cls = FSRClass::new("Integer");
+    fn get_class(vm: &FSRVirtualMachine) -> FSRBaseType {
+        let mut cls = FSRBaseType::new("Integer");
         let fn_obj = FSRFn::from_func(FSRInteger::register_add_func, vm, vec!["self", "other"]);
         cls.register_obj("add", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_sub_func, vm, vec!["self", "other"]);

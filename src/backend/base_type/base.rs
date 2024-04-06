@@ -1,4 +1,5 @@
 use crate::backend::base_type::bool::FSRBool;
+use crate::frontend::ast::token::class::FSRClassFrontEnd;
 use std::collections::HashMap;
 use std::fmt::Error;
 
@@ -44,17 +45,17 @@ pub enum FSRValue<'a> {
 impl FSRValue<'_> {}
 
 #[derive(Debug)]
-pub struct FSRClass {
+pub struct FSRBaseType {
     name: String,
     attrs: HashMap<String, u64>,
 }
 
-impl FSRClass {
-    pub fn new<S>(name: S) -> FSRClass
+impl FSRBaseType {
+    pub fn new<S>(name: S) -> FSRBaseType
     where
         S: ToString,
     {
-        FSRClass {
+        FSRBaseType {
             name: name.to_string(),
             attrs: HashMap::new(),
         }
@@ -79,7 +80,7 @@ impl FSRClass {
 pub struct FSRObject<'a> {
     id: u64,
     obj_type: FSRObjectType,
-    cls: Option<&'a FSRClass>,
+    cls: Option<&'a FSRBaseType>,
     ref_count: u64,
     value: FSRValue<'a>,
     attrs: HashMap<&'a str, u64>,
@@ -90,7 +91,7 @@ impl<'a> FSRObject<'a> {
         return self.id;
     }
 
-    pub fn set_cls(&mut self, cls: &'a FSRClass) {
+    pub fn set_cls(&mut self, cls: &'a FSRBaseType) {
         self.cls = Some(cls);
     }
 
@@ -176,7 +177,12 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn get_attr(&self, name: &str, vm: &'a FSRVirtualMachine<'a>) -> Option<&u64> {
-
+        if let FSRValue::ClassInst(inst) = self.get_value() {
+            let v = inst.get_attr_option(name);
+            if let Some(v) = v {
+                return Some(v);
+            }
+        }
 
         if let Some(s) = self.attrs.get(name) {
             return Some(s);
@@ -194,6 +200,16 @@ impl<'a> FSRObject<'a> {
         };
 
         return fn_id;
+    }
+
+    pub fn has_attr(&self, name: &str) -> bool {
+        if let FSRValue::ClassInst(inst) = self.get_value() {
+            if inst.get_attr_option(name).is_none() {
+                return false;
+            }
+        }
+
+        return self.attrs.get(name).is_some();
     }
 
     pub fn invoke_method(
@@ -219,22 +235,24 @@ impl<'a> FSRObject<'a> {
             };
     
             if let FSRValue::Function(f) = &fn_obj.value {
+                
                 i_to_m(rt).assign_variable(FSRArg::String("self"), self.get_id(), vm)?;
                 let v = f.invoke(vm, i_to_m(rt)).unwrap();
+                
                 return Ok(v);
             }
     
-            let err = FSRRuntimeError::new(
-                rt.get_call_stack(),
-                FSRRuntimeType::TypeNotMatch,
-                format!(
-                    "{}::{} is not method or function",
-                    self.get_cls_name(),
-                    fn_name
-                ),
-                rt.get_cur_meta(),
-            );
-            return Err(err);
+            // let err = FSRRuntimeError::new(
+            //     rt.get_call_stack(),
+            //     FSRRuntimeType::TypeNotMatch,
+            //     format!(
+            //         "{}::{} is not method or function",
+            //         self.get_cls_name(),
+            //         fn_name
+            //     ),
+            //     rt.get_cur_meta(),
+            // );
+            // return Err(err);
         }
 
 
@@ -382,8 +400,8 @@ impl IFSRObject for FSRObject<'_> {
         "Object"
     }
 
-    fn get_class(_: &FSRVirtualMachine) -> FSRClass {
-        let cls = FSRClass::new("Object");
+    fn get_class(_: &FSRVirtualMachine) -> FSRBaseType {
+        let cls = FSRBaseType::new("Object");
         return cls;
     }
 
@@ -447,7 +465,7 @@ impl<'a> FSRObjectManager<'a> {
 
 #[derive(Debug)]
 pub struct FSRVMClsMgr {
-    cls_map: HashMap<String, FSRClass>,
+    cls_map: HashMap<String, FSRBaseType>,
 }
 
 impl FSRVMClsMgr {
@@ -480,10 +498,14 @@ impl FSRVMClsMgr {
             FSRList::get_class_name().to_string(),
             FSRList::get_class(vm),
         );
+        // mgr.cls_map.insert(
+        //     FSRClassBackEnd::get_class_name().to_string(),
+        //     FSRClassBackEnd::get_class(vm)
+        // );
         return mgr;
     }
 
-    pub fn get_cls(&self, name: &str) -> Option<&FSRClass> {
+    pub fn get_cls(&self, name: &str) -> Option<&FSRBaseType> {
         return self.cls_map.get(name);
     }
 }
@@ -493,5 +515,5 @@ pub trait IFSRObject {
 
     fn get_class_name() -> &'static str;
 
-    fn get_class(vm: &FSRVirtualMachine) -> FSRClass;
+    fn get_class(vm: &FSRVirtualMachine) -> FSRBaseType;
 }

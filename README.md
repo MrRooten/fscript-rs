@@ -82,19 +82,27 @@ class Abc {
         println(self)
     }
 
-    fn __new__(self, test) {
+    fn __new__(self) {
         self.cccc = 123 
+    }
+
+    fn t(self, cdf) {
+        return cdf
     }
 }
 
-b = Abc('abc')
-b.test()
+b = Abc()
+c = b.t('sdf')
+println(c)
+d = b.t('asfd')
+println(d)
 ";
 
 vm.run_code(code.as_bytes(), &mut thread);
 ```
 
 ```
-abc
+sdf
+asfs
 ```
 

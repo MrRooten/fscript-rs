@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    backend::{base_type::{base::{FSRClass, FSRObject, FSRObjectManager, FSRVMClsMgr}, utils::i_to_m}, std::io::register_io},
+    backend::{base_type::{base::{FSRBaseType, FSRObject, FSRObjectManager, FSRVMClsMgr}, utils::i_to_m}, std::io::register_io},
     utils::error::FSRRuntimeError,
 };
 use crate::backend::base_type::bool::FSRBool;
@@ -22,7 +22,7 @@ pub struct FSRVirtualMachine<'a> {
 }
 
 impl<'a> FSRVirtualMachine<'a> {
-    pub fn get_cls(&self, name: &str) -> Option<&FSRClass> {
+    pub fn get_cls(&self, name: &str) -> Option<&FSRBaseType> {
         if let Some(s) = &self.register {
             return s.get_cls(name);
         }

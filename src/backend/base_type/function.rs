@@ -76,7 +76,7 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    pub fn get_args(&self) -> &Vec<&str> {
+    pub fn get_args(&self) -> &Vec<&'a str> {
         return &self.args;
     }
 }

@@ -61,6 +61,8 @@ impl<'a> FSRModule<'a> {
         };
         return module;
     }
+
+
 }
 
 impl IFSRObject for FSRModule<'_> {
@@ -72,7 +74,7 @@ impl IFSRObject for FSRModule<'_> {
         todo!()
     }
 
-    fn get_class(vm: &crate::backend::vm::vm::FSRVirtualMachine) -> super::base::FSRClass {
+    fn get_class(vm: &crate::backend::vm::vm::FSRVirtualMachine) -> super::base::FSRBaseType {
         todo!()
     }
 }

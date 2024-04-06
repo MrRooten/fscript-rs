@@ -219,7 +219,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     }
                 };
 
-                return Ok(v);
+                return Ok(v.clone());
             }
 
             let err = FSRRuntimeError::new(
@@ -774,8 +774,38 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 let l_obj = vm.get_obj_by_id(&l_value).unwrap();
                 let name = call.get_name();
-                let args = FSRArgs::new();
+                
+                let fn_id = l_obj.get_attr(name, vm).unwrap();
+                let fn_obj = vm.get_obj_by_id(fn_id).unwrap();
+                if fn_obj.is_function() == false {
+                    unimplemented!()
+                }
+
+                let fn_obj_1 = fn_obj.get_function().unwrap();
+                i_to_m(self).push_call_stack(name);
+                i_to_m(self).assign_variable(FSRArg::String("self"), l_obj.get_id(), vm);
+                let args = fn_obj_1.get_args();
+                let mut new_args = vec![];
+                for a in args {
+                    new_args.push(a.to_string());
+                }
+                let target_args = call.get_args();
+                let mut i = 0;
+                let mut fn_args = vec![];
+                
+                while i < target_args.len() {
+                    let mut v = 0;
+                    v = self.run_token(&target_args[i], vm, None).unwrap();
+                    fn_args.push((&new_args[i+1], v));
+                    i += 1;
+                }
+                
+                for a in fn_args {
+                    i_to_m(self).assign_variable(FSRArg::String(&a.0), a.1, vm);
+                }
+                
                 let ret = l_obj.invoke_method(name, vm, i_to_m(self))?;
+                i_to_m(self).pop_call_stack();
                 return Ok(ret);
             }
 
@@ -936,13 +966,13 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<u64, FSRRuntimeError> {
         let mut l_value: Option<u64> = None;
         if let FSRToken::Expr(l) = &*token {
-            l_value = Some(self.run_expr(l, vm)?);
+            l_value = Some(self.run_expr(l, vm).unwrap());
         } else if let FSRToken::Constant(c) = &*token {
-            l_value = Some(i_to_m(self).register_constant(c, vm)?);
+            l_value = Some(i_to_m(self).register_constant(c, vm).unwrap());
         } else if let FSRToken::Call(c) = &*token {
-            l_value = Some(i_to_m(self).call_func(c, vm)?);
+            l_value = Some(i_to_m(self).call_func(c, vm).unwrap());
         } else if let FSRToken::Variable(v) = &*token {
-            l_value = Some(self.find_symbol(v.get_name(), vm, stack_id)?);
+            l_value = Some(self.find_symbol(v.get_name(), vm, stack_id).unwrap());
         } else if let FSRToken::Assign(a) = &*token {
             self.run_assign(a, vm);
         } else if let FSRToken::IfExp(if_def) = &*token {

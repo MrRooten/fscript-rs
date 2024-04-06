@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRClass, FSRObject, IFSRObject},
+    base::{FSRBaseType, FSRObject, IFSRObject},
     function::FSRFn,
     string::FSRString,
 };
@@ -81,8 +81,8 @@ impl IFSRObject for FSRList {
         "List"
     }
 
-    fn get_class(vm: &FSRVirtualMachine) -> FSRClass {
-        let mut cls = FSRClass::new("List");
+    fn get_class(vm: &FSRVirtualMachine) -> FSRBaseType {
+        let mut cls = FSRBaseType::new("List");
         let fn_obj = FSRFn::from_func(FSRList::register_to_string_func, vm, vec!["self", "other"]);
         cls.register_obj("to_string", fn_obj.get_id());
 

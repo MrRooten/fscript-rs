@@ -9,7 +9,7 @@ use crate::{
     utils::error::{FSRRuntimeError, FSRRuntimeType},
 };
 
-use super::{base::FSRObject, class::FSRClassBackEnd};
+use super::{base::{FSRBaseType, FSRObject, IFSRObject}, class::FSRClassBackEnd, function::FSRFn};
 
 #[derive(Debug)]
 pub struct FSRClassInstance<'a> {
@@ -56,13 +56,13 @@ impl<'a> FSRClassInstance<'a> {
     pub fn get_attr_option(
         &self,
         name: &str,
-    ) -> Option<u64> {
+    ) -> Option<&u64> {
         if let Some(s) = self.attrs.get(name) {
-            return Some(s.clone());
+            return Some(s);
         }
 
         if let Some(s) = self.cls.get_cls_attr(name) {
-            return Some(s.clone());
+            return Some(s);
         }
 
         return None;
@@ -92,3 +92,35 @@ impl<'a> FSRClassInstance<'a> {
         return obj.is_function();
     }
 }
+
+fn register_has_attr_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
+    let s = rt.find_symbol("self", vm, None).unwrap();
+    let self_obj = vm.get_obj_by_id(&s).unwrap();
+
+    let s = rt.find_symbol("attr", vm, None).unwrap();
+    let attr_obj = vm.get_obj_by_id(&s).unwrap().get_string().unwrap();
+    let s = attr_obj.get_string();
+    if self_obj.has_attr(s) {
+        return Ok(vm.get_true_id());
+    } else {
+        return Ok(vm.get_false_id());
+    }
+    
+}
+
+// impl IFSRObject for FSRClassInstance<'_> {
+//     fn init(&mut self) {
+//         todo!()
+//     }
+
+//     fn get_class_name() -> &'static str {
+//         "ClassInst"
+//     }
+
+//     fn get_class(vm: &FSRVirtualMachine) -> super::base::FSRBaseType {
+//         let mut cls = FSRBaseType::new("ClassInst");
+//         let fn_obj = FSRFn::from_func(register_has_attr_func, vm, vec!["self", "attr"]);
+//         cls.register_obj("has_attr", fn_obj.get_id());
+//         return cls;
+//     }
+// }

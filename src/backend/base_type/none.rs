@@ -1,4 +1,4 @@
-use crate::backend::base_type::base::{FSRClass, FSRObject, FSRValue, IFSRObject};
+use crate::backend::base_type::base::{FSRBaseType, FSRObject, FSRValue, IFSRObject};
 use crate::backend::vm::vm::FSRVirtualMachine;
 
 #[derive(Debug)]
@@ -21,8 +21,8 @@ impl IFSRObject for FSRNone {
         "none"
     }
 
-    fn get_class(_: &FSRVirtualMachine) -> FSRClass {
-        let cls = FSRClass::new("none");
+    fn get_class(_: &FSRVirtualMachine) -> FSRBaseType {
+        let cls = FSRBaseType::new("none");
         return cls;
     }
     
