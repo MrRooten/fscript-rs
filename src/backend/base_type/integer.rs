@@ -1,6 +1,6 @@
 use crate::{backend::{base_type::base::FSRValue, vm::{runtime::FSRThreadRuntime, vm::FSRVirtualMachine}}, utils::error::FSRRuntimeError};
 
-use super::{base::{FSRBaseType, FSRObject, IFSRObject}, function::FSRFn, string::FSRString};
+use super::{base::{FSRBaseType, FSRObject, IFSRObject}, function::FSRFn, string::FSRString, utils::i_to_m};
 
 
 pub struct FSRIntegerAttrs {
@@ -30,6 +30,17 @@ impl FSRInteger {
         let result = self_i.add(i);
         let obj = FSRInteger::from_integer(result, vm);
         return Ok(obj.get_id());
+    }
+
+    fn register_self_add_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
+        let s = rt.find_symbol("self", vm, None).unwrap();
+        let id = rt.find_symbol("other", vm, None).unwrap();
+        let self_obj = i_to_m(vm).get_mut_obj_by_id(&s).unwrap();
+        let obj = vm.get_obj_by_id(&id).unwrap();
+        let self_i = self_obj.get_mut_integer().unwrap();
+        let i = obj.get_integer().unwrap();
+        self_i.value += i.value;
+        return Ok(vm.get_none_id());
     }
 
     fn register_equal_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
@@ -151,6 +162,7 @@ impl FSRInteger {
         return Ok(obj.get_id());
     }
 
+
     fn register_to_string_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
         let s = rt.find_symbol("self", vm, None).unwrap();
         let self_obj = vm.get_obj_by_id(&s).unwrap();
@@ -245,6 +257,8 @@ impl IFSRObject for FSRInteger {
         cls.register_obj("__lt__", fn_obj.get_id());
         let fn_obj = FSRFn::from_func(FSRInteger::register_less_equal_func, vm, vec!["self", "other"]);
         cls.register_obj("__lte__", fn_obj.get_id());
+        let fn_obj = FSRFn::from_func(FSRInteger::register_self_add_func, vm, vec!["self", "other"]);
+        cls.register_obj("__self_add__", fn_obj.get_id());
         return cls;
     }
     

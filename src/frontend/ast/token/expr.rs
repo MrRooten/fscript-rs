@@ -166,7 +166,7 @@ impl<'a> Node<'a> {
             return 3;
         }
 
-        if op.eq(">") || op.eq("<") || op.eq("==") {
+        if op.eq(">") || op.eq("<") || op.ends_with("=") {
             return 0;
         }
 

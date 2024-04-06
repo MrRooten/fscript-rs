@@ -19,8 +19,13 @@ mod frontend_tests {
         let meta = FSRMeta::new();
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
 
-        println!("{:#?}", expr)
+        println!("{:#?}", expr);
 
+        let s = "b += 3";
+        let meta = FSRMeta::new();
+        let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
+
+        println!("{:#?}", expr);
 
     }
 

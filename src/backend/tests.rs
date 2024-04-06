@@ -26,7 +26,10 @@ mod backend_tests {
         let mut context = FSRThreadRuntime::new();
         let code = "
         a = 1
-        print(a)
+        println(a)
+
+        a += 3
+        println(a)
         ";
         
         vm.run_code(code.as_bytes(), &mut context);
@@ -98,7 +101,7 @@ println(c)
     }
 
     #[test]
-    fn test_class() {
+    fn test_class_1() {
         let mut vm = FSRVirtualMachine::new().unwrap();
         let mut thread = FSRThreadRuntime::new();
         let code = "
@@ -134,6 +137,11 @@ println(c)
 
         f = c.t('this is t func')
         println(f)
+        a = 1
+        while a < 3 {
+            println('abc')
+            a += 1
+        }
         ";
         
         vm.run_code(code.as_bytes(), &mut thread);

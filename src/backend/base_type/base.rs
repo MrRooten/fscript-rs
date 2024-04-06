@@ -300,7 +300,6 @@ impl<'a> FSRObject<'a> {
             let v = f.invoke(vm, i_to_m(rt)).unwrap();
             return Ok(v);
         }
-
         let err = FSRRuntimeError::new(
             rt.get_call_stack(),
             FSRRuntimeType::TypeNotMatch,
@@ -336,6 +335,14 @@ impl<'a> FSRObject<'a> {
 
     pub fn get_integer(&self) -> Result<&FSRInteger, Error> {
         if let FSRValue::Integer(i) = &self.value {
+            return Ok(i);
+        }
+
+        unimplemented!()
+    }
+
+    pub fn get_mut_integer(&mut self) -> Result<&mut FSRInteger, Error> {
+        if let FSRValue::Integer(i) = &mut self.value {
             return Ok(i);
         }
 

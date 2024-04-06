@@ -311,6 +311,8 @@ impl<'a> FSRThreadRuntime<'a> {
             v = left.invoke_method("__gte__", vm, i_to_m(self))?;
         } else if op.eq("<=") {
             v = left.invoke_method("__lte__", vm, i_to_m(self))?;
+        } else if op.eq("+=") {
+            v = left.invoke_method("__self_add__", vm, i_to_m(self))?;
         }
 
         return Ok(v);
