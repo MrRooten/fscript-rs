@@ -1,4 +1,3 @@
-use crate::backend::base_type::utils::i_to_m;
 use std::collections::HashMap;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -24,8 +23,12 @@ struct Node {
 }
 
 impl Node {
-    pub fn get_node(&mut self, c: &char) -> Option<&Box<Node>> {
-        return self.subs.get(c);
+    pub fn get_node(&mut self, c: &char) -> Option<&mut Box<Node>> {
+        return self.subs.get_mut(c);
+    }
+
+    pub fn get_subs(&mut self) -> &mut HashMap<char, Box<Node>> {
+        return &mut self.subs;
     }
 }
 
@@ -62,15 +65,15 @@ impl FSTrie {
     }
 
     pub fn match_token(&mut self, token: &[u8]) -> Option<&NodeType> {
-        let mut cur = &self.root;
+        let mut cur = &mut self.root;
         for c in token {
             let c = c.clone();
             if (c as char).is_ascii_alphabetic() == false {
                 break;
             }
-            let node = i_to_m(cur).get_node(&(c as char));
+            let node = cur.get_node(&(c as char));
             let s = match node {
-                Some(s) => i_to_m(s),
+                Some(s) => s,
                 None => {
                     return None;
                 }
@@ -86,11 +89,13 @@ impl FSTrie {
     }
 
     pub fn insert(&mut self, value: &str, n_type: NodeType) {
-        let mut cur = &self.root;
+        let mut cur = Some(&mut self.root);
         for c in value.chars() {
-            let node = i_to_m(cur).get_node(&c);
-            let s = match node {
-                Some(s) => i_to_m(s),
+            // let node = cur.get_node(&c);
+            let subs = cur.unwrap().get_subs();
+            let node = subs.get(&c);
+            match node {
+                Some(s) => {},
                 None => {
                     self.self_inc += 1;
                     let new_node = Node {
@@ -100,14 +105,20 @@ impl FSTrie {
                         subs: Default::default(),
                     };
                     let node = Box::new(new_node);
-                    i_to_m(cur).subs.insert(c, node);
-                    i_to_m(cur).subs.get_mut(&c).unwrap()
+                    subs.insert(c, node);
+                    //subs.get_mut(&c).unwrap()
                 }
             };
-
+            let s = subs.get_mut(&c);
             cur = s;
 
         }
-        i_to_m(cur).end_type = n_type.clone();
+
+        match cur {
+            Some(s) => s.end_type = n_type.clone(),
+            None => {
+
+            }
+        }
     }
 }

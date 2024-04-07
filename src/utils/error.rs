@@ -2,7 +2,6 @@
 use std::error::Error;
 use std::fmt::Display;
 
-use crate::backend::vm::runtime::VMCallState;
 use crate::frontend::ast::token::base::FSRMeta;
 
 #[derive(Debug)]
@@ -65,49 +64,3 @@ impl Error for SyntaxError {
 }
 
 pub struct RuntimeBaseError {}
-
-#[derive(Debug, PartialEq)]
-pub enum FSRRuntimeType {
-    NotFoundSymbolInScope,
-    TokenNotMatch,
-    NoSuchMethod,
-    OperatorError,
-    NotFoundObject,
-    NotValidAttr,
-    TypeNotMatch
-}
-
-#[derive(Debug)]
-pub struct FSRRuntimeError<'a> {
-    msg: String,
-    e_type: FSRRuntimeType,
-    stack: &'a Vec<VMCallState<'a>>,
-    meta: FSRMeta
-}
-
-impl Display for FSRRuntimeError<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        unimplemented!()
-    }
-}
-
-impl Error for FSRRuntimeError<'_> {}
-
-impl<'a> FSRRuntimeError<'a> {
-    pub fn new<S>(
-        stack: &'a Vec<VMCallState<'a>>,
-        err: FSRRuntimeType,
-        msg: S,
-        meta: &FSRMeta
-    ) -> FSRRuntimeError<'a>
-    where
-        S: ToString,
-    {
-        Self {
-            msg: msg.to_string(),
-            e_type: err,
-            stack,
-            meta: meta.clone()
-        }
-    }
-}

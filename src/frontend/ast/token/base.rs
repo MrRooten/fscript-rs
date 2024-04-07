@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-use crate::backend::base_type::function::FSRFn;
 use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::frontend::ast::token::slice::FSRSlice;
