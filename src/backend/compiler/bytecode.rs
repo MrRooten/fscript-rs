@@ -12,7 +12,8 @@ pub enum BytecodeOperator {
     BinaryAdd,
     BinaryMul,
     ReturnValue,
-    Call
+    Call,
+    BinaryDot,
 }
 
 #[derive(Debug)]
@@ -45,6 +46,11 @@ impl BytecodeOperator {
                 operator: BytecodeOperator::BinaryMul,
                 arg: ArgType::BinaryOperator
             }
+        } else if op.eq(".") {
+            return BytecodeArg {
+                operator: BytecodeOperator::BinaryDot,
+                arg: ArgType::BinaryOperator
+            }
         }
         unimplemented!()
     }
@@ -55,7 +61,8 @@ impl BytecodeOperator {
 pub struct VarMap<'a> {
     var_map     : HashMap<&'a str, u64>,
     var_id      : AtomicU64,
-    attr_map    : HashMap<&'a str, u64>
+    attr_map    : HashMap<&'a str, u64>,
+    attr_id     : AtomicU64,
 }
 
 impl<'a> VarMap<'a> {
@@ -72,11 +79,26 @@ impl<'a> VarMap<'a> {
         self.var_map.insert(var, v);
     }
 
+
+    pub fn insert_attr(&mut self, attr: &'a str) {
+        let v = self.attr_id.fetch_add(1, Ordering::Relaxed);
+        self.var_map.insert(attr, v);
+    }
+
+    pub fn has_attr(&self, attr: &str) -> bool {
+        return self.attr_map.get(attr).is_some();
+    }
+
+    pub fn get_attr(&self, attr: &str) -> Option<&u64> {
+        return self.attr_map.get(attr);
+    }
+
     pub fn new() -> Self {
         Self {
             var_map: HashMap::new(),
             var_id: AtomicU64::new(100),
             attr_map: HashMap::new(),
+            attr_id: AtomicU64::new(100),
         }
     }
 }
@@ -86,7 +108,7 @@ pub struct Bytecode {
 }
 
 impl<'a> Bytecode {
-    fn load_call(call: &'a FSRCall<'a>, var_map: &'a mut VarMap<'a>) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
+    fn load_call(call: &'a FSRCall<'a>, var_map: &'a mut VarMap<'a>, is_attr: bool) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
         unimplemented!()
     }
 
