@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, LinkedList}, sync::atomic::{AtomicU64, Ordering}};
 
-use crate::frontend::ast::token::{base::FSRToken, expr::FSRExpr, variable::FSRVariable};
+use crate::frontend::ast::token::{base::FSRToken, call::FSRCall, expr::FSRExpr, variable::FSRVariable};
 
 #[derive(Debug)]
 pub enum BytecodeOperator {
@@ -75,7 +75,7 @@ impl<'a> VarMap<'a> {
     pub fn new() -> Self {
         Self {
             var_map: HashMap::new(),
-            var_id: AtomicU64::new(0),
+            var_id: AtomicU64::new(100),
             attr_map: HashMap::new(),
         }
     }
@@ -86,6 +86,10 @@ pub struct Bytecode {
 }
 
 impl<'a> Bytecode {
+    fn load_call(call: &'a FSRCall<'a>, var_map: &'a mut VarMap<'a>) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
+        unimplemented!()
+    }
+
     fn load_variable(var: &'a FSRVariable<'a>, var_map: &'a mut VarMap<'a>) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
         if var_map.has_var(&var.get_name()) == false {
             let v = var.get_name();
