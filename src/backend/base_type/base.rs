@@ -218,99 +218,7 @@ impl<'a> FSRObject<'a> {
         vm: &'a FSRVirtualMachine<'a>,
         rt: &'a FSRThreadRuntime<'a>,
     ) -> Result<u64, FSRRuntimeError> {
-        if let FSRValue::ClassInst(inst) = &self.value {
-            let v = inst.get_attr(fn_name, rt, rt.get_cur_meta().clone())?;
-    
-            let fn_obj = match vm.get_obj_by_id(&v) {
-                Some(s) => s,
-                None => {
-                    let err = FSRRuntimeError::new(
-                        rt.get_call_stack(),
-                        FSRRuntimeType::NotFoundObject,
-                        format!("Not found object id, {:?}", v),
-                        rt.get_cur_meta(),
-                    );
-                    return Err(err);
-                }
-            };
-    
-            if let FSRValue::Function(f) = &fn_obj.value {
-                
-                i_to_m(rt).assign_variable(FSRArg::String("self"), self.get_id(), vm)?;
-                let v = f.invoke(vm, i_to_m(rt)).unwrap();
-                
-                return Ok(v);
-            }
-    
-            // let err = FSRRuntimeError::new(
-            //     rt.get_call_stack(),
-            //     FSRRuntimeType::TypeNotMatch,
-            //     format!(
-            //         "{}::{} is not method or function",
-            //         self.get_cls_name(),
-            //         fn_name
-            //     ),
-            //     rt.get_cur_meta(),
-            // );
-            // return Err(err);
-        }
-
-
-        let fn_id = match self.cls {
-            Some(s) => {
-                let cls = vm.get_cls(s.get_name()).unwrap();
-                cls.get_id_by_name(fn_name)
-            }
-            None => {
-                let cls = vm.get_cls("none").unwrap();
-                cls.get_id_by_name(fn_name)
-            }
-        };
-
-        
-
-        let fn_obj = match fn_id {
-            Some(s) => vm.get_obj_by_id(&s),
-            None => {
-                let err = FSRRuntimeError::new(
-                    rt.get_call_stack(),
-                    FSRRuntimeType::NotFoundObject,
-                    format!("Not found object id, {:?}", fn_id),
-                    rt.get_cur_meta(),
-                );
-                return Err(err);
-            }
-        };
-
-        let fn_obj = match fn_obj {
-            Some(s) => s,
-            None => {
-                let err = FSRRuntimeError::new(
-                    rt.get_call_stack(),
-                    FSRRuntimeType::NotFoundObject,
-                    format!("Not found object id, {:?}", fn_id),
-                    rt.get_cur_meta(),
-                );
-                return Err(err);
-            }
-        };
-
-        if let FSRValue::Function(f) = &fn_obj.value {
-            i_to_m(rt).assign_variable(FSRArg::String("self"), self.get_id(), vm)?;
-            let v = f.invoke(vm, i_to_m(rt)).unwrap();
-            return Ok(v);
-        }
-        let err = FSRRuntimeError::new(
-            rt.get_call_stack(),
-            FSRRuntimeType::TypeNotMatch,
-            format!(
-                "{}::{} is not method or function",
-                self.get_cls_name(),
-                fn_name
-            ),
-            rt.get_cur_meta(),
-        );
-        return Err(err);
+        unimplemented!()
     }
 
     pub fn set_attr(&mut self, name: &'a str, value: u64) {
@@ -379,26 +287,7 @@ impl<'a> FSRObject<'a> {
         vm: &'a FSRVirtualMachine<'a>,
         rt: &'a FSRThreadRuntime<'a>,
     ) -> Result<u64, FSRRuntimeError> {
-        let cls = self.cls.unwrap();
-        let id = match cls.get_id_by_name(name) {
-            Some(s) => s,
-            None => {
-                let err = FSRRuntimeError::new(
-                    rt.get_call_stack(),
-                    FSRRuntimeType::NotFoundObject,
-                    format!(
-                        "not found symbol in module {}::{}",
-                        self.get_cls_name(),
-                        name
-                    ),
-                    rt.get_cur_meta(),
-                );
-                return Err(err);
-            }
-        };
-
-
-        return Ok(id.clone());
+        unimplemented!()
     }
 }
 

@@ -12,17 +12,11 @@ pub struct FSRString {
 
 impl FSRString {
     fn register_len_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let _str = self_obj.get_string().unwrap();
-        let len = FSRInteger::from_i64(_str.value.len() as i64, i_to_m(vm));
-        return Ok(len.get_id());
+        unimplemented!()
     }
 
     fn register_to_string_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        return Ok(s.clone());
+        unimplemented!()
     }
 
     pub fn from<'a, T>(s: T, vm: &'a FSRVirtualMachine<'a>) -> &FSRObject<'a>

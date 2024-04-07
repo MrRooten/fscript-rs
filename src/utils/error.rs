@@ -87,21 +87,7 @@ pub struct FSRRuntimeError<'a> {
 
 impl Display for FSRRuntimeError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = vec![];
-        for i in self.stack {
-            s.push(i.get_string());
-        }
-        let s = s[0..].join("-");
-        let exp = match self.e_type {
-            FSRRuntimeType::NotFoundSymbolInScope => "Not Found Symbol In Scope",
-            FSRRuntimeType::TokenNotMatch => "Token Not Match",
-            FSRRuntimeType::NoSuchMethod => "No Such Method",
-            FSRRuntimeType::OperatorError => "Operator Error",
-            FSRRuntimeType::NotFoundObject => "Not Found Object",
-            FSRRuntimeType::NotValidAttr => "Not a valid attr",
-            FSRRuntimeType::TypeNotMatch => "Type not match",
-        };
-        writeln!(f, "{}: {}", s, exp)
+        unimplemented!()
     }
 }
 

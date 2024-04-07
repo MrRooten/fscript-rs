@@ -10,7 +10,6 @@ use crate::backend::base_type::bool::FSRBool;
 use crate::backend::base_type::none::FSRNone;
 use crate::backend::vm::runtime::FSRThreadRuntime;
 
-use super::thread::FSRThread;
 
 
 pub struct FSRVirtualMachine<'a> {
@@ -97,20 +96,10 @@ impl<'a> FSRVirtualMachine<'a> {
     }
 
     pub fn init_context(&'a self, context: &'a mut FSRThreadRuntime<'a>) {
-        context.init(&self.global_var, self);
+        //context.init(&self.global_var, self);
     }
 
     pub fn register_obj(&mut self, obj: FSRObject<'a>) {
         self.var_mgr.register_obj(obj.get_id(), obj);
-    }
-
-    pub fn run_code(&mut self, code: &[u8], context: &FSRThreadRuntime) {
-        i_to_m(context).run_code(code, self);
-
-    }
-
-    pub fn get_obj_by_name(&self, name: &'a str, context: &'a FSRThreadRuntime<'a>) -> Option<u64> {
-        let obj = context.get_obj_by_name(name, self).unwrap();
-        return Some(obj.get_id());
     }
 }

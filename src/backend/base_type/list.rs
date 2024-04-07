@@ -33,44 +33,15 @@ impl FSRList {
         vm: &'a FSRVirtualMachine<'a>,
         rt: &'a mut FSRThreadRuntime<'a>,
     ) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let mut s = String::new();
-        s.push('[');
-        if let FSRValue::List(l) = self_obj.get_value() {
-            for id in &l.value {
-                let obj = vm.get_obj_by_id(&id).unwrap();
-                let str_object = obj.invoke_method("__str__", vm, rt)?;
-                let obj = vm.get_obj_by_id(&str_object).unwrap();
-                if let FSRValue::String(_s) = obj.get_value() {
-                    s.push_str(_s.get_string());
-                    s.push(',');
-                }
-            }
-            if l.value.len() > 1 {
-                s.pop();
-            }
-        }
-        s.push(']');
-
-        let obj = FSRString::from(s, vm);
-        return Ok(obj.get_id());
+        unimplemented!()
     }
 
     fn register_to_index_func<'a>(
         vm: &'a FSRVirtualMachine<'a>,
         rt: &'a mut FSRThreadRuntime<'a>,
     ) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let index = rt.find_symbol("index", vm, None).unwrap();
-        let index_obj = vm.get_obj_by_id(&index).unwrap();
-        let integer = index_obj.get_integer().unwrap();
-        if let FSRValue::List(l) = self_obj.get_value() {
-            return Ok(l.value[integer.get_value() as usize]);
-        }
-        
         unimplemented!()
+    
     }
 }
 

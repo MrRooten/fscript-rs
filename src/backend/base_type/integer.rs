@@ -21,156 +21,49 @@ impl FSRInteger {
     }
 
     fn register_add_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        let result = self_i.add(i);
-        let obj = FSRInteger::from_integer(result, vm);
-        return Ok(obj.get_id());
+        unimplemented!()
     }
 
     fn register_self_add_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-        let self_obj = i_to_m(vm).get_mut_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_mut_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        self_i.value += i.value;
-        return Ok(vm.get_none_id());
+        unimplemented!()
     }
 
     fn register_equal_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-        if s == id {
-            return Ok(vm.get_true_id());
-        }
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        if self_i.value == i.value {
-            return Ok(vm.get_true_id());
-        } else {
-            return Ok(vm.get_false_id());
-        }
+        unimplemented!()
     }
 
     fn register_not_equal_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-        if s == id {
-            return Ok(vm.get_true_id());
-        }
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        if self_i.value != i.value {
-            return Ok(vm.get_true_id());
-        } else {
-            return Ok(vm.get_false_id());
-        }
+        unimplemented!()
     }
 
     fn register_greater_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        if self_i.value > i.value {
-            return Ok(vm.get_true_id());
-        } else {
-            return Ok(vm.get_false_id());
-        }
+        unimplemented!()
     }
 
     fn register_less_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        if self_i.value < i.value {
-            return Ok(vm.get_true_id());
-        } else {
-            return Ok(vm.get_false_id());
-        }
+        unimplemented!()
     }
 
     fn register_greater_equal_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        if self_i.value >= i.value {
-            return Ok(vm.get_true_id());
-        } else {
-            return Ok(vm.get_false_id());
-        }
+        unimplemented!()
     }
 
     fn register_less_equal_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        if self_i.value <= i.value {
-            return Ok(vm.get_true_id());
-        } else {
-            return Ok(vm.get_false_id());
-        }
+        unimplemented!()
     }
 
 
     fn register_sub_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        let result = self_i.sub(i);
-        let obj = FSRInteger::from_integer(result, vm);
-        return Ok(obj.get_id());
+        unimplemented!()
     }
 
     fn register_mul_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let id = rt.find_symbol("other", vm, None).unwrap();
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-        let obj = vm.get_obj_by_id(&id).unwrap();
-        let self_i = self_obj.get_integer().unwrap();
-        let i = obj.get_integer().unwrap();
-        let result = self_i.mul(i);
-        let obj = FSRInteger::from_integer(result, vm);
-        return Ok(obj.get_id());
+        unimplemented!()
     }
 
 
     fn register_to_string_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-        let s = rt.find_symbol("self", vm, None).unwrap();
-        let self_obj = vm.get_obj_by_id(&s).unwrap();
-
-        let v = self_obj.get_integer().unwrap();
-        let integer = v.get_value();
-        let obj = FSRString::from(integer, vm);
-        return Ok(obj.get_id());
+        unimplemented!()
     }
 
     pub fn from_integer<'a>(integer: FSRInteger, vm: &'a FSRVirtualMachine<'a>) -> &FSRObject<'a> {

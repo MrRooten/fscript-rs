@@ -39,32 +39,7 @@ impl<'a> FSRClassBackEnd<'a> {
         rt: &'a FSRThreadRuntime<'a>,
         vm: &'a FSRVirtualMachine<'a>,
     ) -> Result<u64, FSRRuntimeError<'a>> {
-        let name = cls.get_name();
-        let attrs = HashMap::new();
-        let mut cls_attrs = HashMap::new();
-        let block = cls.get_block();
-        for token in block.get_tokens() {
-            if let FSRToken::Assign(a) = token {
-                let v_name = a.get_name();
-                let v = rt.run_token(a.get_assign_expr(), vm, None)?;
-                cls_attrs.insert(v_name, v);
-
-            }
-
-            else if let FSRToken::FunctionDef(fn_def) = token {
-                if fn_def.get_name().eq("__new__") {
-
-                }
-                let fn_obj = FSRFn::from_ast(fn_def, vm);
-                cls_attrs.insert(fn_def.get_name(), fn_obj.get_id());
-            }
-        }
-
-        let cls_obj = FSRObject::new(vm);
-        //cls_obj.set_cls(vm.get_cls(Self::get_class_name()).unwrap());
-        let v = Self { attrs, cls_attrs, name };
-        cls_obj.set_value(FSRValue::Class(v));
-        return Ok(cls_obj.get_id());
+        unimplemented!()
     }
 
     pub fn get_cls_attr(&self, name: &str) -> Option<&u64> {
@@ -82,15 +57,6 @@ impl<'a> FSRClassBackEnd<'a> {
 }
 
 fn register_to_string_func<'a>(vm: &'a FSRVirtualMachine, rt: &'a mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-    let s = rt.find_symbol("self", vm, None).unwrap();
-    let self_obj = vm.get_obj_by_id(&s).unwrap();
-
-    if let FSRValue::Class(c) = self_obj.get_value() {
-        let s = format!("<Class '{}'>", c.get_name());
-        let obj = FSRString::from(s, vm);
-        return Ok(obj.get_id());
-    }
-    
     unimplemented!()
 }
 

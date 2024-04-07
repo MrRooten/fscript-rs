@@ -44,13 +44,7 @@ impl<'a> FSRClassInstance<'a> {
             return Ok(s.clone());
         }
 
-        let err = FSRRuntimeError::new(
-            rt.get_call_stack(),
-            FSRRuntimeType::NotFoundObject,
-            format!("not found object {}", name),
-            &meta,
-        );
-        return Err(err);
+        unimplemented!()
     }
 
     pub fn get_attr_option(
@@ -94,17 +88,7 @@ impl<'a> FSRClassInstance<'a> {
 }
 
 fn register_has_attr_func<'a>(vm: &'a FSRVirtualMachine, rt: &mut FSRThreadRuntime) -> Result<u64, FSRRuntimeError<'a>> {
-    let s = rt.find_symbol("self", vm, None).unwrap();
-    let self_obj = vm.get_obj_by_id(&s).unwrap();
-
-    let s = rt.find_symbol("attr", vm, None).unwrap();
-    let attr_obj = vm.get_obj_by_id(&s).unwrap().get_string().unwrap();
-    let s = attr_obj.get_string();
-    if self_obj.has_attr(s) {
-        return Ok(vm.get_true_id());
-    } else {
-        return Ok(vm.get_false_id());
-    }
+    unimplemented!()
     
 }
 

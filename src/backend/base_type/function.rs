@@ -69,9 +69,9 @@ impl<'a> FSRFn<'a> {
             return v;
         }
 
-        if let FSRFnValue::FSRImpl(v) = &self.value {
-            return Ok(module.run_ast_fn(v, vm).unwrap());
-        }
+        // if let FSRFnValue::FSRImpl(v) = &self.value {
+        //     return Ok(module.run_ast_fn(v, vm).unwrap());
+        // }
 
         unimplemented!()
     }
