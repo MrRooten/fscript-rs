@@ -4,7 +4,7 @@ mod tests {
 
     #[test]
     fn test_1() {
-        let expr = "a + b * c + d";
+        let expr = "b(abc) + a + b * c + d";
         let meta = FSRMeta::new();
         let token = FSRExpr::parse(expr.as_bytes(), false, meta).unwrap().0;
         let v = Bytecode::load_ast(token);

@@ -14,12 +14,16 @@ pub enum BytecodeOperator {
     ReturnValue,
     Call,
     BinaryDot,
+    InsertArg
 }
 
 #[derive(Debug)]
 pub enum ArgType {
     Variable(u64, String),
-    BinaryOperator
+    Attr(u64, String),
+    BinaryOperator,
+    CallOperator,
+    InsertArg
 }
 
 #[derive(Debug)]
@@ -82,7 +86,7 @@ impl<'a> VarMap<'a> {
 
     pub fn insert_attr(&mut self, attr: &'a str) {
         let v = self.attr_id.fetch_add(1, Ordering::Relaxed);
-        self.var_map.insert(attr, v);
+        self.attr_map.insert(attr, v);
     }
 
     pub fn has_attr(&self, attr: &str) -> bool {
@@ -109,7 +113,47 @@ pub struct Bytecode {
 
 impl<'a> Bytecode {
     fn load_call(call: &'a FSRCall<'a>, var_map: &'a mut VarMap<'a>, is_attr: bool) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
-        unimplemented!()
+        let mut result = LinkedList::new();
+
+        for arg in call.get_args() {
+            let mut v = Self::load_token(arg);
+            result.append(&mut v);
+            result.push_back(BytecodeArg {
+                operator: BytecodeOperator::InsertArg,
+                arg: ArgType::InsertArg
+            });
+        }
+
+        let name = call.get_name();
+        if is_attr {
+            if var_map.has_attr(name) == false {
+                let v = name;
+                var_map.insert_attr(v);
+            }
+            let id = var_map.get_attr(name).unwrap();
+            result.push_back(BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::Variable(id.clone(), name.to_string())
+            });
+        } else {
+            if var_map.has_var(name) == false {
+                let v = name;
+                var_map.insert_var(v);
+            }
+            let id = var_map.get_var(name).unwrap();
+            result.push_back(BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::Variable(id.clone(), name.to_string())
+            });
+        }
+
+        result.push_back(BytecodeArg {
+            operator: BytecodeOperator::Call,
+            arg: ArgType::CallOperator
+        });
+
+
+        return (result, var_map);
     }
 
     fn load_variable(var: &'a FSRVariable<'a>, var_map: &'a mut VarMap<'a>) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
@@ -142,7 +186,12 @@ impl<'a> Bytecode {
             let mut v = Self::load_variable(v, var_map_ref.unwrap());
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else {
+        } else if let FSRToken::Call(c) = &**expr.get_left() {
+            let mut v = Self::load_call(c, var_map_ref.unwrap(), false);
+            op_code.append(&mut v.0);
+            var_map_ref = Some(v.1);
+        }
+        else {
             unimplemented!()
         }
 
@@ -161,10 +210,14 @@ impl<'a> Bytecode {
         return (op_code, var_map_ref.unwrap());
     }
 
-    fn load_token(token: FSRToken<'a>) -> LinkedList<BytecodeArg> {
+    fn load_token(token: &FSRToken<'a>) -> LinkedList<BytecodeArg> {
         let mut var_map = VarMap::new();
         if let FSRToken::Expr(expr) = token {
             let v = Self::load_expr(&expr, &mut var_map);
+            return v.0;
+        }
+        else if let FSRToken::Variable(v) = token {
+            let v = Self::load_variable(v, &mut var_map);
             return v.0;
         }
 
@@ -172,7 +225,7 @@ impl<'a> Bytecode {
     }
 
     pub fn load_ast(token: FSRToken<'a>) -> LinkedList<BytecodeArg> {
-        let v = Self::load_token(token);
+        let v = Self::load_token(&token);
         return v;
     }
 }
