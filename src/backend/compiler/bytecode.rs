@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, LinkedList}, sync::atomic::{AtomicU64, Ordering}};
 
-use crate::frontend::ast::token::{base::FSRToken, call::FSRCall, expr::FSRExpr, if_statement::FSRIf, variable::FSRVariable};
+use crate::frontend::ast::token::{assign::FSRAssign, base::FSRToken, block::FSRBlock, call::FSRCall, expr::FSRExpr, if_statement::FSRIf, variable::FSRVariable};
 
 #[derive(Debug)]
 pub enum BytecodeOperator {
@@ -24,6 +24,7 @@ pub enum BytecodeOperator {
 pub enum ArgType {
     Variable(u64, String),
     Attr(u64, String),
+    IfTestNext(u64),
     None
 }
 
@@ -65,6 +66,8 @@ impl BytecodeOperator {
         unimplemented!()
     }
 }
+
+
 
 
 #[derive(Debug)]
@@ -210,7 +213,7 @@ impl<'a> Bytecode {
             let mut v = Self::load_variable(v, var_map_ref.unwrap());
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else if let FSRToken::Call(c) = &**expr.get_left() {
+        } else if let FSRToken::Call(c) = &**expr.get_right() {
             let mut is_attr = false;
             if expr.get_op().eq(".") {
                 is_attr = true;
@@ -219,15 +222,42 @@ impl<'a> Bytecode {
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         }
-
         op_code.push_back(BytecodeOperator::get_op(expr.get_op()));
 
         return (op_code, var_map_ref.unwrap());
     }
 
-    fn load_if_def(if_def: &FSRIf, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
+    fn load_block(block: &'a FSRBlock<'a>, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
+        let mut vs = vec![];
+        for token in block.get_tokens() {
+            let lines = Self::load_token(token);
+            for line in lines {
+                vs.push(line);
+            }
+        }
+
+        return (vs, var_map);
+    }
+
+    fn load_if_def(if_def: &'a FSRIf<'a>, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
         let test_exp = if_def.get_test();
-        unimplemented!()
+        let mut vs = vec![];
+        let mut v = Self::load_token_with_map(&test_exp, var_map);
+        let mut test_list = LinkedList::new();
+        let mut t = v.0.remove(0);
+        test_list.append(&mut t);
+        
+        
+
+        let block_items = Self::load_block(&if_def.get_block(), v.1);
+        test_list.push_back(BytecodeArg {
+            operator: BytecodeOperator::IfTest,
+            arg: ArgType::IfTestNext(block_items.0.len() as u64)
+        });
+        vs.push(test_list);
+        vs.extend(block_items.0);
+        
+        return (vs, block_items.1);
     }
 
     fn load_token_with_map(token: &'a FSRToken<'a>, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
@@ -253,11 +283,29 @@ impl<'a> Bytecode {
             return (vs, var_map);
         }
         else if let FSRToken::IfExp(if_def) = token {
-            let mut vs = vec![];
-            return (vs, var_map);
+            let v = Self::load_if_def(if_def, var_map);
+
+            return (v.0, v.1);
+        }
+        else if let FSRToken::Assign(assign) = token {
+            let v = Self::load_assign(assign, var_map);
+            return (vec![v.0], v.1);
         }
 
         unimplemented!()
+    }
+
+    fn load_assign(token: &'a FSRAssign<'a>, var_map: &'a mut VarMap<'a>) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
+        let mut result_list = LinkedList::new();
+        let mut left = Self::load_token_with_map(token.get_left(), var_map);
+        let mut right = Self::load_token_with_map(token.get_assign_expr(), left.1);
+        result_list.append(&mut right.0[0]);
+        result_list.append(&mut left.0[0]);
+        result_list.push_back(BytecodeArg {
+            operator: BytecodeOperator::Assign,
+            arg: ArgType::None
+        });
+        return (result_list, right.1);
     }
 
     fn load_token(token: &FSRToken<'a>) -> Vec<LinkedList<BytecodeArg>> {
@@ -283,7 +331,13 @@ impl<'a> Bytecode {
         }
         else if let FSRToken::IfExp(if_def) = token {
             let mut vs = vec![];
+            let v = Self::load_if_def(if_def, &mut var_map);
+            vs.extend(v.0);
             return vs;
+        }
+        else if let FSRToken::Assign(assign) = token {
+            let v = Self::load_assign(assign, &mut var_map);
+            return vec![v.0];
         }
 
         unimplemented!()

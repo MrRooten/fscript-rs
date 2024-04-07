@@ -5,8 +5,11 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        b(abc) + a.a + b * c + d
+        a = b
         a + b
+        if a {
+            b = a + b + c(abc) 
+        }
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
