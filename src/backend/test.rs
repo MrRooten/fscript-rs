@@ -1,13 +1,16 @@
 #[cfg(test)]
 mod tests {
-    use crate::{backend::compiler::bytecode::Bytecode, frontend::ast::token::{base::FSRMeta, expr::FSRExpr}};
+    use crate::{backend::compiler::bytecode::Bytecode, frontend::ast::token::{base::{FSRMeta, FSRToken}, expr::FSRExpr, module::FSRModuleFrontEnd}};
 
     #[test]
     fn test_1() {
-        let expr = "b(abc) + a + b * c + d";
+        let expr = "
+        b(abc) + a.a + b * c + d
+        a + b
+        ";
         let meta = FSRMeta::new();
-        let token = FSRExpr::parse(expr.as_bytes(), false, meta).unwrap().0;
-        let v = Bytecode::load_ast(token);
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast(FSRToken::Module(token));
         println!("{:#?}", v);
     }
 }
