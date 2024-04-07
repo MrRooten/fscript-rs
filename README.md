@@ -1,5 +1,5 @@
 ## Introduce
-Not running on bytecode, just interpret AST, simple and useless program language, zero dependence script language
+Running on bytecode, simple and useless program language, zero dependence script language
 
 ## Usage
 
