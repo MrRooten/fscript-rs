@@ -7,7 +7,7 @@ mod tests {
         let expr = "
         a = b
         a + b
-        if a {
+        while a {
             b = a + b + c(abc) 
         }
         ";
