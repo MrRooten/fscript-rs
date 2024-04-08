@@ -11,7 +11,7 @@ mod tests {
             b = a + b + c(abc) 
         }
 
-        fn abc() {
+        fn abc(a) {
             a = a + b
         }
         ";

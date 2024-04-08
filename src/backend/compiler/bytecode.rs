@@ -470,6 +470,19 @@ impl<'a> Bytecode {
             var_map.insert_var(name);
         }
 
+        let args = fn_def.get_args();
+        let mut var_map = var_map;
+        let mut args_load = LinkedList::new();
+        for arg in args {
+            if let FSRToken::Variable(v) = arg {
+                let mut a = Self::load_variable(v, var_map);
+                var_map = a.1;
+                args_load.append(&mut a.0);
+            }
+        }
+
+        result.push(args_load);
+
         let arg_id = var_map.get_var(name).unwrap();
 
         let op_arg = BytecodeArg {
