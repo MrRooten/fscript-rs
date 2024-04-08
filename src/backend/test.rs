@@ -10,6 +10,10 @@ mod tests {
         while a {
             b = a + b + c(abc) 
         }
+
+        fn abc() {
+            a = a + b
+        }
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
