@@ -10,7 +10,7 @@ use super::{assign::FSRAssign, call::FSRCall, class::FSRClassFrontEnd, constant:
 pub enum FSRToken<'a> {
     FunctionDef(FSRFnDef<'a>),
     IfExp(FSRIf<'a>),
-    Constant(FSRConstant<'a>),
+    Constant(FSRConstant),
     Assign(FSRAssign<'a>),
     Expr(FSRExpr<'a>),
     Call(FSRCall<'a>),

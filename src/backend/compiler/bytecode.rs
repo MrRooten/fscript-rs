@@ -4,11 +4,10 @@ use std::{
 };
 
 use crate::frontend::ast::token::{
-    assign::FSRAssign, base::FSRToken, block::FSRBlock, call::FSRCall, expr::FSRExpr,
-    if_statement::FSRIf, variable::FSRVariable, while_statement::FSRWhile,
+    assign::FSRAssign, base::FSRToken, block::FSRBlock, call::FSRCall, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, if_statement::FSRIf, variable::FSRVariable, while_statement::FSRWhile
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BytecodeOperator {
     Push,
     Pop,
@@ -34,6 +33,8 @@ pub enum BytecodeOperator {
 #[derive(Debug)]
 pub enum ArgType {
     Variable(u64, String),
+    ConstString(u64, String),
+    ConstInteger(u64, i64),
     Attr(u64, String),
     IfTestNext(u64),
     WhileTest(u64), //i64 is return to test, u64 is skip the block,
@@ -50,10 +51,19 @@ pub struct BytecodeArg {
 
 impl BytecodeArg {
     pub fn new(op: BytecodeOperator, id: u64) {}
+
+    pub fn get_operator(&self) -> &BytecodeOperator {
+        return &self.operator
+    }
+
+    pub fn get_arg(&self) -> &ArgType {
+        return &self.arg
+    }
 }
 
 impl BytecodeOperator {
-    fn get_static_op(op: &str) -> &'static str {
+
+    pub fn get_static_op(op: &str) -> &'static str {
         // op reference my not life longer enough, so return static str
         if op.eq(">") {
             return ">"
@@ -111,6 +121,8 @@ pub struct VarMap<'a> {
     var_id: AtomicU64,
     attr_map: HashMap<&'a str, u64>,
     attr_id: AtomicU64,
+    const_map: HashMap<&'a str, FSRConstant>,
+    const_id: AtomicU64,
 }
 
 impl<'a> VarMap<'a> {
@@ -146,13 +158,23 @@ impl<'a> VarMap<'a> {
             var_id: AtomicU64::new(100),
             attr_map: HashMap::new(),
             attr_id: AtomicU64::new(100),
+            const_map: HashMap::new(),
+            const_id: AtomicU64::new(100),
         }
     }
 }
 
-pub struct Bytecode {}
+#[derive(Debug)]
+pub struct Bytecode {
+    bytecode        : Vec<LinkedList<BytecodeArg>>,
+    fn_defs         : HashMap<String, Bytecode>
+}
 
 impl<'a> Bytecode {
+    pub fn get(&self, index: usize) -> Option<&LinkedList<BytecodeArg>> {
+        return self.bytecode.get(index);
+    }
+
     fn load_call(
         call: &'a FSRCall<'a>,
         var_map: &'a mut VarMap<'a>,
@@ -240,7 +262,12 @@ impl<'a> Bytecode {
             let mut v = Self::load_call(c, var_map_ref.unwrap(), false);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else {
+        } else if let FSRToken::Constant(c) = &**expr.get_left() {
+            let mut v = Self::load_constant(c, var_map_ref.unwrap());
+            op_code.append(&mut v.0);
+            var_map_ref = Some(v.1);
+        }
+        else {
             unimplemented!()
         }
 
@@ -260,6 +287,10 @@ impl<'a> Bytecode {
             let mut v = Self::load_call(c, var_map_ref.unwrap(), is_attr);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
+        } else if let FSRToken::Constant(c) = &**expr.get_right() {
+            let mut v = Self::load_constant(c, var_map_ref.unwrap());
+            op_code.append(&mut v.0);
+            var_map_ref = Some(v.1);
         }
         op_code.push_back(BytecodeOperator::get_op(expr.get_op()));
 
@@ -271,14 +302,17 @@ impl<'a> Bytecode {
         var_map: &'a mut VarMap<'a>,
     ) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut vs = vec![];
+        let mut ref_self = var_map;
         for token in block.get_tokens() {
-            let lines = Self::load_token(token);
+            let lines = Self::load_token_with_map(token, ref_self);
+            ref_self = lines.1;
+            let lines = lines.0;
             for line in lines {
                 vs.push(line);
             }
         }
 
-        return (vs, var_map);
+        return (vs, ref_self);
     }
 
     fn load_if_def(
@@ -345,14 +379,18 @@ impl<'a> Bytecode {
             return (vec![v.0], r);
         } else if let FSRToken::Module(m) = token {
             let mut vs = vec![];
+            let mut ref_self = var_map;
             for token in &m.tokens {
-                let lines = Self::load_token(token);
+                
+                let lines = Self::load_token_with_map(token, ref_self);
+                ref_self = lines.1;
+                let lines = lines.0;
                 for line in lines {
                     vs.push(line);
                 }
             }
 
-            return (vs, var_map);
+            return (vs, ref_self);
         } else if let FSRToken::IfExp(if_def) = token {
             let v = Self::load_if_def(if_def, var_map);
 
@@ -369,6 +407,9 @@ impl<'a> Bytecode {
         }  else if let FSRToken::Call(call) = token {
             let v = Self::load_call(call, var_map, false);
             return (vec![v.0], v.1)
+        }  else if let FSRToken::Constant(c) = token {
+            let v = Self::load_constant(c, var_map);
+            return (vec![v.0], v.1);
         }
 
         unimplemented!()
@@ -390,46 +431,38 @@ impl<'a> Bytecode {
         return (result_list, right.1);
     }
 
-    fn load_token(token: &FSRToken<'a>) -> Vec<LinkedList<BytecodeArg>> {
-        let mut var_map = VarMap::new();
-        if let FSRToken::Expr(expr) = token {
-            let v = Self::load_expr(&expr, &mut var_map);
-            return vec![v.0];
-        } else if let FSRToken::Variable(v) = token {
-            let v = Self::load_variable(v, &mut var_map);
-            return vec![v.0];
-        } else if let FSRToken::Module(m) = token {
-            let mut vs = vec![];
-            for token in &m.tokens {
-                let lines = Self::load_token(token);
-                for line in lines {
-                    vs.push(line);
-                }
-            }
-
-            return vs;
-        } else if let FSRToken::IfExp(if_def) = token {
-            let v = Self::load_if_def(if_def, &mut var_map);
-            return v.0;
-        } else if let FSRToken::Assign(assign) = token {
-            let v = Self::load_assign(assign, &mut var_map);
-            return vec![v.0];
-        } else if let FSRToken::WhileExp(while_def) = token {
-            let v = Self::load_while_def(while_def, &mut var_map);
-            return v.0;
-        } else if let FSRToken::Block(block) = token {
-            let v = Self::load_block(block, &mut var_map);
-            return v.0;
-        } else if let FSRToken::Call(call) = token {
-            let v = Self::load_call(call, &mut var_map, false);
-            return vec![v.0]
+    fn load_constant(
+        token: &'a FSRConstant,
+        var_map: &'a mut VarMap<'a>
+    ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
+        let mut result_list = LinkedList::new();
+        if let FSRConstantType::Integer(i) = token.get_constant() {
+            result_list.push_back(BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::ConstInteger(0, i.clone()),
+            });
         }
-
-        unimplemented!()
+        else if let FSRConstantType::String(s) = token.get_constant() {
+            result_list.push_back(BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::ConstString(0, String::from_utf8_lossy(s).to_string()),
+            });
+        }
+        
+        return (result_list, var_map)
     }
 
-    pub fn load_ast(token: FSRToken<'a>) -> Vec<LinkedList<BytecodeArg>> {
-        let v = Self::load_token(&token);
-        return v;
+    fn load_module(token: &FSRToken<'a>) -> Vec<LinkedList<BytecodeArg>> {
+        let mut var_map = VarMap::new();
+        let v = Self::load_token_with_map(token, &mut var_map);
+        return v.0;
+    }
+
+    pub fn load_ast(token: FSRToken<'a>) -> Bytecode {
+        let v = Self::load_module(&token);
+        return Self {
+            bytecode: v,
+            fn_defs: HashMap::new(),
+        }
     }
 }

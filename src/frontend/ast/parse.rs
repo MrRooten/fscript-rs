@@ -316,4 +316,37 @@ impl ASTParser {
 
         return Ok(res);
     }
+
+    pub fn get_static_op(op: &str) -> &'static str {
+        // op reference my not life longer enough, so return static str
+        if op.eq(">") {
+            return ">"
+        }
+        else if op.eq("<") {
+            return "<"
+        }
+        else if op.eq(">=") {
+            return ">="
+        }
+        else if op.eq("<=") {
+            return "<="
+        }
+        else if op.eq("==") {
+            return "=="
+        }
+        else if op.eq("=") {
+            return "="
+        }
+        else if op.eq("+") {
+            return "+"
+        }
+        else if op.eq("-") {
+            return "-";
+        }
+        else if op.eq("*") {
+            return "*";
+        }
+
+        unimplemented!()
+    }
 }

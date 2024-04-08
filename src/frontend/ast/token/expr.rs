@@ -205,7 +205,7 @@ impl FSROpreatorTree<'_> {}
 #[derive(Debug)]
 pub enum FSRBinOpResult<'a> {
     BinOp(FSRExpr<'a>),
-    Constant(FSRConstant<'a>),
+    Constant(FSRConstant),
 }
 
 impl<'a> FSRExpr<'a> {
@@ -297,6 +297,7 @@ impl<'a> FSRExpr<'a> {
 
             if states.eq_peek(&ExprState::Operator) && Self::is_op_one_char(t_c) == false {
                 let op = str::from_utf8(&source[start..start + length]).unwrap();
+                let op = ASTParser::get_static_op(op);
                 if start + length >= source.len() {
                     let mut sub_meta = meta.clone();
                     sub_meta.offset += start;

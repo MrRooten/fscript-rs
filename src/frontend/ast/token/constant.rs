@@ -2,22 +2,22 @@ use super::base::FSRMeta;
 
 
 #[derive(Debug, Clone)]
-pub enum FSRConstantType<'a> {
-    String(&'a [u8]),
+pub enum FSRConstantType {
+    String(Vec<u8>),
     Integer(i64),
     Float(f64)
 }
 
 #[derive(Debug, Clone)]
-pub struct FSRConstant<'a> {
-    constant    : FSRConstantType<'a>,
+pub struct FSRConstant {
+    constant    : FSRConstantType,
     pub(crate) len         : usize,
-    pub(crate) single_op   : Option<&'a str>,
+    pub(crate) single_op   : Option<&'static str>,
     meta        : FSRMeta
 }
 
 
-impl<'a> FSRConstant<'a> {
+impl FSRConstant {
     pub fn get_meta(&self) -> &FSRMeta {
         return &self.meta;
     }
@@ -26,9 +26,9 @@ impl<'a> FSRConstant<'a> {
         return &self.constant;
     }
 
-    pub fn from_str(s: &'a [u8], meta: FSRMeta) -> Self {
+    pub fn from_str(s: &[u8], meta: FSRMeta) -> Self {
         return FSRConstant{
-            constant: FSRConstantType::String(s),
+            constant: FSRConstantType::String(s.to_vec()),
             len: 0,
             single_op: None,
             meta
