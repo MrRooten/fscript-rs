@@ -1,3 +1,5 @@
+use std::{borrow::Borrow, cell::{Cell, RefCell}};
+
 use super::{class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn};
 
 pub enum FSRValue<'a> {
@@ -20,7 +22,32 @@ impl<'a> FSRObject<'a> {
         self.value = value;
     }
 
-    pub fn invoke(&self, method: &str, args: Vec<&FSRObject<'a>>) -> FSRObject<'a> {
+    pub fn invoke(&self, method: &str, args: Vec<&RefCell<FSRObject<'a>>>) -> FSRObject<'a> {
+        if method.eq("__add__") {
+            let other = args[0];
+            let v = self as *const FSRObject<'a> as *mut Self;
+            if other.as_ptr() == v {
+                if let FSRValue::Integer(i) = self.value {
+
+                    let v = FSRValue::Integer(i + i);
+                    return Self {
+                        obj_id: 0,
+                        value: v,
+                    }
+                    
+                }
+            }
+            let other = other.borrow();
+            if let FSRValue::Integer(i) = self.value {
+                if let FSRValue::Integer(o_i) = other.value {
+                    let v = FSRValue::Integer(i + o_i);
+                    return Self {
+                        obj_id: 0,
+                        value: v,
+                    }
+                }
+            }
+        }
         unimplemented!()
     }
 }
