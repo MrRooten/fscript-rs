@@ -51,13 +51,22 @@ impl FSRThreadRuntime {
         unimplemented!()
     }
 
-    fn process(exp: &mut Vec<u64>, bytecode: &BytecodeArg, stack: &mut CallState) {
+    fn process(exp: &mut Vec<u64>, bytecode: &BytecodeArg, stack: &mut CallState, ip: &mut usize, vm: &mut FSRVM) {
         if bytecode.get_operator() == &BytecodeOperator::Assign {
-            if let ArgType::Variable(v, name) = bytecode.get_arg() {
-                let assign_id = exp.pop().unwrap();
-                
-            }
-            
+            //if let ArgType::Variable(v, name) = bytecode.get_arg() {
+            let assign_id = exp.pop().unwrap();
+            let obj_id = exp.pop().unwrap();
+            stack.insert_var(&assign_id, obj_id);
+            //}
+        }
+        else if bytecode.get_operator() == &BytecodeOperator::BinaryAdd {
+            let v1 = exp.pop().unwrap();
+            let v2 = exp.pop().unwrap();
+            let obj1 = vm.get_obj_by_id(&v1).unwrap();
+            let obj2 = vm.get_obj_by_id(&v2).unwrap();
+            let object = obj1.invoke("__add__", vec![obj2]);
+            let res_id = vm.register_object(object);
+            exp.push(res_id);
         }
     }
 
@@ -67,7 +76,8 @@ impl FSRThreadRuntime {
         for arg in expr {
             if arg.get_operator() == &BytecodeOperator::Load {
                 if let ArgType::Variable(id, name) = arg.get_arg() {
-
+                    let obj_id = stack.get_var(id).unwrap();
+                    exp_stack.push(obj_id.clone());
                 }
                 else if let ArgType::ConstInteger(id, i) = arg.get_arg() {
                     let int_const = Self::load_integer_const(i, vm);
@@ -78,7 +88,7 @@ impl FSRThreadRuntime {
 
                 }
             } else {
-
+                Self::process(&mut exp_stack, arg, stack, ip, vm);
             }
         }
     }

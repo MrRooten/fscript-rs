@@ -32,4 +32,14 @@ impl<'a> FSRVM<'a> {
         self.obj_map.insert(obj.obj_id, obj);
         return self.obj_map.get_mut(&id).unwrap();
     }
+
+    pub fn get_obj_by_id(&self, id: &u64) -> Option<&FSRObject<'a>> {
+        return self.obj_map.get(id)
+    }
+
+    pub fn register_object(&mut self, object: FSRObject<'a>) -> u64 {
+        let id = self.update_id.fetch_add(1, Ordering::Relaxed);
+        self.obj_map.insert(id, object);
+        return id; 
+    }
 }

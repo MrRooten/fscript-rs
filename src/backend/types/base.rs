@@ -19,5 +19,9 @@ impl<'a> FSRObject<'a> {
     pub fn set_value(&mut self, value: FSRValue<'a>) {
         self.value = value;
     }
+
+    pub fn invoke(&self, method: &str, args: Vec<&FSRObject<'a>>) -> FSRObject<'a> {
+        unimplemented!()
+    }
 }
 
