@@ -50,5 +50,9 @@ impl<'a> FSRObject<'a> {
         }
         unimplemented!()
     }
+
+    pub fn call(&self, args: Vec<&RefCell<FSRObject<'a>>>) -> FSRObject<'a> {
+        unimplemented!()
+    }
 }
 

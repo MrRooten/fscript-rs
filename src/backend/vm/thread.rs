@@ -41,15 +41,22 @@ impl CallState {
     }
 }
 
-enum SValue {
-    StackId(u64),
+enum SValue<'a> {
+    StackId((u64, &'a String)),
     GlobalId(u64)
 }
 
-impl SValue {
+impl SValue<'_> {
     pub fn get_value(&self) -> u64 {
         match self {
-            SValue::StackId(i) => i.clone(),
+            SValue::StackId(i) => i.0.clone(),
+            SValue::GlobalId(i) => i.clone(),
+        }
+    }
+
+    pub fn get_global_id(&self, stack: &CallState, vm: &FSRVM) -> u64 {
+        match self {
+            SValue::StackId(i) => stack.get_var(&i.0).unwrap().clone(),
             SValue::GlobalId(i) => i.clone(),
         }
     }
@@ -86,19 +93,55 @@ impl FSRThreadRuntime {
             //if let ArgType::Variable(v, name) = bytecode.get_arg() {
             let assign_id = exp.pop().unwrap();
             let obj_id = exp.pop().unwrap();
-            stack.insert_var(&assign_id.get_value(), obj_id.get_value().clone());
-            //}
+            if let SValue::GlobalId(id) = obj_id {
+                stack.insert_var(&assign_id.get_value(), id);
+            }
+            else if let SValue::StackId(s_id) = obj_id {
+                let id = stack.get_var(&s_id.0).unwrap();
+                stack.insert_var(&assign_id.get_value(), *id);
+            }
         }
         else if bytecode.get_operator() == &BytecodeOperator::BinaryAdd {
-            let v1 = exp.pop().unwrap().get_value();
-            let v2 = exp.pop().unwrap().get_value();
-            let v1 = stack.get_var(&v1).unwrap();
+            let v1 = exp.pop().unwrap().get_global_id(stack, vm);
+            let v2 = exp.pop().unwrap().get_global_id(stack, vm);
             let obj1 = vm.get_obj_by_id(&v1).unwrap();
-            let v2 = stack.get_var(&v2).unwrap();
             let obj2 = vm.get_obj_by_id(&v2).unwrap();
             let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
             let res_id = vm.register_object(object);
             exp.push(SValue::GlobalId(res_id));
+        }
+        else if bytecode.get_operator() == &BytecodeOperator::Call {
+            let fn_id = match exp.pop().unwrap() {
+                SValue::StackId(s) => {
+                    if let Some(id) = stack.get_var(&s.0) {
+                        id.clone()
+                    } else {
+                        vm.get_global_obj_by_name(s.1).unwrap()
+                    }
+                },
+                SValue::GlobalId(id) => {
+                    id
+                },
+            };
+            if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
+                let mut args = vec![];
+                let n = *n;
+                let mut i = 0;
+                while i < n {
+                    let a_id = exp.pop().unwrap().get_global_id(stack, vm);
+                    let obj = vm.get_obj_by_id(&a_id).unwrap();
+                    args.push(obj);
+                    i += 1;
+                }
+                
+                let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
+                fn_obj.borrow().call(args);
+                
+            }
+            unimplemented!()
+        }
+        else {
+            unimplemented!()
         }
     }
 
@@ -108,13 +151,12 @@ impl FSRThreadRuntime {
         for arg in expr {
             if arg.get_operator() == &BytecodeOperator::Load {
                 if let ArgType::Variable(id, name) = arg.get_arg() {
-                    //let obj_id = stack.get_var(id).unwrap();
-                    exp_stack.push(SValue::StackId(id.clone()));
+                    exp_stack.push(SValue::StackId((id.clone(), name)));
                 }
                 else if let ArgType::ConstInteger(id, i) = arg.get_arg() {
                     let int_const = Self::load_integer_const(i, vm);
                     stack.insert_const(id, int_const.clone());
-                    exp_stack.push(SValue::StackId(int_const));
+                    exp_stack.push(SValue::GlobalId(int_const));
                 }
                 else if let ArgType::ConstString(id, s) = arg.get_arg() {
 

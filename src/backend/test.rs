@@ -5,8 +5,7 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        a = 1
-        a + a
+        a.a.b()
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
@@ -18,7 +17,7 @@ mod tests {
     fn test_2() {
         let expr = "
         a = 1
-        a + a
+        b = a + a
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

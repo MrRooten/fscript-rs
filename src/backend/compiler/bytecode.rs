@@ -43,6 +43,7 @@ pub enum ArgType {
     WhileEnd(i64),
     Compare(&'static str),
     FnLines(usize),
+    CallArgsNumber(usize),
     None,
 }
 
@@ -82,6 +83,9 @@ impl BytecodeOperator {
         }
         else if op.eq("==") {
             return "=="
+        }
+        else if op.eq(".") {
+            return ".";
         }
 
         unimplemented!()
@@ -193,10 +197,10 @@ impl<'a> Bytecode {
             let mut v = Self::load_token_with_map(arg, var_map_ref);
             var_map_ref = v.1;
             result.append(&mut v.0[0]);
-            result.push_back(BytecodeArg {
-                operator: BytecodeOperator::InsertArg,
-                arg: ArgType::None,
-            });
+            // result.push_back(BytecodeArg {
+            //     operator: BytecodeOperator::InsertArg,
+            //     arg: ArgType::None,
+            // });
         }
 
         let name = call.get_name();
@@ -208,7 +212,11 @@ impl<'a> Bytecode {
             let id = var_map_ref.get_attr(name).unwrap();
             result.push_back(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Variable(id.clone(), name.to_string()),
+                arg: ArgType::Attr(id.clone(), name.to_string()),
+            });
+            result.push_back(BytecodeArg {
+                operator: BytecodeOperator::BinaryDot,
+                arg: ArgType::None,
             });
         } else {
             if var_map_ref.has_var(name) == false {
@@ -224,7 +232,7 @@ impl<'a> Bytecode {
 
         result.push_back(BytecodeArg {
             operator: BytecodeOperator::Call,
-            arg: ArgType::None,
+            arg: ArgType::CallArgsNumber(call.get_args().len()),
         });
 
         return (result, var_map_ref);
@@ -233,6 +241,7 @@ impl<'a> Bytecode {
     fn load_variable(
         var: &'a FSRVariable<'a>,
         var_map: &'a mut VarMap<'a>,
+        is_attr: bool
     ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
         if var_map.has_var(&var.get_name()) == false {
             let v = var.get_name();
@@ -240,11 +249,19 @@ impl<'a> Bytecode {
         }
 
         let arg_id = var_map.get_var(&var.get_name()).unwrap();
-
-        let op_arg = BytecodeArg {
-            operator: BytecodeOperator::Load,
-            arg: ArgType::Variable(arg_id.clone(), var.get_name().to_string()),
-        };
+        let op_arg;
+        if is_attr {
+            op_arg = BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::Attr(arg_id.clone(), var.get_name().to_string()),
+            };
+        } else {
+            op_arg = BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::Variable(arg_id.clone(), var.get_name().to_string()),
+            };
+        }
+        
         let mut ans = LinkedList::new();
         ans.push_back(op_arg);
 
@@ -262,7 +279,8 @@ impl<'a> Bytecode {
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else if let FSRToken::Variable(v) = &**expr.get_left() {
-            let mut v = Self::load_variable(v, var_map_ref.unwrap());
+            
+            let mut v = Self::load_variable(v, var_map_ref.unwrap(), false);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else if let FSRToken::Call(c) = &**expr.get_left() {
@@ -283,7 +301,11 @@ impl<'a> Bytecode {
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else if let FSRToken::Variable(v) = &**expr.get_right() {
-            let mut v = Self::load_variable(v, var_map_ref.unwrap());
+            let mut is_attr = false;
+            if expr.get_op().eq(".") {
+                is_attr = true;
+            }
+            let mut v = Self::load_variable(v, var_map_ref.unwrap(), is_attr);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else if let FSRToken::Call(c) = &**expr.get_right() {
@@ -294,11 +316,16 @@ impl<'a> Bytecode {
             let mut v = Self::load_call(c, var_map_ref.unwrap(), is_attr);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
+            //call special process
+            return (op_code, var_map_ref.unwrap());
         } else if let FSRToken::Constant(c) = &**expr.get_right() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap());
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         }
+
+        
+
         op_code.push_back(BytecodeOperator::get_op(expr.get_op()));
 
         return (op_code, var_map_ref.unwrap());
@@ -381,7 +408,7 @@ impl<'a> Bytecode {
             let r = v.1;
             return (vec![v.0], r);
         } else if let FSRToken::Variable(v) = token {
-            let v = Self::load_variable(v, var_map);
+            let v = Self::load_variable(v, var_map, false);
             let r = v.1;
             return (vec![v.0], r);
         } else if let FSRToken::Module(m) = token {
@@ -475,7 +502,7 @@ impl<'a> Bytecode {
         let mut args_load = LinkedList::new();
         for arg in args {
             if let FSRToken::Variable(v) = arg {
-                let mut a = Self::load_variable(v, var_map);
+                let mut a = Self::load_variable(v, var_map, false);
                 var_map = a.1;
                 args_load.append(&mut a.0);
             }

@@ -42,4 +42,8 @@ impl<'a> FSRVM<'a> {
         self.obj_map.insert(id, RefCell::new(object));
         return id; 
     }
+
+    pub fn get_global_obj_by_name(&self, name: &str) -> Option<u64> {
+        unimplemented!()
+    }
 }

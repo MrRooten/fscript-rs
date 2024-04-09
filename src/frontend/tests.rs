@@ -15,13 +15,7 @@ mod frontend_tests {
 
     #[test]
     fn expr_test() {
-        let s = "print('abc')\n";
-        let meta = FSRMeta::new();
-        let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
-
-        println!("{:#?}", expr);
-
-        let s = "b += 3";
+        let s = "a + b + c\n";
         let meta = FSRMeta::new();
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
 

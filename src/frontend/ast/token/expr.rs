@@ -626,7 +626,18 @@ impl<'a> FSRExpr<'a> {
             return Ok((FSRToken::EmptyExpr, start + length));
         }
 
-        operators.sort_by(|a, b| -> Ordering { Node::is_higher_priority(a.0, b.0) });
+        operators.sort_by(|a, b| -> Ordering { 
+            if a.0 != b.0 {
+                Node::is_higher_priority(a.0, b.0) 
+            } else {
+                if a.1 < b.1 {
+                    Ordering::Greater
+                } else {
+                    Ordering::Less
+                }
+            }
+            
+        });
 
         if candidates.len() == 2 {
             let left = candidates.remove(0);
