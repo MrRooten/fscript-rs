@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct FSRClassInst<'a> {
     attrs       : HashMap<&'a str, u64>
 }

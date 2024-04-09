@@ -1,11 +1,14 @@
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+
     use crate::{backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}}, frontend::ast::token::{base::{FSRMeta, FSRToken}, expr::FSRExpr, module::FSRModuleFrontEnd}};
 
     #[test]
     fn test_1() {
         let expr = "
-        a.a.b()
+        b = a + a
+        println(b)
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
@@ -18,6 +21,7 @@ mod tests {
         let expr = "
         a = 1
         b = a + a
+        println(b)
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

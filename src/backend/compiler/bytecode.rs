@@ -193,6 +193,10 @@ impl<'a> Bytecode {
     ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result = LinkedList::new();
         let mut var_map_ref = var_map;
+        result.push_back(BytecodeArg {
+            operator: BytecodeOperator::Push,
+            arg: ArgType::None,
+        });
         for arg in call.get_args() {
             let mut v = Self::load_token_with_map(arg, var_map_ref);
             var_map_ref = v.1;
@@ -235,6 +239,11 @@ impl<'a> Bytecode {
             arg: ArgType::CallArgsNumber(call.get_args().len()),
         });
 
+        result.push_back(BytecodeArg {
+            operator: BytecodeOperator::Pop,
+            arg: ArgType::None,
+        });
+
         return (result, var_map_ref);
     }
 
@@ -264,7 +273,7 @@ impl<'a> Bytecode {
         
         let mut ans = LinkedList::new();
         ans.push_back(op_arg);
-
+        
         return (ans, var_map);
     }
 

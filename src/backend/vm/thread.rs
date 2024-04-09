@@ -1,13 +1,13 @@
-use std::collections::{HashMap, LinkedList};
+use std::{cell::RefCell, collections::{HashMap, LinkedList}};
 
-use crate::backend::{
+use crate::{backend::{
     compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
-    types::base::{FSRObject, FSRValue},
-};
+    types::{base::{FSRObject, FSRValue}, string::FSRString},
+}, frontend::ast::token::call};
 
 use super::runtime::FSRVM;
 
-struct CallState {
+pub struct CallState {
     var_map: HashMap<u64, u64>,
     const_map   : HashMap<u64, u64>
 }
@@ -66,7 +66,7 @@ pub struct FSRThreadRuntime {
     call_stack: Vec<CallState>,
 }
 
-impl FSRThreadRuntime {
+impl<'a> FSRThreadRuntime {
     pub fn new() -> FSRThreadRuntime {
         Self {
             call_stack: vec![CallState::new()],
@@ -77,10 +77,24 @@ impl FSRThreadRuntime {
         let obj = FSRObject {
             obj_id: 0,
             value: FSRValue::Integer(i.clone()),
+            cls: "Integer",
+            attrs: HashMap::new(),
         };
 
         let id = vm.register_object(obj);
         return id
+    }
+
+    fn load_string_const(s: String, vm: &mut FSRVM<'a>) -> u64 {
+        let obj = FSRObject {
+            obj_id: 0,
+            value: FSRValue::String(s),
+            cls: "String",
+            attrs: HashMap::new(),
+        };
+
+        let id = vm.register_object(obj);        
+        return id;
     }
 
     fn get_cur_stack(&mut self) -> &mut CallState {
@@ -88,22 +102,22 @@ impl FSRThreadRuntime {
         return self.call_stack.get_mut(l-1).unwrap();
     }
 
-    fn process(exp: &mut Vec<SValue>, bytecode: &BytecodeArg, stack: &mut CallState, ip: &mut usize, vm: &mut FSRVM) {
+    fn process(&mut self, exp: &mut Vec<SValue>, bytecode: &BytecodeArg, state: &'a mut CallState, ip: &mut usize, vm: &mut FSRVM<'a>) {
         if bytecode.get_operator() == &BytecodeOperator::Assign {
             //if let ArgType::Variable(v, name) = bytecode.get_arg() {
             let assign_id = exp.pop().unwrap();
             let obj_id = exp.pop().unwrap();
             if let SValue::GlobalId(id) = obj_id {
-                stack.insert_var(&assign_id.get_value(), id);
+                state.insert_var(&assign_id.get_value(), id);
             }
             else if let SValue::StackId(s_id) = obj_id {
-                let id = stack.get_var(&s_id.0).unwrap();
-                stack.insert_var(&assign_id.get_value(), *id);
+                let id = state.get_var(&s_id.0).unwrap();
+                state.insert_var(&assign_id.get_value(), *id);
             }
         }
         else if bytecode.get_operator() == &BytecodeOperator::BinaryAdd {
-            let v1 = exp.pop().unwrap().get_global_id(stack, vm);
-            let v2 = exp.pop().unwrap().get_global_id(stack, vm);
+            let v1 = exp.pop().unwrap().get_global_id(state, vm);
+            let v2 = exp.pop().unwrap().get_global_id(state, vm);
             let obj1 = vm.get_obj_by_id(&v1).unwrap();
             let obj2 = vm.get_obj_by_id(&v2).unwrap();
             let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
@@ -111,66 +125,93 @@ impl FSRThreadRuntime {
             exp.push(SValue::GlobalId(res_id));
         }
         else if bytecode.get_operator() == &BytecodeOperator::Call {
+            let ptr = vm as *mut FSRVM;
             let fn_id = match exp.pop().unwrap() {
                 SValue::StackId(s) => {
-                    if let Some(id) = stack.get_var(&s.0) {
+                    if let Some(id) = state.get_var(&s.0) {
                         id.clone()
                     } else {
-                        vm.get_global_obj_by_name(s.1).unwrap()
+                        vm.get_global_obj_by_name(s.1).unwrap().clone()
                     }
                 },
                 SValue::GlobalId(id) => {
                     id
                 },
             };
+
+            
+            
             if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
                 let mut args = vec![];
                 let n = *n;
                 let mut i = 0;
                 while i < n {
-                    let a_id = exp.pop().unwrap().get_global_id(stack, vm);
-                    let obj = vm.get_obj_by_id(&a_id).unwrap();
-                    args.push(obj);
+                    let a_id = exp.pop().unwrap().get_global_id(state, vm);
+                    //let obj = vm.get_obj_by_id(&a_id).unwrap();
+                    args.push(a_id);
                     i += 1;
                 }
+                self.call_stack.push(CallState::new());
                 
                 let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
-                fn_obj.borrow().call(args);
-                
+                //fn_obj.borrow().call(stack, vm);
+                let v = unsafe { &mut *ptr };
+                let v = fn_obj.borrow().call(args, state, v).unwrap();
+                exp.push(SValue::GlobalId(v));
+            } else {
+
             }
-            unimplemented!()
+
+            self.call_stack.pop();
+
         }
+        
         else {
-            unimplemented!()
+            
         }
     }
 
-    fn run_expr(&mut self, expr: &LinkedList<BytecodeArg>, ip: &mut usize, vm: &mut FSRVM) {
+    fn run_expr(&'a mut self, expr: &LinkedList<BytecodeArg>, ip: &mut usize, vm: &mut FSRVM<'a>) {
         let stack = self.get_cur_stack();
         let mut exp_stack = vec![];
+        let ptr = stack as *mut CallState;
+        let mut i = 0;
         for arg in expr {
+            i += 1;
             if arg.get_operator() == &BytecodeOperator::Load {
+                let s = unsafe {&mut *ptr};
                 if let ArgType::Variable(id, name) = arg.get_arg() {
                     exp_stack.push(SValue::StackId((id.clone(), name)));
                 }
                 else if let ArgType::ConstInteger(id, i) = arg.get_arg() {
                     let int_const = Self::load_integer_const(i, vm);
-                    stack.insert_const(id, int_const.clone());
+                    s.insert_const(id, int_const.clone());
                     exp_stack.push(SValue::GlobalId(int_const));
                 }
-                else if let ArgType::ConstString(id, s) = arg.get_arg() {
-
+                else if let ArgType::ConstString(id, i) = arg.get_arg() {
+                    let string_const = Self::load_string_const(i.clone(), vm);
+                    s.insert_const(id, string_const.clone());
+                    exp_stack.push(SValue::GlobalId(string_const));
                 }
-            } else {
-                Self::process(&mut exp_stack, arg, stack, ip, vm);
+            } 
+            // else if arg.get_operator() == &BytecodeOperator::Push {
+            //     self.call_stack.push(CallState::new());
+            // }
+            // else if arg.get_operator() == &BytecodeOperator::Pop {
+            //     self.call_stack.pop();
+            // }
+            else {
+                let s = unsafe {&mut *ptr};
+                self.process(&mut exp_stack, arg, s, ip, vm);
             }
         }
 
         *ip += 1;
     }
 
-    pub fn start(&mut self, bytecode: Bytecode, vm: &mut FSRVM) {
+    pub fn start(&'a mut self, bytecode: Bytecode, vm: &'a mut FSRVM<'a>) {
         let mut ip = 0;
+        let p = self as *mut Self;
         loop {
             let expr = match bytecode.get(ip) {
                 Some(s) => s,
@@ -178,8 +219,8 @@ impl FSRThreadRuntime {
                     break;
                 }
             };
-
-            self.run_expr(expr, &mut ip, vm)
+            let s = unsafe { &mut *p };
+            s.run_expr(expr, &mut ip, vm);
         }
     }
 }
