@@ -10,6 +10,9 @@ mod tests {
         b = 'abcdf'
         c = b.len()
         println(c)
+        fn abc() {
+            
+        }
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

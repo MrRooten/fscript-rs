@@ -2,14 +2,15 @@ use std::{cell::RefCell, collections::{HashMap, LinkedList}};
 
 use crate::{backend::{
     compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
-    types::{base::{FSRObject, FSRValue}, string::FSRString},
+    types::{base::{FSRObject, FSRValue}, fn_def::FSRFn, string::FSRString},
 }, frontend::ast::token::call};
 
 use super::runtime::FSRVM;
 
 pub struct CallState {
     var_map: HashMap<u64, u64>,
-    const_map   : HashMap<u64, u64>
+    const_map   : HashMap<u64, u64>,
+    reverse_ip  : usize
 }
 
 impl CallState {
@@ -33,10 +34,15 @@ impl CallState {
         self.const_map.insert(id.clone(), obj_id);
     }
 
+    pub fn set_reverse_ip(&mut self, ip: usize) {
+        self.reverse_ip = ip;
+    }
+
     pub fn new() -> Self {
         Self {
             var_map: HashMap::new(),
             const_map: HashMap::new(),
+            reverse_ip: 0,
         }
     }
 }
@@ -226,6 +232,7 @@ impl<'a> FSRThreadRuntime {
                         args.push(obj.borrow());
                         i += 1;
                     }
+                    state.set_reverse_ip(*ip);
                     self.call_stack.push(CallState::new());
                     let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
                     let v = unsafe { &mut *ptr };
@@ -240,12 +247,13 @@ impl<'a> FSRThreadRuntime {
                         args.push(obj.borrow());
                         i += 1;
                     }
-                    
+                    state.set_reverse_ip(*ip);
                     self.call_stack.push(CallState::new());
                     
                     let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
-                    //fn_obj.borrow().call(stack, vm);
+
                     let v = unsafe { &mut *ptr };
+  
                     let v = fn_obj.borrow().call(args, state, v).unwrap();
                     let id = vm.register_object(v);
                     exp.push(SValue::GlobalId(id));
@@ -320,7 +328,16 @@ impl<'a> FSRThreadRuntime {
                 }
             }
         }
-        
+        else if bytecode.get_operator() == &BytecodeOperator::DefineFn {
+            let s_id = match exp.pop().unwrap() {
+                SValue::StackId(id) => id,
+                SValue::AttrId(_) => panic!(),
+                SValue::GlobalId(_) => panic!(),
+            };
+            let fn_obj = FSRFn::from_fsr_fn((*ip + 1) as u64);
+            let fn_id = vm.register_object(fn_obj);
+            vm.register_global_object(s_id.1, fn_id);
+        }
         else {
             
         }
