@@ -4,7 +4,7 @@ use crate::backend::vm::runtime::FSRVM;
 
 use super::base::FSRObject;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FSRClass<'a> {
     pub(crate) name        : &'a str,
     pub(crate) attrs       : HashMap<&'a str, u64>
@@ -23,6 +23,14 @@ impl<'a> FSRClass<'a> {
         let obj_id = vm.register_object(object);
         self.attrs.insert(name, obj_id);
     }
+
+    pub fn get_attr(&self, name: &str) -> Option<u64> {
+        return match self.attrs.get(name) {
+            Some(s) => Some(s.clone()),
+            None => None
+        };
+    }
+
 
 
 }

@@ -1,27 +1,33 @@
-use std::collections::HashMap;
+use std::{cell::Ref, collections::HashMap};
 
 use crate::backend::{types::{base::{FSRObject, FSRValue}, fn_def::FSRFn}, vm::{runtime::FSRVM, thread::CallState}};
 
-pub fn fsr_fn_print<'a>(args: Vec<u64>, stack: &'a mut CallState, vm: &'a mut FSRVM<'a>) -> Result<u64, ()> {
-    let value = args[0];
-    let value = vm.get_obj_by_id(&value).unwrap();
-    let value = value.borrow();
+pub fn fsr_fn_print<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &'a mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let value = &args[0];
     let obj = value.to_string();
     if let FSRValue::String(s) = &obj.value {
         print!("{}", s);
     }
-    return Ok(0);
+    let v = FSRObject {
+        obj_id: 0,
+        value: FSRValue::None,
+        cls: "None",
+    };
+    return Ok(v);
 }
 
-pub fn fsr_fn_println<'a>(args: Vec<u64>, stack: &'a mut CallState, vm: &'a mut FSRVM<'a>) -> Result<u64, ()> {
-    let value = args[0];
-    let value = vm.get_obj_by_id(&value).unwrap();
-    let value = value.borrow();
+pub fn fsr_fn_println<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &'a mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let value = &args[0];
     let obj = value.to_string();
     if let FSRValue::String(s) = &obj.value {
         println!("{}", s);
     }
-    return Ok(0);
+    let v = FSRObject {
+        obj_id: 0,
+        value: FSRValue::None,
+        cls: "None",
+    };
+    return Ok(v);
 }
 
 pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
@@ -31,4 +37,5 @@ pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     m.insert("print", print_fn);
     m.insert("println", println_fn);
     return m;
+    unimplemented!()
 }

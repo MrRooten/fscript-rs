@@ -1,6 +1,6 @@
 use std::{cell::{Cell, RefCell}, collections::HashMap, sync::atomic::{AtomicU64, Ordering}};
 
-use crate::{backend::types::{base::{FSRObject, FSRValue}, class::FSRClass}, std::io::init_io};
+use crate::{backend::types::{base::{FSRObject, FSRValue}, class::FSRClass, integer::FSRInteger}, std::io::init_io};
 
 use super::thread::FSRThreadRuntime;
 
@@ -47,6 +47,11 @@ impl<'a> FSRVM<'a> {
         self.global.insert("true", 1);
         let false_obj = self.new_object_with_id(2, FSRValue::Bool(false));
         self.global.insert("false", 2);
+
+
+        let integer = FSRInteger::get_class(self);
+        self.base_types.insert("Integer", integer);
+
         let objs = init_io();
         for obj in objs {
             let id = self.register_object(obj.1);
@@ -64,7 +69,6 @@ impl<'a> FSRVM<'a> {
             obj_id: id.clone(),
             value: FSRValue::None,
             cls: "",
-            attrs: HashMap::new(),
         };
         self.obj_map.insert(obj.obj_id, RefCell::new(obj));
         return self.obj_map.get(&id).unwrap();
@@ -75,7 +79,6 @@ impl<'a> FSRVM<'a> {
             obj_id: id,
             value: value,
             cls: "",
-            attrs: HashMap::new(),
         };
         self.obj_map.insert(obj.obj_id, RefCell::new(obj));
         return self.obj_map.get(&id).unwrap();

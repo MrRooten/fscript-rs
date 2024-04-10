@@ -7,7 +7,7 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        b = a + a
+        b = a > a
         println(b)
         ";
         let meta = FSRMeta::new();
@@ -19,14 +19,12 @@ mod tests {
     #[test]
     fn test_2() {
         let expr = "
-        a = 1
-        b = 'abc'
+        b = 3 * 4
         println(b)
-        a = false
-        if a {
-            println('dfsdf')
+        while b < 30 {
+            println('abc')
+            b = b + 1
         }
-        println(b)
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

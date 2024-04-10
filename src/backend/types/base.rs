@@ -1,10 +1,17 @@
-use std::{borrow::Borrow, cell::{Cell, RefCell}, collections::HashMap};
+use std::{
+    borrow::Borrow,
+    cell::{Cell, Ref, RefCell},
+    collections::HashMap,
+};
 
-use crate::backend::{types::string::FSRString, vm::{runtime::FSRVM, thread::CallState}};
+use crate::backend::{
+    types::string::FSRString,
+    vm::{runtime::FSRVM, thread::CallState},
+};
 
 use super::{class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FSRValue<'a> {
     Integer(i64),
     Float(f64),
@@ -13,7 +20,7 @@ pub enum FSRValue<'a> {
     ClassInst(FSRClassInst<'a>),
     Function(FSRFn),
     Bool(bool),
-    None
+    None,
 }
 
 impl<'a> FSRValue<'a> {
@@ -31,14 +38,12 @@ impl<'a> FSRValue<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FSRObject<'a> {
-    pub(crate) obj_id                   : u64,
-    pub(crate) value                    : FSRValue<'a>,
-    pub(crate) cls                      : &'a str,
-    pub(crate) attrs                    : HashMap<&'a str, u64>
+    pub(crate) obj_id: u64,
+    pub(crate) value: FSRValue<'a>,
+    pub(crate) cls: &'a str,
 }
-
 
 impl<'a> FSRObject<'a> {
     pub fn new() -> FSRObject<'a> {
@@ -46,7 +51,6 @@ impl<'a> FSRObject<'a> {
             obj_id: 0,
             value: FSRValue::None,
             cls: "",
-            attrs: HashMap::new(),
         }
     }
 
@@ -58,21 +62,23 @@ impl<'a> FSRObject<'a> {
         self.cls = cls
     }
 
+    pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
+        let cls = vm.get_cls(self.cls).unwrap();
+        return cls.get_attr(name);
+    }
+
     pub fn invoke(&self, method: &str, args: Vec<&RefCell<FSRObject<'a>>>) -> FSRObject<'a> {
         if method.eq("__add__") {
             let other = args[0];
             let v = self as *const FSRObject<'a> as *mut Self;
             if other.as_ptr() == v {
                 if let FSRValue::Integer(i) = self.value {
-
                     let v = FSRValue::Integer(i + i);
                     return Self {
                         obj_id: 0,
                         value: v,
                         cls: "Integer",
-                        attrs: HashMap::new(),
-                    }
-                    
+                    };
                 }
             }
             let other = other.borrow();
@@ -83,23 +89,38 @@ impl<'a> FSRObject<'a> {
                         obj_id: 0,
                         value: v,
                         cls: "Integer",
-                        attrs: HashMap::new(),
-                    }
+                    };
                 }
             }
-        }
-        else if method.eq("__str__") {
+        } else if method.eq("__str__") {
             return Self {
                 obj_id: 0,
                 value: FSRValue::String(self.value.to_string()),
                 cls: "String",
-                attrs: HashMap::new(),
-            }
+            };
         }
+
         unimplemented!()
     }
 
-    pub fn call(&self, args: Vec<u64>, stack: &'a mut CallState, vm: &'a mut FSRVM<'a>) -> Result<u64,()> {
+    pub fn invoke_method(
+        name: &str,
+        args: Vec<Ref<FSRObject<'a>>>,
+        stack: &'a mut CallState,
+        vm: &FSRVM<'a>,
+    ) -> Result<FSRObject<'a>, ()> {
+        let self_method = args[0].get_cls_attr(name, vm).unwrap();
+        let method_object = vm.get_obj_by_id(&self_method).unwrap().borrow();
+        let v = method_object.call(args, stack, vm)?;
+        return Ok(v);
+    }
+
+    pub fn call(
+        &self,
+        args: Vec<Ref<FSRObject<'a>>>,
+        stack: &'a mut CallState,
+        vm: &FSRVM<'a>,
+    ) -> Result<FSRObject<'a>, ()> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, stack, vm);
         }
@@ -110,4 +131,3 @@ impl<'a> FSRObject<'a> {
         return self.invoke("__str__", vec![]);
     }
 }
-
