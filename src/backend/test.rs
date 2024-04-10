@@ -7,11 +7,13 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        b = 'abcdf'
-        c = b.len()
-        println(c)
-        fn abc() {
-            
+        fn abc(ddc) {
+            println(ddc)
+        }
+        ddc = 1
+        abc(ddc)
+        fn abc(ddc) {
+            println(ddc)
         }
         ";
         let meta = FSRMeta::new();
@@ -23,9 +25,11 @@ mod tests {
     #[test]
     fn test_2() {
         let expr = "
-        b = 'abcdf'
-        c = b.len()
-        println(c)
+        fn abc(ddc) {
+            println(ddc)
+        }
+        ddc = 'asdf'
+        abc(ddc)
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

@@ -14,6 +14,7 @@ pub enum BytecodeOperator {
     Load,
     LoadAttr,
     Assign,
+    AssignArgs,
     BinaryAdd,
     BinarySub,
     BinaryMul,
@@ -44,6 +45,7 @@ pub enum ArgType {
     Compare(&'static str),
     FnLines(usize),
     CallArgsNumber(usize),
+    DefineFnArgs(u64, u64),
     None,
 }
 
@@ -261,6 +263,30 @@ impl<'a> Bytecode {
                 arg: ArgType::Variable(arg_id.clone(), var.get_name().to_string()),
             };
         }
+        
+        let mut ans = LinkedList::new();
+        ans.push_back(op_arg);
+        
+        return (ans, var_map);
+    }
+
+    fn load_assign_arg(
+        var: &'a FSRVariable<'a>,
+        var_map: &'a mut VarMap<'a>,
+    ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
+        if var_map.has_var(&var.get_name()) == false {
+            let v = var.get_name();
+            var_map.insert_var(v);
+        }
+
+        let arg_id = var_map.get_var(&var.get_name()).unwrap();
+        let op_arg;
+
+        op_arg = BytecodeArg {
+            operator: BytecodeOperator::AssignArgs,
+            arg: ArgType::Variable(arg_id.clone(), var.get_name().to_string()),
+        };
+        
         
         let mut ans = LinkedList::new();
         ans.push_back(op_arg);
@@ -492,23 +518,28 @@ impl<'a> Bytecode {
     fn load_function(fn_def: &'a FSRFnDef<'a>, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut result = vec![];
         let name = fn_def.get_name();
-        let mut define_fn = LinkedList::new();
+        //let mut define_fn = LinkedList::new();
         if var_map.has_var(name) == false {
             var_map.insert_var(name);
         }
 
+        let mut fn_var_map = VarMap::new();
+        let mut fn_var_map_ref = &mut fn_var_map;
         let args = fn_def.get_args();
         let mut var_map = var_map;
         let mut args_load = LinkedList::new();
+        let mut arg_len = 0;
         for arg in args {
             if let FSRToken::Variable(v) = arg {
-                let mut a = Self::load_variable(v, var_map, false);
-                var_map = a.1;
+                let mut a = Self::load_variable(v, fn_var_map_ref, false);
+                fn_var_map_ref = a.1;
                 args_load.append(&mut a.0);
+                arg_len += 1;
             }
         }
+        
 
-        result.push(args_load);
+        
 
         let arg_id = var_map.get_var(name).unwrap();
 
@@ -517,24 +548,51 @@ impl<'a> Bytecode {
             arg: ArgType::Variable(arg_id.clone(), name.to_string()),
         };
         
+        
 
         
-        let mut fn_var_map = VarMap::new();
+        
         let body = fn_def.get_body();
-        let fn_body = Self::load_block(body, &mut fn_var_map).0;
-        let mut end_list = LinkedList::new();
-        end_list.push_back(BytecodeArg {
+        let v = Self::load_block(body, fn_var_map_ref);
+        fn_var_map_ref = v.1;
+        let fn_body = v.0;
+        // let mut end_list = LinkedList::new();
+        // end_list.push_back(BytecodeArg {
+        //     operator: BytecodeOperator::EndDefineFn,
+        //     arg: ArgType::None,
+        // });
+        //define_fn.push_back(op_arg);
+        let mut load_args = LinkedList::new();
+        for arg in args {
+            if let FSRToken::Variable(v) = arg {
+                let mut a = Self::load_assign_arg(v, fn_var_map_ref);
+                fn_var_map_ref = a.1;
+                load_args.append(&mut a.0);
+            }
+        }
+
+        args_load.push_back(op_arg);
+        args_load.push_back(BytecodeArg {
+            operator: BytecodeOperator::DefineFn,
+            arg: ArgType::DefineFnArgs(fn_body.len() as u64 + 1, arg_len),
+        });
+        // define_fn.push_back(BytecodeArg {
+        //     operator: BytecodeOperator::DefineFn,
+        //     arg: ArgType::DefineFnArgs(fn_body.len() as u64 + 1, arg_len),
+        // });
+
+        result.push(args_load);
+        result.push(load_args);
+        //result.push(define_fn);
+        result.extend(fn_body);
+
+        let mut end_of_fn = LinkedList::new();
+        end_of_fn.push_back(BytecodeArg {
             operator: BytecodeOperator::EndDefineFn,
             arg: ArgType::None,
         });
-        define_fn.push_back(op_arg);
-        define_fn.push_back(BytecodeArg {
-            operator: BytecodeOperator::DefineFn,
-            arg: ArgType::FnLines(fn_body.len() + 1),
-        });
-        result.push(define_fn);
-        result.extend(fn_body);
-        result.push(end_list);
+        result.push(end_of_fn);
+        // result.push(end_list);
         return (result, var_map);
     }
 

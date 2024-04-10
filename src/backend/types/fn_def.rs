@@ -14,13 +14,23 @@ pub enum FSRnE {
 
 #[derive(Debug, Clone)]
 pub struct FSRFn {
-    fn_def      : FSRnE
+    fn_def      : FSRnE,
+    args        : Vec<String>
 }
 
-impl FSRFn {
-    pub fn from_fsr_fn(u: u64) -> FSRObject<'static> {
+impl<'a> FSRFn {
+    pub fn get_def(&self) -> &FSRnE {
+        return &self.fn_def
+    }
+
+    pub fn get_args(&self) -> &Vec<String> {
+        unimplemented!()
+    }
+
+    pub fn from_fsr_fn(u: u64, args: Vec<String>) -> FSRObject<'static> {
         let v = Self {
-            fn_def: FSRnE::FSRFn(u)
+            fn_def: FSRnE::FSRFn(u),
+            args: args,
         };
         FSRObject {
             obj_id: 0,
@@ -31,7 +41,8 @@ impl FSRFn {
 
     pub fn from_rust_fn(f: FSRRustFn) -> FSRObject<'static> {
         let v = Self {
-            fn_def: FSRnE::RustFn(f)
+            fn_def: FSRnE::RustFn(f),
+            args: vec![],
         };
         FSRObject {
             obj_id: 0,
@@ -44,7 +55,7 @@ impl FSRFn {
         unimplemented!()
     }
 
-    pub fn invoke<'a>(&self, args: Vec<Ref<FSRObject<'a>>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>,()> {
+    pub fn invoke(&self, args: Vec<Ref<FSRObject<'a>>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>,()> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, stack, vm);
         }

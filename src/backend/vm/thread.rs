@@ -10,7 +10,9 @@ use super::runtime::FSRVM;
 pub struct CallState {
     var_map: HashMap<u64, u64>,
     const_map   : HashMap<u64, u64>,
-    reverse_ip  : usize
+    reverse_ip  : usize,
+    args        : Vec<u64>,
+    index       : u64
 }
 
 impl CallState {
@@ -43,6 +45,8 @@ impl CallState {
             var_map: HashMap::new(),
             const_map: HashMap::new(),
             reverse_ip: 0,
+            args: Vec::new(),
+            index: 0
         }
     }
 }
@@ -201,6 +205,7 @@ impl<'a> FSRThreadRuntime {
             let ptr = vm as *mut FSRVM;
             let fn_id = match exp.pop().unwrap() {
                 SValue::StackId(s) => {
+                    println!("name: {}", s.1);
                     if let Some(id) = state.get_var(&s.0) {
                         id.clone()
                     } else {
@@ -236,9 +241,16 @@ impl<'a> FSRThreadRuntime {
                     self.call_stack.push(CallState::new());
                     let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
                     let v = unsafe { &mut *ptr };
-                    let v = fn_obj.borrow().call(args, state, v).unwrap();
-                    let id = vm.register_object(v);
-                    exp.push(SValue::GlobalId(id));
+                    if fn_obj.borrow().is_fsr_function() {
+                        let offset = fn_obj.borrow().get_fsr_offset();
+                        *ip = offset as usize;
+                    } else {
+                        let v = fn_obj.borrow().call(args, state, v).unwrap();
+                    
+                        let id = vm.register_object(v);
+                        exp.push(SValue::GlobalId(id));
+                        self.call_stack.pop();
+                    }
                     
                 } else {
                     while i < n {
@@ -253,17 +265,29 @@ impl<'a> FSRThreadRuntime {
                     let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
 
                     let v = unsafe { &mut *ptr };
-  
-                    let v = fn_obj.borrow().call(args, state, v).unwrap();
-                    let id = vm.register_object(v);
-                    exp.push(SValue::GlobalId(id));
+                    if fn_obj.borrow().is_fsr_function() {
+                        for arg in args {
+                            self.get_cur_stack().args.push(arg.obj_id);
+                        }
+                        let offset = fn_obj.borrow().get_fsr_offset();
+                        println!("offset: {}", offset);
+                        *ip = offset as usize;
+                        return true;
+                    } else {
+                        let v = fn_obj.borrow().call(args, state, v).unwrap();
+                    
+                        let id = vm.register_object(v);
+                        exp.push(SValue::GlobalId(id));
+                        self.call_stack.pop();
+                    }
+                    
                 }
                 
             } else {
 
             }
 
-            self.call_stack.pop();
+            
         }
         else if bytecode.get_operator() == &BytecodeOperator::IfTest {
             let test_val = match exp.pop().unwrap() {
@@ -329,14 +353,44 @@ impl<'a> FSRThreadRuntime {
             }
         }
         else if bytecode.get_operator() == &BytecodeOperator::DefineFn {
-            let s_id = match exp.pop().unwrap() {
+            let name = match exp.pop().unwrap() {
                 SValue::StackId(id) => id,
                 SValue::AttrId(_) => panic!(),
                 SValue::GlobalId(_) => panic!(),
             };
-            let fn_obj = FSRFn::from_fsr_fn((*ip + 1) as u64);
-            let fn_id = vm.register_object(fn_obj);
-            vm.register_global_object(s_id.1, fn_id);
+
+
+            if let ArgType::DefineFnArgs(n, arg_len) = bytecode.get_arg() {
+                let mut args = vec![];
+                for i in 0..*arg_len {
+                    let v = match exp.pop().unwrap() {
+                        SValue::StackId(id) => id,
+                        SValue::AttrId(_) => panic!(),
+                        SValue::GlobalId(_) => panic!(),
+                    };
+                    args.push(v.1.to_string());
+                }
+                let fn_obj = FSRFn::from_fsr_fn((*ip + 1) as u64, args);
+                let fn_id = vm.register_object(fn_obj);
+                vm.register_global_object(name.1, fn_id);
+                println!("{}", n);
+                *ip += *n as usize + 2;
+                return true;
+            }
+            
+        }
+        else if bytecode.get_operator() == &BytecodeOperator::AssignArgs {
+            let v = state.args.pop().unwrap();
+            if let ArgType::Variable(s_id, name) = bytecode.get_arg() {
+                println!("{}, name:{}", s_id, name);
+                state.insert_var(s_id, v);
+            }
+        }
+        else if bytecode.get_operator() == &BytecodeOperator::EndDefineFn {
+            self.call_stack.pop();
+            let cur = self.get_cur_stack();
+            *ip = cur.reverse_ip + 1;
+            return true;
         }
         else {
             
@@ -403,6 +457,7 @@ impl<'a> FSRThreadRuntime {
                     break;
                 }
             };
+            println!("ip: {}, {:?}", ip, expr);
             let s = unsafe { &mut *p };
             s.run_expr(expr, &mut ip, vm);
         }

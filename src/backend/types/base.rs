@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::backend::{
-    types::string::FSRString,
+    types::{fn_def::FSRnE, string::FSRString},
     vm::{runtime::FSRVM, thread::CallState},
 };
 
@@ -142,4 +142,33 @@ impl<'a> FSRObject<'a> {
     pub fn to_string(&self) -> FSRObject<'a> {
         return self.invoke("__str__", vec![]);
     }
+
+    pub fn is_fsr_function(&self) -> bool {
+        if let FSRValue::Function(fn_def) = &self.value {
+            if let FSRnE::FSRFn(f) = &fn_def.get_def() {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    pub fn get_fsr_offset(&self) -> u64 {
+        if let FSRValue::Function(fn_def) = &self.value {
+            if let FSRnE::FSRFn(f) = &fn_def.get_def() {
+                return f.clone();
+            }
+        }
+        
+        panic!()
+    }
+
+    pub fn get_fsr_args(&self) -> &Vec<String> {
+        if let FSRValue::Function(fn_def) = &self.value {
+            return fn_def.get_args();
+        }
+
+        unimplemented!()
+    }
+
 }
