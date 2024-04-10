@@ -2,7 +2,7 @@ use std::{cell::Ref, collections::HashMap};
 
 use crate::backend::{types::{base::{FSRObject, FSRValue}, fn_def::FSRFn}, vm::{runtime::FSRVM, thread::CallState}};
 
-pub fn fsr_fn_print<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &'a mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+pub fn fsr_fn_print<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
     let value = &args[0];
     let obj = value.to_string();
     if let FSRValue::String(s) = &obj.value {
@@ -16,7 +16,7 @@ pub fn fsr_fn_print<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &'a mut CallState,
     return Ok(v);
 }
 
-pub fn fsr_fn_println<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &'a mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+pub fn fsr_fn_println<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
     let value = &args[0];
     let obj = value.to_string();
     if let FSRValue::String(s) = &obj.value {

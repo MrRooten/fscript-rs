@@ -106,7 +106,7 @@ impl<'a> FSRObject<'a> {
     pub fn invoke_method(
         name: &str,
         args: Vec<Ref<FSRObject<'a>>>,
-        stack: &'a mut CallState,
+        stack: &mut CallState,
         vm: &FSRVM<'a>,
     ) -> Result<FSRObject<'a>, ()> {
         let self_method = args[0].get_cls_attr(name, vm).unwrap();
@@ -115,10 +115,22 @@ impl<'a> FSRObject<'a> {
         return Ok(v);
     }
 
+    pub fn get_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
+        if let Some(s) = self.get_cls_attr(name, vm) {
+            return Some(s);
+        }
+
+        if let FSRValue::ClassInst(inst) = &self.value {
+            return Some(inst.get_attr(name).unwrap().clone());
+        }
+
+        unimplemented!()
+    }
+
     pub fn call(
         &self,
         args: Vec<Ref<FSRObject<'a>>>,
-        stack: &'a mut CallState,
+        stack: &mut CallState,
         vm: &FSRVM<'a>,
     ) -> Result<FSRObject<'a>, ()> {
         if let FSRValue::Function(fn_def) = &self.value {

@@ -1,6 +1,6 @@
 use std::{cell::{Cell, RefCell}, collections::HashMap, sync::atomic::{AtomicU64, Ordering}};
 
-use crate::{backend::types::{base::{FSRObject, FSRValue}, class::FSRClass, integer::FSRInteger}, std::io::init_io};
+use crate::{backend::types::{base::{FSRObject, FSRValue}, class::FSRClass, integer::FSRInteger, string::FSRString}, frontend::ast::token::slice::FSRSlice, std::io::init_io};
 
 use super::thread::FSRThreadRuntime;
 
@@ -52,6 +52,9 @@ impl<'a> FSRVM<'a> {
         let integer = FSRInteger::get_class(self);
         self.base_types.insert("Integer", integer);
 
+        let string = FSRString::get_class(self);
+        self.base_types.insert("String", string);
+        
         let objs = init_io();
         for obj in objs {
             let id = self.register_object(obj.1);

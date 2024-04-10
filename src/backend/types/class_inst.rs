@@ -9,4 +9,8 @@ impl FSRClassInst<'_> {
     pub fn new(name: &str) -> FSRClassInst {
         unimplemented!()
     }
+
+    pub fn get_attr(&self, name: &str) -> Option<&u64> {
+        return self.attrs.get(name);
+    }
 }
