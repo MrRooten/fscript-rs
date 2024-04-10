@@ -20,7 +20,12 @@ mod tests {
     fn test_2() {
         let expr = "
         a = 1
-        b = a + a
+        b = 'abc'
+        println(b)
+        a = false
+        if a {
+            println('dfsdf')
+        }
         println(b)
         ";
         let meta = FSRMeta::new();

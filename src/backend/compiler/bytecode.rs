@@ -401,7 +401,7 @@ impl<'a> Bytecode {
         let l = block_items.0.get_mut(len - 1).unwrap();
         l.push_back(BytecodeArg {
             operator: BytecodeOperator::WhileBlockEnd,
-            arg: ArgType::WhileEnd(-1 * len as i64),
+            arg: ArgType::WhileEnd(len as i64),
         });
         vs.extend(block_items.0);
 

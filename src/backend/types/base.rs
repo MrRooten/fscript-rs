@@ -12,6 +12,7 @@ pub enum FSRValue<'a> {
     Class(FSRClass<'a>),
     ClassInst(FSRClassInst<'a>),
     Function(FSRFn),
+    Bool(bool),
     None
 }
 
@@ -25,6 +26,7 @@ impl<'a> FSRValue<'a> {
             FSRValue::ClassInst(_) => todo!(),
             FSRValue::Function(_) => todo!(),
             FSRValue::None => todo!(),
+            FSRValue::Bool(e) => e.to_string(),
         }
     }
 }

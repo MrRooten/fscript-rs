@@ -28,7 +28,25 @@ impl<'a> FSRVM<'a> {
         v
     }
 
+    pub fn get_true_id(&self) -> u64 {
+        return 1;
+    }
+
+    pub fn get_false_id(&self) -> u64 {
+        return 2;
+    }
+
+    pub fn get_none_id(&self) -> u64 {
+        return 0;
+    }
+
     pub fn init(&mut self) {
+        let none = self.new_object_with_id(0, FSRValue::None);
+        self.global.insert("none", 0);
+        let true_obj = self.new_object_with_id(1, FSRValue::Bool(true));
+        self.global.insert("true", 1);
+        let false_obj = self.new_object_with_id(2, FSRValue::Bool(false));
+        self.global.insert("false", 2);
         let objs = init_io();
         for obj in objs {
             let id = self.register_object(obj.1);
@@ -45,6 +63,17 @@ impl<'a> FSRVM<'a> {
         let obj = FSRObject {
             obj_id: id.clone(),
             value: FSRValue::None,
+            cls: "",
+            attrs: HashMap::new(),
+        };
+        self.obj_map.insert(obj.obj_id, RefCell::new(obj));
+        return self.obj_map.get(&id).unwrap();
+    }
+
+    fn new_object_with_id(&mut self, id: u64, value: FSRValue<'a>) -> &RefCell<FSRObject<'a>> {
+        let obj = FSRObject {
+            obj_id: id,
+            value: value,
             cls: "",
             attrs: HashMap::new(),
         };
