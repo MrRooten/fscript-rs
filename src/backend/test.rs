@@ -30,6 +30,13 @@ mod tests {
         }
         ddc = 'asdf'
         abc(ddc)
+
+        fn ccddefg(ddc) {
+            println(ddc)
+        }
+
+        ccddefg('sdfsdfsdf')
+        println('okokokokok')
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
