@@ -1,4 +1,4 @@
-use std::{cell::Ref, collections::{HashMap, LinkedList}};
+use std::{cell::Ref, collections::{HashMap, LinkedList}, sync::atomic::AtomicU64};
 
 use crate::backend::{compiler::bytecode::BytecodeArg, vm::{runtime::FSRVM, thread::CallState}};
 
@@ -36,6 +36,7 @@ impl<'a> FSRFn {
             obj_id: 0,
             value: FSRValue::Function(v),
             cls: "Fn",
+            ref_count: AtomicU64::new(0)
         }
     }
 
@@ -48,6 +49,7 @@ impl<'a> FSRFn {
             obj_id: 0,
             value: FSRValue::Function(v),
             cls: "Fn",
+            ref_count: AtomicU64::new(0)
         }
     }
 

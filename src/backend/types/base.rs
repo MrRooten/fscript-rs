@@ -1,7 +1,7 @@
 use std::{
     borrow::Borrow,
     cell::{Cell, Ref, RefCell},
-    collections::HashMap,
+    collections::HashMap, sync::atomic::AtomicU64,
 };
 
 use crate::backend::{
@@ -38,10 +38,11 @@ impl<'a> FSRValue<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FSRObject<'a> {
     pub(crate) obj_id: u64,
     pub(crate) value: FSRValue<'a>,
+    pub(crate) ref_count       : AtomicU64,
     pub(crate) cls: &'a str,
 }
 
@@ -51,6 +52,7 @@ impl<'a> FSRObject<'a> {
             obj_id: 0,
             value: FSRValue::None,
             cls: "",
+            ref_count: AtomicU64::new(0),
         }
     }
 
@@ -78,6 +80,7 @@ impl<'a> FSRObject<'a> {
                         obj_id: 0,
                         value: v,
                         cls: "Integer",
+                        ref_count: AtomicU64::new(0)
                     };
                 }
             }
@@ -89,6 +92,7 @@ impl<'a> FSRObject<'a> {
                         obj_id: 0,
                         value: v,
                         cls: "Integer",
+                        ref_count: AtomicU64::new(0),
                     };
                 }
             }
@@ -97,6 +101,7 @@ impl<'a> FSRObject<'a> {
                 obj_id: 0,
                 value: FSRValue::String(self.value.to_string()),
                 cls: "String",
+                ref_count: AtomicU64::new(0),
             };
         }
 

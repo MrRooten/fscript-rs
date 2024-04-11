@@ -72,6 +72,7 @@ impl<'a> FSRVM<'a> {
             obj_id: id.clone(),
             value: FSRValue::None,
             cls: "",
+            ref_count: AtomicU64::new(0)
         };
         self.obj_map.insert(obj.obj_id, RefCell::new(obj));
         return self.obj_map.get(&id).unwrap();
@@ -82,6 +83,7 @@ impl<'a> FSRVM<'a> {
             obj_id: id,
             value: value,
             cls: "",
+            ref_count: AtomicU64::new(0)
         };
         self.obj_map.insert(obj.obj_id, RefCell::new(obj));
         return self.obj_map.get(&id).unwrap();

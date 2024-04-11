@@ -1,4 +1,4 @@
-use std::{cell::Ref, collections::HashMap};
+use std::{cell::Ref, collections::HashMap, sync::atomic::AtomicU64};
 
 use crate::backend::{types::{base::{FSRObject, FSRValue}, fn_def::FSRFn}, vm::{runtime::FSRVM, thread::CallState}};
 
@@ -12,6 +12,7 @@ pub fn fsr_fn_print<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &mut CallState, vm
         obj_id: 0,
         value: FSRValue::None,
         cls: "None",
+        ref_count: AtomicU64::new(0)
     };
     return Ok(v);
 }
@@ -26,6 +27,7 @@ pub fn fsr_fn_println<'a>(args: Vec<Ref<FSRObject<'a>>>, stack: &mut CallState, 
         obj_id: 0,
         value: FSRValue::None,
         cls: "None",
+        ref_count: AtomicU64::new(0)
     };
     return Ok(v);
 }
@@ -37,5 +39,4 @@ pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     m.insert("print", print_fn);
     m.insert("println", println_fn);
     return m;
-    unimplemented!()
 }

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::{HashMap, LinkedList}};
+use std::{cell::RefCell, collections::{HashMap, LinkedList}, sync::atomic::AtomicU64};
 
 use crate::{backend::{
     compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
@@ -99,6 +99,7 @@ impl<'a> FSRThreadRuntime {
             obj_id: 0,
             value: FSRValue::Integer(i.clone()),
             cls: "Integer",
+            ref_count: AtomicU64::new(0)
         };
 
         let id = vm.register_object(obj);
@@ -110,6 +111,7 @@ impl<'a> FSRThreadRuntime {
             obj_id: 0,
             value: FSRValue::String(s),
             cls: "String",
+            ref_count: AtomicU64::new(0)
         };
 
         let id = vm.register_object(obj);        

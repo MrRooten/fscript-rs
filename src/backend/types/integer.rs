@@ -1,4 +1,4 @@
-use std::{cell::Ref, collections::HashMap};
+use std::{cell::Ref, collections::HashMap, sync::atomic::AtomicU64};
 
 use crate::backend::vm::{runtime::FSRVM, thread::CallState};
 
@@ -110,12 +110,14 @@ fn greater<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>)
                     obj_id: vm.get_true_id(),
                     value: FSRValue::Bool(true),
                     cls: "Bool",
+                    ref_count: AtomicU64::new(0)
                 });
             } else {
                 return Ok(FSRObject {
                     obj_id: vm.get_false_id(),
                     value: FSRValue::Bool(false),
                     cls: "Bool",
+                    ref_count: AtomicU64::new(0)
                 });
             }
         }
@@ -136,12 +138,14 @@ fn less<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) ->
                     obj_id: vm.get_true_id(),
                     value: FSRValue::Bool(true),
                     cls: "Bool",
+                    ref_count: AtomicU64::new(0)
                 });
             } else {
                 return Ok(FSRObject {
                     obj_id: vm.get_false_id(),
                     value: FSRValue::Bool(false),
                     cls: "Bool",
+                    ref_count: AtomicU64::new(0)
                 });
             }
         }
@@ -162,12 +166,14 @@ fn greater_equal<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRV
                     obj_id: vm.get_true_id(),
                     value: FSRValue::Bool(true),
                     cls: "Bool",
+                    ref_count: AtomicU64::new(0)
                 });
             } else {
                 return Ok(FSRObject {
                     obj_id: vm.get_false_id(),
                     value: FSRValue::Bool(false),
                     cls: "Bool",
+                    ref_count: AtomicU64::new(0)
                 });
             }
         }
@@ -188,12 +194,14 @@ fn less_equal<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'
                     obj_id: vm.get_true_id(),
                     value: FSRValue::Bool(true),
                     cls: "Bool",
+                    ref_count: AtomicU64::new(0)
                 });
             } else {
                 return Ok(FSRObject {
                     obj_id: vm.get_false_id(),
                     value: FSRValue::Bool(false),
                     cls: "Bool",
+                    ref_count: AtomicU64::new(0)
                 });
             }
         }
