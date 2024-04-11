@@ -7,43 +7,34 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        fn abc(ddc) {
-            println(ddc)
-        }
-        ddc = 1
-        abc(ddc)
-        fn abc(ddc) {
-            println(ddc)
+        class abc {
+            abc = 123
+            fn abc(self, abc) {
+
+            }
         }
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast(FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);
     }
 
     #[test]
     fn test_2() {
-        let expr = "
-        fn abc(ddc) {
-            println(ddc)
-        }
-        ddc = 'asdf'
-        abc(ddc)
+        let source_code = "
+        class Abc {
+            abc = 123
 
-        fn add1(ddc) {
-            println(ddc)
-        }
+            fn test() {
+                
+            }
 
-        a = 1
-        add1(a)
-        println(a)
+        }
         ";
-        let meta = FSRMeta::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast(FSRToken::Module(token));
+        let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();
         let mut vm = FSRVM::new();
-        runtime.start(v, &mut vm);
+        runtime.start(&v, &mut vm);
     }
 }

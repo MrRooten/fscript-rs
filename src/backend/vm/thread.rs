@@ -2,20 +2,21 @@ use std::{cell::RefCell, collections::{HashMap, LinkedList}, sync::atomic::Atomi
 
 use crate::{backend::{
     compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
-    types::{base::{FSRObject, FSRValue}, fn_def::FSRFn, string::FSRString},
+    types::{base::{FSRObject, FSRValue}, class::FSRClass, fn_def::FSRFn, string::FSRString},
 }, frontend::ast::token::call};
 
 use super::runtime::FSRVM;
 
-pub struct CallState {
+pub struct CallState<'a> {
     var_map: HashMap<u64, u64>,
     const_map   : HashMap<u64, u64>,
     reverse_ip  : usize,
     args        : Vec<u64>,
-    index       : u64
+    index       : u64,
+    cur_cls     : Option<FSRClass<'a>>,
 }
 
-impl CallState {
+impl CallState<'_> {
     pub fn get_var(&self, id: &u64) -> Option<&u64> {
         self.var_map.get(id)
     }
@@ -46,7 +47,8 @@ impl CallState {
             const_map: HashMap::new(),
             reverse_ip: 0,
             args: Vec::new(),
-            index: 0
+            index: 0,
+            cur_cls: None,
         }
     }
 }
@@ -83,12 +85,12 @@ impl SValue<'_> {
     }
 }
 
-pub struct FSRThreadRuntime {
-    call_stack: Vec<CallState>,
+pub struct FSRThreadRuntime<'a> {
+    call_stack: Vec<CallState<'a>>,
 }
 
-impl<'a> FSRThreadRuntime {
-    pub fn new() -> FSRThreadRuntime {
+impl<'a> FSRThreadRuntime<'a> {
+    pub fn new() -> FSRThreadRuntime<'a> {
         Self {
             call_stack: vec![CallState::new()],
         }
@@ -118,7 +120,7 @@ impl<'a> FSRThreadRuntime {
         return id;
     }
 
-    fn get_cur_stack(&mut self) -> &mut CallState {
+    fn get_cur_stack(&mut self) -> &mut CallState<'a> {
         let l = self.call_stack.len();
         return self.call_stack.get_mut(l-1).unwrap();
     }
@@ -149,12 +151,18 @@ impl<'a> FSRThreadRuntime {
         unimplemented!()
     }
 
-    fn process(&mut self, exp: &mut Vec<SValue>, bytecode: &BytecodeArg, mut state: &mut CallState, ip: &mut usize, vm: &mut FSRVM<'a>, is_attr: &mut bool) -> bool {
+    fn process(&mut self, exp: &mut Vec<SValue<'a>>, bytecode: &BytecodeArg, mut state: &mut CallState<'a>, ip: &mut usize, vm: &mut FSRVM<'a>, is_attr: &mut bool) -> bool {
         if bytecode.get_operator() == &BytecodeOperator::Assign {
             //if let ArgType::Variable(v, name) = bytecode.get_arg() {
             let assign_id = exp.pop().unwrap();
             let obj_id = exp.pop().unwrap();
             if let SValue::GlobalId(id) = obj_id {
+                if let SValue::StackId(s) = &assign_id {
+                    if let Some(cur_cls) = &mut state.cur_cls {
+                        cur_cls.insert_attr_id(s.1, id);
+                        return false;
+                    }
+                }
                 state.insert_var(&assign_id.get_value(), id);
             }
             else if let SValue::StackId(s_id) = obj_id {
@@ -244,7 +252,7 @@ impl<'a> FSRThreadRuntime {
                     let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
                     let v = unsafe { &mut *ptr };
                     if fn_obj.borrow().is_fsr_function() {
-                        let offset = fn_obj.borrow().get_fsr_offset();
+                        let offset = fn_obj.borrow().get_fsr_offset().1;
                         *ip = offset as usize;
                     } else {
                         let v = fn_obj.borrow().call(args, state, v).unwrap();
@@ -271,8 +279,7 @@ impl<'a> FSRThreadRuntime {
                         for arg in args {
                             self.get_cur_stack().args.push(arg.obj_id);
                         }
-                        let offset = fn_obj.borrow().get_fsr_offset();
-                        println!("offset: {}", offset);
+                        let offset = fn_obj.borrow().get_fsr_offset().1;
                         *ip = offset as usize;
                         return true;
                     } else {
@@ -372,8 +379,13 @@ impl<'a> FSRThreadRuntime {
                     };
                     args.push(v.1.to_string());
                 }
-                let fn_obj = FSRFn::from_fsr_fn((*ip + 1) as u64, args);
+                let fn_obj = FSRFn::from_fsr_fn("main", (*ip + 1) as u64, args);
                 let fn_id = vm.register_object(fn_obj);
+                if let Some(cur_cls) = &mut state.cur_cls  {
+                    cur_cls.insert_attr_id(name.1, fn_id);
+                    *ip += *n as usize + 2;
+                    return true;
+                }
                 vm.register_global_object(name.1, fn_id);
                 println!("{}", n);
                 *ip += *n as usize + 2;
@@ -394,6 +406,26 @@ impl<'a> FSRThreadRuntime {
             *ip = cur.reverse_ip + 1;
             return true;
         }
+        else if bytecode.get_operator() == &BytecodeOperator::ClassDef {
+            let id = match exp.pop().unwrap() {
+                SValue::StackId(i) => i,
+                SValue::AttrId(_) => panic!(),
+                SValue::GlobalId(_) => panic!(),
+            };
+
+            let new_cls = FSRClass::new(id.1);
+            state.cur_cls = Some(new_cls);
+        }
+        else if bytecode.get_operator() == &BytecodeOperator::EndDefineClass {
+            let mut cls_obj = FSRObject::new();
+            cls_obj.set_cls("Class");
+            let obj = state.cur_cls.take().unwrap();
+            let name = obj.get_name().to_string();
+            cls_obj.set_value(FSRValue::Class(obj));
+            let obj_id = vm.register_object(cls_obj);
+            vm.register_global_object(&name, obj_id);
+            return false;
+        }
         else {
             
         }
@@ -401,7 +433,7 @@ impl<'a> FSRThreadRuntime {
         return false
     }
 
-    fn run_expr(&'a mut self, expr: &LinkedList<BytecodeArg>, ip: &mut usize, vm: &mut FSRVM<'a>) {
+    fn run_expr(&'a mut self, expr: &'a LinkedList<BytecodeArg>, ip: &mut usize, vm: &mut FSRVM<'a>) {
         
         let mut exp_stack = vec![];
         
@@ -449,7 +481,7 @@ impl<'a> FSRThreadRuntime {
         *ip += 1;
     }
 
-    pub fn start(&'a mut self, bytecode: Bytecode, vm: &'a mut FSRVM<'a>) {
+    pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) {
         let mut ip = 0;
         let p = self as *mut Self;
         loop {

@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::frontend::ast::token::{
-    assign::FSRAssign, base::FSRToken, block::FSRBlock, call::FSRCall, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, function_def::FSRFnDef, if_statement::FSRIf, variable::FSRVariable, while_statement::FSRWhile
+    assign::FSRAssign, base::{FSRMeta, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, function_def::FSRFnDef, if_statement::FSRIf, module::FSRModuleFrontEnd, variable::FSRVariable, while_statement::FSRWhile
 };
 
 #[derive(Debug, PartialEq)]
@@ -30,7 +30,9 @@ pub enum BytecodeOperator {
     WhileTest,
     WhileBlockEnd,
     DefineFn,
-    EndDefineFn
+    EndDefineFn,
+    EndDefineClass,
+    ClassDef
 }
 
 #[derive(Debug)]
@@ -46,6 +48,7 @@ pub enum ArgType {
     FnLines(usize),
     CallArgsNumber(usize),
     DefineFnArgs(u64, u64),
+    DefineClassLine(u64),
     None,
 }
 
@@ -154,7 +157,7 @@ impl<'a> VarMap<'a> {
     }
 
     pub fn has_attr(&self, attr: &str) -> bool {
-        return self.attr_map.get(attr).is_some();
+        return self.attr_map.contains_key(attr);
     }
 
     pub fn get_attr(&self, attr: &str) -> Option<&u64> {
@@ -180,6 +183,7 @@ pub struct ExprList {
 
 #[derive(Debug)]
 pub struct Bytecode {
+    name            : String,
     bytecode        : Vec<LinkedList<BytecodeArg>>,
 }
 
@@ -473,6 +477,9 @@ impl<'a> Bytecode {
         }  else if let FSRToken::FunctionDef(fn_def) = token {
             let v = Self::load_function(fn_def, var_map);
             return (v.0, v.1)
+        }  else if let FSRToken::Class(cls) = token {
+            let v = Self::load_class(cls, var_map);
+            return (v.0, v.1)
         }
 
         unimplemented!()
@@ -596,16 +603,58 @@ impl<'a> Bytecode {
         return (result, var_map);
     }
 
+    fn load_class(class_def: &'a FSRClassFrontEnd<'a>, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
+        let mut result = vec![];
+        let name = class_def.get_name();
+        if var_map.has_var(name) == false {
+            let v = name;
+            var_map.insert_var(v);
+        }
+        let arg_id = var_map.get_var(name).unwrap();
+        let op_arg;
+
+        op_arg = BytecodeArg {
+            operator: BytecodeOperator::Load,
+            arg: ArgType::Variable(arg_id.clone(), name.to_string()),
+        };
+        
+
+        let mut class_var_map = VarMap::new();
+        let v = Self::load_block(class_def.get_block(), &mut class_var_map);
+
+
+        let mut ans = LinkedList::new();
+        ans.push_back(op_arg);
+        ans.push_back(BytecodeArg { operator: BytecodeOperator::ClassDef, arg: ArgType::DefineClassLine(v.0.len() as u64) });
+
+        result.push(ans);
+        result.extend(v.0);
+        let mut end_of_cls = LinkedList::new();
+        end_of_cls.push_back(BytecodeArg {
+            operator: BytecodeOperator::EndDefineClass,
+            arg: ArgType::None,
+        });
+        result.push(end_of_cls);
+        return (result, var_map);
+    }
+
     fn load_isolate_block(token: &FSRToken<'a>) -> Vec<LinkedList<BytecodeArg>> {
         let mut var_map = VarMap::new();
         let v = Self::load_token_with_map(token, &mut var_map);
         return v.0;
     }
 
-    pub fn load_ast(token: FSRToken<'a>) -> Bytecode {
+    pub fn load_ast(name: &str, token: FSRToken<'a>) -> Bytecode {
         let v = Self::load_isolate_block(&token);
         return Self {
-            bytecode: v
+            bytecode: v,
+            name: name.to_string(),
         }
+    }
+
+    pub fn compile(name: &str, code: &str) -> Bytecode {
+        let meta = FSRMeta::new();
+        let token = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        return Self::load_ast(name, FSRToken::Module(token));
     }
 }

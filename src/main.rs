@@ -26,8 +26,8 @@ fn main() {
     ";
     let meta = FSRMeta::new();
     let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-    let v = Bytecode::load_ast(FSRToken::Module(token));
+    let v = Bytecode::load_ast("main", FSRToken::Module(token));
     let mut runtime = FSRThreadRuntime::new();
     let mut vm = FSRVM::new();
-    runtime.start(v, &mut vm);
+    runtime.start(&v, &mut vm);
 }

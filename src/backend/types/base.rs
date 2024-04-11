@@ -1,7 +1,5 @@
 use std::{
-    borrow::Borrow,
-    cell::{Cell, Ref, RefCell},
-    collections::HashMap, sync::atomic::AtomicU64,
+    borrow::Borrow, cell::{Cell, Ref, RefCell}, collections::HashMap, rc::Rc, sync::atomic::AtomicU64
 };
 
 use crate::backend::{
@@ -158,10 +156,10 @@ impl<'a> FSRObject<'a> {
         return false;
     }
 
-    pub fn get_fsr_offset(&self) -> u64 {
+    pub fn get_fsr_offset(&self) -> (Rc<String>, u64) {
         if let FSRValue::Function(fn_def) = &self.value {
             if let FSRnE::FSRFn(f) = &fn_def.get_def() {
-                return f.clone();
+                return (f.0.clone(), f.1);
             }
         }
         

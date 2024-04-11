@@ -5,7 +5,7 @@ use crate::{backend::types::{base::{FSRObject, FSRValue}, class::FSRClass, integ
 use super::thread::FSRThreadRuntime;
 
 pub struct FSRVM<'a> {
-    threads         : HashMap<u64, FSRThreadRuntime>,
+    threads         : HashMap<u64, FSRThreadRuntime<'a>>,
     update_id       : AtomicU64,
     obj_map         : HashMap<u64, RefCell<FSRObject<'a>>>,
     global          : HashMap<String, u64>,

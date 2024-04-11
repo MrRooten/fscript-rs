@@ -24,6 +24,10 @@ impl<'a> FSRClass<'a> {
         self.attrs.insert(name, obj_id);
     }
 
+    pub fn insert_attr_id(&mut self, name: &'a str, obj_id: u64) {
+        self.attrs.insert(name, obj_id);
+    }
+
     pub fn get_attr(&self, name: &str) -> Option<u64> {
         return match self.attrs.get(name) {
             Some(s) => Some(s.clone()),
@@ -31,6 +35,9 @@ impl<'a> FSRClass<'a> {
         };
     }
 
+    pub fn get_name(&self) -> &str {
+        return self.name
+    }
 
 
 }
