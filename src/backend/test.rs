@@ -31,12 +31,13 @@ mod tests {
         ddc = 'asdf'
         abc(ddc)
 
-        fn ccddefg(ddc) {
+        fn add1(ddc) {
             println(ddc)
         }
 
-        ccddefg('sdfsdfsdf')
-        println('okokokokok')
+        a = 1
+        add1(a)
+        println(a)
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

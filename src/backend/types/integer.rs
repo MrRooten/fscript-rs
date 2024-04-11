@@ -217,7 +217,7 @@ impl<'a> FSRInteger {
         let lt_fn = FSRFn::from_rust_fn(less);
         cls.insert_attr("__lt__", lt_fn, vm);
         let lte_fn = FSRFn::from_rust_fn(less_equal);
-        cls.insert_attr("__lt__", lte_fn, vm);
+        cls.insert_attr("__lte__", lte_fn, vm);
         cls
     }
 
