@@ -1,10 +1,10 @@
 use std::{
-    borrow::Borrow, cell::{Cell, Ref, RefCell}, collections::HashMap, rc::Rc, sync::atomic::AtomicU64
+    cell::RefCell, rc::Rc, sync::atomic::AtomicU64
 };
 
 use crate::backend::{
-    types::{fn_def::FSRnE, string::FSRString},
-    vm::{runtime::FSRVM, thread::CallState},
+    types::fn_def::FSRnE,
+    vm::{runtime::{FALSE_OBJECT, FSRVM, NONE_OBJECT, TRUE_OBJECT}, thread::CallState},
 };
 
 use super::{class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn};
@@ -20,6 +20,8 @@ pub enum FSRValue<'a> {
     Bool(bool),
     None,
 }
+
+
 
 impl<'a> FSRValue<'a> {
     pub fn to_string(&self) -> String {
@@ -106,14 +108,39 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
+    pub fn sp_object(id: u64) -> &'static FSRObject<'static> {
+        if id == 0 {
+            return unsafe { NONE_OBJECT.as_ref().unwrap() }
+        }
+        if id == 1 {
+            return unsafe { TRUE_OBJECT.as_ref().unwrap() }
+        }
+        if id == 2 {
+            return unsafe { FALSE_OBJECT.as_ref().unwrap() }
+        }
+
+        panic!()
+    }
+
+    pub fn id_to_obj(id: u64) -> &'a FSRObject<'a> {
+        if id < 1000 {
+            return Self::sp_object(id);
+        }
+        unsafe {
+            let ptr = id as *const FSRObject;
+            return &*ptr;
+        }
+    }
+
     pub fn invoke_method(
         name: &str,
-        args: Vec<Ref<FSRObject<'a>>>,
+        args: Vec<u64>,
         stack: &mut CallState,
         vm: &FSRVM<'a>,
     ) -> Result<FSRObject<'a>, ()> {
-        let self_method = args[0].get_cls_attr(name, vm).unwrap();
-        let method_object = vm.get_obj_by_id(&self_method).unwrap().borrow();
+        let self_object = Self::id_to_obj(args[0]);
+        let self_method =  self_object.get_cls_attr(name, vm).unwrap();
+        let method_object = Self::id_to_obj(self_method);
         let v = method_object.call(args, stack, vm)?;
         return Ok(v);
     }
@@ -132,7 +159,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn call(
         &self,
-        args: Vec<Ref<FSRObject<'a>>>,
+        args: Vec<u64>,
         stack: &mut CallState,
         vm: &FSRVM<'a>,
     ) -> Result<FSRObject<'a>, ()> {

@@ -1,9 +1,9 @@
 use std::{cell::RefCell, collections::{HashMap, LinkedList}, sync::atomic::AtomicU64};
 
-use crate::{backend::{
+use crate::backend::{
     compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
-    types::{base::{FSRObject, FSRValue}, class::FSRClass, fn_def::FSRFn, string::FSRString},
-}, frontend::ast::token::call};
+    types::{base::{FSRObject, FSRValue}, class::FSRClass, fn_def::FSRFn},
+};
 
 use super::runtime::FSRVM;
 
@@ -12,7 +12,7 @@ pub struct CallState<'a> {
     const_map   : HashMap<u64, u64>,
     reverse_ip  : usize,
     args        : Vec<u64>,
-    index       : u64,
+    ret_val     : Option<u64>,
     cur_cls     : Option<FSRClass<'a>>,
 }
 
@@ -47,7 +47,7 @@ impl CallState<'_> {
             const_map: HashMap::new(),
             reverse_ip: 0,
             args: Vec::new(),
-            index: 0,
+            ret_val: None,
             cur_cls: None,
         }
     }
@@ -126,21 +126,19 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn compare(left: u64, right: u64, op: &str, vm: &mut FSRVM<'a>, state: &mut CallState) -> bool {
-        let left_obj = vm.get_obj_by_id(&left).unwrap().borrow();
-        let right_obj = vm.get_obj_by_id(&right).unwrap();
         let res;
         if op.eq(">") {
-            res = FSRObject::invoke_method("__gt__", vec![left_obj, right_obj.borrow()], state, vm);
+            res = FSRObject::invoke_method("__gt__", vec![left, right], state, vm);
         } else if op.eq("<") {
-            res = FSRObject::invoke_method("__lt__", vec![left_obj, right_obj.borrow()], state, vm);
+            res = FSRObject::invoke_method("__lt__", vec![left, right], state, vm);
         } else if op.eq(">=") {
-            res = FSRObject::invoke_method("__gte__", vec![left_obj, right_obj.borrow()], state, vm);
+            res = FSRObject::invoke_method("__gte__", vec![left, right], state, vm);
         } else if op.eq("<=") {
-            res = FSRObject::invoke_method("__lte__", vec![left_obj, right_obj.borrow()], state, vm);
+            res = FSRObject::invoke_method("__lte__", vec![left, right], state, vm);
         } else if op.eq("==") {
-            res = FSRObject::invoke_method("__eq__", vec![left_obj, right_obj.borrow()], state, vm);
+            res = FSRObject::invoke_method("__eq__", vec![left, right], state, vm);
         } else if op.eq("!=") {
-            res = FSRObject::invoke_method("__neq__", vec![left_obj, right_obj.borrow()], state, vm);
+            res = FSRObject::invoke_method("__neq__", vec![left, right], state, vm);
         } else {
             unimplemented!()
         }
@@ -178,20 +176,16 @@ impl<'a> FSRThreadRuntime<'a> {
         else if bytecode.get_operator() == &BytecodeOperator::BinaryAdd {
             let v1 = exp.pop().unwrap().get_global_id(state, vm);
             let v2 = exp.pop().unwrap().get_global_id(state, vm);
-            let obj1 = vm.get_obj_by_id(&v1).unwrap();
-            let obj2 = vm.get_obj_by_id(&v2).unwrap();
             //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
-            let object = FSRObject::invoke_method("__add__", vec![obj1.borrow(),obj2.borrow()], state, vm).unwrap();
+            let object = FSRObject::invoke_method("__add__", vec![v1, v2], state, vm).unwrap();
             let res_id = vm.register_object(object);
             exp.push(SValue::GlobalId(res_id));
         }
         else if bytecode.get_operator() == &BytecodeOperator::BinaryMul {
             let v1 = exp.pop().unwrap().get_global_id(state, vm);
             let v2 = exp.pop().unwrap().get_global_id(state, vm);
-            let obj1 = vm.get_obj_by_id(&v1).unwrap();
-            let obj2 = vm.get_obj_by_id(&v2).unwrap();
             //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
-            let object = FSRObject::invoke_method("__mul__", vec![obj1.borrow(),obj2.borrow()], state, vm).unwrap();
+            let object = FSRObject::invoke_method("__mul__", vec![v1, v2], state, vm).unwrap();
             let res_id = vm.register_object(object);
             exp.push(SValue::GlobalId(res_id));
         }
@@ -204,7 +198,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let v1 = exp.pop().unwrap().get_global_id(state, vm);
             
 
-            let obj1 = vm.get_obj_by_id(&v1).unwrap().borrow();
+            let obj1 = FSRObject::id_to_obj(v1);
             let name = attr_id.1;
             let id = obj1.get_attr(name, vm).unwrap();
             exp.push(SValue::GlobalId(v1));
@@ -215,7 +209,6 @@ impl<'a> FSRThreadRuntime<'a> {
             let ptr = vm as *mut FSRVM;
             let fn_id = match exp.pop().unwrap() {
                 SValue::StackId(s) => {
-                    println!("name: {}", s.1);
                     if let Some(id) = state.get_var(&s.0) {
                         id.clone()
                     } else {
@@ -238,24 +231,22 @@ impl<'a> FSRThreadRuntime<'a> {
                 let mut i = 0;
                 if *is_attr {
                     let obj_id = exp.pop().unwrap().get_global_id(state, vm);
-                    let obj = vm.get_obj_by_id(&obj_id).unwrap();
-                    args.push(obj.borrow());
+                    args.push(obj_id);
                     *is_attr = false;
                     while i < n {
                         let a_id = exp.pop().unwrap().get_global_id(state, vm);
-                        let obj = vm.get_obj_by_id(&a_id).unwrap();
-                        args.push(obj.borrow());
+                        args.push(a_id);
                         i += 1;
                     }
                     state.set_reverse_ip(*ip);
                     self.call_stack.push(CallState::new());
-                    let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
+                    let fn_obj = FSRObject::id_to_obj(fn_id);
                     let v = unsafe { &mut *ptr };
-                    if fn_obj.borrow().is_fsr_function() {
-                        let offset = fn_obj.borrow().get_fsr_offset().1;
+                    if fn_obj.is_fsr_function() {
+                        let offset = fn_obj.get_fsr_offset().1;
                         *ip = offset as usize;
                     } else {
-                        let v = fn_obj.borrow().call(args, state, v).unwrap();
+                        let v = fn_obj.call(args, state, v).unwrap();
                     
                         let id = vm.register_object(v);
                         exp.push(SValue::GlobalId(id));
@@ -265,25 +256,25 @@ impl<'a> FSRThreadRuntime<'a> {
                 } else {
                     while i < n {
                         let a_id = exp.pop().unwrap().get_global_id(state, vm);
-                        let obj = vm.get_obj_by_id(&a_id).unwrap();
-                        args.push(obj.borrow());
+                        args.push(a_id);
                         i += 1;
                     }
                     state.set_reverse_ip(*ip);
                     self.call_stack.push(CallState::new());
                     
-                    let fn_obj = vm.get_obj_by_id(&fn_id).unwrap();
+                    let fn_obj = FSRObject::id_to_obj(fn_id);
 
                     let v = unsafe { &mut *ptr };
-                    if fn_obj.borrow().is_fsr_function() {
+                    if fn_obj.is_fsr_function() {
                         for arg in args {
-                            self.get_cur_stack().args.push(arg.obj_id);
+                            self.get_cur_stack().args.push(arg);
                         }
-                        let offset = fn_obj.borrow().get_fsr_offset().1;
+                        let offset = fn_obj.get_fsr_offset();
+                        let offset = fn_obj.get_fsr_offset().1;
                         *ip = offset as usize;
                         return true;
                     } else {
-                        let v = fn_obj.borrow().call(args, state, v).unwrap();
+                        let v = fn_obj.call(args, state, v).unwrap();
                     
                         let id = vm.register_object(v);
                         exp.push(SValue::GlobalId(id));
@@ -387,7 +378,6 @@ impl<'a> FSRThreadRuntime<'a> {
                     return true;
                 }
                 vm.register_global_object(name.1, fn_id);
-                println!("{}", n);
                 *ip += *n as usize + 2;
                 return true;
             }
@@ -396,13 +386,20 @@ impl<'a> FSRThreadRuntime<'a> {
         else if bytecode.get_operator() == &BytecodeOperator::AssignArgs {
             let v = state.args.pop().unwrap();
             if let ArgType::Variable(s_id, name) = bytecode.get_arg() {
-                println!("{}, name:{}", s_id, name);
                 state.insert_var(s_id, v);
             }
         }
         else if bytecode.get_operator() == &BytecodeOperator::EndDefineFn {
             self.call_stack.pop();
             let cur = self.get_cur_stack();
+            *ip = cur.reverse_ip + 1;
+            return true;
+        }
+        else if bytecode.get_operator() == &BytecodeOperator::ReturnValue {
+            self.call_stack.pop();
+            let cur = self.get_cur_stack();
+            let v = exp.pop().unwrap().get_global_id(state, vm);
+            exp.push(SValue::GlobalId(v));
             *ip = cur.reverse_ip + 1;
             return true;
         }
@@ -491,7 +488,6 @@ impl<'a> FSRThreadRuntime<'a> {
                     break;
                 }
             };
-            println!("ip: {}, {:?}", ip, expr);
             let s = unsafe { &mut *p };
             s.run_expr(expr, &mut ip, vm);
         }

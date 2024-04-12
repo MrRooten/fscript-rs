@@ -8,9 +8,9 @@ pub struct FSRInteger {
 
 }
 
-fn add<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn add<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
@@ -23,9 +23,9 @@ fn add<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> 
     unimplemented!()
 }
 
-fn sub<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn sub<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
@@ -38,9 +38,9 @@ fn sub<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> 
     unimplemented!()
 }
 
-fn mul<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn mul<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
@@ -68,9 +68,9 @@ fn div<'a>(args: Vec<u64>, stack: &'a mut CallState, vm: &FSRVM<'a>) -> Result<F
     unimplemented!()
 }
 
-fn left_shift<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn left_shift<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
@@ -83,9 +83,9 @@ fn left_shift<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'
     unimplemented!()
 }
 
-fn right_shift<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn right_shift<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
@@ -97,9 +97,9 @@ fn right_shift<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<
     unimplemented!()
 }
 
-fn greater<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn greater<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
@@ -125,9 +125,9 @@ fn greater<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>)
     unimplemented!()
 }
 
-fn less<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn less<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
@@ -153,9 +153,9 @@ fn less<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) ->
     unimplemented!()
 }
 
-fn greater_equal<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn greater_equal<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
@@ -181,9 +181,9 @@ fn greater_equal<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRV
     unimplemented!()
 }
 
-fn less_equal<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
-    let other_object = &args[1];
+fn less_equal<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 

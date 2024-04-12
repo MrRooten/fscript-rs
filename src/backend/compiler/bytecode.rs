@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::frontend::ast::token::{
-    assign::FSRAssign, base::{FSRMeta, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, function_def::FSRFnDef, if_statement::FSRIf, module::FSRModuleFrontEnd, variable::FSRVariable, while_statement::FSRWhile
+    assign::FSRAssign, base::{FSRMeta, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, function_def::FSRFnDef, if_statement::FSRIf, module::FSRModuleFrontEnd, return_def::FSRReturn, variable::FSRVariable, while_statement::FSRWhile
 };
 
 #[derive(Debug, PartialEq)]
@@ -30,6 +30,7 @@ pub enum BytecodeOperator {
     WhileTest,
     WhileBlockEnd,
     DefineFn,
+    RetFn,
     EndDefineFn,
     EndDefineClass,
     ClassDef
@@ -520,6 +521,21 @@ impl<'a> Bytecode {
         }
         
         return (result_list, var_map)
+    }
+
+    fn load_ret(
+        ret: &'a FSRReturn,
+        var_map: &'a mut VarMap<'a>
+    ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
+        let v = Self::load_token_with_map(ret.get_return_expr().as_ref(), var_map);
+        let mut ret_expr = LinkedList::new();
+        let mut r = v.0;
+        if r.len() > 0 {
+            ret_expr.append(&mut r[0]);
+        }
+        ret_expr.push_back(BytecodeArg { operator: BytecodeOperator::ReturnValue, arg: ArgType::None });
+
+        return (ret_expr, v.1);
     }
 
     fn load_function(fn_def: &'a FSRFnDef<'a>, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {

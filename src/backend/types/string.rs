@@ -8,8 +8,8 @@ pub struct FSRString {
 
 }
 
-fn string_len<'a>(args: Vec<Ref<FSRObject>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
-    let self_object = &args[0];
+fn string_len<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+    let self_object = FSRObject::id_to_obj(args[0]);
 
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(

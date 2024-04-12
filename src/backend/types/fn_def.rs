@@ -5,7 +5,7 @@ use crate::backend::{compiler::bytecode::BytecodeArg, vm::{runtime::FSRVM, threa
 use super::{base::{FSRObject, FSRValue}, class::FSRClass};
 
 
-type FSRRustFn = for<'a> fn(args: Vec<Ref<FSRObject<'a>>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()>;
+type FSRRustFn = for<'a> fn(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()>;
 #[derive(Debug, Clone)]
 pub enum FSRnE {
     RustFn(FSRRustFn),
@@ -57,7 +57,7 @@ impl<'a> FSRFn {
         unimplemented!()
     }
 
-    pub fn invoke(&self, args: Vec<Ref<FSRObject<'a>>>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>,()> {
+    pub fn invoke(&self, args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>,()> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, stack, vm);
         }

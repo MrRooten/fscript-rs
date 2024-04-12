@@ -7,13 +7,18 @@ use super::thread::FSRThreadRuntime;
 pub struct FSRVM<'a> {
     threads         : HashMap<u64, FSRThreadRuntime<'a>>,
     update_id       : AtomicU64,
-    obj_map         : HashMap<u64, RefCell<FSRObject<'a>>>,
+    obj_map         : HashMap<u64, Box<FSRObject<'a>>>,
     global          : HashMap<String, u64>,
     base_types      : HashMap<&'a str, FSRClass<'a>>
 }
 
+pub static mut NONE_OBJECT: Option<FSRObject> = None;
+pub static mut TRUE_OBJECT: Option<FSRObject> = None;
+pub static mut FALSE_OBJECT: Option<FSRObject> = None;
+
 impl<'a> FSRVM<'a> {
     pub fn new() -> Self {
+        Self::init_static_object();
         let main_thread = FSRThreadRuntime::new();
         let mut maps = HashMap::new();
         maps.insert(0, main_thread);
@@ -40,15 +45,26 @@ impl<'a> FSRVM<'a> {
         return 0;
     }
 
+    pub fn init_static_object() {
+        unsafe {
+            if NONE_OBJECT.is_none() {
+                NONE_OBJECT = Some(Self::new_stataic_object_with_id(0, FSRValue::None));
+            }
+
+            if TRUE_OBJECT.is_none() {
+                TRUE_OBJECT = Some(Self::new_stataic_object_with_id(1, FSRValue::Bool(true)));
+            }
+
+            if FALSE_OBJECT.is_none() {
+                FALSE_OBJECT = Some(Self::new_stataic_object_with_id(2, FSRValue::Bool(false)));
+            }
+        }
+    }
+
     pub fn init(&mut self) {
-        let none = self.new_object_with_id(0, FSRValue::None);
         self.global.insert("none".to_string(), 0);
-        let true_obj = self.new_object_with_id(1, FSRValue::Bool(true));
         self.global.insert("true".to_string(), 1);
-        let false_obj = self.new_object_with_id(2, FSRValue::Bool(false));
         self.global.insert("false".to_string(), 2);
-
-
         let integer = FSRInteger::get_class(self);
         self.base_types.insert("Integer", integer);
 
@@ -66,7 +82,7 @@ impl<'a> FSRVM<'a> {
         return self.base_types.get(name)
     }
 
-    pub fn new_object(&mut self) -> &RefCell<FSRObject<'a>> {
+    pub fn new_object(&mut self) -> &Box<FSRObject<'a>> {
         let id = self.update_id.fetch_add(1, Ordering::Relaxed);
         let obj = FSRObject {
             obj_id: id.clone(),
@@ -74,22 +90,33 @@ impl<'a> FSRVM<'a> {
             cls: "",
             ref_count: AtomicU64::new(0)
         };
-        self.obj_map.insert(obj.obj_id, RefCell::new(obj));
+        self.obj_map.insert(obj.obj_id, Box::new(obj));
         return self.obj_map.get(&id).unwrap();
     }
 
-    fn new_object_with_id(&mut self, id: u64, value: FSRValue<'a>) -> &RefCell<FSRObject<'a>> {
+    fn new_object_with_id(&mut self, id: u64, value: FSRValue<'a>) -> &Box<FSRObject<'a>> {
         let obj = FSRObject {
             obj_id: id,
             value: value,
             cls: "",
             ref_count: AtomicU64::new(0)
         };
-        self.obj_map.insert(obj.obj_id, RefCell::new(obj));
+        self.obj_map.insert(obj.obj_id, Box::new(obj));
         return self.obj_map.get(&id).unwrap();
     }
 
-    pub fn get_obj_by_id(&self, id: &u64) -> Option<&RefCell<FSRObject<'a>>> {
+    fn new_stataic_object_with_id(id: u64, value: FSRValue<'static>) -> FSRObject<'static> {
+        let obj = FSRObject {
+            obj_id: id,
+            value: value,
+            cls: "",
+            ref_count: AtomicU64::new(0)
+        };
+
+        return obj;
+    }
+
+    pub fn get_obj_by_id(&self, id: &u64) -> Option<&Box<FSRObject<'a>>> {
         return self.obj_map.get(id)
     }
 
@@ -98,14 +125,15 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn register_object(&mut self, mut object: FSRObject<'a>) -> u64 {
-        let id = self.update_id.fetch_add(1, Ordering::Relaxed);
+        let mut object = Box::new(object);
+        let id = object.as_ref() as *const FSRObject as u64;
         object.obj_id = id;
-        self.obj_map.insert(id, RefCell::new(object));
+        self.obj_map.insert(id, object);
         
         return id; 
     }
 
-    pub fn get_mut_obj_by_id(&mut self, id: &u64) -> Option<&mut RefCell<FSRObject<'a>>> {
+    pub fn get_mut_obj_by_id(&mut self, id: &u64) -> Option<&mut Box<FSRObject<'a>>> {
         return self.obj_map.get_mut(id);
     }
 

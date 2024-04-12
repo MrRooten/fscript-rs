@@ -31,6 +31,8 @@ mod tests {
             }
 
         }
+
+        a = true
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();
