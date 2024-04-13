@@ -7,12 +7,15 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        class abc {
-            abc = 123
-            fn abc(self, abc) {
-
+        class Abc {
+            fn __new__(self, abc) {
+                self.abc = 123
+                return self
             }
+
         }
+
+        a = Abc(123123)
         ";
         let meta = FSRMeta::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
@@ -24,15 +27,15 @@ mod tests {
     fn test_2() {
         let source_code = "
         class Abc {
-            abc = 123
-
-            fn test() {
-                
+            fn __new__(self, abc) {
+                self.abc = 123
+                return self
             }
 
         }
 
-        a = true
+        a = Abc(123123)
+        dump(a)
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();

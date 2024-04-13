@@ -2,20 +2,20 @@ use std::cell::{Ref, RefCell};
 
 use crate::backend::{types::{base::FSRValue, integer::FSRInteger}, vm::{runtime::FSRVM, thread::CallState}};
 
-use super::{base::FSRObject, class::FSRClass, fn_def::FSRFn};
+use super::{base::{FSRObject, FSRRetValue}, class::FSRClass, fn_def::FSRFn};
 
 pub struct FSRString {
 
 }
 
-fn string_len<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()> {
+fn string_len<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, ()> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::String(self_s) = &self_object.value {
-        return Ok(FSRInteger::new_inst(self_s.len() as i64));
+        return Ok(FSRRetValue::Value(FSRInteger::new_inst(self_s.len() as i64)));
     }
 
     unimplemented!()

@@ -2,14 +2,14 @@ use std::{cell::Ref, collections::{HashMap, LinkedList}, rc::Rc, sync::atomic::A
 
 use crate::backend::{compiler::bytecode::BytecodeArg, vm::{runtime::FSRVM, thread::CallState}};
 
-use super::{base::{FSRObject, FSRValue}, class::FSRClass};
+use super::{base::{FSRObject, FSRRetValue, FSRValue}, class::FSRClass};
 
 
-type FSRRustFn = for<'a> fn(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>, ()>;
+type FSRRustFn = for<'a> fn(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, ()>;
 #[derive(Debug, Clone)]
 pub enum FSRnE {
     RustFn(FSRRustFn),
-    FSRFn((Rc<String>, u64))
+    FSRFn((Rc<String>, (u64, u64)))
 }
 
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ impl<'a> FSRFn {
         unimplemented!()
     }
 
-    pub fn from_fsr_fn(module: &str, u: u64, args: Vec<String>) -> FSRObject<'static> {
+    pub fn from_fsr_fn(module: &str, u: (u64, u64), args: Vec<String>) -> FSRObject<'static> {
         let v = Self {
             fn_def: FSRnE::FSRFn((Rc::new(module.to_string()), u)),
             args: args,
@@ -57,7 +57,7 @@ impl<'a> FSRFn {
         unimplemented!()
     }
 
-    pub fn invoke(&self, args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRObject<'a>,()> {
+    pub fn invoke(&self, args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>,()> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, stack, vm);
         }

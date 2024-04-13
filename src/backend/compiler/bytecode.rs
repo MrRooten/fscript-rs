@@ -39,6 +39,7 @@ pub enum BytecodeOperator {
 #[derive(Debug)]
 pub enum ArgType {
     Variable(u64, String),
+    VariableList(Vec<(u64, String)>),
     ConstString(u64, String),
     ConstInteger(u64, i64),
     Attr(u64, String),
@@ -185,12 +186,16 @@ pub struct ExprList {
 #[derive(Debug)]
 pub struct Bytecode {
     name            : String,
-    bytecode        : Vec<LinkedList<BytecodeArg>>,
+    bytecode        : Vec<Vec<BytecodeArg>>,
 }
 
 impl<'a> Bytecode {
-    pub fn get(&self, index: usize) -> Option<&LinkedList<BytecodeArg>> {
-        return self.bytecode.get(index);
+    pub fn get(&self, index: (usize, usize)) -> Option<&Vec<BytecodeArg>> {
+        if let Some(s) = self.bytecode.get(index.0) {
+            return Some(s);
+        }
+
+        return None;
     }
 
     fn load_call(
@@ -481,6 +486,9 @@ impl<'a> Bytecode {
         }  else if let FSRToken::Class(cls) = token {
             let v = Self::load_class(cls, var_map);
             return (v.0, v.1)
+        }  else if let FSRToken::Return(ret) = token {
+            let v = Self::load_ret(ret, var_map);
+            return (vec![v.0], v.1);
         }
 
         unimplemented!()
@@ -661,9 +669,14 @@ impl<'a> Bytecode {
     }
 
     pub fn load_ast(name: &str, token: FSRToken<'a>) -> Bytecode {
-        let v = Self::load_isolate_block(&token);
+        let vs = Self::load_isolate_block(&token);
+        let mut result = vec![];
+        for v in vs {
+            let single_line = Vec::from_iter(v);
+            result.push(single_line);
+        }
         return Self {
-            bytecode: v,
+            bytecode: result,
             name: name.to_string(),
         }
     }

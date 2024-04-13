@@ -21,6 +21,11 @@ pub enum FSRValue<'a> {
     None,
 }
 
+#[derive(Debug)]
+pub enum FSRRetValue<'a> {
+    Value(FSRObject<'a>),
+    GlobalId(u64)
+}
 
 
 impl<'a> FSRValue<'a> {
@@ -64,9 +69,20 @@ impl<'a> FSRObject<'a> {
         self.cls = cls
     }
 
+
     pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
-        let cls = vm.get_cls(self.cls).unwrap();
-        return cls.get_attr(name);
+        let cls = vm.get_global_obj_by_name(self.cls);
+        let cls_id = match cls {
+            Some(s) => *s,
+            None => return None
+        };
+
+        let cls_obj = FSRObject::id_to_obj(cls_id);
+        if let FSRValue::Class(cls) = &cls_obj.value {
+            return cls.get_attr(name);
+        }
+
+        return None;
     }
 
     pub fn invoke(&self, method: &str, args: Vec<&RefCell<FSRObject<'a>>>) -> FSRObject<'a> {
@@ -132,12 +148,19 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    pub fn id_to_mut_obj(id: u64) -> &'a mut FSRObject<'a> {
+        unsafe {
+            let ptr = id as *mut FSRObject;
+            return &mut *ptr;
+        }
+    }
+
     pub fn invoke_method(
         name: &str,
         args: Vec<u64>,
         stack: &mut CallState,
         vm: &FSRVM<'a>,
-    ) -> Result<FSRObject<'a>, ()> {
+    ) -> Result<FSRRetValue<'a>, ()> {
         let self_object = Self::id_to_obj(args[0]);
         let self_method =  self_object.get_cls_attr(name, vm).unwrap();
         let method_object = Self::id_to_obj(self_method);
@@ -151,7 +174,13 @@ impl<'a> FSRObject<'a> {
         }
 
         if let FSRValue::ClassInst(inst) = &self.value {
-            return Some(inst.get_attr(name).unwrap().clone());
+            let v = match inst.get_attr(name) {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
+            return Some(*v);
         }
 
         unimplemented!()
@@ -162,7 +191,7 @@ impl<'a> FSRObject<'a> {
         args: Vec<u64>,
         stack: &mut CallState,
         vm: &FSRVM<'a>,
-    ) -> Result<FSRObject<'a>, ()> {
+    ) -> Result<FSRRetValue<'a>, ()> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, stack, vm);
         }
@@ -183,7 +212,15 @@ impl<'a> FSRObject<'a> {
         return false;
     }
 
-    pub fn get_fsr_offset(&self) -> (Rc<String>, u64) {
+    pub fn is_fsr_cls(&self) -> bool {
+        if let FSRValue::Class(_) = &self.value {
+            return true;
+        }
+        
+        return false;
+    }
+
+    pub fn get_fsr_offset(&self) -> (Rc<String>, (u64, u64)) {
         if let FSRValue::Function(fn_def) = &self.value {
             if let FSRnE::FSRFn(f) = &fn_def.get_def() {
                 return (f.0.clone(), f.1);
@@ -196,6 +233,14 @@ impl<'a> FSRObject<'a> {
     pub fn get_fsr_args(&self) -> &Vec<String> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.get_args();
+        }
+
+        unimplemented!()
+    }
+
+    pub fn get_fsr_class_name(&self) -> &str {
+        if let FSRValue::Class(cls) = &self.value {
+            return cls.get_name()
         }
 
         unimplemented!()
