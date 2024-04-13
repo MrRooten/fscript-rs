@@ -326,18 +326,20 @@ impl<'a> FSRThreadRuntime<'a> {
                         args.push(a_id);
                         i += 1;
                     }
-                    state.set_reverse_ip(*ip);
-                    state.exp = Some(exp.clone());
-                    self.call_stack.push(CallState::new("tmp"));
-                    exp.clear();
+                    
                     
                     let v = unsafe { &mut *ptr };
                     if fn_obj.is_fsr_function() {
+                        state.set_reverse_ip(*ip);
+                        state.exp = Some(exp.clone());
+                        self.call_stack.push(CallState::new("tmp"));
+                        exp.clear();
                         for arg in args.iter().rev() {
                             self.get_cur_stack().args.push(*arg);
                         }
                         let offset = fn_obj.get_fsr_offset().1;
                         *ip = (offset.0 as usize, 0);
+                        return true;
                     } else {
                         let v = fn_obj.call(args, state, v).unwrap();
                     
@@ -348,7 +350,6 @@ impl<'a> FSRThreadRuntime<'a> {
                             exp.push(SValue::GlobalId(id));
                             
                         }
-                        self.call_stack.pop();
                     }
                     
                 } else {

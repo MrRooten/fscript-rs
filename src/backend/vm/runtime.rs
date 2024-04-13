@@ -94,17 +94,6 @@ impl<'a> FSRVM<'a> {
         return self.obj_map.get(&id).unwrap();
     }
 
-    fn new_object_with_id(&mut self, id: u64, value: FSRValue<'a>) -> &Box<FSRObject<'a>> {
-        let obj = FSRObject {
-            obj_id: id,
-            value: value,
-            cls: "",
-            ref_count: AtomicU64::new(0)
-        };
-        self.obj_map.insert(obj.obj_id, Box::new(obj));
-        return self.obj_map.get(&id).unwrap();
-    }
-
     fn new_stataic_object_with_id(id: u64, value: FSRValue<'static>) -> FSRObject<'static> {
         let obj = FSRObject {
             obj_id: id,

@@ -71,6 +71,9 @@ impl<'a> FSRObject<'a> {
 
 
     pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
+        if let Some(btype) = vm.get_cls(&self.cls) {
+            return btype.get_attr(name);
+        }
         let cls = vm.get_global_obj_by_name(self.cls);
         let cls_id = match cls {
             Some(s) => *s,

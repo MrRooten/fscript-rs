@@ -32,14 +32,13 @@ mod tests {
                 return self
             }
 
+            fn test(self) {
+                dump(self)
+            }
         }
 
-        fn abc() {
-            println('123')
-        }
-        abc()
-        a = Abc(123123)
-        dump(a)
+        b = 'test'.len() + 123
+        dump(b)
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();
