@@ -34,6 +34,10 @@ mod tests {
 
         }
 
+        fn abc() {
+            println('123')
+        }
+        abc()
         a = Abc(123123)
         dump(a)
         ";

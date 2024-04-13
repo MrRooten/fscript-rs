@@ -14,10 +14,11 @@ pub struct CallState<'a> {
     args        : Vec<u64>,
     cur_cls     : Option<FSRClass<'a>>,
     ret_val     : Option<u64>,
-    exp         : Option<Vec<SValue<'a>>>
+    exp         : Option<Vec<SValue<'a>>>,
+    name        : &'a str
 }
 
-impl CallState<'_> {
+impl<'a> CallState<'a> {
     pub fn get_var(&self, id: &u64) -> Option<&u64> {
         self.var_map.get(id)
     }
@@ -42,7 +43,7 @@ impl CallState<'_> {
         self.reverse_ip = ip;
     }
 
-    pub fn new() -> Self {
+    pub fn new(name: &'a str) -> Self {
         Self {
             var_map: HashMap::new(),
             const_map: HashMap::new(),
@@ -51,6 +52,7 @@ impl CallState<'_> {
             cur_cls: None,
             ret_val: None,
             exp: None,
+            name: name
         }
     }
 }
@@ -95,7 +97,7 @@ pub struct FSRThreadRuntime<'a> {
 impl<'a> FSRThreadRuntime<'a> {
     pub fn new() -> FSRThreadRuntime<'a> {
         Self {
-            call_stack: vec![CallState::new()],
+            call_stack: vec![CallState::new("base")],
         }
     }
 
@@ -297,7 +299,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     }
                     state.set_reverse_ip(*ip);
                     state.exp = Some(exp.clone());
-                    self.call_stack.push(CallState::new());
+                    self.call_stack.push(CallState::new("__new__"));
                     exp.clear();
 
                     let self_obj = FSRObject::id_to_obj(self_id);
@@ -326,7 +328,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     }
                     state.set_reverse_ip(*ip);
                     state.exp = Some(exp.clone());
-                    self.call_stack.push(CallState::new());
+                    self.call_stack.push(CallState::new("tmp"));
                     exp.clear();
                     
                     let v = unsafe { &mut *ptr };
@@ -357,7 +359,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     }
                     state.set_reverse_ip(*ip);
                     state.exp = Some(exp.clone());
-                    self.call_stack.push(CallState::new());
+                    self.call_stack.push(CallState::new("tmp2"));
                     exp.clear();
 
                     let v = unsafe { &mut *ptr };
@@ -494,15 +496,15 @@ impl<'a> FSRThreadRuntime<'a> {
         else if bytecode.get_operator() == &BytecodeOperator::EndDefineFn {
             self.call_stack.pop();
             let cur = self.get_cur_stack();
-            *ip = (cur.reverse_ip.0, cur.reverse_ip.1);    
+            *ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);    
             return true;
         }
         else if bytecode.get_operator() == &BytecodeOperator::ReturnValue {
             let v = exp.pop().unwrap().get_global_id(state, vm);
             self.call_stack.pop();
             let cur = self.get_cur_stack();
-            exp.push(SValue::GlobalId(v));
-            // state.ret_val = Some(v);
+            //exp.push(SValue::GlobalId(v));
+            cur.ret_val = Some(v);
             *ip = (cur.reverse_ip.0, cur.reverse_ip.1);  
             return true;
         }
@@ -545,6 +547,15 @@ impl<'a> FSRThreadRuntime<'a> {
             ip.1 += 1;
             println!("IP: {:?} => {:?}", ip, arg);
             let stack = self.get_cur_stack();
+            if stack.exp.is_some() {
+                exp_stack = stack.exp.take().unwrap();
+                stack.exp = None;
+            }
+
+            if stack.ret_val.is_some() {
+                exp_stack.push(SValue::GlobalId(stack.ret_val.unwrap()));
+                stack.ret_val = None;
+            }
             let ptr = stack as *mut CallState;
             let s = unsafe {&mut *ptr};
             if arg.get_operator() == &BytecodeOperator::Load {
