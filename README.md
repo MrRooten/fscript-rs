@@ -6,53 +6,76 @@ Remove all main branch's backend, rewriting with bytecode
 not write interface yet, unit tests have some examples
 
 ```Rust
-let expr = "
-fn abc(ddc) {
-    println(ddc)
-}
-ddc = 'asdf'
-abc(ddc)
+let source_code = "
+class Abc {
+    fn __new__(self, abc) {
+        self.abc = 123
+        return self
+    }
 
-fn ccddefg(ddc) {
-    println(ddc)
+    fn test(self) {
+        dump(self)
+        return 123
+    }
 }
-
-ccddefg('sdfsdfsdf')
-println('okokokokok')
+c = Abc('sdf')
+a = 1
+a = a + 1
+dump(a)
 ";
-let meta = FSRMeta::new();
-let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-let v = Bytecode::load_ast(FSRToken::Module(token));
+let v = Bytecode::compile("main", source_code);
 let mut runtime = FSRThreadRuntime::new();
 let mut vm = FSRVM::new();
-runtime.start(v, &mut vm);
+runtime.start(&v, &mut vm);
 ```
 
 ```
-ip: 0, [BytecodeArg { operator: Load, arg: Variable(100, "ddc") }, BytecodeArg { operator: Load, arg: Variable(100, "abc") }, BytecodeArg { operator: DefineFn, arg: DefineFnArgs(2, 1) }]
-2
-ip: 4, [BytecodeArg { operator: Load, arg: ConstString(0, "asdf") }, BytecodeArg { operator: Load, arg: Variable(101, "ddc") }, BytecodeArg { operator: Assign, arg: None }]
-ip: 5, [BytecodeArg { operator: Load, arg: Variable(101, "ddc") }, BytecodeArg { operator: Load, arg: Variable(100, "abc") }, BytecodeArg { operator: Call, arg: CallArgsNumber(1) }]
+IP: (0, 1) => BytecodeArg { operator: Load, arg: Variable(100, "Abc") }
+IP: (0, 2) => BytecodeArg { operator: ClassDef, arg: DefineClassLine(10) }
+IP: (1, 1) => BytecodeArg { operator: Load, arg: Variable(100, "self") }
+IP: (1, 2) => BytecodeArg { operator: Load, arg: Variable(101, "abc") }
+IP: (1, 3) => BytecodeArg { operator: Load, arg: Variable(100, "__new__") }
+IP: (1, 4) => BytecodeArg { operator: DefineFn, arg: DefineFnArgs(3, 2) }
+name: __new__
+IP: (6, 1) => BytecodeArg { operator: Load, arg: Variable(100, "self") }
+IP: (6, 2) => BytecodeArg { operator: Load, arg: Variable(101, "test") }
+IP: (6, 3) => BytecodeArg { operator: DefineFn, arg: DefineFnArgs(3, 1) }
+name: test
+IP: (11, 1) => BytecodeArg { operator: EndDefineClass, arg: None }
+IP: (12, 1) => BytecodeArg { operator: Load, arg: ConstString(0, "sdf") }
+IP: (12, 2) => BytecodeArg { operator: Load, arg: Variable(100, "Abc") }
+IP: (12, 3) => BytecodeArg { operator: Call, arg: CallArgsNumber(1) }
+IP: (2, 1) => BytecodeArg { operator: AssignArgs, arg: Variable(100, "self") }
+IP: (2, 2) => BytecodeArg { operator: AssignArgs, arg: Variable(101, "abc") }
+IP: (3, 1) => BytecodeArg { operator: Load, arg: ConstInteger(0, 123) }
+IP: (3, 2) => BytecodeArg { operator: Load, arg: Variable(100, "self") }
+IP: (3, 3) => BytecodeArg { operator: Load, arg: Attr(101, "abc") }
+IP: (3, 4) => BytecodeArg { operator: BinaryDot, arg: None }
+dot_father_obj: FSRObject { obj_id: 5275408608, value: ClassInst(FSRClassInst { name: "Abc", attrs: {} }), ref_count: 0, cls: "Abc" }
 name: abc
-offset: 1
-ip: 1, [BytecodeArg { operator: AssignArgs, arg: Variable(100, "ddc") }]
-100, name:ddc
-ip: 2, [BytecodeArg { operator: Load, arg: Variable(100, "ddc") }, BytecodeArg { operator: Load, arg: Variable(101, "println") }, BytecodeArg { operator: Call, arg: CallArgsNumber(1) }]
-name: println
-asdf
-ip: 3, [BytecodeArg { operator: EndDefineFn, arg: None }]
-ip: 6, [BytecodeArg { operator: Load, arg: Variable(100, "ddc") }, BytecodeArg { operator: Load, arg: Variable(102, "ccddefg") }, BytecodeArg { operator: DefineFn, arg: DefineFnArgs(2, 1) }]
-2
-ip: 10, [BytecodeArg { operator: Load, arg: ConstString(0, "sdfsdfsdf") }, BytecodeArg { operator: Load, arg: Variable(102, "ccddefg") }, BytecodeArg { operator: Call, arg: CallArgsNumber(1) }]
-name: ccddefg
-offset: 7
-ip: 7, [BytecodeArg { operator: AssignArgs, arg: Variable(100, "ddc") }]
-100, name:ddc
-ip: 8, [BytecodeArg { operator: Load, arg: Variable(100, "ddc") }, BytecodeArg { operator: Load, arg: Variable(101, "println") }, BytecodeArg { operator: Call, arg: CallArgsNumber(1) }]
-name: println
-sdfsdfsdf
-ip: 9, [BytecodeArg { operator: EndDefineFn, arg: None }]
-ip: 11, [BytecodeArg { operator: Load, arg: ConstString(0, "okokokokok") }, BytecodeArg { operator: Load, arg: Variable(103, "println") }, BytecodeArg { operator: Call, arg: CallArgsNumber(1) }]
-name: println
-okokokokok
+IP: (3, 5) => BytecodeArg { operator: Assign, arg: None }
+FSRObject { obj_id: 5275408608, value: ClassInst(FSRClassInst { name: "Abc", attrs: {} }), ref_count: 0, cls: "Abc" }
+IP: (4, 1) => BytecodeArg { operator: Load, arg: Variable(100, "self") }
+IP: (4, 2) => BytecodeArg { operator: ReturnValue, arg: None }
+IP: (12, 4) => BytecodeArg { operator: Load, arg: Variable(101, "c") }
+IP: (12, 5) => BytecodeArg { operator: Assign, arg: None }
+IP: (13, 1) => BytecodeArg { operator: Load, arg: ConstInteger(0, 1) }
+IP: (13, 2) => BytecodeArg { operator: Load, arg: Variable(102, "a") }
+IP: (13, 3) => BytecodeArg { operator: Assign, arg: None }
+IP: (14, 1) => BytecodeArg { operator: Load, arg: Variable(102, "a") }
+IP: (14, 2) => BytecodeArg { operator: Load, arg: ConstInteger(0, 1) }
+IP: (14, 3) => BytecodeArg { operator: BinaryAdd, arg: None }
+IP: (14, 4) => BytecodeArg { operator: Load, arg: Variable(102, "a") }
+IP: (14, 5) => BytecodeArg { operator: Assign, arg: None }
+IP: (15, 1) => BytecodeArg { operator: Load, arg: Variable(102, "a") }
+IP: (15, 2) => BytecodeArg { operator: Load, arg: Variable(103, "dump") }
+IP: (15, 3) => BytecodeArg { operator: Call, arg: CallArgsNumber(1) }
+FSRObject {
+    obj_id: 5293228576,
+    value: Integer(
+        2,
+    ),
+    ref_count: 0,
+    cls: "Integer",
+}
 ```
