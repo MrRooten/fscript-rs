@@ -33,6 +33,15 @@ impl<'a> FSRVM<'a> {
         v
     }
 
+    pub fn check_delete(&mut self, id: u64) {
+        unsafe {
+            let obj = FSRObject::id_to_mut_obj(id);
+            if *obj.ref_count.get_mut() == 0 {
+                self.obj_map.remove(&id);
+            }
+        }
+    }
+
     pub fn get_true_id(&self) -> u64 {
         return 1;
     }
