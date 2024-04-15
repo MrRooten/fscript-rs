@@ -1,8 +1,8 @@
-use std::{cell::Ref, collections::HashMap, sync::atomic::AtomicU64};
+use std::collections::HashMap;
 
-use crate::backend::{types::{base::{FSRObject, FSRRetValue, FSRValue}, fn_def::FSRFn}, vm::{runtime::FSRVM, thread::CallState}};
+use crate::{backend::{types::{base::{FSRObject, FSRRetValue, FSRValue}, fn_def::FSRFn}, vm::{runtime::FSRVM, thread::CallState}}, utils::error::FSRError};
 
-pub fn fsr_fn_print<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, ()> {
+pub fn fsr_fn_print<'a>(args: Vec<u64>, _stack: &mut CallState, _vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     let obj = value.to_string();
     if let FSRValue::String(s) = &obj.value {
@@ -11,7 +11,7 @@ pub fn fsr_fn_print<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -
     return Ok(FSRRetValue::GlobalId(0));
 }
 
-pub fn fsr_fn_println<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, ()> {
+pub fn fsr_fn_println<'a>(args: Vec<u64>, _stack: &mut CallState, _vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     let obj = value.to_string();
     if let FSRValue::String(s) = &obj.value {
@@ -20,7 +20,7 @@ pub fn fsr_fn_println<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>)
     return Ok(FSRRetValue::GlobalId(0));
 }
 
-pub fn fsr_fn_dump<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, ()> {
+pub fn fsr_fn_dump<'a>(args: Vec<u64>, _stack: &mut CallState, _vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
     return Ok(FSRRetValue::GlobalId(0));

@@ -61,7 +61,7 @@ pub struct BytecodeArg {
 }
 
 impl BytecodeArg {
-    pub fn new(op: BytecodeOperator, id: u64) {}
+    pub fn new(_: BytecodeOperator, _: u64) {}
 
     pub fn get_operator(&self) -> &BytecodeOperator {
         return &self.operator

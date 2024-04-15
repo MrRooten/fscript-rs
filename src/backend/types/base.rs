@@ -2,10 +2,10 @@ use std::{
     cell::RefCell, rc::Rc, sync::atomic::AtomicU64
 };
 
-use crate::backend::{
+use crate::{backend::{
     types::fn_def::FSRnE,
     vm::{runtime::{FALSE_OBJECT, FSRVM, NONE_OBJECT, TRUE_OBJECT}, thread::CallState},
-};
+}, utils::error::{FSRErrCode, FSRError}};
 
 use super::{class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn};
 
@@ -163,9 +163,14 @@ impl<'a> FSRObject<'a> {
         args: Vec<u64>,
         stack: &mut CallState,
         vm: &FSRVM<'a>,
-    ) -> Result<FSRRetValue<'a>, ()> {
+    ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
-        let self_method =  self_object.get_cls_attr(name, vm).unwrap();
+        let self_method =  match self_object.get_cls_attr(name, vm) {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(format!("no such a method `{}`", name), FSRErrCode::NoSuchMethod))
+            }
+        };
         let method_object = Self::id_to_obj(self_method);
         let v = method_object.call(args, stack, vm)?;
         return Ok(v);
@@ -186,7 +191,7 @@ impl<'a> FSRObject<'a> {
             return Some(*v);
         }
 
-        unimplemented!()
+        return None;
     }
 
     pub fn call(
@@ -194,7 +199,7 @@ impl<'a> FSRObject<'a> {
         args: Vec<u64>,
         stack: &mut CallState,
         vm: &FSRVM<'a>,
-    ) -> Result<FSRRetValue<'a>, ()> {
+    ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, stack, vm);
         }

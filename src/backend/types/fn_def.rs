@@ -1,11 +1,11 @@
-use std::{cell::Ref, collections::{HashMap, LinkedList}, rc::Rc, sync::atomic::AtomicU64};
+use std::{rc::Rc, sync::atomic::AtomicU64};
 
-use crate::backend::{compiler::bytecode::BytecodeArg, vm::{runtime::FSRVM, thread::CallState}};
+use crate::{backend::vm::{runtime::FSRVM, thread::CallState}, utils::error::FSRError};
 
 use super::{base::{FSRObject, FSRRetValue, FSRValue}, class::FSRClass};
 
 
-type FSRRustFn = for<'a> fn(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, ()>;
+type FSRRustFn = for<'a> fn(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError>;
 #[derive(Debug, Clone)]
 pub enum FSRnE {
     RustFn(FSRRustFn),
@@ -15,7 +15,6 @@ pub enum FSRnE {
 #[derive(Debug, Clone)]
 pub struct FSRFn {
     fn_def      : FSRnE,
-    args        : Vec<String>
 }
 
 impl<'a> FSRFn {
@@ -27,10 +26,9 @@ impl<'a> FSRFn {
         unimplemented!()
     }
 
-    pub fn from_fsr_fn(module: &str, u: (u64, u64), args: Vec<String>) -> FSRObject<'static> {
+    pub fn from_fsr_fn(module: &str, u: (u64, u64), _: Vec<String>) -> FSRObject<'static> {
         let v = Self {
             fn_def: FSRnE::FSRFn((Rc::new(module.to_string()), u)),
-            args: args,
         };
         FSRObject {
             obj_id: 0,
@@ -43,7 +41,6 @@ impl<'a> FSRFn {
     pub fn from_rust_fn(f: FSRRustFn) -> FSRObject<'static> {
         let v = Self {
             fn_def: FSRnE::RustFn(f),
-            args: vec![],
         };
         FSRObject {
             obj_id: 0,
@@ -53,11 +50,11 @@ impl<'a> FSRFn {
         }
     }
 
-    pub fn get_class(vm: &mut FSRVM) -> FSRClass<'static> {
+    pub fn get_class(_: &mut FSRVM) -> FSRClass<'static> {
         unimplemented!()
     }
 
-    pub fn invoke(&self, args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>,()> {
+    pub fn invoke(&self, args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, stack, vm);
         }

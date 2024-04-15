@@ -1,6 +1,5 @@
-use std::cell::{Ref, RefCell};
 
-use crate::backend::{types::{base::FSRValue, integer::FSRInteger}, vm::{runtime::FSRVM, thread::CallState}};
+use crate::{backend::{types::{base::FSRValue, integer::FSRInteger}, vm::{runtime::FSRVM, thread::CallState}}, utils::error::FSRError};
 
 use super::{base::{FSRObject, FSRRetValue}, class::FSRClass, fn_def::FSRFn};
 
@@ -8,7 +7,7 @@ pub struct FSRString {
 
 }
 
-fn string_len<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, ()> {
+fn string_len<'a>(args: Vec<u64>, _: &mut CallState, _: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -29,7 +28,7 @@ impl FSRString {
         cls
     }
 
-    pub fn new_inst<'a>(s: String, vm: &'a mut FSRVM<'a>) -> FSRObject<'a> {
+    pub fn new_inst<'a>(_: String, _: &'a mut FSRVM<'a>) -> FSRObject<'a> {
         let mut object = FSRObject::new();
         object.set_cls("String");
 

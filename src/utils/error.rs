@@ -2,6 +2,7 @@
 use std::error::Error;
 use std::fmt::Display;
 
+use crate::backend::vm::thread::CallState;
 use crate::frontend::ast::token::base::FSRMeta;
 
 #[derive(Debug)]
@@ -64,3 +65,46 @@ impl Error for SyntaxError {
 }
 
 pub struct RuntimeBaseError {}
+
+#[derive(Debug)]
+pub enum FSRErrCode {
+    EmptyExpStack,
+    NoSuchMethod
+}
+
+#[derive(Debug)]
+pub struct FSRError {
+    code    : FSRErrCode,
+    msg     : String
+}
+
+impl FSRError {
+    pub fn new<S>(msg: S, code: FSRErrCode) -> Self
+    where S: ToString {
+        Self {
+            code: code,
+            msg: msg.to_string(),
+        }
+    }
+}
+
+impl Error for FSRError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &str {
+        &self.msg
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
+    }
+
+}
+
+impl Display for FSRError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
