@@ -1,6 +1,5 @@
 ## Introduce
-Running on bytecode, simple and useless program language, zero dependence script language
-Remove all main branch's backend, rewriting with bytecode
+Running on bytecode, simple and useless program language, zero dependence script language.
 ## Usage
 
 not write interface yet, unit tests have some examples
