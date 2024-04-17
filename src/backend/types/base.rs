@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell, rc::Rc, sync::atomic::AtomicU64
+    cell::RefCell, rc::Rc, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{backend::{
@@ -139,6 +139,14 @@ impl<'a> FSRObject<'a> {
         }
 
         panic!()
+    }
+
+    pub fn ref_add(&self) {
+        self.ref_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn ref_dec(&self) {
+        self.ref_count.fetch_sub(1, Ordering::Relaxed);
     }
 
     pub fn id_to_obj(id: u64) -> &'a FSRObject<'a> {

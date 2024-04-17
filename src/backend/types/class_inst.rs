@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use super::base::FSRObject;
+
 #[derive(Debug, Clone)]
 pub struct FSRClassInst<'a> {
     name        : &'a str,
@@ -19,6 +21,11 @@ impl<'a> FSRClassInst<'a> {
     }
 
     pub fn set_attr(&mut self, name: &'a str, value: u64) {
+        if self.attrs.contains_key(name) {
+            let v = self.attrs.get(name).unwrap();
+            let obj = FSRObject::id_to_obj(*v);
+            obj.ref_dec();
+        }
         self.attrs.insert(name, value);
     }
 }

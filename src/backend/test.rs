@@ -29,6 +29,9 @@ mod tests {
         class Abc {
             fn __new__(self, abc) {
                 self.abc = 123
+                println(self.abc)
+                self.abc = 456
+                println(self.abc)
                 return self
             }
 
@@ -37,10 +40,10 @@ mod tests {
                 return 123
             }
         }
-        c = Abc('sdf')
-        a = 1
-        a = a + 1
-        dump(a)
+        c = Abc('456')
+        b = Abc('123')
+        b.dd = c
+        dump(b.dd.abc)
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();
