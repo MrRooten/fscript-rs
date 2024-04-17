@@ -477,7 +477,8 @@ impl<'a> FSRThreadRuntime<'a> {
             };
             if test_val == vm.get_false_id() || test_val == vm.get_none_id() {
                 if let ArgType::WhileTest(n) = bytecode.get_arg() {
-                    *ip = (ip.0 + n.clone() as usize, 0);
+                    *ip = (ip.0 + n.clone() as usize + 1, 0);
+                    return Ok(true);
                 }
             }
         } else if bytecode.get_operator() == &BytecodeOperator::WhileBlockEnd {

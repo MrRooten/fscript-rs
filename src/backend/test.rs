@@ -44,6 +44,13 @@ mod tests {
         b = Abc('123')
         b.dd = c
         dump(b.dd.abc)
+
+        a = 1
+        while a < 3 {
+            println(a)
+            a = a + 1
+        }
+        println(a)
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();
