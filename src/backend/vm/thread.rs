@@ -203,7 +203,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
             if let SValue::GlobalId(id) = obj_id {
-                println!("id: {}", id);
                 let obj = FSRObject::id_to_mut_obj(id);
                 obj.ref_add();
                 if let SValue::StackId(s) = &assign_id {
