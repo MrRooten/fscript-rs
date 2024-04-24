@@ -495,7 +495,7 @@ impl<'a> FSRThreadRuntime<'a> {
             } else {
                 while i < n {
                     let a_id = exp.pop().unwrap().get_global_id(state, vm);
-                    println!("load object as args: {:?}", FSRObject::id_to_obj(a_id));
+                    // println!("load object as args: {:?}", FSRObject::id_to_obj(a_id));
                     args.push(a_id);
                     i += 1;
                 }
@@ -793,7 +793,7 @@ impl<'a> FSRThreadRuntime<'a> {
         while ip.1 < expr.len() {
             let arg = &expr[ip.1];
             ip.1 += 1;
-            println!("IP: {:?} => {:?}", ip, arg);
+            //println!("IP: {:?} => {:?}", ip, arg);
             let stack = self.get_cur_stack();
             if stack.exp.is_some() {
                 exp_stack = stack.exp.take().unwrap();
