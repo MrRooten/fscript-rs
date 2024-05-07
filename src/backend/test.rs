@@ -58,7 +58,7 @@ mod tests {
         a = 1
         while a < 3 {
             println(a)
-            a = a + 1
+            a = a + 1 + 4*6
         }
         println(a)
         ";
