@@ -1,4 +1,4 @@
-use std::fmt::Error;
+
 
 use crate::frontend::ast::parse::ASTParser;
 use crate::frontend::ast::token::block::FSRBlock;
@@ -22,7 +22,7 @@ pub struct FSRIf<'a> {
 enum State {
     SingleQuote,
     DoubleQuote,
-    EscapeNewline,
+    _EscapeNewline,
     EscapeQuote,
     Continue,
 }
@@ -43,18 +43,18 @@ impl<'a> FSRIf<'a> {
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRIf<'a>, SyntaxError> {
         let s = unsafe { std::str::from_utf8_unchecked(&source[0..2]) };
         if source.len() < 3 {
-            let mut sub_meta = meta.from_offset(0);
+            let sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
             return Err(err);
         }
         if s != "if" {
-            let mut sub_meta = meta.from_offset(0);
+            let sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "not if token");
             return Err(err);
         }
 
         if source[2] as char != ' ' && source[2] as char != '(' {
-            let mut sub_meta = meta.from_offset(2);
+            let sub_meta = meta.from_offset(2);
             let err = SyntaxError::new(&sub_meta, "not a valid if delemiter");
             return Err(err);
         }

@@ -30,7 +30,7 @@ impl<'a> FSRReturn<'a> {
         }
 
         let start_expr = 6;
-        len = 6;
+        len += 6;
         let expr = &source[start_expr..];
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + 6;

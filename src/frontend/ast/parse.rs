@@ -1,15 +1,12 @@
 use super::token::base::FSRPosition;
-use super::token::statement::{ASTToken, ASTTokenEnum};
 use crate::frontend::ast::parse::BracketState::{DoubleQuote, SingleQuote};
 use crate::utils::error::{SyntaxErrType, SyntaxError};
-use std::fmt::Error;
+
 use std::str;
 
 pub struct ASTParser {
-    tokens: Vec<ASTToken>,
+    
 }
-
-type FnExpectTokens = fn() -> Vec<ASTTokenEnum>;
 
 #[derive(PartialEq)]
 pub enum BracketState {
@@ -79,14 +76,6 @@ impl ASTParser {
         unimplemented!()
     }
 
-    pub fn match_token(token: &str) -> (Option<ASTToken>, bool) {
-        unimplemented!()
-    }
-
-    pub fn get_fn_expect_token(token: &ASTTokenEnum) -> FnExpectTokens {
-        unimplemented!()
-    }
-
     pub fn is_blank_char_with_new_line(c: u8) -> bool {
         c as char == ' ' || c as char == '\r' || c as char == '\t' || c as char == '\n'
     }
@@ -111,20 +100,12 @@ impl ASTParser {
         (c as char).is_lowercase() || (c as char).is_uppercase()
     }
 
-    pub fn end_token_char(c: u8) -> bool {
-        unimplemented!()
-    }
-
-    fn token_process(token: &ASTTokenEnum, source: &str) {}
-
-    pub fn parse(source: &str) -> Result<ASTParser, Error> {
-        unimplemented!()
-    }
 
     pub fn is_end_expr(c: u8) -> bool {
         (c as char) == '\n' || (c as char) == ';'
     }
 
+    #[allow(unused)]
     pub(crate) fn read_valid_expr(source: &[u8]) -> usize {
         let stack: Vec<u32> = Vec::new();
         let mut index = 0;
@@ -150,6 +131,7 @@ impl ASTParser {
             || (c == ']' && states.peek().0 != BracketState::Bracket)
     }
 
+    #[inline]
     pub fn helper(
         c: char,
         states: &mut BracketStates,
@@ -157,7 +139,6 @@ impl ASTParser {
         meta: &FSRPosition,
     ) -> Result<(), SyntaxError> {
         if Self::check_end_bracket(c, states) {
-            let mut sub_meta = meta.from_offset(offset);
             let err = SyntaxError::new_with_type(
                 meta,
                 "can not start with right bracket",
@@ -248,7 +229,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let mut sub_meta = meta.from_offset(states.peek().1);
+            let sub_meta = meta.from_offset(states.peek().1);
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",
@@ -275,7 +256,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let mut sub_meta = meta.from_offset(states.peek().1);
+            let sub_meta = meta.from_offset(states.peek().1);
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",
@@ -301,12 +282,11 @@ impl ASTParser {
         Ok(len)
     }
 
-    pub fn split_by_comma(source: &[u8], meta: FSRPosition) -> Result<Vec<&[u8]>, SyntaxError> {
+    pub fn split_by_comma(source: &[u8], _meta: FSRPosition) -> Result<Vec<&[u8]>, SyntaxError> {
         let mut i = 0;
         let meta = FSRPosition::new();
         let mut res = vec![];
         while i < source.len() {
-            let c = source[i] as char;
             let len = Self::read_to_comma(&source[i..], &meta)?;
             let expr_s = &source[i..i + len];
             res.push(expr_s);

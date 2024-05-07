@@ -34,9 +34,6 @@ pub enum ASTStatement {
 pub struct ASTToken {}
 
 impl ASTToken {
-    pub fn new(token: ASTTokenEnum, value: &str) -> ASTToken {
-        unimplemented!()
-    }
 }
 
 pub trait ASTTokenInterface {

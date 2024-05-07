@@ -15,6 +15,7 @@ pub enum NodeType {
     ImportState,
 }
 
+#[allow(unused)]
 struct Node {
     id: u32,
     value: char,
@@ -101,7 +102,7 @@ impl FSTrie {
             let subs = cur.unwrap().get_subs();
             let node = subs.get(&c);
             match node {
-                Some(s) => {}
+                Some(_) => {}
                 None => {
                     self.self_inc += 1;
                     let new_node = Node {

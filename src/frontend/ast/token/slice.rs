@@ -1,22 +1,20 @@
-use crate::frontend::ast::token::base::FSRToken;
-
 #[derive(Debug, Clone)]
 pub struct FSRSlice<'a> {
-    name: &'a str,
-    start: usize,
-    end: usize,
+    _name: &'a str,
+    _start: usize,
+    _end: usize,
 }
 
 #[derive(PartialEq)]
 enum SliceState {
-    Name,
-    Start,
-    Args,
-    WaitToken,
+    _Name,
+    _Start,
+    _Args,
+    _WaitToken,
 }
 
 impl FSRSlice<'_> {
-    pub fn parse(source: &[u8]) -> Result<Self, &str> {
+    pub fn parse(_source: &[u8]) -> Result<Self, &str> {
         unimplemented!()
     }
 

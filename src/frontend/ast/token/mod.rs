@@ -9,7 +9,6 @@ pub mod assign;
 pub mod expr;
 pub mod hashtable;
 pub mod variable;
-pub mod bracket;
 pub mod block;
 pub mod return_def;
 pub mod slice;

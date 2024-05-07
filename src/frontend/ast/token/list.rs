@@ -8,6 +8,7 @@ use super::base::{FSRPosition, FSRToken};
 #[derive(Debug, Clone)]
 pub struct FSRListFrontEnd<'a> {
     items: Vec<FSRToken<'a>>,
+    #[allow(unused)]
     pub(crate) len: usize,
 
     meta: FSRPosition,

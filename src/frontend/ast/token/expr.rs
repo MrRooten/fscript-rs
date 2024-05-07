@@ -380,6 +380,156 @@ impl<'a> FSRExpr<'a> {
     }
 
     #[inline]
+    fn end_of_char(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+        let op = ASTParser::get_static_op(op);
+        if ctx.start + ctx.length >= source.len() {
+            let mut sub_meta = meta.from_offset(ctx.start);
+            return Err(SyntaxError::new(
+                &sub_meta,
+                format!("{} must follow a expr or variable", op),
+            ));
+        }
+
+        if op.eq("-") && (source[ctx.start + ctx.length] as char).is_ascii_digit() {
+            ctx.single_op = Some(op);
+            ctx.states.pop_state();
+            ctx.start += ctx.length;
+            ctx.length = 0;
+            return Ok(());
+        }
+
+        if Self::is_single_op(op) && !op.eq("-") {
+            ctx.single_op = Some(op);
+            ctx.states.pop_state();
+            ctx.start += ctx.length;
+            ctx.length = 0;
+        } else {
+            ctx.operators.push((op, ctx.start));
+            ctx.states.pop_state();
+            ctx.start += ctx.length;
+            ctx.length = 0;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn end_of_bracket(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        ctx.states.pop_state();
+        ctx.bracket_count -= 1;
+
+        if ctx.bracket_count > 0 {
+            ctx.length += 1;
+            return Ok(());
+        } else {
+            let _ps = &source[ctx.start..ctx.start + ctx.length];
+            let ps = str::from_utf8(_ps).unwrap();
+
+            ctx.start += ctx.length;
+            ctx.length = 0;
+            let sub_meta = meta.from_offset(0);
+            let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta)?.0;
+            if let FSRToken::Expr(e) = &mut sub_expr {
+                e.single_op = ctx.single_op;
+            }
+            if let FSRToken::Call(c) = &mut sub_expr {
+                c.single_op = ctx.single_op;
+            }
+
+            if let FSRToken::Variable(v) = &mut sub_expr {
+                v.single_op = ctx.single_op;
+            }
+
+            ctx.single_op = None;
+            ctx.start += 1;
+            ctx.candidates.push(sub_expr);
+                }
+        Ok(())
+    }
+
+    #[inline]
+    fn variable_process(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        ctx.states.push_state(ExprState::Variable);
+        loop {
+            if ctx.start + ctx.length >= source.len() {
+                break;
+            }
+            let c = source[ctx.start + ctx.length] as char;
+            if !ASTParser::is_name_letter(c as u8) {
+                break;
+            }
+
+            ctx.length += 1;
+        }
+
+        if ctx.start + ctx.length >= source.len()
+            || (source[ctx.start + ctx.length] != b'('
+                && source[ctx.start + ctx.length] != b'[')
+        {
+            let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            let mut sub_meta = meta.from_offset(ctx.start);
+            let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
+            variable.single_op = ctx.single_op;
+            ctx.single_op = None;
+            ctx.candidates.push(FSRToken::Variable(variable));
+            ctx.start += ctx.length;
+            ctx.length = 0;
+            ctx.states.pop_state();
+            return Ok(());
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    fn digit_process(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        loop {
+            if ctx.start + ctx.length >= source.len() {
+                break;
+            }
+            let c = source[ctx.start + ctx.length] as char;
+            if !c.is_ascii_digit() {
+                break;
+            }
+
+            ctx.length += 1;
+        }
+
+        let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
+        let i = ps.parse::<i64>().unwrap();
+        let mut sub_meta = meta.from_offset(ctx.start);
+
+        let mut c = FSRConstant::from_int(i, sub_meta);
+        c.single_op = ctx.single_op;
+        ctx.single_op = None;
+        ctx.candidates.push(FSRToken::Constant(c));
+        ctx.start += ctx.length;
+        ctx.length = 0;
+
+        Ok(())
+    }
+
+    #[inline]
     fn stmt_loop(
         source: &'a [u8],
         ignore_nline: bool,
@@ -419,35 +569,7 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.states.eq_peek(&ExprState::Operator) && !Self::is_op_one_char(t_c) {
-                let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-                let op = ASTParser::get_static_op(op);
-                if ctx.start + ctx.length >= source.len() {
-                    let mut sub_meta = meta.from_offset(ctx.start);
-                    return Err(SyntaxError::new(
-                        &sub_meta,
-                        format!("{} must follow a expr or variable", op),
-                    ));
-                }
-
-                if op.eq("-") && (source[ctx.start + ctx.length] as char).is_ascii_digit() {
-                    ctx.single_op = Some(op);
-                    ctx.states.pop_state();
-                    ctx.start += ctx.length;
-                    ctx.length = 0;
-                    continue;
-                }
-
-                if Self::is_single_op(op) && !op.eq("-") {
-                    ctx.single_op = Some(op);
-                    ctx.states.pop_state();
-                    ctx.start += ctx.length;
-                    ctx.length = 0;
-                } else {
-                    ctx.operators.push((op, ctx.start));
-                    ctx.states.pop_state();
-                    ctx.start += ctx.length;
-                    ctx.length = 0;
-                }
+                Self::end_of_char(source, ignore_nline, meta, ctx)?;
                 continue;
             }
 
@@ -483,35 +605,7 @@ impl<'a> FSRExpr<'a> {
                 && ctx.states.eq_peek(&ExprState::Bracket)
                 || ctx.last_loop
             {
-                ctx.states.pop_state();
-                ctx.bracket_count -= 1;
-
-                if ctx.bracket_count > 0 {
-                    ctx.length += 1;
-                    continue;
-                } else {
-                    let _ps = &source[ctx.start..ctx.start + ctx.length];
-                    let ps = str::from_utf8(_ps).unwrap();
-
-                    ctx.start += ctx.length;
-                    ctx.length = 0;
-                    let sub_meta = meta.from_offset(0);
-                    let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta)?.0;
-                    if let FSRToken::Expr(e) = &mut sub_expr {
-                        e.single_op = ctx.single_op;
-                    }
-                    if let FSRToken::Call(c) = &mut sub_expr {
-                        c.single_op = ctx.single_op;
-                    }
-
-                    if let FSRToken::Variable(v) = &mut sub_expr {
-                        v.single_op = ctx.single_op;
-                    }
-
-                    ctx.single_op = None;
-                    ctx.start += 1;
-                    ctx.candidates.push(sub_expr);
-                }
+                Self::end_of_bracket(source, ignore_nline, meta, ctx)?;
                 continue;
             }
 
@@ -533,28 +627,7 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c.is_ascii_digit() {
-                loop {
-                    if ctx.start + ctx.length >= source.len() {
-                        break;
-                    }
-                    let c = source[ctx.start + ctx.length] as char;
-                    if !c.is_ascii_digit() {
-                        break;
-                    }
-
-                    ctx.length += 1;
-                }
-
-                let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
-                let i = ps.parse::<i64>().unwrap();
-                let mut sub_meta = meta.from_offset(ctx.start);
-
-                let mut c = FSRConstant::from_int(i, sub_meta);
-                c.single_op = ctx.single_op;
-                ctx.single_op = None;
-                ctx.candidates.push(FSRToken::Constant(c));
-                ctx.start += ctx.length;
-                ctx.length = 0;
+                Self::digit_process(source, ignore_nline, meta, ctx)?;
                 continue;
             }
 
@@ -571,34 +644,7 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && ASTParser::is_name_letter_first(ord) {
-                ctx.states.push_state(ExprState::Variable);
-                loop {
-                    if ctx.start + ctx.length >= source.len() {
-                        break;
-                    }
-                    let c = source[ctx.start + ctx.length] as char;
-                    if !ASTParser::is_name_letter(c as u8) {
-                        break;
-                    }
-
-                    ctx.length += 1;
-                }
-
-                if ctx.start + ctx.length >= source.len()
-                    || (source[ctx.start + ctx.length] != b'('
-                        && source[ctx.start + ctx.length] != b'[')
-                {
-                    let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-                    let mut sub_meta = meta.from_offset(ctx.start);
-                    let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
-                    variable.single_op = ctx.single_op;
-                    ctx.single_op = None;
-                    ctx.candidates.push(FSRToken::Variable(variable));
-                    ctx.start += ctx.length;
-                    ctx.length = 0;
-                    ctx.states.pop_state();
-                    continue;
-                }
+                Self::variable_process(source, ignore_nline, meta, ctx)?;
 
                 continue;
             }

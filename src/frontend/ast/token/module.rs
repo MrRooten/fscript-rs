@@ -13,7 +13,7 @@ use super::{
     expr::FSRExpr,
     function_def::FSRFnDef,
     if_statement::FSRIf,
-    import::{self, FSRImport},
+    import::FSRImport,
     return_def::FSRReturn,
     while_statement::FSRWhile,
 };
@@ -33,6 +33,7 @@ impl ModuleStates {
         Self { states: vec![] }
     }
 
+    #[allow(unused)]
     pub fn set_up_state(&mut self, new_state: ModuleState) {
         self.states.pop();
         self.states.push(new_state);
@@ -50,10 +51,12 @@ impl ModuleStates {
         &self.states[self.states.len() - 1]
     }
 
+    #[allow(unused)]
     pub fn eq_peek(&self, state: &ModuleState) -> bool {
         return self.peek().eq(state);
     }
 
+    #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.states.len() == 0
     }
@@ -130,7 +133,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             let t = match trie.match_token(&source[start..]) {
                 Some(s) => s,
                 None => {
-                    let mut sub_meta = meta.from_offset(start);
+                    let sub_meta = meta.from_offset(start);
                     let expr = FSRExpr::parse(&source[start..], false, sub_meta)?;
                     length += expr.1;
                     module.tokens.push(expr.0);

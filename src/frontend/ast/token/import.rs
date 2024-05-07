@@ -4,7 +4,7 @@ use super::base::FSRPosition;
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRImport {
-    module_name: String,
+    _module_name: String,
     meta: FSRPosition,
 }
 
@@ -29,7 +29,7 @@ impl FSRImport {
 
         Ok((
             Self {
-                module_name: mod_name.to_string(),
+                _module_name: mod_name.to_string(),
                 meta,
             },
             len,

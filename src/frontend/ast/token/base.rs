@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
-use crate::frontend::ast::token::slice::FSRSlice;
 
 use super::{
     assign::FSRAssign,
@@ -11,11 +10,9 @@ use super::{
     constant::FSRConstant,
     expr::FSRExpr,
     function_def::FSRFnDef,
-    hashtable::FSRHashtable,
     if_statement::{FSRIf, FSRIfState},
     import::FSRImport,
     list::FSRListFrontEnd,
-    name::FSRName,
     return_def::FSRReturn,
     variable::FSRVariable,
     while_statement::FSRWhile,

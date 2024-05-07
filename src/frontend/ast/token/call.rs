@@ -1,4 +1,3 @@
-use std::{cell::Ref, fmt::Error, rc::Rc};
 
 use super::{
     base::{FSRPosition, FSRToken},
@@ -20,8 +19,8 @@ pub struct FSRCall<'a> {
 enum CallState {
     Name,
     Start,
-    Args,
-    WaitToken,
+    _Args,
+    _WaitToken,
 }
 
 impl<'a> FSRCall<'a> {
@@ -41,7 +40,7 @@ impl<'a> FSRCall<'a> {
         let mut state = CallState::Start;
         let mut start = 0;
         let mut length = 0;
-        let mut name = "";
+        let name ;
         let mut fn_args = vec![];
         loop {
             let i = source[start];
@@ -63,10 +62,8 @@ impl<'a> FSRCall<'a> {
 
             if state == CallState::Name && t_i as char == '(' {
                 name = str::from_utf8(&source[start..start + length]).unwrap();
-                state = CallState::Args;
                 start += length;
                 start += 1;
-                length = 0;
                 break;
             }
         }
@@ -75,10 +72,10 @@ impl<'a> FSRCall<'a> {
         let first = s.find('(').unwrap();
         let last = s.rfind(')').unwrap();
         let args = &source[first + 1..last];
-        let mut sub_meta = meta.from_offset(start);
+        let sub_meta = meta.from_offset(start);
         let exprs = ASTParser::split_by_comma(args, sub_meta)?;
         for s in exprs {
-            let mut sub_meta = meta.from_offset(first);
+            let sub_meta = meta.from_offset(first);
             let expr = FSRExpr::parse(s, true, sub_meta)?;
             fn_args.push(expr.0);
         }

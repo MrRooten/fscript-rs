@@ -1,5 +1,3 @@
-use std::fmt::Error;
-
 use crate::frontend::ast::parse::ASTParser;
 use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::expr::FSRExpr;
@@ -7,8 +5,6 @@ use crate::utils::error::SyntaxError;
 
 use super::base::FSRPosition;
 use super::base::FSRToken;
-use super::statement::ASTTokenEnum;
-use super::statement::ASTTokenInterface;
 
 #[derive(Debug, Clone)]
 pub struct FSRWhile<'a> {
@@ -22,7 +18,7 @@ pub struct FSRWhile<'a> {
 enum State {
     SingleQuote,
     DoubleQuote,
-    EscapeNewline,
+    _EscapeNewline,
     EscapeQuote,
     Continue,
 }
