@@ -90,9 +90,13 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn init(&mut self) {
+        // Set none variable as uniq object id 0
         self.global.insert("none".to_string(), 0);
+        // Set true variable as uniq object id 1
         self.global.insert("true".to_string(), 1);
+        // Set false variable as uniq object id 2
         self.global.insert("false".to_string(), 2);
+
         let integer = FSRInteger::get_class(self);
         self.base_types.insert("Integer", integer);
 
@@ -108,18 +112,6 @@ impl<'a> FSRVM<'a> {
 
     pub fn get_cls(&self, name: &str) -> Option<&FSRClass<'a>> {
         return self.base_types.get(name);
-    }
-
-    pub fn new_object(&mut self) -> &Box<FSRObject<'a>> {
-        let id = self.update_id.fetch_add(1, Ordering::Relaxed);
-        let obj = FSRObject {
-            obj_id: id,
-            value: FSRValue::None,
-            cls: "",
-            ref_count: AtomicU64::new(0),
-        };
-        self.obj_map.insert(obj.obj_id, Box::new(obj));
-        return self.obj_map.get(&id).unwrap();
     }
 
     fn new_stataic_object_with_id(id: u64, value: FSRValue<'static>) -> FSRObject<'static> {
@@ -139,10 +131,15 @@ impl<'a> FSRVM<'a> {
         self.global.insert(name.to_string(), obj_id);
     }
 
+    fn get_object_id(obj: &Box<FSRObject>) -> u64 {
+        obj.as_ref() as *const FSRObject as u64
+    }
+
     pub fn register_object(&mut self, mut object: FSRObject<'a>) -> u64 {
         let mut object = Box::new(object);
-        let id = object.as_ref() as *const FSRObject as u64;
+        let id = Self::get_object_id(&object);
         object.obj_id = id;
+        
         self.obj_map.insert(id, object);
 
         id
