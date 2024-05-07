@@ -5,7 +5,7 @@ use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::expr::FSRExpr;
 use crate::utils::error::SyntaxError;
 
-use super::base::FSRMeta;
+use super::base::FSRPosition;
 use super::base::FSRToken;
 use super::statement::ASTTokenEnum;
 use super::statement::ASTTokenInterface;
@@ -15,7 +15,7 @@ pub struct FSRWhile<'a> {
     test: Box<FSRToken<'a>>,
     body: Box<FSRBlock<'a>>,
     len: usize,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 #[derive(PartialEq, Clone)]
@@ -28,7 +28,7 @@ enum State {
 }
 
 impl<'a> FSRWhile<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -40,7 +40,7 @@ impl<'a> FSRWhile<'a> {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
         let s = unsafe { std::str::from_utf8_unchecked(&source[0..5]) };
         if source.len() < 5 {
             unimplemented!()

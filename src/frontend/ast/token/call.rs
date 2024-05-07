@@ -1,7 +1,7 @@
 use std::{cell::Ref, fmt::Error, rc::Rc};
 
 use super::{
-    base::{FSRMeta, FSRToken},
+    base::{FSRPosition, FSRToken},
     expr::FSRExpr,
 };
 use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
@@ -13,7 +13,7 @@ pub struct FSRCall<'a> {
     args: Vec<FSRToken<'a>>,
     pub(crate) len: usize,
     pub(crate) single_op: Option<&'a str>,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 #[derive(PartialEq)]
@@ -25,7 +25,7 @@ enum CallState {
 }
 
 impl<'a> FSRCall<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -37,7 +37,7 @@ impl<'a> FSRCall<'a> {
         self.name
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
         let mut state = CallState::Start;
         let mut start = 0;
         let mut length = 0;
@@ -75,12 +75,10 @@ impl<'a> FSRCall<'a> {
         let first = s.find('(').unwrap();
         let last = s.rfind(')').unwrap();
         let args = &source[first + 1..last];
-        let mut sub_meta = meta.clone();
-        sub_meta.offset += start;
+        let mut sub_meta = meta.from_offset(start);
         let exprs = ASTParser::split_by_comma(args, sub_meta)?;
         for s in exprs {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset += first;
+            let mut sub_meta = meta.from_offset(first);
             let expr = FSRExpr::parse(s, true, sub_meta)?;
             fn_args.push(expr.0);
         }

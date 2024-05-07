@@ -42,7 +42,7 @@ pub enum FSRToken<'a> {
 }
 
 impl<'a> FSRToken<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         match self {
             FSRToken::FunctionDef(e) => e.get_meta(),
             FSRToken::IfExp(e) => e.get_meta(),
@@ -73,23 +73,30 @@ pub trait FSRTokenMatcher {
 }
 
 #[derive(Clone, Debug)]
-pub struct FSRMeta {
+pub struct FSRPosition {
     pub(crate) offset: usize,
 }
 
-impl Default for FSRMeta {
+impl Default for FSRPosition {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl FSRMeta {
+impl FSRPosition {
     pub fn new() -> Self {
         Self { offset: 0 }
     }
+    
+    #[inline]
+    pub fn from_offset(&self, offset: usize) -> FSRPosition {
+        return Self {
+            offset: self.offset + offset
+        }
+    }
 }
 
-impl Display for FSRMeta {
+impl Display for FSRPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.offset)
     }

@@ -3,14 +3,14 @@ use crate::{
     utils::error::SyntaxError,
 };
 
-use super::base::{FSRMeta, FSRToken};
+use super::base::{FSRPosition, FSRToken};
 
 #[derive(Debug, Clone)]
 pub struct FSRListFrontEnd<'a> {
     items: Vec<FSRToken<'a>>,
     pub(crate) len: usize,
 
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 impl<'a> FSRListFrontEnd<'a> {
@@ -18,11 +18,11 @@ impl<'a> FSRListFrontEnd<'a> {
         &self.items
     }
 
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<FSRListFrontEnd<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRListFrontEnd<'a>, SyntaxError> {
         let mut vs = vec![];
         let mut sub_meta = meta.clone();
         sub_meta.offset += 1;

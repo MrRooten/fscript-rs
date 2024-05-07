@@ -5,7 +5,7 @@ use std::{
 
 use crate::frontend::ast::token::{
     assign::FSRAssign,
-    base::{FSRMeta, FSRToken},
+    base::{FSRPosition, FSRToken},
     block::FSRBlock,
     call::FSRCall,
     class::FSRClassFrontEnd,
@@ -688,7 +688,7 @@ impl<'a> Bytecode {
     }
 
     pub fn compile(name: &str, code: &str) -> Bytecode {
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
         return Self::load_ast(name, FSRToken::Module(token));
     }

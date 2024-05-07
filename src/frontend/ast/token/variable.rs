@@ -1,18 +1,18 @@
-use super::base::FSRMeta;
+use super::base::FSRPosition;
 
 #[derive(Debug, Clone)]
 pub struct FSRVariable<'a> {
     name: &'a str,
     pub(crate) single_op: Option<&'a str>,
     pub(crate) len: usize,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 impl<'a> FSRVariable<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
-    pub fn parse(name: &'a str, meta: FSRMeta) -> Result<FSRVariable, &str> {
+    pub fn parse(name: &'a str, meta: FSRPosition) -> Result<FSRVariable, &str> {
         Ok(Self {
             name,
             single_op: None,

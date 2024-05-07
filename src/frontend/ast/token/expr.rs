@@ -11,7 +11,7 @@ use crate::frontend::ast::{parse::ASTParser, token::constant::FSRConstant};
 use crate::utils::error::{SyntaxErrType, SyntaxError};
 use std::str;
 
-use super::base::FSRMeta;
+use super::base::FSRPosition;
 use super::{base::FSRToken, call::FSRCall, variable::FSRVariable};
 
 #[derive(Debug, Clone)]
@@ -21,11 +21,11 @@ pub struct FSRExpr<'a> {
     right: Box<FSRToken<'a>>,
     op: Option<&'a str>,
     len: usize,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 impl<'a> FSRExpr<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -246,7 +246,7 @@ impl<'a> FSRExpr<'a> {
     pub fn parse(
         source: &'a [u8],
         ignore_nline: bool,
-        meta: FSRMeta,
+        meta: FSRPosition,
     ) -> Result<(FSRToken<'a>, usize), SyntaxError> {
         let mut states = ExprStates::new();
         states.push_state(ExprState::WaitToken);
@@ -293,8 +293,7 @@ impl<'a> FSRExpr<'a> {
                 let op = str::from_utf8(&source[start..start + length]).unwrap();
                 let op = ASTParser::get_static_op(op);
                 if start + length >= source.len() {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset += start;
+                    let mut sub_meta = meta.from_offset(start);
                     return Err(SyntaxError::new(
                         &sub_meta,
                         format!("{} must follow a expr or variable", op),
@@ -366,7 +365,7 @@ impl<'a> FSRExpr<'a> {
 
                     start += length;
                     length = 0;
-                    let sub_meta = meta.clone();
+                    let sub_meta = meta.from_offset(0);
                     let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta)?.0;
                     if let FSRToken::Expr(e) = &mut sub_expr {
                         e.single_op = single_op;
@@ -399,8 +398,7 @@ impl<'a> FSRExpr<'a> {
 
             if states.eq_peek(&ExprState::WaitToken) && c == '\'' {
                 if let Some(s_op) = single_op {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset += start;
+                    let mut sub_meta = meta.from_offset(start);
                     return Err(SyntaxError::new(
                         &sub_meta,
                         format!("{} can not follow string", s_op),
@@ -409,8 +407,7 @@ impl<'a> FSRExpr<'a> {
                 start += 1;
                 loop {
                     if start + length >= source.len() {
-                        let mut sub_meta = meta.clone();
-                        sub_meta.offset = meta.offset + start;
+                        let mut sub_meta = meta.from_offset(start);
                         let err = SyntaxError::new_with_type(
                             &sub_meta,
                             "Not Close for Single Quote",
@@ -437,8 +434,7 @@ impl<'a> FSRExpr<'a> {
                 }
 
                 let s = &source[start..start + length];
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + start;
+                let mut sub_meta = meta.from_offset(start);
                 let constant = FSRConstant::from_str(s, sub_meta);
                 candidates.push(FSRToken::Constant(constant));
                 length += 1;
@@ -449,8 +445,7 @@ impl<'a> FSRExpr<'a> {
 
             if states.eq_peek(&ExprState::WaitToken) && c == '\"' {
                 if let Some(s_op) = single_op {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset += start;
+                    let mut sub_meta = meta.from_offset(start);
                     return Err(SyntaxError::new(
                         &sub_meta,
                         format!("{} can not follow string", s_op),
@@ -459,8 +454,7 @@ impl<'a> FSRExpr<'a> {
                 start += 1;
                 loop {
                     if start + length >= source.len() {
-                        let mut sub_meta = meta.clone();
-                        sub_meta.offset = meta.offset + start;
+                        let mut sub_meta = meta.from_offset(start);
                         let err = SyntaxError::new_with_type(
                             &sub_meta,
                             "Not Close for Single Quote",
@@ -487,8 +481,7 @@ impl<'a> FSRExpr<'a> {
                 }
 
                 let s = &source[start..start + length];
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + start;
+                let mut sub_meta = meta.from_offset(start);
                 let constant = FSRConstant::from_str(s, sub_meta);
                 candidates.push(FSRToken::Constant(constant));
                 length += 1;
@@ -512,8 +505,7 @@ impl<'a> FSRExpr<'a> {
 
                 let ps = str::from_utf8(&source[start..(start + length)]).unwrap();
                 let i = ps.parse::<i64>().unwrap();
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + start;
+                let mut sub_meta = meta.from_offset(start);
 
                 let mut c = FSRConstant::from_int(i, sub_meta);
                 c.single_op = single_op;
@@ -524,8 +516,7 @@ impl<'a> FSRExpr<'a> {
                 continue;
             }
             if states.eq_peek(&ExprState::WaitToken) && t_c == '[' {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset += start;
+                let mut sub_meta = meta.from_offset(start);
                 let len = ASTParser::read_valid_bracket(&source[start..], sub_meta.clone())?;
                 assert!(len >= 2);
 
@@ -553,8 +544,7 @@ impl<'a> FSRExpr<'a> {
                     || (source[start + length] != b'(' && source[start + length] != b'[')
                 {
                     let name = str::from_utf8(&source[start..start + length]).unwrap();
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset += start;
+                    let mut sub_meta = meta.from_offset(start);
                     let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
                     variable.single_op = single_op;
                     single_op = None;
@@ -569,12 +559,10 @@ impl<'a> FSRExpr<'a> {
             }
 
             if states.eq_peek(&ExprState::Variable) && t_c == '(' {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + start + length;
+                let mut sub_meta = meta.from_offset(start);
                 let len = ASTParser::read_valid_bracket(&source[start + length..], sub_meta)?;
                 length += len;
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = start + meta.offset;
+                let mut sub_meta = meta.from_offset(start);
                 let mut call = FSRCall::parse(&source[start..start + length], sub_meta)?;
                 call.single_op = single_op;
                 single_op = None;
@@ -586,8 +574,7 @@ impl<'a> FSRExpr<'a> {
             }
 
             if states.eq_peek(&ExprState::Variable) && t_c == '[' {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + start + length;
+                let mut sub_meta = meta.from_offset(start);
                 let len = ASTParser::read_valid_bracket(&source[start + length..], sub_meta)?;
                 length += len;
                 let slice = FSRSlice::parse(&source[start..start + length + 1]).unwrap();
@@ -600,8 +587,7 @@ impl<'a> FSRExpr<'a> {
                 || last_loop
             {
                 let name = str::from_utf8(&source[start..start + length]).unwrap();
-                let mut sub_meta = meta.clone();
-                sub_meta.offset += start;
+                let mut sub_meta = meta.from_offset(start);
                 let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
                 variable.single_op = single_op;
                 single_op = None;
@@ -665,8 +651,7 @@ impl<'a> FSRExpr<'a> {
 
         if candidates.len().eq(&1) {
             if !operators.is_empty() {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + operators[0].1;
+                let mut sub_meta = meta.from_offset(operators[0].1);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
                     format!("Must have second candidates with {}", operators[0].0),
@@ -681,15 +666,13 @@ impl<'a> FSRExpr<'a> {
         let operator = operators[0];
         let split_offset = operator.1;
 
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset;
+        let mut sub_meta = meta.from_offset(0);
         let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta)?.0;
 
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset;
+        let mut sub_meta = meta.from_offset(0);
         let right = FSRExpr::parse(&source[split_offset + 1..], false, sub_meta.clone())?.0;
         let n_left = left.clone();
-        
+
         if operator.0.eq("=") {
             if let FSRToken::Variable(name) = left {
                 return Ok((

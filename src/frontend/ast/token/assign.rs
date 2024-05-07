@@ -7,7 +7,7 @@ use crate::{
     utils::error::SyntaxError,
 };
 
-use super::base::{FSRMeta, FSRToken};
+use super::base::{FSRPosition, FSRToken};
 
 #[derive(Debug, Clone)]
 pub struct FSRAssign<'a> {
@@ -15,7 +15,7 @@ pub struct FSRAssign<'a> {
     pub(crate) left: Rc<FSRToken<'a>>,
     pub(crate) name: &'a str,
     pub(crate) len: usize,
-    pub(crate) meta: FSRMeta,
+    pub(crate) meta: FSRPosition,
 }
 
 #[derive(PartialEq)]
@@ -34,7 +34,7 @@ impl<'a> FSRAssign<'a> {
         &self.left
     }
 
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -49,7 +49,7 @@ impl<'a> FSRAssign<'a> {
     pub fn get_len(&self) -> usize {
         self.len
     }
-    pub fn parse(source: &'a [u8], meta: &FSRMeta) -> Result<FSRAssign<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: &FSRPosition) -> Result<FSRAssign<'a>, SyntaxError> {
         let mut start = 0;
         let mut length = 0;
         let mut state = FSRAssignState::Start;
@@ -93,8 +93,7 @@ impl<'a> FSRAssign<'a> {
             }
 
             if state == FSRAssignState::RightValue {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = start + meta.offset;
+                let mut sub_meta = meta.from_offset(start);
                 let expr = FSRExpr::parse(&source[start..], false, sub_meta)?;
                 if let FSRToken::Expr(e) = &expr.0 {
                     len += expr.1;

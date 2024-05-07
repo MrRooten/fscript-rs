@@ -5,7 +5,7 @@ use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::expr::FSRExpr;
 use crate::utils::error::SyntaxError;
 
-use super::base::FSRMeta;
+use super::base::FSRPosition;
 use super::base::FSRToken;
 use super::statement::ASTTokenEnum;
 use super::statement::ASTTokenInterface;
@@ -15,7 +15,7 @@ pub struct FSRIf<'a> {
     test: Box<FSRToken<'a>>,
     body: Box<FSRBlock<'a>>,
     len: usize,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 #[derive(PartialEq, Clone)]
@@ -28,7 +28,7 @@ enum State {
 }
 
 impl<'a> FSRIf<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -40,24 +40,21 @@ impl<'a> FSRIf<'a> {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<FSRIf<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRIf<'a>, SyntaxError> {
         let s = unsafe { std::str::from_utf8_unchecked(&source[0..2]) };
         if source.len() < 3 {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
             return Err(err);
         }
         if s != "if" {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "not if token");
             return Err(err);
         }
 
         if source[2] as char != ' ' && source[2] as char != '(' {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset + 2;
+            let mut sub_meta = meta.from_offset(2);
             let err = SyntaxError::new(&sub_meta, "not a valid if delemiter");
             return Err(err);
         }

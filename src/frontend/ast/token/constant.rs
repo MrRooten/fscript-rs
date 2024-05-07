@@ -1,4 +1,4 @@
-use super::base::FSRMeta;
+use super::base::FSRPosition;
 
 #[derive(Debug, Clone)]
 pub enum FSRConstantType {
@@ -12,11 +12,11 @@ pub struct FSRConstant {
     constant: FSRConstantType,
     pub(crate) len: usize,
     pub(crate) single_op: Option<&'static str>,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 impl FSRConstant {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -24,7 +24,7 @@ impl FSRConstant {
         &self.constant
     }
 
-    pub fn from_str(s: &[u8], meta: FSRMeta) -> Self {
+    pub fn from_str(s: &[u8], meta: FSRPosition) -> Self {
         FSRConstant {
             constant: FSRConstantType::String(s.to_vec()),
             len: 0,
@@ -33,7 +33,7 @@ impl FSRConstant {
         }
     }
 
-    pub fn from_float(f: f64, meta: FSRMeta) -> Self {
+    pub fn from_float(f: f64, meta: FSRPosition) -> Self {
         FSRConstant {
             constant: FSRConstantType::Float(f),
             len: 0,
@@ -42,7 +42,7 @@ impl FSRConstant {
         }
     }
 
-    pub fn from_int(i: i64, meta: FSRMeta) -> Self {
+    pub fn from_int(i: i64, meta: FSRPosition) -> Self {
         FSRConstant {
             constant: FSRConstantType::Integer(i),
             len: 0,

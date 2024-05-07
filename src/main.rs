@@ -4,7 +4,7 @@ use fscript_rs::{
         vm::{runtime::FSRVM, thread::FSRThreadRuntime},
     },
     frontend::ast::token::{
-        base::{FSRMeta, FSRToken},
+        base::{FSRPosition, FSRToken},
         module::FSRModuleFrontEnd,
     },
 };
@@ -24,7 +24,7 @@ fn main() {
     ccddefg('sdfsdfsdf')
     println('okokokokok')
     ";
-    let meta = FSRMeta::new();
+    let meta = FSRPosition::new();
     let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
     let v = Bytecode::load_ast("main", FSRToken::Module(token));
     let mut runtime = FSRThreadRuntime::new();

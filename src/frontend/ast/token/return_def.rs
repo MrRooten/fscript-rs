@@ -1,18 +1,18 @@
 use crate::utils::error::SyntaxError;
 
 use super::{
-    base::{FSRMeta, FSRToken},
+    base::{FSRPosition, FSRToken},
     expr::FSRExpr,
 };
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRReturn<'a> {
     expr: Box<FSRToken<'a>>,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 impl<'a> FSRReturn<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -20,7 +20,7 @@ impl<'a> FSRReturn<'a> {
         &self.expr
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
         let sub = &source[0..6];
         let first_6_char = str::from_utf8(sub).unwrap();

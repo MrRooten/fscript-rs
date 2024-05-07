@@ -8,7 +8,7 @@ mod tests {
             vm::{runtime::FSRVM, thread::FSRThreadRuntime},
         },
         frontend::ast::token::{
-            base::{FSRMeta, FSRToken},
+            base::{FSRPosition, FSRToken},
             expr::FSRExpr,
             module::FSRModuleFrontEnd,
         },
@@ -27,7 +27,7 @@ mod tests {
 
         a = Abc(123123)
         ";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);

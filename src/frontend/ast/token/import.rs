@@ -1,19 +1,19 @@
 use crate::utils::error::SyntaxError;
 
-use super::base::FSRMeta;
+use super::base::FSRPosition;
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRImport {
     module_name: String,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 impl FSRImport {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
-    pub fn parse(source: &[u8], meta: FSRMeta) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
         while len < source.len() && source[len] == b'\n' {
             len += 1;

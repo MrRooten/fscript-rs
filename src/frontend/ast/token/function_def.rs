@@ -10,7 +10,7 @@ use crate::{
     utils::error::SyntaxError,
 };
 
-use super::base::{FSRMeta, FSRToken};
+use super::base::{FSRPosition, FSRToken};
 
 #[derive(Debug, Clone)]
 pub struct FSRFnDef<'a> {
@@ -18,7 +18,7 @@ pub struct FSRFnDef<'a> {
     args: Vec<FSRToken<'a>>,
     body: Rc<FSRBlock<'a>>,
     len: usize,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 #[derive(PartialEq, Clone)]
@@ -31,7 +31,7 @@ enum State {
 }
 
 impl<'a> FSRFnDef<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -51,24 +51,21 @@ impl<'a> FSRFnDef<'a> {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
         let s = unsafe { std::str::from_utf8_unchecked(&source[0..2]) };
         if source.len() < 3 {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "fn define body length too small");
             return Err(err);
         }
         if s != "fn" {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "not fn token");
             return Err(err);
         }
 
         if source[2] as char != ' ' {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset + 2;
+            let mut sub_meta = meta.from_offset(2);
             let err = SyntaxError::new(&sub_meta, "not a valid fn delemiter");
             return Err(err);
         }
@@ -85,8 +82,7 @@ impl<'a> FSRFnDef<'a> {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + len - 1;
+                let mut sub_meta = meta.from_offset(len - 1);
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -123,18 +119,17 @@ impl<'a> FSRFnDef<'a> {
         }
 
         let fn_args = &source[2..2 + len];
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + 2;
+        let mut sub_meta = meta.from_offset(2);
         let fn_args = FSRCall::parse(fn_args, sub_meta)?;
 
         let name = fn_args.get_name();
 
         let fn_block_start = 2 + len;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + fn_block_start;
+        let mut sub_meta = meta.from_offset(fn_block_start);
+
         let fn_block_len =
             ASTParser::read_valid_bracket(&source[fn_block_start..], sub_meta.clone())?;
-        let block_meta = sub_meta.clone();
+        let block_meta = sub_meta.from_offset(0);
         let fn_block = FSRBlock::parse(
             &source[fn_block_start..fn_block_start + fn_block_len],
             block_meta,

@@ -2,7 +2,7 @@
 #[cfg(test)]
 mod frontend_tests {
     use crate::frontend::ast::parse::ASTParser;
-    use crate::frontend::ast::token::base::FSRMeta;
+    use crate::frontend::ast::token::base::FSRPosition;
     use crate::frontend::ast::token::class::FSRClassFrontEnd;
     use crate::frontend::ast::token::while_statement::FSRWhile;
     use crate::frontend::ast::token::function_def::FSRFnDef;
@@ -16,7 +16,7 @@ mod frontend_tests {
     #[test]
     fn expr_test() {
         let s = "a + b + c\n";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
 
         println!("{:#?}", expr);
@@ -26,7 +26,7 @@ mod frontend_tests {
     #[test]
     fn test_empty_expr() {
         let s = "( )\n";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
         if let FSRToken::EmptyExpr = expr.0 {
             //let e: FSRExpr = e.try_into().unwrap();
@@ -40,7 +40,7 @@ mod frontend_tests {
     #[test]
     fn test_obj_attr() {
         let s = "abc.name(abc, ddc)\n";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
 
         println!("{:#?}", expr)
@@ -49,7 +49,7 @@ mod frontend_tests {
     #[test]
     fn test_assign() {
         let s = "a = 'abcdefg'.len() + 3 - 2";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
         if let FSRToken::Assign(e) = expr.0 {
             // let e: FSRExpr = e.try_into().unwrap();
@@ -62,12 +62,12 @@ mod frontend_tests {
     #[test]
     fn test_bracket() {
         let s = "(abcd['abc'])";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let v = ASTParser::read_valid_bracket(s.as_bytes(), meta).unwrap();
         assert_eq!(v, s.len());
 
         let s = "abc(abcd['abc'])";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let v = ASTParser::read_valid_name_bracket(s.as_bytes(), meta).unwrap();
         assert_eq!(v, s.len());
     }
@@ -83,7 +83,7 @@ mod frontend_tests {
             }
         }
         ";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let b = FSRBlock::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.get_len(), s.len());
@@ -96,7 +96,7 @@ mod frontend_tests {
         b = 1 + 3
         c = 3 + 4
         ";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.get_len(), s.len());
@@ -117,7 +117,7 @@ mod frontend_tests {
             a = print(123)
         }
         ";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let i = FSRWhile::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
     }
@@ -132,7 +132,7 @@ mod frontend_tests {
             }
         }
         ";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let i = FSRIf::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
     }
@@ -149,7 +149,7 @@ mod frontend_tests {
             }
             return abc
         }";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let i = FSRFnDef::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
         assert_eq!(s.len(), i.get_len())
@@ -158,7 +158,7 @@ mod frontend_tests {
     #[test]
     fn test_comma() {
         let s = "('abc',123, dfds, (abc, 123))";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let d = FSRExpr::parse(s.as_bytes(), false , meta).unwrap();
         println!("{:#?}", d);
     }
@@ -166,7 +166,7 @@ mod frontend_tests {
     #[test]
     fn read_comma() {
         let s = "abc(123,123)";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let s = ASTParser::split_by_comma(s.as_bytes(), meta).expect("TODO: panic message");
         println!("abc: {:?}", s)
     }
@@ -174,7 +174,7 @@ mod frontend_tests {
     #[test]
     fn test_list() {
         let s = "a = [(1+1),2,3,4]";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let s = FSRExpr::parse(s.as_bytes(), false,  meta).unwrap();
         println!("{:#?}", s);
     }
@@ -182,7 +182,7 @@ mod frontend_tests {
     #[test]
     fn test_module_name() {
         let s = "path::test('adf')";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let s = FSRExpr::parse(s.as_bytes(), false,  meta).unwrap();
         println!("{:#?}", s);
     }
@@ -196,7 +196,7 @@ mod frontend_tests {
             }
         }
         ";
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let s = FSRClassFrontEnd::parse(s.as_bytes(),  meta).unwrap();
         println!("{:#?}", s);
     }

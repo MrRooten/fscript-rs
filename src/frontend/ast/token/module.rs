@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRMeta, FSRToken},
+    base::{FSRPosition, FSRToken},
     block::FSRBlock,
     class::FSRClassFrontEnd,
     expr::FSRExpr,
@@ -63,11 +63,11 @@ impl ModuleStates {
 pub struct FSRModuleFrontEnd<'a> {
     pub(crate) tokens: Vec<FSRToken<'a>>,
     len: usize,
-    meta: FSRMeta,
+    meta: FSRPosition,
 }
 
 impl<'a> FSRModuleFrontEnd<'a> {
-    pub fn get_meta(&self) -> &FSRMeta {
+    pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
@@ -75,7 +75,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
         self.len
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<FSRModuleFrontEnd<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRModuleFrontEnd<'a>, SyntaxError> {
         let mut trie = FSTrie::new();
         let mut start = 0;
         let mut length = 0;
@@ -130,8 +130,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             let t = match trie.match_token(&source[start..]) {
                 Some(s) => s,
                 None => {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset = meta.offset + start;
+                    let mut sub_meta = meta.from_offset(start);
                     let expr = FSRExpr::parse(&source[start..], false, sub_meta)?;
                     length += expr.1;
                     module.tokens.push(expr.0);

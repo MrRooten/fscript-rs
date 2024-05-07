@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fmt::Display;
 
 use crate::backend::vm::thread::CallState;
-use crate::frontend::ast::token::base::FSRMeta;
+use crate::frontend::ast::token::base::FSRPosition;
 
 #[derive(Debug)]
 pub enum SyntaxErrType {
@@ -15,13 +15,13 @@ pub enum SyntaxErrType {
 
 #[derive(Debug)]
 pub struct SyntaxError {
-    meta: FSRMeta,
+    meta: FSRPosition,
     msg: String,
     err_type: SyntaxErrType,
 }
 
 impl SyntaxError {
-    pub fn new<S>(meta: &FSRMeta, msg: S) -> Self
+    pub fn new<S>(meta: &FSRPosition, msg: S) -> Self
     where
         S: ToString,
     {
@@ -32,7 +32,7 @@ impl SyntaxError {
         }
     }
 
-    pub fn new_with_type<S>(meta: &FSRMeta, msg: S, t: SyntaxErrType) -> Self
+    pub fn new_with_type<S>(meta: &FSRPosition, msg: S, t: SyntaxErrType) -> Self
     where
         S: ToString,
     {

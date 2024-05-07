@@ -1,4 +1,4 @@
-use super::token::base::FSRMeta;
+use super::token::base::FSRPosition;
 use super::token::statement::{ASTToken, ASTTokenEnum};
 use crate::frontend::ast::parse::BracketState::{DoubleQuote, SingleQuote};
 use crate::utils::error::{SyntaxErrType, SyntaxError};
@@ -154,11 +154,10 @@ impl ASTParser {
         c: char,
         states: &mut BracketStates,
         offset: usize,
-        meta: &FSRMeta,
+        meta: &FSRPosition,
     ) -> Result<(), SyntaxError> {
         if Self::check_end_bracket(c, states) {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset += offset;
+            let mut sub_meta = meta.from_offset(offset);
             let err = SyntaxError::new_with_type(
                 meta,
                 "can not start with right bracket",
@@ -229,7 +228,7 @@ impl ASTParser {
 
         Ok(())
     }
-    pub fn read_valid_name_bracket(source: &[u8], meta: FSRMeta) -> Result<usize, SyntaxError> {
+    pub fn read_valid_name_bracket(source: &[u8], meta: FSRPosition) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut is_start = true;
         let mut len = 0;
@@ -249,8 +248,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset += states.peek().1;
+            let mut sub_meta = meta.from_offset(states.peek().1);
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",
@@ -261,7 +259,7 @@ impl ASTParser {
         Ok(len)
     }
 
-    pub fn read_valid_bracket(source: &[u8], meta: FSRMeta) -> Result<usize, SyntaxError> {
+    pub fn read_valid_bracket(source: &[u8], meta: FSRPosition) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut is_start = true;
         let mut len = 0;
@@ -277,8 +275,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset += states.peek().1;
+            let mut sub_meta = meta.from_offset(states.peek().1);
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",
@@ -289,7 +286,7 @@ impl ASTParser {
         Ok(len)
     }
 
-    pub fn read_to_comma(source: &[u8], meta: &FSRMeta) -> Result<usize, SyntaxError> {
+    pub fn read_to_comma(source: &[u8], meta: &FSRPosition) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut len = 0;
         for _c in source {
@@ -304,9 +301,9 @@ impl ASTParser {
         Ok(len)
     }
 
-    pub fn split_by_comma(source: &[u8], meta: FSRMeta) -> Result<Vec<&[u8]>, SyntaxError> {
+    pub fn split_by_comma(source: &[u8], meta: FSRPosition) -> Result<Vec<&[u8]>, SyntaxError> {
         let mut i = 0;
-        let meta = FSRMeta::new();
+        let meta = FSRPosition::new();
         let mut res = vec![];
         while i < source.len() {
             let c = source[i] as char;
