@@ -1,3 +1,5 @@
+#![allow(clippy::ptr_arg)]
+
 use std::{
     cell::RefCell,
     collections::{HashMap, LinkedList},
@@ -75,31 +77,31 @@ impl<'a> CallState<'a> {
 
 #[derive(Debug, Clone)]
 enum SValue<'a> {
-    StackId((u64, &'a String)),
-    AttrId((u64, &'a String)),
-    GlobalId(u64),
+    Stack((u64, &'a String)),
+    Attr((u64, &'a String)),
+    Global(u64),
 }
 
 impl SValue<'_> {
     pub fn get_value(&self) -> u64 {
         match self {
-            SValue::StackId(i) => i.0,
-            SValue::GlobalId(i) => *i,
-            SValue::AttrId(_) => todo!(),
+            SValue::Stack(i) => i.0,
+            SValue::Global(i) => *i,
+            SValue::Attr(_) => todo!(),
         }
     }
 
     pub fn get_global_id(&self, state: &CallState, vm: &FSRVM) -> u64 {
         match self {
-            SValue::StackId(s) => {
+            SValue::Stack(s) => {
                 if let Some(id) = state.get_var(&s.0) {
                     *id
                 } else {
                     *vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
-            SValue::GlobalId(id) => *id,
-            SValue::AttrId((id, name)) => *id,
+            SValue::Global(id) => *id,
+            SValue::Attr((id, name)) => *id,
         }
     }
 }
@@ -229,15 +231,15 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
             }
         };
-        if let SValue::GlobalId(id) = obj_id {
+        if let SValue::Global(id) = obj_id {
             let obj = FSRObject::id_to_mut_obj(id);
             obj.ref_add();
-            if let SValue::StackId(s) = &assign_id {
+            if let SValue::Stack(s) = &assign_id {
                 if let Some(cur_cls) = &mut state.cur_cls {
                     cur_cls.insert_attr_id(s.1, id);
                     return Ok(false);
                 }
-            } else if let SValue::AttrId((_, attr_name)) = &assign_id {
+            } else if let SValue::Attr((_, attr_name)) = &assign_id {
                 let real_obj = match exp.pop() {
                     Some(s) => s.get_global_id(state, vm),
                     None => {
@@ -251,7 +253,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(false);
             }
             state.insert_var(&assign_id.get_value(), id);
-        } else if let SValue::StackId(s_id) = obj_id {
+        } else if let SValue::Stack(s_id) = obj_id {
             let id = match state.get_var(&s_id.0) {
                 Some(s) => *s,
                 None => *vm.get_global_obj_by_name(s_id.1).unwrap(),
@@ -308,10 +310,10 @@ impl<'a> FSRThreadRuntime<'a> {
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = vm.register_object(object);
-                exp.push(SValue::GlobalId(res_id));
+                exp.push(SValue::Global(res_id));
             }
             FSRRetValue::GlobalId(res_id) => {
-                exp.push(SValue::GlobalId(res_id));
+                exp.push(SValue::Global(res_id));
             }
         };
 
@@ -351,10 +353,10 @@ impl<'a> FSRThreadRuntime<'a> {
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = vm.register_object(object);
-                exp.push(SValue::GlobalId(res_id));
+                exp.push(SValue::Global(res_id));
             }
             FSRRetValue::GlobalId(res_id) => {
-                exp.push(SValue::GlobalId(res_id));
+                exp.push(SValue::Global(res_id));
             }
         };
         Ok(false)
@@ -371,9 +373,9 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let attr_id = match exp.pop().unwrap() {
-            SValue::StackId(i_) => unimplemented!(),
-            SValue::GlobalId(_) => unimplemented!(),
-            SValue::AttrId(id) => id,
+            SValue::Stack(i_) => unimplemented!(),
+            SValue::Global(_) => unimplemented!(),
+            SValue::Attr(id) => id,
         };
         let dot_father = match exp.pop() {
             Some(s) => s.get_global_id(state, vm),
@@ -389,12 +391,12 @@ impl<'a> FSRThreadRuntime<'a> {
         let name = attr_id.1;
         let id = dot_father_obj.get_attr(name, vm);
         if id.is_none() {
-            exp.push(SValue::GlobalId(dot_father));
-            exp.push(SValue::AttrId((attr_id.0, name)));
+            exp.push(SValue::Global(dot_father));
+            exp.push(SValue::Attr((attr_id.0, name)));
         } else {
             let id = id.unwrap();
-            exp.push(SValue::GlobalId(dot_father));
-            exp.push(SValue::AttrId((id, name)));
+            exp.push(SValue::Global(dot_father));
+            exp.push(SValue::Attr((id, name)));
         }
 
         *is_attr = true;
@@ -443,7 +445,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         //let ptr = vm as *mut FSRVM;
         let fn_id = match exp.pop().unwrap() {
-            SValue::StackId(s) => {
+            SValue::Stack(s) => {
                 let state = self.get_cur_stack();
                 if let Some(id) = state.get_var(&s.0) {
                     *id
@@ -451,8 +453,8 @@ impl<'a> FSRThreadRuntime<'a> {
                     *vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
-            SValue::GlobalId(id) => id,
-            SValue::AttrId((id, fname)) => id,
+            SValue::Global(id) => id,
+            SValue::Attr((id, fname)) => id,
         };
 
         if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
@@ -522,9 +524,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
                     if let FSRRetValue::Value(v) = v {
                         let id = vm.register_object(v);
-                        exp.push(SValue::GlobalId(id));
+                        exp.push(SValue::Global(id));
                     } else if let FSRRetValue::GlobalId(id) = v {
-                        exp.push(SValue::GlobalId(id));
+                        exp.push(SValue::Global(id));
                     }
                 }
             } else {
@@ -545,9 +547,9 @@ impl<'a> FSRThreadRuntime<'a> {
                     let v = fn_obj.call(args, state, vm).unwrap();
                     if let FSRRetValue::Value(v) = v {
                         let id = vm.register_object(v);
-                        exp.push(SValue::GlobalId(id));
+                        exp.push(SValue::Global(id));
                     } else if let FSRRetValue::GlobalId(id) = v {
-                        exp.push(SValue::GlobalId(id));
+                        exp.push(SValue::Global(id));
                     }
 
                     self.pop_stack();
@@ -568,14 +570,14 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let test_val = match exp.pop().unwrap() {
-            SValue::StackId(s) => {
+            SValue::Stack(s) => {
                 if let Some(id) = state.get_var(&s.0) {
                     *id
                 } else {
                     *vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
-            SValue::GlobalId(id) => id,
+            SValue::Global(id) => id,
             _ => {
                 unimplemented!()
             }
@@ -601,14 +603,14 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let test_val = match exp.pop().unwrap() {
-            SValue::StackId(s) => {
+            SValue::Stack(s) => {
                 if let Some(id) = state.get_var(&s.0) {
                     *id
                 } else {
                     *vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
-            SValue::GlobalId(id) => id,
+            SValue::Global(id) => id,
             _ => {
                 unimplemented!()
             }
@@ -632,18 +634,18 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let name = match exp.pop().unwrap() {
-            SValue::StackId(id) => id,
-            SValue::AttrId(_) => panic!(),
-            SValue::GlobalId(_) => panic!(),
+            SValue::Stack(id) => id,
+            SValue::Attr(_) => panic!(),
+            SValue::Global(_) => panic!(),
         };
 
         if let ArgType::DefineFnArgs(n, arg_len) = bytecode.get_arg() {
             let mut args = vec![];
             for i in 0..*arg_len {
                 let v = match exp.pop().unwrap() {
-                    SValue::StackId(id) => id,
-                    SValue::AttrId(_) => panic!(),
-                    SValue::GlobalId(_) => panic!(),
+                    SValue::Stack(id) => id,
+                    SValue::Attr(_) => panic!(),
+                    SValue::Global(_) => panic!(),
                 };
                 args.push(v.1.to_string());
             }
@@ -690,9 +692,9 @@ impl<'a> FSRThreadRuntime<'a> {
             let left = exp.pop().unwrap().get_global_id(state, vm);
             let v = Self::compare(left, right, op, vm, state);
             if v {
-                exp.push(SValue::GlobalId(vm.get_true_id()))
+                exp.push(SValue::Global(vm.get_true_id()))
             } else {
-                exp.push(SValue::GlobalId(vm.get_false_id()))
+                exp.push(SValue::Global(vm.get_false_id()))
             }
         }
 
@@ -761,9 +763,9 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let id = match exp.pop().unwrap() {
-            SValue::StackId(i) => i,
-            SValue::AttrId(_) => panic!(),
-            SValue::GlobalId(_) => panic!(),
+            SValue::Stack(i) => i,
+            SValue::Attr(_) => panic!(),
+            SValue::Global(_) => panic!(),
         };
 
         let new_cls = FSRClass::new(id.1);
@@ -817,17 +819,17 @@ impl<'a> FSRThreadRuntime<'a> {
     ) {
         *is_attr = false;
         if let ArgType::Variable(id, name) = arg.get_arg() {
-            exp_stack.push(SValue::StackId((*id, name)));
+            exp_stack.push(SValue::Stack((*id, name)));
         } else if let ArgType::ConstInteger(id, i) = arg.get_arg() {
             let int_const = Self::load_integer_const(i, vm);
             s.insert_const(id, int_const);
-            exp_stack.push(SValue::GlobalId(int_const));
+            exp_stack.push(SValue::Global(int_const));
         } else if let ArgType::ConstString(id, i) = arg.get_arg() {
             let string_const = Self::load_string_const(i.clone(), vm);
             s.insert_const(id, string_const);
-            exp_stack.push(SValue::GlobalId(string_const));
+            exp_stack.push(SValue::Global(string_const));
         } else if let ArgType::Attr(id, name) = arg.get_arg() {
-            exp_stack.push(SValue::AttrId((*id, name)));
+            exp_stack.push(SValue::Attr((*id, name)));
         }
     }
 
@@ -840,7 +842,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         if stack.ret_val.is_some() {
-            exp_stack.push(SValue::GlobalId(stack.ret_val.unwrap()));
+            exp_stack.push(SValue::Global(stack.ret_val.unwrap()));
             stack.ret_val = None;
         }
     }
@@ -880,13 +882,7 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) {
         let mut ip = (0, 0);
         let p = self as *mut Self;
-        loop {
-            let expr = match bytecode.get(ip) {
-                Some(s) => s,
-                None => {
-                    break;
-                }
-            };
+        while let Some(expr) = bytecode.get(ip) {
             let s = unsafe { &mut *p };
             s.run_expr(expr, &mut ip, vm);
         }

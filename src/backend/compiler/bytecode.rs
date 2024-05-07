@@ -73,8 +73,6 @@ pub struct BytecodeArg {
 }
 
 impl BytecodeArg {
-    pub fn new(_: BytecodeOperator, _: u64) {}
-
     pub fn get_operator(&self) -> &BytecodeOperator {
         &self.operator
     }
@@ -273,18 +271,20 @@ impl<'a> Bytecode {
         }
 
         let arg_id = var_map.get_var(var.get_name()).unwrap();
-        let op_arg;
-        if is_attr {
-            op_arg = BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: ArgType::Attr(*arg_id, var.get_name().to_string()),
-            };
-        } else {
-            op_arg = BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
-            };
-        }
+        let op_arg = match is_attr {
+            true => {
+                BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: ArgType::Attr(*arg_id, var.get_name().to_string()),
+                }
+            },
+            false => {
+                BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
+                }
+            },
+        };
 
         let mut ans = LinkedList::new();
         ans.push_back(op_arg);
@@ -320,19 +320,19 @@ impl<'a> Bytecode {
     ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut op_code = LinkedList::new();
         let mut var_map_ref = Some(var_map);
-        if let FSRToken::Expr(sub_expr) = &**expr.get_left() {
+        if let FSRToken::Expr(sub_expr) = expr.get_left() {
             let mut v = Self::load_expr(sub_expr, var_map_ref.unwrap());
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else if let FSRToken::Variable(v) = &**expr.get_left() {
+        } else if let FSRToken::Variable(v) = expr.get_left() {
             let mut v = Self::load_variable(v, var_map_ref.unwrap(), false);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else if let FSRToken::Call(c) = &**expr.get_left() {
+        } else if let FSRToken::Call(c) = expr.get_left() {
             let mut v = Self::load_call(c, var_map_ref.unwrap(), false);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else if let FSRToken::Constant(c) = &**expr.get_left() {
+        } else if let FSRToken::Constant(c) = expr.get_left() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap());
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
@@ -340,11 +340,11 @@ impl<'a> Bytecode {
             unimplemented!()
         }
 
-        if let FSRToken::Expr(sub_expr) = &**expr.get_right() {
+        if let FSRToken::Expr(sub_expr) = expr.get_right() {
             let mut v = Self::load_expr(sub_expr, var_map_ref.unwrap());
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else if let FSRToken::Variable(v) = &**expr.get_right() {
+        } else if let FSRToken::Variable(v) = expr.get_right() {
             let mut is_attr = false;
             if expr.get_op().eq(".") {
                 is_attr = true;
@@ -352,7 +352,7 @@ impl<'a> Bytecode {
             let mut v = Self::load_variable(v, var_map_ref.unwrap(), is_attr);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else if let FSRToken::Call(c) = &**expr.get_right() {
+        } else if let FSRToken::Call(c) = expr.get_right() {
             let mut is_attr = false;
             if expr.get_op().eq(".") {
                 is_attr = true;
@@ -362,7 +362,7 @@ impl<'a> Bytecode {
             var_map_ref = Some(v.1);
             //call special process
             return (op_code, var_map_ref.unwrap());
-        } else if let FSRToken::Constant(c) = &**expr.get_right() {
+        } else if let FSRToken::Constant(c) = expr.get_right() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap());
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
@@ -539,7 +539,7 @@ impl<'a> Bytecode {
         ret: &'a FSRReturn,
         var_map: &'a mut VarMap<'a>,
     ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
-        let v = Self::load_token_with_map(ret.get_return_expr().as_ref(), var_map);
+        let v = Self::load_token_with_map(ret.get_return_expr(), var_map);
         let mut ret_expr = LinkedList::new();
         let mut r = v.0;
         if !r.is_empty() {

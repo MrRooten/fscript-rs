@@ -119,9 +119,8 @@ impl FSTrie {
             cur = s;
         }
 
-        match cur {
-            Some(s) => s.end_type = n_type.clone(),
-            None => {}
+        if let Some(s) = cur { 
+            s.end_type = n_type.clone() 
         }
     }
 }

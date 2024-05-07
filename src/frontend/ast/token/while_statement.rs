@@ -32,11 +32,11 @@ impl<'a> FSRWhile<'a> {
         &self.meta
     }
 
-    pub fn get_test(&self) -> &Box<FSRToken> {
+    pub fn get_test(&self) -> &FSRToken {
         &self.test
     }
 
-    pub fn get_block(&self) -> &Box<FSRBlock> {
+    pub fn get_block(&self) -> &FSRBlock {
         &self.body
     }
 

@@ -123,16 +123,19 @@ impl<'a> FSRVM<'a> {
         }
     }
 
-    pub fn get_obj_by_id(&self, id: &u64) -> Option<&Box<FSRObject<'a>>> {
-        return self.obj_map.get(id);
+    pub fn get_obj_by_id(&self, id: &u64) -> Option<&FSRObject<'a>> {
+        match self.obj_map.get(id) {
+            Some(s) => Some(s),
+            None => None
+        }
     }
 
     pub fn register_global_object(&mut self, name: &str, obj_id: u64) {
         self.global.insert(name.to_string(), obj_id);
     }
 
-    fn get_object_id(obj: &Box<FSRObject>) -> u64 {
-        obj.as_ref() as *const FSRObject as u64
+    fn get_object_id(obj: &FSRObject) -> u64 {
+        obj as *const FSRObject as u64
     }
 
     pub fn register_object(&mut self, mut object: FSRObject<'a>) -> u64 {

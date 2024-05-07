@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell, rc::Rc, sync::atomic::{AtomicU64, Ordering}
+    cell::RefCell, path::Display, rc::Rc, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{backend::{
@@ -27,10 +27,9 @@ pub enum FSRRetValue<'a> {
     GlobalId(u64)
 }
 
-
-impl<'a> FSRValue<'a> {
-    pub fn to_string(&self) -> String {
-        match self {
+impl<'a> std::fmt::Display for FSRValue<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
             FSRValue::Integer(e) => e.to_string(),
             FSRValue::Float(e) => e.to_string(),
             FSRValue::String(e) => e.to_string(),
@@ -39,7 +38,8 @@ impl<'a> FSRValue<'a> {
             FSRValue::Function(_) => todo!(),
             FSRValue::None => todo!(),
             FSRValue::Bool(e) => e.to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 

@@ -29,7 +29,7 @@ impl<'a> FSRExpr<'a> {
         &self.meta
     }
 
-    pub fn get_left(&self) -> &Box<FSRToken<'a>> {
+    pub fn get_left(&self) -> &FSRToken<'a> {
         &self.left
     }
 }
@@ -184,13 +184,7 @@ impl<'a> Node<'a> {
         let op1 = Node::get_op_level(op1);
         let op2 = Node::get_op_level(op2);
 
-        if op1 > op2 {
-            Ordering::Greater
-        } else if op1 < op2 {
-            return Ordering::Less;
-        } else {
-            return Ordering::Equal;
-        }
+        op1.cmp(&op2)
     }
 
     pub fn two_nodes_add(node1: Node<'a>, node2: Node<'a>, op: &'a str) -> Box<Node<'a>> {
@@ -229,7 +223,7 @@ impl<'a> FSRExpr<'a> {
         unimplemented!()
     }
 
-    pub fn get_right(&self) -> &Box<FSRToken> {
+    pub fn get_right(&self) -> &FSRToken {
         &self.right
     }
 
@@ -684,54 +678,55 @@ impl<'a> FSRExpr<'a> {
             return Ok((c, start + length));
         }
 
-        for operator in operators {
-            let split_offset = operator.1;
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset;
-            let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta)?.0;
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset;
-            let right = FSRExpr::parse(&source[split_offset + 1..], false, sub_meta.clone())?.0;
-            let n_left = left.clone();
-            if operator.0.eq("=") {
-                if let FSRToken::Variable(name) = left {
-                    return Ok((
-                        FSRToken::Assign(FSRAssign {
-                            left: Rc::new(n_left),
-                            name: name.get_name(),
-                            expr: Rc::new(right),
-                            len: start + length,
-                            meta,
-                        }),
-                        start + length,
-                    ));
-                } else {
-                    return Ok((
-                        FSRToken::Assign(FSRAssign {
-                            left: Rc::new(n_left),
-                            name: "",
-                            expr: Rc::new(right),
-                            len: start + length,
-                            meta,
-                        }),
-                        start + length,
-                    ));
-                }
-            }
-            return Ok((
-                FSRToken::Expr(Self {
-                    single_op: None,
-                    left: Box::new(left),
-                    right: Box::new(right),
-                    op: Some(operator.0),
-                    len: start + length,
-                    meta,
-                }),
-                start + length,
-            ));
-        }
+        let operator = operators[0];
+        let split_offset = operator.1;
 
-        Err(SyntaxError::new(&meta, "".to_string()))
+        let mut sub_meta = meta.clone();
+        sub_meta.offset = meta.offset;
+        let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta)?.0;
+
+        let mut sub_meta = meta.clone();
+        sub_meta.offset = meta.offset;
+        let right = FSRExpr::parse(&source[split_offset + 1..], false, sub_meta.clone())?.0;
+        let n_left = left.clone();
+        
+        if operator.0.eq("=") {
+            if let FSRToken::Variable(name) = left {
+                return Ok((
+                    FSRToken::Assign(FSRAssign {
+                        left: Rc::new(n_left),
+                        name: name.get_name(),
+                        expr: Rc::new(right),
+                        len: start + length,
+                        meta,
+                    }),
+                    start + length,
+                ));
+            } else {
+                return Ok((
+                    FSRToken::Assign(FSRAssign {
+                        left: Rc::new(n_left),
+                        name: "",
+                        expr: Rc::new(right),
+                        len: start + length,
+                        meta,
+                    }),
+                    start + length,
+                ));
+            }
+        }
+        return Ok((
+            FSRToken::Expr(Self {
+                single_op: None,
+                left: Box::new(left),
+                right: Box::new(right),
+                op: Some(operator.0),
+                len: start + length,
+                meta,
+            }),
+            start + length,
+        ));
+
     }
 
     pub fn get_op(&self) -> &str {

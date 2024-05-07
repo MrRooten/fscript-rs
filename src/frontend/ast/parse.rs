@@ -141,21 +141,22 @@ impl ASTParser {
         index
     }
 
+    #[inline]
+    fn check_end_bracket(c: char, states: &BracketStates) -> bool {
+        // (c == ')' || c == '}' || c == ']')
+        //     && states.peek().0.is_bracket()
+        (c == ')' && states.peek().0 != BracketState::Parenthesis)
+            || (c == '}' && states.peek().0 != BracketState::Braces)
+            || (c == ']' && states.peek().0 != BracketState::Bracket)
+    }
+
     pub fn helper(
         c: char,
         states: &mut BracketStates,
         offset: usize,
         meta: &FSRMeta,
     ) -> Result<(), SyntaxError> {
-        if (c == ')' || c == '}' || c == ']')
-            && states.peek().0.is_bracket()
-            && c == ')'
-            && states.peek().0 == BracketState::Parenthesis
-            && c == '}'
-            && states.peek().0 == BracketState::Braces
-            && c == ']'
-            && states.peek().0 == BracketState::Bracket
-        {
+        if Self::check_end_bracket(c, states) {
             let mut sub_meta = meta.clone();
             sub_meta.offset += offset;
             let err = SyntaxError::new_with_type(

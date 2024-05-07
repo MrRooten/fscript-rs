@@ -16,7 +16,7 @@ impl<'a> FSRReturn<'a> {
         &self.meta
     }
 
-    pub fn get_return_expr(&self) -> &Box<FSRToken<'a>> {
+    pub fn get_return_expr(&self) -> &FSRToken<'a> {
         &self.expr
     }
 
