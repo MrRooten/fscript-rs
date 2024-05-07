@@ -1,6 +1,5 @@
 #![allow(unused)]
 
-use std::os::macos::raw::stat;
 use std::rc::Rc;
 use std::{cmp::Ordering, fmt::Display};
 
@@ -219,7 +218,7 @@ impl<'a> StmtContext<'a> {
         let mut states = ExprStates::new();
         states.push_state(ExprState::WaitToken);
         Self {
-            states: states,
+            states,
             start: 0,
             length: 0,
             bracket_count: 0,
@@ -653,7 +652,7 @@ impl<'a> FSRExpr<'a> {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn parse(

@@ -90,7 +90,7 @@ impl FSRPosition {
     
     #[inline]
     pub fn from_offset(&self, offset: usize) -> FSRPosition {
-        return Self {
+        Self {
             offset: self.offset + offset
         }
     }
