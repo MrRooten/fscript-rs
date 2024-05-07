@@ -15,7 +15,7 @@ pub struct FSRIf<'a> {
     test: Box<FSRToken<'a>>,
     body: Box<FSRBlock<'a>>,
     len: usize,
-    meta: FSRMeta
+    meta: FSRMeta,
 }
 
 #[derive(PartialEq, Clone)]
@@ -67,7 +67,7 @@ impl<'a> FSRIf<'a> {
         let mut len = 0;
         for c in &source[2..] {
             let c = *c as char;
-            
+
             len += 1;
             if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {
                 len -= 1;
@@ -129,7 +129,7 @@ impl<'a> FSRIf<'a> {
             test: Box::new(test_expr),
             body: Box::new(body),
             len: start + b_len,
-            meta
+            meta,
         })
     }
 

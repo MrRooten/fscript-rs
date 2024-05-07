@@ -1,17 +1,15 @@
+use super::token::base::FSRMeta;
+use super::token::statement::{ASTToken, ASTTokenEnum};
 use crate::frontend::ast::parse::BracketState::{DoubleQuote, SingleQuote};
 use crate::utils::error::{SyntaxErrType, SyntaxError};
 use std::fmt::Error;
 use std::str;
-use super::token::base::FSRMeta;
-use super::token::statement::{ASTToken, ASTTokenEnum};
 
 pub struct ASTParser {
     tokens: Vec<ASTToken>,
 }
 
-
 type FnExpectTokens = fn() -> Vec<ASTTokenEnum>;
-
 
 #[derive(PartialEq)]
 pub enum BracketState {
@@ -93,15 +91,12 @@ impl ASTParser {
         c as char == ' ' || c as char == '\r' || c as char == '\t' || c as char == '\n'
     }
 
-    pub fn is_blank_char(c : u8) -> bool {
+    pub fn is_blank_char(c: u8) -> bool {
         c as char == ' ' || c as char == '\r' || c as char == '\t'
     }
 
-
     pub fn is_name_letter_first(c: u8) -> bool {
-        (c as char).is_lowercase()
-            || (c as char).is_uppercase()
-            || (c as char) == '_'
+        (c as char).is_lowercase() || (c as char).is_uppercase() || (c as char) == '_'
     }
 
     pub fn is_name_letter(c: u8) -> bool {
@@ -146,12 +141,21 @@ impl ASTParser {
         index
     }
 
-    pub fn helper(c: char, states: &mut BracketStates, offset: usize, meta: &FSRMeta) -> Result<(), SyntaxError> {
-        if (c == ')' || c == '}' || c == ']') && states.peek().0.is_bracket() && c == ')'
-                && states.peek().0 == BracketState::Parenthesis
-                && c == '}'
-                && states.peek().0 == BracketState::Braces
-                && c == ']' && states.peek().0 == BracketState::Bracket {
+    pub fn helper(
+        c: char,
+        states: &mut BracketStates,
+        offset: usize,
+        meta: &FSRMeta,
+    ) -> Result<(), SyntaxError> {
+        if (c == ')' || c == '}' || c == ']')
+            && states.peek().0.is_bracket()
+            && c == ')'
+            && states.peek().0 == BracketState::Parenthesis
+            && c == '}'
+            && states.peek().0 == BracketState::Braces
+            && c == ']'
+            && states.peek().0 == BracketState::Bracket
+        {
             let mut sub_meta = meta.clone();
             sub_meta.offset += offset;
             let err = SyntaxError::new_with_type(
@@ -239,8 +243,6 @@ impl ASTParser {
                 is_start = false;
             }
 
-            
-
             Self::helper(c, &mut states, len, &meta)?;
             len += 1;
         }
@@ -268,7 +270,6 @@ impl ASTParser {
                 break;
             }
             is_start = false;
-            
 
             Self::helper(c, &mut states, len, &meta)?;
             len += 1;
@@ -302,7 +303,6 @@ impl ASTParser {
         Ok(len)
     }
 
-
     pub fn split_by_comma(source: &[u8], meta: FSRMeta) -> Result<Vec<&[u8]>, SyntaxError> {
         let mut i = 0;
         let meta = FSRMeta::new();
@@ -310,7 +310,7 @@ impl ASTParser {
         while i < source.len() {
             let c = source[i] as char;
             let len = Self::read_to_comma(&source[i..], &meta)?;
-            let expr_s = &source[i..i+len];
+            let expr_s = &source[i..i + len];
             res.push(expr_s);
             i += len;
             i += 1;
@@ -322,36 +322,26 @@ impl ASTParser {
     pub fn get_static_op(op: &str) -> &'static str {
         // op reference my not life longer enough, so return static str
         if op.eq(">") {
-            return ">"
-        }
-        else if op.eq("<") {
-            return "<"
-        }
-        else if op.eq(">=") {
-            return ">="
-        }
-        else if op.eq("<=") {
-            return "<="
-        }
-        else if op.eq("==") {
-            return "=="
-        }
-        else if op.eq("=") {
-            return "="
-        }
-        else if op.eq("+") {
-            return "+"
-        }
-        else if op.eq("-") {
+            return ">";
+        } else if op.eq("<") {
+            return "<";
+        } else if op.eq(">=") {
+            return ">=";
+        } else if op.eq("<=") {
+            return "<=";
+        } else if op.eq("==") {
+            return "==";
+        } else if op.eq("=") {
+            return "=";
+        } else if op.eq("+") {
+            return "+";
+        } else if op.eq("-") {
             return "-";
-        }
-        else if op.eq("*") {
+        } else if op.eq("*") {
             return "*";
-        }
-        else if op.eq(".") {
+        } else if op.eq(".") {
             return ".";
-        }
-        else if op.eq(",") {
+        } else if op.eq(",") {
             return ",";
         }
 

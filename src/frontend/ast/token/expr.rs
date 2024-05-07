@@ -392,7 +392,8 @@ impl<'a> FSRExpr<'a> {
                 continue;
             }
 
-            if states.eq_peek(&ExprState::WaitToken) && ASTParser::is_blank_char_with_new_line(ord) {
+            if states.eq_peek(&ExprState::WaitToken) && ASTParser::is_blank_char_with_new_line(ord)
+            {
                 start += 1;
                 continue;
             }
@@ -534,7 +535,7 @@ impl<'a> FSRExpr<'a> {
                 let len = ASTParser::read_valid_bracket(&source[start..], sub_meta.clone())?;
                 assert!(len >= 2);
 
-                let list = FSRListFrontEnd::parse(&source[start..start+len], sub_meta)?;
+                let list = FSRListFrontEnd::parse(&source[start..start + len], sub_meta)?;
                 candidates.push(FSRToken::List(list));
                 start += len;
                 length = 0;
@@ -626,15 +627,14 @@ impl<'a> FSRExpr<'a> {
             return Ok((FSRToken::EmptyExpr, start + length));
         }
 
-        operators.sort_by(|a, b| -> Ordering { 
+        operators.sort_by(|a, b| -> Ordering {
             if a.0 != b.0 {
-                Node::is_higher_priority(a.0, b.0) 
+                Node::is_higher_priority(a.0, b.0)
             } else if a.1 < b.1 {
                 Ordering::Greater
             } else {
                 Ordering::Less
             }
-            
         });
 
         if candidates.len() == 2 {

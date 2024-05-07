@@ -1,16 +1,19 @@
 use std::{cell::Ref, fmt::Error, rc::Rc};
 
+use super::{
+    base::{FSRMeta, FSRToken},
+    expr::FSRExpr,
+};
 use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 use std::str;
-use super::{base::{FSRMeta, FSRToken}, expr::FSRExpr};
 
 #[derive(Debug, Clone)]
 pub struct FSRCall<'a> {
-    name        : &'a str,
-    args        : Vec<FSRToken<'a>>,
-    pub(crate) len         : usize,
-    pub(crate) single_op   : Option<&'a str>,
-    meta                    : FSRMeta
+    name: &'a str,
+    args: Vec<FSRToken<'a>>,
+    pub(crate) len: usize,
+    pub(crate) single_op: Option<&'a str>,
+    meta: FSRMeta,
 }
 
 #[derive(PartialEq)]
@@ -18,7 +21,7 @@ enum CallState {
     Name,
     Start,
     Args,
-    WaitToken
+    WaitToken,
 }
 
 impl<'a> FSRCall<'a> {
@@ -59,7 +62,7 @@ impl<'a> FSRCall<'a> {
             }
 
             if state == CallState::Name && t_i as char == '(' {
-                name = str::from_utf8(&source[start..start+length]).unwrap();
+                name = str::from_utf8(&source[start..start + length]).unwrap();
                 state = CallState::Args;
                 start += length;
                 start += 1;
@@ -68,11 +71,10 @@ impl<'a> FSRCall<'a> {
             }
         }
 
-
         let s = str::from_utf8(source).unwrap();
         let first = s.find('(').unwrap();
         let last = s.rfind(')').unwrap();
-        let args = &source[first+1..last];
+        let args = &source[first + 1..last];
         let mut sub_meta = meta.clone();
         sub_meta.offset += start;
         let exprs = ASTParser::split_by_comma(args, sub_meta)?;
@@ -82,15 +84,13 @@ impl<'a> FSRCall<'a> {
             let expr = FSRExpr::parse(s, true, sub_meta)?;
             fn_args.push(expr.0);
         }
-        Ok(
-            Self {
-                name,
-                args: fn_args,
-                len: 0,
-                single_op: None,
-                meta
-            }
-        )
+        Ok(Self {
+            name,
+            args: fn_args,
+            len: 0,
+            single_op: None,
+            meta,
+        })
     }
 
     pub fn get_len(&self) -> usize {

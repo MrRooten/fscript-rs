@@ -2,10 +2,10 @@ use super::base::FSRMeta;
 
 #[derive(Debug, Clone)]
 pub struct FSRVariable<'a> {
-    name    : &'a str,
-    pub(crate) single_op   : Option<&'a str>,
-    pub(crate) len     : usize,
-    meta            : FSRMeta
+    name: &'a str,
+    pub(crate) single_op: Option<&'a str>,
+    pub(crate) len: usize,
+    meta: FSRMeta,
 }
 
 impl<'a> FSRVariable<'a> {
@@ -13,14 +13,12 @@ impl<'a> FSRVariable<'a> {
         &self.meta
     }
     pub fn parse(name: &'a str, meta: FSRMeta) -> Result<FSRVariable, &str> {
-        Ok(
-            Self {
-                name,
-                single_op: None,
-                len : 0,
-                meta
-            }
-        )
+        Ok(Self {
+            name,
+            single_op: None,
+            len: 0,
+            meta,
+        })
     }
 
     pub fn get_name(&self) -> &'a str {

@@ -1,11 +1,14 @@
 use crate::utils::error::SyntaxError;
 
-use super::{base::{FSRMeta, FSRToken}, expr::FSRExpr};
+use super::{
+    base::{FSRMeta, FSRToken},
+    expr::FSRExpr,
+};
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRReturn<'a> {
-    expr    : Box<FSRToken<'a>>,
-    meta: FSRMeta
+    expr: Box<FSRToken<'a>>,
+    meta: FSRMeta,
 }
 
 impl<'a> FSRReturn<'a> {
@@ -16,7 +19,7 @@ impl<'a> FSRReturn<'a> {
     pub fn get_return_expr(&self) -> &Box<FSRToken<'a>> {
         &self.expr
     }
-    
+
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
         let sub = &source[0..6];
@@ -39,9 +42,12 @@ impl<'a> FSRReturn<'a> {
         };
 
         len += expr.1;
-        Ok((Self {
-            expr: Box::new(expr.0),
-            meta,
-        }, len))
+        Ok((
+            Self {
+                expr: Box::new(expr.0),
+                meta,
+            },
+            len,
+        ))
     }
 }

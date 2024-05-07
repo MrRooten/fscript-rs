@@ -15,7 +15,7 @@ pub struct FSRWhile<'a> {
     test: Box<FSRToken<'a>>,
     body: Box<FSRBlock<'a>>,
     len: usize,
-    meta: FSRMeta
+    meta: FSRMeta,
 }
 
 #[derive(PartialEq, Clone)]
@@ -125,7 +125,7 @@ impl<'a> FSRWhile<'a> {
             test: Box::new(test_expr),
             body: Box::new(body),
             len: start + b_len,
-            meta
+            meta,
         })
     }
 

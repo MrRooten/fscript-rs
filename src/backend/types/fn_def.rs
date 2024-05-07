@@ -1,20 +1,29 @@
 use std::{rc::Rc, sync::atomic::AtomicU64};
 
-use crate::{backend::vm::{runtime::FSRVM, thread::CallState}, utils::error::FSRError};
+use crate::{
+    backend::vm::{runtime::FSRVM, thread::CallState},
+    utils::error::FSRError,
+};
 
-use super::{base::{FSRObject, FSRRetValue, FSRValue}, class::FSRClass};
+use super::{
+    base::{FSRObject, FSRRetValue, FSRValue},
+    class::FSRClass,
+};
 
-
-type FSRRustFn = for<'a> fn(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError>;
+type FSRRustFn = for<'a> fn(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError>;
 #[derive(Debug, Clone)]
 pub enum FSRnE {
     RustFn(FSRRustFn),
-    FSRFn((Rc<String>, (u64, u64)))
+    FSRFn((Rc<String>, (u64, u64))),
 }
 
 #[derive(Debug, Clone)]
 pub struct FSRFn {
-    fn_def      : FSRnE,
+    fn_def: FSRnE,
 }
 
 impl<'a> FSRFn {
@@ -34,7 +43,7 @@ impl<'a> FSRFn {
             obj_id: 0,
             value: FSRValue::Function(v),
             cls: "Fn",
-            ref_count: AtomicU64::new(0)
+            ref_count: AtomicU64::new(0),
         }
     }
 
@@ -46,7 +55,7 @@ impl<'a> FSRFn {
             obj_id: 0,
             value: FSRValue::Function(v),
             cls: "Fn",
-            ref_count: AtomicU64::new(0)
+            ref_count: AtomicU64::new(0),
         }
     }
 
@@ -54,7 +63,12 @@ impl<'a> FSRFn {
         unimplemented!()
     }
 
-    pub fn invoke(&self, args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+    pub fn invoke(
+        &self,
+        args: Vec<u64>,
+        stack: &mut CallState,
+        vm: &FSRVM<'a>,
+    ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, stack, vm);
         }

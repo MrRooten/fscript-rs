@@ -69,18 +69,20 @@ pub struct RuntimeBaseError {}
 #[derive(Debug)]
 pub enum FSRErrCode {
     EmptyExpStack,
-    NoSuchMethod
+    NoSuchMethod,
 }
 
 #[derive(Debug)]
 pub struct FSRError {
-    code    : FSRErrCode,
-    msg     : String
+    code: FSRErrCode,
+    msg: String,
 }
 
 impl FSRError {
     pub fn new<S>(msg: S, code: FSRErrCode) -> Self
-    where S: ToString {
+    where
+        S: ToString,
+    {
         Self {
             code,
             msg: msg.to_string(),
@@ -100,7 +102,6 @@ impl Error for FSRError {
     fn cause(&self) -> Option<&dyn Error> {
         self.source()
     }
-
 }
 
 impl Display for FSRError {

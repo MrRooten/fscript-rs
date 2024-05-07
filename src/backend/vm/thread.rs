@@ -104,7 +104,7 @@ impl SValue<'_> {
     }
 }
 
-type BytecodeFn<'a> = fn (
+type BytecodeFn<'a> = fn(
     &mut FSRThreadRuntime<'a>,
     exp: &mut Vec<SValue<'a>>,
     bytecode: &BytecodeArg,
@@ -116,7 +116,7 @@ type BytecodeFn<'a> = fn (
 
 pub struct FSRThreadRuntime<'a> {
     call_stack: Vec<CallState<'a>>,
-    bytecode_map: HashMap<BytecodeOperator, BytecodeFn<'a>>
+    bytecode_map: HashMap<BytecodeOperator, BytecodeFn<'a>>,
 }
 
 impl<'a> Default for FSRThreadRuntime<'a> {
@@ -158,7 +158,6 @@ impl<'a> FSRThreadRuntime<'a> {
             ref_count: AtomicU64::new(0),
         };
 
-        
         vm.register_object(obj)
     }
 
@@ -170,7 +169,6 @@ impl<'a> FSRThreadRuntime<'a> {
             ref_count: AtomicU64::new(0),
         };
 
-        
         vm.register_object(obj)
     }
 
@@ -197,7 +195,7 @@ impl<'a> FSRThreadRuntime<'a> {
             unimplemented!()
         }
         if let FSRRetValue::GlobalId(id) = &res.unwrap() {
-            return id == &1
+            return id == &1;
         }
         unimplemented!()
     }
@@ -527,7 +525,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     self.pop_stack();
                 }
             }
-        } 
+        }
 
         Ok(false)
     }
@@ -809,7 +807,6 @@ impl<'a> FSRThreadRuntime<'a> {
             let s = unsafe { &mut *ptr };
             if arg.get_operator() == &BytecodeOperator::Load {
                 is_attr = false;
-                let s = unsafe { &mut *ptr };
                 if let ArgType::Variable(id, name) = arg.get_arg() {
                     exp_stack.push(SValue::StackId((*id, name)));
                 } else if let ArgType::ConstInteger(id, i) = arg.get_arg() {

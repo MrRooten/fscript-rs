@@ -5,10 +5,9 @@ use std::rc::Rc;
 use crate::{
     frontend::ast::{
         parse::ASTParser,
-        token::{
-            block::FSRBlock, call::FSRCall,
-        },
-    }, utils::error::SyntaxError,
+        token::{block::FSRBlock, call::FSRCall},
+    },
+    utils::error::SyntaxError,
 };
 
 use super::base::{FSRMeta, FSRToken};
@@ -19,7 +18,7 @@ pub struct FSRFnDef<'a> {
     args: Vec<FSRToken<'a>>,
     body: Rc<FSRBlock<'a>>,
     len: usize,
-    meta: FSRMeta
+    meta: FSRMeta,
 }
 
 #[derive(PartialEq, Clone)]
@@ -133,17 +132,20 @@ impl<'a> FSRFnDef<'a> {
         let fn_block_start = 2 + len;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + fn_block_start;
-        let fn_block_len = ASTParser::read_valid_bracket(&source[fn_block_start..], sub_meta.clone())?;
+        let fn_block_len =
+            ASTParser::read_valid_bracket(&source[fn_block_start..], sub_meta.clone())?;
         let block_meta = sub_meta.clone();
-        let fn_block =
-            FSRBlock::parse(&source[fn_block_start..fn_block_start + fn_block_len], block_meta)?;
+        let fn_block = FSRBlock::parse(
+            &source[fn_block_start..fn_block_start + fn_block_len],
+            block_meta,
+        )?;
 
         Ok(Self {
             name,
             args: fn_args.get_args().clone(),
             body: Rc::new(fn_block),
             len: fn_block_start + fn_block_len,
-            meta
+            meta,
         })
     }
 }

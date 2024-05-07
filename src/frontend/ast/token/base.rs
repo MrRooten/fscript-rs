@@ -4,7 +4,22 @@ use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::frontend::ast::token::slice::FSRSlice;
 
-use super::{assign::FSRAssign, call::FSRCall, class::FSRClassFrontEnd, constant::FSRConstant, expr::FSRExpr, function_def::FSRFnDef, hashtable::FSRHashtable, if_statement::{FSRIf, FSRIfState}, import::FSRImport, list::FSRListFrontEnd, name::FSRName, return_def::FSRReturn, variable::FSRVariable, while_statement::FSRWhile};
+use super::{
+    assign::FSRAssign,
+    call::FSRCall,
+    class::FSRClassFrontEnd,
+    constant::FSRConstant,
+    expr::FSRExpr,
+    function_def::FSRFnDef,
+    hashtable::FSRHashtable,
+    if_statement::{FSRIf, FSRIfState},
+    import::FSRImport,
+    list::FSRListFrontEnd,
+    name::FSRName,
+    return_def::FSRReturn,
+    variable::FSRVariable,
+    while_statement::FSRWhile,
+};
 
 #[derive(Debug, Clone)]
 pub enum FSRToken<'a> {
@@ -23,7 +38,7 @@ pub enum FSRToken<'a> {
     List(FSRListFrontEnd<'a>),
     Class(FSRClassFrontEnd<'a>),
     EmptyExpr,
-    None
+    None,
 }
 
 impl<'a> FSRToken<'a> {
@@ -70,9 +85,7 @@ impl Default for FSRMeta {
 
 impl FSRMeta {
     pub fn new() -> Self {
-        Self {
-            offset: 0
-        }
+        Self { offset: 0 }
     }
 }
 

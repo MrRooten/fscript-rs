@@ -1,18 +1,20 @@
 use std::collections::HashMap;
 
-use crate::{frontend::ast::{parse::ASTParser, token::block::FSRBlock}, utils::error::SyntaxError};
+use crate::{
+    frontend::ast::{parse::ASTParser, token::block::FSRBlock},
+    utils::error::SyntaxError,
+};
 
 use super::base::{FSRMeta, FSRToken};
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRClassFrontEnd<'a> {
-    name        : &'a str,
-    block       : FSRBlock<'a>,
-    meta        : FSRMeta
+    name: &'a str,
+    block: FSRBlock<'a>,
+    meta: FSRMeta,
 }
 
 impl<'a> FSRClassFrontEnd<'a> {
-
     pub fn get_name(&self) -> &'a str {
         self.name
     }
@@ -55,7 +57,7 @@ impl<'a> FSRClassFrontEnd<'a> {
             length += 1;
         }
         length -= 1;
-        let name = str::from_utf8(&source[start..start+length]).unwrap();
+        let name = str::from_utf8(&source[start..start + length]).unwrap();
         start += length;
         length = 0;
 
@@ -71,12 +73,8 @@ impl<'a> FSRClassFrontEnd<'a> {
         let len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let mut sub_meta = meta.clone();
         sub_meta.offset += start;
-        let block = FSRBlock::parse(&source[start..start+len], sub_meta)?;
+        let block = FSRBlock::parse(&source[start..start + len], sub_meta)?;
 
-        Ok((Self {
-            name,
-            block,
-            meta
-        }, start + len))
+        Ok((Self { name, block, meta }, start + len))
     }
 }

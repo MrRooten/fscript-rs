@@ -2,17 +2,20 @@
 
 use std::rc::Rc;
 
-use crate::{frontend::ast::{parse::ASTParser, token::expr::FSRExpr}, utils::error::SyntaxError};
+use crate::{
+    frontend::ast::{parse::ASTParser, token::expr::FSRExpr},
+    utils::error::SyntaxError,
+};
 
 use super::base::{FSRMeta, FSRToken};
 
 #[derive(Debug, Clone)]
 pub struct FSRAssign<'a> {
-    pub(crate) expr        : Rc<FSRToken<'a>>,
-    pub(crate) left        : Rc<FSRToken<'a>>,
-    pub(crate) name        : &'a str,
-    pub(crate) len         : usize,
-    pub(crate) meta        : FSRMeta
+    pub(crate) expr: Rc<FSRToken<'a>>,
+    pub(crate) left: Rc<FSRToken<'a>>,
+    pub(crate) name: &'a str,
+    pub(crate) len: usize,
+    pub(crate) meta: FSRMeta,
 }
 
 #[derive(PartialEq)]
@@ -23,11 +26,10 @@ enum FSRAssignState {
     NameStart,
     NameEnd,
     LeftValue,
-    RightValue
+    RightValue,
 }
 
 impl<'a> FSRAssign<'a> {
-
     pub fn get_left(&self) -> &Rc<FSRToken<'a>> {
         &self.left
     }
@@ -48,7 +50,6 @@ impl<'a> FSRAssign<'a> {
         self.len
     }
     pub fn parse(source: &'a [u8], meta: &FSRMeta) -> Result<FSRAssign<'a>, SyntaxError> {
-        
         let mut start = 0;
         let mut length = 0;
         let mut state = FSRAssignState::Start;
@@ -75,12 +76,16 @@ impl<'a> FSRAssign<'a> {
                 continue;
             }
 
-            if (ASTParser::is_blank_char_with_new_line(c) || c as char == '=') && state == FSRAssignState::NameStart {
+            if (ASTParser::is_blank_char_with_new_line(c) || c as char == '=')
+                && state == FSRAssignState::NameStart
+            {
                 state = FSRAssignState::NameEnd;
-                name = Some(&source[start..start+length]);
+                name = Some(&source[start..start + length]);
             }
 
-            if c as char == '=' && (state == FSRAssignState::NameStart || state == FSRAssignState::NameEnd) {
+            if c as char == '='
+                && (state == FSRAssignState::NameStart || state == FSRAssignState::NameEnd)
+            {
                 start += length;
                 length = 0;
                 state = FSRAssignState::RightValue;
@@ -95,7 +100,7 @@ impl<'a> FSRAssign<'a> {
                     len += expr.1;
                 }
                 value = Some(Box::new(expr.0));
-                
+
                 break;
             }
 
@@ -103,5 +108,4 @@ impl<'a> FSRAssign<'a> {
         }
         unimplemented!()
     }
-
 }

@@ -12,7 +12,7 @@ pub enum NodeType {
     FnState,
     ClassState,
     ReturnState,
-    ImportState
+    ImportState,
 }
 
 struct Node {
@@ -101,7 +101,7 @@ impl FSTrie {
             let subs = cur.unwrap().get_subs();
             let node = subs.get(&c);
             match node {
-                Some(s) => {},
+                Some(s) => {}
                 None => {
                     self.self_inc += 1;
                     let new_node = Node {
@@ -117,14 +117,11 @@ impl FSTrie {
             };
             let s = subs.get_mut(&c);
             cur = s;
-
         }
 
         match cur {
             Some(s) => s.end_type = n_type.clone(),
-            None => {
-
-            }
+            None => {}
         }
     }
 }

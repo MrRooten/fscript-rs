@@ -1,13 +1,21 @@
+use crate::{
+    backend::vm::{runtime::FSRVM, thread::CallState},
+    utils::error::FSRError,
+};
 
-use crate::{backend::vm::{runtime::FSRVM, thread::CallState}, utils::error::FSRError};
+use super::{
+    base::{FSRObject, FSRRetValue, FSRValue},
+    class::FSRClass,
+    fn_def::FSRFn,
+};
 
-use super::{base::{FSRObject, FSRRetValue, FSRValue}, class::FSRClass, fn_def::FSRFn};
+pub struct FSRInteger {}
 
-pub struct FSRInteger {
-
-}
-
-fn add<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn add<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -15,14 +23,20 @@ fn add<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRR
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(FSRInteger::new_inst(self_int + other_int)));
+            return Ok(FSRRetValue::Value(FSRInteger::new_inst(
+                self_int + other_int,
+            )));
         }
     }
 
     unimplemented!()
 }
 
-fn sub<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn sub<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -30,14 +44,20 @@ fn sub<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRR
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(FSRInteger::new_inst(self_int - other_int)));
+            return Ok(FSRRetValue::Value(FSRInteger::new_inst(
+                self_int - other_int,
+            )));
         }
     }
 
     unimplemented!()
 }
 
-fn mul<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn mul<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -45,14 +65,20 @@ fn mul<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRR
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(FSRInteger::new_inst(self_int * other_int)));
+            return Ok(FSRRetValue::Value(FSRInteger::new_inst(
+                self_int * other_int,
+            )));
         }
     }
 
     unimplemented!()
 }
 
-fn div<'a>(args: Vec<u64>, stack: &'a mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn div<'a>(
+    args: Vec<u64>,
+    stack: &'a mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     // let self_id = args[0];
     // let other_id = args[1];
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -67,7 +93,11 @@ fn div<'a>(args: Vec<u64>, stack: &'a mut CallState, vm: &FSRVM<'a>) -> Result<F
     unimplemented!()
 }
 
-fn left_shift<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn left_shift<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -75,14 +105,20 @@ fn left_shift<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Resu
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(FSRInteger::new_inst(self_int << other_int)));
+            return Ok(FSRRetValue::Value(FSRInteger::new_inst(
+                self_int << other_int,
+            )));
         }
     }
 
     unimplemented!()
 }
 
-fn right_shift<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn right_shift<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -90,13 +126,19 @@ fn right_shift<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Res
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(FSRInteger::new_inst(self_int >> other_int)));
+            return Ok(FSRRetValue::Value(FSRInteger::new_inst(
+                self_int >> other_int,
+            )));
         }
     }
     unimplemented!()
 }
 
-fn greater<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn greater<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -114,7 +156,11 @@ fn greater<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<
     unimplemented!()
 }
 
-fn less<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn less<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -132,7 +178,11 @@ fn less<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSR
     unimplemented!()
 }
 
-fn greater_equal<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn greater_equal<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -150,7 +200,11 @@ fn greater_equal<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> R
     unimplemented!()
 }
 
-fn less_equal<'a>(args: Vec<u64>, stack: &mut CallState, vm: &FSRVM<'a>) -> Result<FSRRetValue<'a>, FSRError> {
+fn less_equal<'a>(
+    args: Vec<u64>,
+    stack: &mut CallState,
+    vm: &FSRVM<'a>,
+) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -187,8 +241,6 @@ impl<'a> FSRInteger {
         cls.insert_attr("__lte__", lte_fn, vm);
         cls
     }
-
-    
 
     pub fn new_inst(i: i64) -> FSRObject<'a> {
         let mut object = FSRObject::new();

@@ -2,7 +2,17 @@
 mod tests {
     use std::cell::RefCell;
 
-    use crate::{backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}}, frontend::ast::token::{base::{FSRMeta, FSRToken}, expr::FSRExpr, module::FSRModuleFrontEnd}};
+    use crate::{
+        backend::{
+            compiler::bytecode::Bytecode,
+            vm::{runtime::FSRVM, thread::FSRThreadRuntime},
+        },
+        frontend::ast::token::{
+            base::{FSRMeta, FSRToken},
+            expr::FSRExpr,
+            module::FSRModuleFrontEnd,
+        },
+    };
 
     #[test]
     fn test_1() {

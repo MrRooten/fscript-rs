@@ -1,8 +1,22 @@
-use crate::{frontend::ast::{parse::ASTParser, utils::automaton::{FSTrie, NodeType}}, utils::error::SyntaxError};
+use crate::{
+    frontend::ast::{
+        parse::ASTParser,
+        utils::automaton::{FSTrie, NodeType},
+    },
+    utils::error::SyntaxError,
+};
 
-use super::{base::{FSRMeta, FSRToken}, block::FSRBlock, class::FSRClassFrontEnd, expr::FSRExpr, function_def::FSRFnDef, if_statement::FSRIf, import::{self, FSRImport}, return_def::FSRReturn, while_statement::FSRWhile};
-
-
+use super::{
+    base::{FSRMeta, FSRToken},
+    block::FSRBlock,
+    class::FSRClassFrontEnd,
+    expr::FSRExpr,
+    function_def::FSRFnDef,
+    if_statement::FSRIf,
+    import::{self, FSRImport},
+    return_def::FSRReturn,
+    while_statement::FSRWhile,
+};
 
 #[derive(PartialEq)]
 enum ModuleState {
@@ -45,13 +59,11 @@ impl ModuleStates {
     }
 }
 
-
-
 #[derive(Debug, Clone)]
 pub struct FSRModuleFrontEnd<'a> {
     pub(crate) tokens: Vec<FSRToken<'a>>,
     len: usize,
-    meta: FSRMeta
+    meta: FSRMeta,
 }
 
 impl<'a> FSRModuleFrontEnd<'a> {
@@ -109,10 +121,9 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 continue;
             }
 
-
             while ASTParser::is_blank_char_with_new_line(c as u8) {
                 start += 1;
-                c = source[start+length] as char;
+                c = source[start + length] as char;
                 continue;
             }
 
@@ -139,9 +150,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 start += length;
                 length = 0;
                 continue;
-            }
-
-            else if t == &NodeType::IfState {
+            } else if t == &NodeType::IfState {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
                 let if_block = FSRIf::parse(&source[start..], sub_meta)?;
@@ -149,8 +158,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 module.tokens.push(FSRToken::IfExp(if_block));
                 start += length;
                 length = 0;
-            }
-            else if t == &NodeType::WhileState {
+            } else if t == &NodeType::WhileState {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
                 let for_block = FSRWhile::parse(&source[start..], sub_meta)?;
@@ -158,8 +166,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 module.tokens.push(FSRToken::WhileExp(for_block));
                 start += length;
                 length = 0;
-            }
-            else if t == &NodeType::FnState {
+            } else if t == &NodeType::FnState {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
                 let fn_def = FSRFnDef::parse(&source[start..], sub_meta)?;
@@ -167,8 +174,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 module.tokens.push(FSRToken::FunctionDef(fn_def));
                 start += length;
                 length = 0;
-            }
-            else if t == &NodeType::ReturnState {
+            } else if t == &NodeType::ReturnState {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
                 let ret_expr = FSRReturn::parse(&source[start..], sub_meta)?;
@@ -176,17 +182,17 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 module.tokens.push(FSRToken::Return(ret_expr.0));
                 start += length;
                 length = 0;
-            }
-            else if t == &NodeType::ImportState {
+            } else if t == &NodeType::ImportState {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
                 let import_statement = FSRImport::parse(&source[start..], sub_meta)?;
                 length += import_statement.1;
-                module.tokens.push(FSRToken::Import(import_statement.0.to_owned()));
+                module
+                    .tokens
+                    .push(FSRToken::Import(import_statement.0.to_owned()));
                 start += length;
                 length = 0;
-            }
-            else if t == &NodeType::ClassState {
+            } else if t == &NodeType::ClassState {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
                 let class_def = FSRClassFrontEnd::parse(&source[start..], sub_meta)?;
@@ -194,11 +200,9 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 module.tokens.push(FSRToken::Class(class_def.0.to_owned()));
                 start += length;
                 length = 0;
-            }
-            else {
+            } else {
                 unimplemented!()
             }
-
         }
         module.len = start + length;
         Ok(module)

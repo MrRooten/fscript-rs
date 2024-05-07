@@ -1,10 +1,10 @@
 #![allow(unused)]
 
 use super::base::{FSRMeta, FSRToken};
-use super::while_statement::FSRWhile;
 use super::function_def::FSRFnDef;
 use super::if_statement::FSRIf;
 use super::return_def::FSRReturn;
+use super::while_statement::FSRWhile;
 use crate::frontend::ast::token::assign;
 use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::utils::automaton::{FSTrie, NodeType};
@@ -57,7 +57,7 @@ impl BlockStates {
 pub struct FSRBlock<'a> {
     tokens: Vec<FSRToken<'a>>,
     len: usize,
-    meta: FSRMeta
+    meta: FSRMeta,
 }
 
 impl<'a> FSRBlock<'a> {
@@ -136,7 +136,7 @@ impl<'a> FSRBlock<'a> {
             if states.peek() == &BlockState::Block {
                 while ASTParser::is_blank_char_with_new_line(c as u8) {
                     start += 1;
-                    c = source[start+length] as char;
+                    c = source[start + length] as char;
                     continue;
                 }
 
@@ -153,7 +153,7 @@ impl<'a> FSRBlock<'a> {
                         continue;
                     }
                 };
-                
+
                 if t == &NodeType::IfState {
                     let mut sub_meta = meta.clone();
                     sub_meta.offset = meta.offset + start;
@@ -162,8 +162,7 @@ impl<'a> FSRBlock<'a> {
                     block.tokens.push(FSRToken::IfExp(if_block));
                     start += length;
                     length = 0;
-                } 
-                else if t == &NodeType::WhileState {
+                } else if t == &NodeType::WhileState {
                     let mut sub_meta = meta.clone();
                     sub_meta.offset = meta.offset + start;
                     let while_block = FSRWhile::parse(&source[start..], sub_meta)?;
@@ -171,8 +170,7 @@ impl<'a> FSRBlock<'a> {
                     block.tokens.push(FSRToken::WhileExp(while_block));
                     start += length;
                     length = 0;
-                }
-                else if t == &NodeType::FnState {
+                } else if t == &NodeType::FnState {
                     let mut sub_meta = meta.clone();
                     sub_meta.offset = meta.offset + start;
                     let fn_def = FSRFnDef::parse(&source[start..], sub_meta)?;
@@ -180,8 +178,7 @@ impl<'a> FSRBlock<'a> {
                     block.tokens.push(FSRToken::FunctionDef(fn_def));
                     start += length;
                     length = 0;
-                }
-                else if t == &NodeType::ReturnState {
+                } else if t == &NodeType::ReturnState {
                     let mut sub_meta = meta.clone();
                     sub_meta.offset = meta.offset + start;
                     let ret_expr = FSRReturn::parse(&source[start..], sub_meta)?;

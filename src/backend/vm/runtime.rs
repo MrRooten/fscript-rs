@@ -1,15 +1,28 @@
-use std::{cell::{Cell, RefCell}, collections::HashMap, sync::atomic::{AtomicU64, Ordering}};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
-use crate::{backend::types::{base::{FSRObject, FSRValue}, class::FSRClass, integer::FSRInteger, string::FSRString}, frontend::ast::token::slice::FSRSlice, std::io::init_io};
+use crate::{
+    backend::types::{
+        base::{FSRObject, FSRValue},
+        class::FSRClass,
+        integer::FSRInteger,
+        string::FSRString,
+    },
+    frontend::ast::token::slice::FSRSlice,
+    std::io::init_io,
+};
 
 use super::thread::FSRThreadRuntime;
 
 pub struct FSRVM<'a> {
-    threads         : HashMap<u64, FSRThreadRuntime<'a>>,
-    update_id       : AtomicU64,
-    obj_map         : HashMap<u64, Box<FSRObject<'a>>>,
-    global          : HashMap<String, u64>,
-    base_types      : HashMap<&'a str, FSRClass<'a>>
+    threads: HashMap<u64, FSRThreadRuntime<'a>>,
+    update_id: AtomicU64,
+    obj_map: HashMap<u64, Box<FSRObject<'a>>>,
+    global: HashMap<String, u64>,
+    base_types: HashMap<&'a str, FSRClass<'a>>,
 }
 
 pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -94,7 +107,7 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn get_cls(&self, name: &str) -> Option<&FSRClass<'a>> {
-        return self.base_types.get(name)
+        return self.base_types.get(name);
     }
 
     pub fn new_object(&mut self) -> &Box<FSRObject<'a>> {
@@ -103,25 +116,23 @@ impl<'a> FSRVM<'a> {
             obj_id: id,
             value: FSRValue::None,
             cls: "",
-            ref_count: AtomicU64::new(0)
+            ref_count: AtomicU64::new(0),
         };
         self.obj_map.insert(obj.obj_id, Box::new(obj));
         return self.obj_map.get(&id).unwrap();
     }
 
     fn new_stataic_object_with_id(id: u64, value: FSRValue<'static>) -> FSRObject<'static> {
-        
-
         FSRObject {
             obj_id: id,
             value,
             cls: "",
-            ref_count: AtomicU64::new(0)
+            ref_count: AtomicU64::new(0),
         }
     }
 
     pub fn get_obj_by_id(&self, id: &u64) -> Option<&Box<FSRObject<'a>>> {
-        return self.obj_map.get(id)
+        return self.obj_map.get(id);
     }
 
     pub fn register_global_object(&mut self, name: &str, obj_id: u64) {
@@ -133,7 +144,7 @@ impl<'a> FSRVM<'a> {
         let id = object.as_ref() as *const FSRObject as u64;
         object.obj_id = id;
         self.obj_map.insert(id, object);
-        
+
         id
     }
 
@@ -142,8 +153,6 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn get_global_obj_by_name(&self, name: &str) -> Option<&u64> {
-        return self.global.get(name)
+        return self.global.get(name);
     }
-
-
 }

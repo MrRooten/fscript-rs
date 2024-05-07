@@ -6,13 +6,12 @@ use super::base::FSRObject;
 
 #[derive(Debug, Clone)]
 pub struct FSRClass<'a> {
-    pub(crate) name        : &'a str,
-    pub(crate) attrs       : HashMap<&'a str, u64>
+    pub(crate) name: &'a str,
+    pub(crate) attrs: HashMap<&'a str, u64>,
 }
 
 impl<'a> FSRClass<'a> {
     pub fn new(name: &'a str) -> FSRClass<'a> {
-        
         FSRClass {
             name,
             attrs: HashMap::new(),
@@ -35,6 +34,4 @@ impl<'a> FSRClass<'a> {
     pub fn get_name(&self) -> &str {
         self.name
     }
-
-
 }

@@ -1,15 +1,14 @@
-
 #[derive(PartialEq, Clone)]
 pub enum ASTState {
     WaitToken,
     StartToken,
     ContinueToken,
-    TokenEnd
+    TokenEnd,
 }
 
 pub enum ASTFunctionToken {
     FunctionName,
-    FunctionArg
+    FunctionArg,
 }
 
 pub enum ASTTokenEnum {
@@ -32,9 +31,7 @@ pub enum ASTStatement {
     Continue,
 }
 
-pub struct ASTToken {
-
-}
+pub struct ASTToken {}
 
 impl ASTToken {
     pub fn new(token: ASTTokenEnum, value: &str) -> ASTToken {
@@ -46,19 +43,10 @@ pub trait ASTTokenInterface {
     fn get_expect_states() -> Vec<ASTTokenEnum>;
 }
 
+pub enum ASTImportState {}
 
-pub enum ASTImportState {
+pub enum ASTCodeState {}
 
-}
+pub enum ASTFunctionState {}
 
-pub enum ASTCodeState {
-    
-}
-
-pub enum ASTFunctionState {
-
-}
-
-pub enum ASTClassState {
-
-}
+pub enum ASTClassState {}

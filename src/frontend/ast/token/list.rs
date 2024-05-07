@@ -1,13 +1,16 @@
-use crate::{frontend::ast::{parse::ASTParser, token::expr::FSRExpr}, utils::error::SyntaxError};
+use crate::{
+    frontend::ast::{parse::ASTParser, token::expr::FSRExpr},
+    utils::error::SyntaxError,
+};
 
 use super::base::{FSRMeta, FSRToken};
 
 #[derive(Debug, Clone)]
 pub struct FSRListFrontEnd<'a> {
-    items                   : Vec<FSRToken<'a>>,
-    pub(crate) len          : usize,
-    
-    meta                    : FSRMeta
+    items: Vec<FSRToken<'a>>,
+    pub(crate) len: usize,
+
+    meta: FSRMeta,
 }
 
 impl<'a> FSRListFrontEnd<'a> {
@@ -23,8 +26,7 @@ impl<'a> FSRListFrontEnd<'a> {
         let mut vs = vec![];
         let mut sub_meta = meta.clone();
         sub_meta.offset += 1;
-        let tokens =
-            ASTParser::split_by_comma(&source[1..1 + source.len() - 2], sub_meta)?;
+        let tokens = ASTParser::split_by_comma(&source[1..1 + source.len() - 2], sub_meta)?;
         let mut start = 1;
         for t in tokens {
             let mut _sub_meta = meta.clone();
