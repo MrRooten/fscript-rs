@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use std::os::macos::raw::stat;
 use std::rc::Rc;
 use std::{cmp::Ordering, fmt::Display};
 
@@ -202,6 +203,34 @@ pub enum FSRBinOpResult<'a> {
     Constant(FSRConstant),
 }
 
+struct StmtContext<'a> {
+    states: ExprStates,
+    start: usize,
+    length: usize,
+    bracket_count: i32,
+    candidates: Vec<FSRToken<'a>>,
+    operators: Vec<(&'static str, usize)>,
+    single_op: Option<&'static str>,
+    last_loop: bool,
+}
+
+impl<'a> StmtContext<'a> {
+    pub fn new() -> Self {
+        let mut states = ExprStates::new();
+        states.push_state(ExprState::WaitToken);
+        Self {
+            states: states,
+            start: 0,
+            length: 0,
+            bracket_count: 0,
+            candidates: vec![],
+            operators: vec![],
+            single_op: None,
+            last_loop: false,
+        }
+    }
+}
+
 impl<'a> FSRExpr<'a> {
     pub fn get_len(&self) -> usize {
         self.len
@@ -243,371 +272,403 @@ impl<'a> FSRExpr<'a> {
         false
     }
 
-    pub fn parse(
+    #[inline]
+    fn double_quote_loop(
         source: &'a [u8],
         ignore_nline: bool,
-        meta: FSRPosition,
-    ) -> Result<(FSRToken<'a>, usize), SyntaxError> {
-        let mut states = ExprStates::new();
-        states.push_state(ExprState::WaitToken);
-        let mut start = 0;
-        let mut length = 0;
-        let mut bracket_count = 0;
-        let mut candidates: Vec<FSRToken> = vec![];
-        let mut operators: Vec<(&str, usize)> = vec![];
-        let mut single_op: Option<&str> = None;
-        let mut last_loop = false;
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        if let Some(s_op) = ctx.single_op {
+            let mut sub_meta = meta.from_offset(ctx.start);
+            return Err(SyntaxError::new(
+                &sub_meta,
+                format!("{} can not follow string", s_op),
+            ));
+        }
+        ctx.start += 1;
         loop {
-            if last_loop {
-                break;
+            if ctx.start + ctx.length >= source.len() {
+                let mut sub_meta = meta.from_offset(ctx.start);
+                let err = SyntaxError::new_with_type(
+                    &sub_meta,
+                    "Not Close for Single Quote",
+                    SyntaxErrType::QuoteNotClose,
+                );
+                return Err(err);
             }
-            if start + length >= source.len() {
+            let c = source[ctx.start + ctx.length] as char;
+            if ctx.states.eq_peek(&ExprState::EscapeChar) {
+                ctx.states.pop_state();
+                ctx.length += 1;
+                continue;
+            }
+
+            if c == '\"' {
                 break;
             }
 
-            let ord = source[start];
+            if c == '\\' {
+                ctx.states.push_state(ExprState::EscapeChar);
+            }
+
+            ctx.length += 1;
+        }
+
+        let s = &source[ctx.start..ctx.start + ctx.length];
+        let mut sub_meta = meta.from_offset(ctx.start);
+        let constant = FSRConstant::from_str(s, sub_meta);
+        ctx.candidates.push(FSRToken::Constant(constant));
+        ctx.length += 1;
+        ctx.start += ctx.length;
+        ctx.length = 0;
+        Ok(())
+    }
+
+    #[inline]
+    fn single_quote_loop(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        if let Some(s_op) = ctx.single_op {
+            let mut sub_meta = meta.from_offset(ctx.start);
+            return Err(SyntaxError::new(
+                &sub_meta,
+                format!("{} can not follow string", s_op),
+            ));
+        }
+        ctx.start += 1;
+
+        loop {
+            if ctx.start + ctx.length >= source.len() {
+                let mut sub_meta = meta.from_offset(ctx.start);
+                let err = SyntaxError::new_with_type(
+                    &sub_meta,
+                    "Not Close for Single Quote",
+                    SyntaxErrType::QuoteNotClose,
+                );
+                return Err(err);
+            }
+            let c = source[ctx.start + ctx.length] as char;
+            if ctx.states.eq_peek(&ExprState::EscapeChar) {
+                ctx.states.pop_state();
+                ctx.length += 1;
+                continue;
+            }
+
+            if c == '\'' {
+                break;
+            }
+
+            if c == '\\' {
+                ctx.states.push_state(ExprState::EscapeChar);
+            }
+
+            ctx.length += 1;
+        }
+
+        let s = &source[ctx.start..ctx.start + ctx.length];
+        let mut sub_meta = meta.from_offset(ctx.start);
+        let constant = FSRConstant::from_str(s, sub_meta);
+        ctx.candidates.push(FSRToken::Constant(constant));
+        ctx.length += 1;
+        ctx.start += ctx.length;
+        ctx.length = 0;
+
+        Ok(())
+    }
+
+    #[inline]
+    fn stmt_loop(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        loop {
+            if ctx.last_loop {
+                break;
+            }
+            if ctx.start + ctx.length >= source.len() {
+                break;
+            }
+
+            let ord = source[ctx.start];
             let c = ord as char;
-            let t_i = source[start + length];
+            let t_i = source[ctx.start + ctx.length];
             let t_c = t_i as char;
 
             if ((t_c == '\n' && !ignore_nline) || t_c == ';' || t_c == '}')
-                && !states.eq_peek(&ExprState::EscapeNewline)
+                && !ctx.states.eq_peek(&ExprState::EscapeNewline)
             {
-                if states.eq_peek(&ExprState::WaitToken) {
+                if ctx.states.eq_peek(&ExprState::WaitToken) {
                     break;
                 }
-                last_loop = true;
+                ctx.last_loop = true;
             }
 
-            if states.eq_peek(&ExprState::WaitToken) && Self::is_op_one_char(c) {
-                states.push_state(ExprState::Operator);
+            if ctx.states.eq_peek(&ExprState::WaitToken) && Self::is_op_one_char(c) {
+                ctx.states.push_state(ExprState::Operator);
                 continue;
             }
 
-            if states.eq_peek(&ExprState::Operator) && Self::is_op_one_char(t_c) {
-                length += 1;
+            if ctx.states.eq_peek(&ExprState::Operator) && Self::is_op_one_char(t_c) {
+                ctx.length += 1;
                 continue;
             }
 
-            if states.eq_peek(&ExprState::Operator) && !Self::is_op_one_char(t_c) {
-                let op = str::from_utf8(&source[start..start + length]).unwrap();
+            if ctx.states.eq_peek(&ExprState::Operator) && !Self::is_op_one_char(t_c) {
+                let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
                 let op = ASTParser::get_static_op(op);
-                if start + length >= source.len() {
-                    let mut sub_meta = meta.from_offset(start);
+                if ctx.start + ctx.length >= source.len() {
+                    let mut sub_meta = meta.from_offset(ctx.start);
                     return Err(SyntaxError::new(
                         &sub_meta,
                         format!("{} must follow a expr or variable", op),
                     ));
                 }
 
-                if op.eq("-") && (source[start + length] as char).is_ascii_digit() {
-                    single_op = Some(op);
-                    states.pop_state();
-                    start += length;
-                    length = 0;
+                if op.eq("-") && (source[ctx.start + ctx.length] as char).is_ascii_digit() {
+                    ctx.single_op = Some(op);
+                    ctx.states.pop_state();
+                    ctx.start += ctx.length;
+                    ctx.length = 0;
                     continue;
                 }
 
                 if Self::is_single_op(op) && !op.eq("-") {
-                    single_op = Some(op);
-                    states.pop_state();
-                    start += length;
-                    length = 0;
+                    ctx.single_op = Some(op);
+                    ctx.states.pop_state();
+                    ctx.start += ctx.length;
+                    ctx.length = 0;
                 } else {
-                    operators.push((op, start));
-                    states.pop_state();
-                    start += length;
-                    length = 0;
+                    ctx.operators.push((op, ctx.start));
+                    ctx.states.pop_state();
+                    ctx.start += ctx.length;
+                    ctx.length = 0;
                 }
                 continue;
             }
 
             if t_i as char == '('
-                && (states.eq_peek(&ExprState::Bracket) || states.eq_peek(&ExprState::WaitToken))
+                && (ctx.states.eq_peek(&ExprState::Bracket)
+                    || ctx.states.eq_peek(&ExprState::WaitToken))
             {
-                if bracket_count == 0 {
-                    start += 1;
-                    states.push_state(ExprState::Bracket);
-                    bracket_count += 1;
+                if ctx.bracket_count == 0 {
+                    ctx.start += 1;
+                    ctx.states.push_state(ExprState::Bracket);
+                    ctx.bracket_count += 1;
                 } else {
-                    length += 1;
-                    states.push_state(ExprState::Bracket);
-                    bracket_count += 1;
+                    ctx.length += 1;
+                    ctx.states.push_state(ExprState::Bracket);
+                    ctx.bracket_count += 1;
                 }
 
                 continue;
             }
 
             if t_i as char != ')'
-                && (!states.eq_peek(&ExprState::SingleString)
-                    && !states.eq_peek(&ExprState::DoubleString))
-                && states.eq_peek(&ExprState::Bracket)
+                && (!ctx.states.eq_peek(&ExprState::SingleString)
+                    && !ctx.states.eq_peek(&ExprState::DoubleString))
+                && ctx.states.eq_peek(&ExprState::Bracket)
             {
-                length += 1;
+                ctx.length += 1;
                 continue;
             }
 
             if t_i as char == ')'
-                && (!states.eq_peek(&ExprState::SingleString)
-                    && !states.eq_peek(&ExprState::DoubleString))
-                && states.eq_peek(&ExprState::Bracket)
-                || last_loop
+                && (!ctx.states.eq_peek(&ExprState::SingleString)
+                    && !ctx.states.eq_peek(&ExprState::DoubleString))
+                && ctx.states.eq_peek(&ExprState::Bracket)
+                || ctx.last_loop
             {
-                states.pop_state();
-                bracket_count -= 1;
+                ctx.states.pop_state();
+                ctx.bracket_count -= 1;
 
-                if bracket_count > 0 {
-                    length += 1;
+                if ctx.bracket_count > 0 {
+                    ctx.length += 1;
                     continue;
                 } else {
-                    let _ps = &source[start..start + length];
+                    let _ps = &source[ctx.start..ctx.start + ctx.length];
                     let ps = str::from_utf8(_ps).unwrap();
 
-                    start += length;
-                    length = 0;
+                    ctx.start += ctx.length;
+                    ctx.length = 0;
                     let sub_meta = meta.from_offset(0);
                     let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta)?.0;
                     if let FSRToken::Expr(e) = &mut sub_expr {
-                        e.single_op = single_op;
+                        e.single_op = ctx.single_op;
                     }
                     if let FSRToken::Call(c) = &mut sub_expr {
-                        c.single_op = single_op;
+                        c.single_op = ctx.single_op;
                     }
 
                     if let FSRToken::Variable(v) = &mut sub_expr {
-                        v.single_op = single_op;
+                        v.single_op = ctx.single_op;
                     }
 
-                    single_op = None;
-                    start += 1;
-                    candidates.push(sub_expr);
+                    ctx.single_op = None;
+                    ctx.start += 1;
+                    ctx.candidates.push(sub_expr);
                 }
                 continue;
             }
 
-            if states.eq_peek(&ExprState::WaitToken) && ASTParser::is_blank_char_with_new_line(ord)
+            if ctx.states.eq_peek(&ExprState::WaitToken)
+                && ASTParser::is_blank_char_with_new_line(ord)
             {
-                start += 1;
+                ctx.start += 1;
                 continue;
             }
 
-            // if states.eq_peek(&ExprState::WaitToken) && c.is_digit(10) {
-            //     states.push_state(ExprState::Number);
-            //     continue;
-            // }
-
-            if states.eq_peek(&ExprState::WaitToken) && c == '\'' {
-                if let Some(s_op) = single_op {
-                    let mut sub_meta = meta.from_offset(start);
-                    return Err(SyntaxError::new(
-                        &sub_meta,
-                        format!("{} can not follow string", s_op),
-                    ));
-                }
-                start += 1;
-                loop {
-                    if start + length >= source.len() {
-                        let mut sub_meta = meta.from_offset(start);
-                        let err = SyntaxError::new_with_type(
-                            &sub_meta,
-                            "Not Close for Single Quote",
-                            SyntaxErrType::QuoteNotClose,
-                        );
-                        return Err(err);
-                    }
-                    let c = source[start + length] as char;
-                    if states.eq_peek(&ExprState::EscapeChar) {
-                        states.pop_state();
-                        length += 1;
-                        continue;
-                    }
-
-                    if c == '\'' {
-                        break;
-                    }
-
-                    if c == '\\' {
-                        states.push_state(ExprState::EscapeChar);
-                    }
-
-                    length += 1;
-                }
-
-                let s = &source[start..start + length];
-                let mut sub_meta = meta.from_offset(start);
-                let constant = FSRConstant::from_str(s, sub_meta);
-                candidates.push(FSRToken::Constant(constant));
-                length += 1;
-                start += length;
-                length = 0;
+            if ctx.states.eq_peek(&ExprState::WaitToken) && c == '\'' {
+                Self::single_quote_loop(source, ignore_nline, meta, ctx)?;
                 continue;
             }
 
-            if states.eq_peek(&ExprState::WaitToken) && c == '\"' {
-                if let Some(s_op) = single_op {
-                    let mut sub_meta = meta.from_offset(start);
-                    return Err(SyntaxError::new(
-                        &sub_meta,
-                        format!("{} can not follow string", s_op),
-                    ));
-                }
-                start += 1;
-                loop {
-                    if start + length >= source.len() {
-                        let mut sub_meta = meta.from_offset(start);
-                        let err = SyntaxError::new_with_type(
-                            &sub_meta,
-                            "Not Close for Single Quote",
-                            SyntaxErrType::QuoteNotClose,
-                        );
-                        return Err(err);
-                    }
-                    let c = source[start + length] as char;
-                    if states.eq_peek(&ExprState::EscapeChar) {
-                        states.pop_state();
-                        length += 1;
-                        continue;
-                    }
-
-                    if c == '\"' {
-                        break;
-                    }
-
-                    if c == '\\' {
-                        states.push_state(ExprState::EscapeChar);
-                    }
-
-                    length += 1;
-                }
-
-                let s = &source[start..start + length];
-                let mut sub_meta = meta.from_offset(start);
-                let constant = FSRConstant::from_str(s, sub_meta);
-                candidates.push(FSRToken::Constant(constant));
-                length += 1;
-                start += length;
-                length = 0;
+            if ctx.states.eq_peek(&ExprState::WaitToken) && c == '\"' {
+                Self::double_quote_loop(source, ignore_nline, meta, ctx)?;
                 continue;
             }
 
-            if states.eq_peek(&ExprState::WaitToken) && t_c.is_ascii_digit() {
+            if ctx.states.eq_peek(&ExprState::WaitToken) && t_c.is_ascii_digit() {
                 loop {
-                    if start + length >= source.len() {
+                    if ctx.start + ctx.length >= source.len() {
                         break;
                     }
-                    let c = source[start + length] as char;
+                    let c = source[ctx.start + ctx.length] as char;
                     if !c.is_ascii_digit() {
                         break;
                     }
 
-                    length += 1;
+                    ctx.length += 1;
                 }
 
-                let ps = str::from_utf8(&source[start..(start + length)]).unwrap();
+                let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
                 let i = ps.parse::<i64>().unwrap();
-                let mut sub_meta = meta.from_offset(start);
+                let mut sub_meta = meta.from_offset(ctx.start);
 
                 let mut c = FSRConstant::from_int(i, sub_meta);
-                c.single_op = single_op;
-                single_op = None;
-                candidates.push(FSRToken::Constant(c));
-                start += length;
-                length = 0;
+                c.single_op = ctx.single_op;
+                ctx.single_op = None;
+                ctx.candidates.push(FSRToken::Constant(c));
+                ctx.start += ctx.length;
+                ctx.length = 0;
                 continue;
             }
-            if states.eq_peek(&ExprState::WaitToken) && t_c == '[' {
-                let mut sub_meta = meta.from_offset(start);
-                let len = ASTParser::read_valid_bracket(&source[start..], sub_meta.clone())?;
+
+            if ctx.states.eq_peek(&ExprState::WaitToken) && t_c == '[' {
+                let mut sub_meta = meta.from_offset(ctx.start);
+                let len = ASTParser::read_valid_bracket(&source[ctx.start..], sub_meta.clone())?;
                 assert!(len >= 2);
 
-                let list = FSRListFrontEnd::parse(&source[start..start + len], sub_meta)?;
-                candidates.push(FSRToken::List(list));
-                start += len;
-                length = 0;
+                let list = FSRListFrontEnd::parse(&source[ctx.start..ctx.start + len], sub_meta)?;
+                ctx.candidates.push(FSRToken::List(list));
+                ctx.start += len;
+                ctx.length = 0;
                 continue;
             }
-            if states.eq_peek(&ExprState::WaitToken) && ASTParser::is_name_letter_first(ord) {
-                states.push_state(ExprState::Variable);
+
+            if ctx.states.eq_peek(&ExprState::WaitToken) && ASTParser::is_name_letter_first(ord) {
+                ctx.states.push_state(ExprState::Variable);
                 loop {
-                    if start + length >= source.len() {
+                    if ctx.start + ctx.length >= source.len() {
                         break;
                     }
-                    let c = source[start + length] as char;
+                    let c = source[ctx.start + ctx.length] as char;
                     if !ASTParser::is_name_letter(c as u8) {
                         break;
                     }
 
-                    length += 1;
+                    ctx.length += 1;
                 }
 
-                if start + length >= source.len()
-                    || (source[start + length] != b'(' && source[start + length] != b'[')
+                if ctx.start + ctx.length >= source.len()
+                    || (source[ctx.start + ctx.length] != b'('
+                        && source[ctx.start + ctx.length] != b'[')
                 {
-                    let name = str::from_utf8(&source[start..start + length]).unwrap();
-                    let mut sub_meta = meta.from_offset(start);
+                    let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+                    let mut sub_meta = meta.from_offset(ctx.start);
                     let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
-                    variable.single_op = single_op;
-                    single_op = None;
-                    candidates.push(FSRToken::Variable(variable));
-                    start += length;
-                    length = 0;
-                    states.pop_state();
+                    variable.single_op = ctx.single_op;
+                    ctx.single_op = None;
+                    ctx.candidates.push(FSRToken::Variable(variable));
+                    ctx.start += ctx.length;
+                    ctx.length = 0;
+                    ctx.states.pop_state();
                     continue;
                 }
 
                 continue;
             }
 
-            if states.eq_peek(&ExprState::Variable) && t_c == '(' {
-                let mut sub_meta = meta.from_offset(start);
-                let len = ASTParser::read_valid_bracket(&source[start + length..], sub_meta)?;
-                length += len;
-                let mut sub_meta = meta.from_offset(start);
-                let mut call = FSRCall::parse(&source[start..start + length], sub_meta)?;
-                call.single_op = single_op;
-                single_op = None;
-                candidates.push(FSRToken::Call(call));
-                start += length;
-                length = 0;
-                states.pop_state();
+            if ctx.states.eq_peek(&ExprState::Variable) && t_c == '(' {
+                let mut sub_meta = meta.from_offset(ctx.start);
+                let len =
+                    ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta)?;
+                ctx.length += len;
+                let mut sub_meta = meta.from_offset(ctx.start);
+                let mut call =
+                    FSRCall::parse(&source[ctx.start..ctx.start + ctx.length], sub_meta)?;
+                call.single_op = ctx.single_op;
+                ctx.single_op = None;
+                ctx.candidates.push(FSRToken::Call(call));
+                ctx.start += ctx.length;
+                ctx.length = 0;
+                ctx.states.pop_state();
                 continue;
             }
 
-            if states.eq_peek(&ExprState::Variable) && t_c == '[' {
-                let mut sub_meta = meta.from_offset(start);
-                let len = ASTParser::read_valid_bracket(&source[start + length..], sub_meta)?;
-                length += len;
-                let slice = FSRSlice::parse(&source[start..start + length + 1]).unwrap();
-                start += length;
-                length = 0;
+            if ctx.states.eq_peek(&ExprState::Variable) && t_c == '[' {
+                let mut sub_meta = meta.from_offset(ctx.start);
+                let len =
+                    ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta)?;
+                ctx.length += len;
+                let slice =
+                    FSRSlice::parse(&source[ctx.start..ctx.start + ctx.length + 1]).unwrap();
+                ctx.start += ctx.length;
+                ctx.length = 0;
                 continue;
             }
 
-            if (states.eq_peek(&ExprState::Variable) && !ASTParser::is_name_letter(t_i))
-                || last_loop
+            if (ctx.states.eq_peek(&ExprState::Variable) && !ASTParser::is_name_letter(t_i))
+                || ctx.last_loop
             {
-                let name = str::from_utf8(&source[start..start + length]).unwrap();
-                let mut sub_meta = meta.from_offset(start);
+                let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+                let mut sub_meta = meta.from_offset(ctx.start);
                 let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
-                variable.single_op = single_op;
-                single_op = None;
-                candidates.push(FSRToken::Variable(variable));
-                start += length;
-                length = 0;
-                states.pop_state();
+                variable.single_op = ctx.single_op;
+                ctx.single_op = None;
+                ctx.candidates.push(FSRToken::Variable(variable));
+                ctx.start += ctx.length;
+                ctx.length = 0;
+                ctx.states.pop_state();
                 continue;
             }
 
-            if states.eq_peek(&ExprState::Slice) && !FSRSlice::is_valid_char(t_c as u8) {
+            if ctx.states.eq_peek(&ExprState::Slice) && !FSRSlice::is_valid_char(t_c as u8) {
                 unimplemented!()
             }
         }
 
-        if candidates.is_empty() {
-            return Ok((FSRToken::EmptyExpr, start + length));
+        return Ok(());
+    }
+
+    pub fn parse(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: FSRPosition,
+    ) -> Result<(FSRToken<'a>, usize), SyntaxError> {
+        let mut ctx = StmtContext::new();
+        Self::stmt_loop(source, ignore_nline, &meta, &mut ctx)?;
+
+        if ctx.candidates.is_empty() {
+            return Ok((FSRToken::EmptyExpr, ctx.start + ctx.length));
         }
 
-        operators.sort_by(|a, b| -> Ordering {
+        ctx.operators.sort_by(|a, b| -> Ordering {
             if a.0 != b.0 {
                 Node::is_higher_priority(a.0, b.0)
             } else if a.1 < b.1 {
@@ -617,11 +678,11 @@ impl<'a> FSRExpr<'a> {
             }
         });
 
-        if candidates.len() == 2 {
-            let left = candidates.remove(0);
-            let right = candidates.remove(0);
+        if ctx.candidates.len() == 2 {
+            let left = ctx.candidates.remove(0);
+            let right = ctx.candidates.remove(0);
             let n_left = left.clone();
-            let op = operators.remove(0).0;
+            let op = ctx.operators.remove(0).0;
             if op.eq("=") {
                 if let FSRToken::Variable(name) = left {
                     return Ok((
@@ -629,10 +690,10 @@ impl<'a> FSRExpr<'a> {
                             left: Rc::new(n_left),
                             name: name.get_name(),
                             expr: Rc::new(right),
-                            len: start + length,
+                            len: ctx.start + ctx.length,
                             meta,
                         }),
-                        start + length,
+                        ctx.start + ctx.length,
                     ));
                 }
             }
@@ -642,28 +703,31 @@ impl<'a> FSRExpr<'a> {
                     left: Box::new(left),
                     right: Box::new(right),
                     op: Some(op),
-                    len: start + length,
+                    len: ctx.start + ctx.length,
                     meta,
                 }),
-                start + length,
+                ctx.start + ctx.length,
             ));
         }
 
-        if candidates.len().eq(&1) {
-            if !operators.is_empty() {
-                let mut sub_meta = meta.from_offset(operators[0].1);
+        if ctx.candidates.len().eq(&1) {
+            if !ctx.operators.is_empty() {
+                let mut sub_meta = meta.from_offset(ctx.operators[0].1);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
-                    format!("Must have second candidates with {}", operators[0].0),
+                    format!(
+                        "Must have second ctx.candidates with {}",
+                        ctx.operators[0].0
+                    ),
                     SyntaxErrType::OperatorError,
                 );
                 return Err(err);
             }
-            let c = candidates.remove(0);
-            return Ok((c, start + length));
+            let c = ctx.candidates.remove(0);
+            return Ok((c, ctx.start + ctx.length));
         }
 
-        let operator = operators[0];
+        let operator = ctx.operators[0];
         let split_offset = operator.1;
 
         let mut sub_meta = meta.from_offset(0);
@@ -680,10 +744,10 @@ impl<'a> FSRExpr<'a> {
                         left: Rc::new(n_left),
                         name: name.get_name(),
                         expr: Rc::new(right),
-                        len: start + length,
+                        len: ctx.start + ctx.length,
                         meta,
                     }),
-                    start + length,
+                    ctx.start + ctx.length,
                 ));
             } else {
                 return Ok((
@@ -691,10 +755,10 @@ impl<'a> FSRExpr<'a> {
                         left: Rc::new(n_left),
                         name: "",
                         expr: Rc::new(right),
-                        len: start + length,
+                        len: ctx.start + ctx.length,
                         meta,
                     }),
-                    start + length,
+                    ctx.start + ctx.length,
                 ));
             }
         }
@@ -704,12 +768,11 @@ impl<'a> FSRExpr<'a> {
                 left: Box::new(left),
                 right: Box::new(right),
                 op: Some(operator.0),
-                len: start + length,
+                len: ctx.start + ctx.length,
                 meta,
             }),
-            start + length,
+            ctx.start + ctx.length,
         ));
-
     }
 
     pub fn get_op(&self) -> &str {

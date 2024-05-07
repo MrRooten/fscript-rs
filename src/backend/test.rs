@@ -51,7 +51,7 @@ mod tests {
             }
         }
         c = Abc('456')
-        b = Abc('123')
+        b = Abc(\"123\")
         b.dd = c
         dump(b.dd.abc)
 
