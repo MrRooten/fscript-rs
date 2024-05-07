@@ -194,6 +194,6 @@ impl<'a> FSRInteger {
         let mut object = FSRObject::new();
         object.set_cls("Integer");
         object.set_value(FSRValue::Integer(i));
-        return object
+        object
     }
 }

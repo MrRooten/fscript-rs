@@ -29,15 +29,15 @@ enum State {
 
 impl<'a> FSRIf<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_test(&self) -> &Box<FSRToken> {
-        return &self.test;
+        &self.test
     }
 
     pub fn get_block(&self) -> &Box<FSRBlock> {
-        return &self.body;
+        &self.body
     }
 
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<FSRIf<'a>, SyntaxError> {
@@ -66,7 +66,7 @@ impl<'a> FSRIf<'a> {
         let mut pre_state = State::Continue;
         let mut len = 0;
         for c in &source[2..] {
-            let c = c.clone() as char;
+            let c = *c as char;
             
             len += 1;
             if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {
@@ -125,16 +125,16 @@ impl<'a> FSRIf<'a> {
         sub_meta.offset = meta.offset + start;
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
 
-        return Ok(Self {
+        Ok(Self {
             test: Box::new(test_expr),
             body: Box::new(body),
             len: start + b_len,
             meta
-        });
+        })
     }
 
     pub fn get_len(&self) -> usize {
-        return self.len;
+        self.len
     }
 }
 

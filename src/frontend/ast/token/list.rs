@@ -12,11 +12,11 @@ pub struct FSRListFrontEnd<'a> {
 
 impl<'a> FSRListFrontEnd<'a> {
     pub fn get_items(&self) -> &Vec<FSRToken<'a>> {
-        return &self.items;
+        &self.items
     }
 
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<FSRListFrontEnd<'a>, SyntaxError> {
@@ -34,7 +34,7 @@ impl<'a> FSRListFrontEnd<'a> {
             start += t.len();
             start += 1; //escape comma
         }
-        return Ok(Self {
+        Ok(Self {
             items: vs,
             len: source.len(),
             meta,

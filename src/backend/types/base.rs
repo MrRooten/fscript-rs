@@ -51,6 +51,12 @@ pub struct FSRObject<'a> {
     pub(crate) cls: &'a str,
 }
 
+impl<'a> Default for FSRObject<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> FSRObject<'a> {
     pub fn new() -> FSRObject<'a> {
         FSRObject {
@@ -71,7 +77,7 @@ impl<'a> FSRObject<'a> {
 
 
     pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
-        if let Some(btype) = vm.get_cls(&self.cls) {
+        if let Some(btype) = vm.get_cls(self.cls) {
             return btype.get_attr(name);
         }
         let cls = vm.get_global_obj_by_name(self.cls);
@@ -85,7 +91,7 @@ impl<'a> FSRObject<'a> {
             return cls.get_attr(name);
         }
 
-        return None;
+        None
     }
 
     pub fn invoke(&self, method: &str, args: Vec<&RefCell<FSRObject<'a>>>) -> FSRObject<'a> {
@@ -155,14 +161,14 @@ impl<'a> FSRObject<'a> {
         }
         unsafe {
             let ptr = id as *const FSRObject;
-            return &*ptr;
+            &*ptr
         }
     }
 
     pub fn id_to_mut_obj(id: u64) -> &'a mut FSRObject<'a> {
         unsafe {
             let ptr = id as *mut FSRObject;
-            return &mut *ptr;
+            &mut *ptr
         }
     }
 
@@ -181,7 +187,7 @@ impl<'a> FSRObject<'a> {
         };
         let method_object = Self::id_to_obj(self_method);
         let v = method_object.call(args, stack, vm)?;
-        return Ok(v);
+        Ok(v)
     }
 
     pub fn get_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
@@ -199,7 +205,7 @@ impl<'a> FSRObject<'a> {
             return Some(*v);
         }
 
-        return None;
+        None
     }
 
     pub fn call(
@@ -225,7 +231,7 @@ impl<'a> FSRObject<'a> {
             }
         }
         
-        return false;
+        false
     }
 
     pub fn is_fsr_cls(&self) -> bool {
@@ -233,7 +239,7 @@ impl<'a> FSRObject<'a> {
             return true;
         }
         
-        return false;
+        false
     }
 
     pub fn get_fsr_offset(&self) -> (Rc<String>, (u64, u64)) {

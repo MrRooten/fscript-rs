@@ -26,11 +26,11 @@ pub struct FSRExpr<'a> {
 
 impl<'a> FSRExpr<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_left(&self) -> &Box<FSRToken<'a>> {
-        return &self.left;
+        &self.left
     }
 }
 
@@ -65,7 +65,7 @@ struct ExprStates {
 
 impl ExprStates {
     pub fn new() -> Self {
-        return Self { states: vec![] };
+        Self { states: vec![] }
     }
 
     pub fn set_up_state(&mut self, new_state: ExprState) {
@@ -166,7 +166,7 @@ impl<'a> Node<'a> {
             return 3;
         }
 
-        if op.eq(">") || op.eq("<") || op.ends_with("=") {
+        if op.eq(">") || op.eq("<") || op.ends_with('=') {
             return 0;
         }
 
@@ -177,7 +177,7 @@ impl<'a> Node<'a> {
         if op.eq(",") {
             return -3;
         }
-        return -1;
+        -1
     }
 
     pub fn is_higher_priority(op1: &str, op2: &str) -> Ordering {
@@ -185,7 +185,7 @@ impl<'a> Node<'a> {
         let op2 = Node::get_op_level(op2);
 
         if op1 > op2 {
-            return Ordering::Greater;
+            Ordering::Greater
         } else if op1 < op2 {
             return Ordering::Less;
         } else {
@@ -210,7 +210,7 @@ pub enum FSRBinOpResult<'a> {
 
 impl<'a> FSRExpr<'a> {
     pub fn get_len(&self) -> usize {
-        return self.len;
+        self.len
     }
 
     pub fn is_single_op(ps: &str) -> bool {
@@ -222,7 +222,7 @@ impl<'a> FSRExpr<'a> {
             return true;
         }
 
-        return false;
+        false
     }
 
     pub fn expr_split_by_comma(&self) -> Vec<FSRToken> {
@@ -230,7 +230,7 @@ impl<'a> FSRExpr<'a> {
     }
 
     pub fn get_right(&self) -> &Box<FSRToken> {
-        return &self.right;
+        &self.right
     }
 
     pub fn is_op_one_char(op: char) -> bool {
@@ -246,7 +246,7 @@ impl<'a> FSRExpr<'a> {
             return true;
         }
 
-        return false;
+        false
     }
 
     pub fn parse(
@@ -276,8 +276,8 @@ impl<'a> FSRExpr<'a> {
             let t_i = source[start + length];
             let t_c = t_i as char;
 
-            if ((t_c == '\n' && ignore_nline == false) || t_c == ';' || t_c == '}')
-                && states.eq_peek(&ExprState::EscapeNewline) == false
+            if ((t_c == '\n' && !ignore_nline) || t_c == ';' || t_c == '}')
+                && !states.eq_peek(&ExprState::EscapeNewline)
             {
                 if states.eq_peek(&ExprState::WaitToken) {
                     break;
@@ -295,7 +295,7 @@ impl<'a> FSRExpr<'a> {
                 continue;
             }
 
-            if states.eq_peek(&ExprState::Operator) && Self::is_op_one_char(t_c) == false {
+            if states.eq_peek(&ExprState::Operator) && !Self::is_op_one_char(t_c) {
                 let op = str::from_utf8(&source[start..start + length]).unwrap();
                 let op = ASTParser::get_static_op(op);
                 if start + length >= source.len() {
@@ -307,23 +307,23 @@ impl<'a> FSRExpr<'a> {
                     ));
                 }
 
-                if op.eq("-") && (source[start + length] as char).is_digit(10) {
+                if op.eq("-") && (source[start + length] as char).is_ascii_digit() {
                     single_op = Some(op);
                     states.pop_state();
-                    start = start + length;
+                    start += length;
                     length = 0;
                     continue;
                 }
 
-                if Self::is_single_op(op) == true && op.eq("-") == false {
+                if Self::is_single_op(op) && !op.eq("-") {
                     single_op = Some(op);
                     states.pop_state();
-                    start = start + length;
+                    start += length;
                     length = 0;
                 } else {
                     operators.push((op, start));
                     states.pop_state();
-                    start = start + length;
+                    start += length;
                     length = 0;
                 }
                 continue;
@@ -346,8 +346,8 @@ impl<'a> FSRExpr<'a> {
             }
 
             if t_i as char != ')'
-                && (states.eq_peek(&ExprState::SingleString) == false
-                    && states.eq_peek(&ExprState::DoubleString) == false)
+                && (!states.eq_peek(&ExprState::SingleString)
+                    && !states.eq_peek(&ExprState::DoubleString))
                 && states.eq_peek(&ExprState::Bracket)
             {
                 length += 1;
@@ -355,8 +355,8 @@ impl<'a> FSRExpr<'a> {
             }
 
             if t_i as char == ')'
-                && (states.eq_peek(&ExprState::SingleString) == false
-                    && states.eq_peek(&ExprState::DoubleString) == false)
+                && (!states.eq_peek(&ExprState::SingleString)
+                    && !states.eq_peek(&ExprState::DoubleString))
                 && states.eq_peek(&ExprState::Bracket)
                 || last_loop
             {
@@ -370,7 +370,7 @@ impl<'a> FSRExpr<'a> {
                     let _ps = &source[start..start + length];
                     let ps = str::from_utf8(_ps).unwrap();
 
-                    start = start + length;
+                    start += length;
                     length = 0;
                     let sub_meta = meta.clone();
                     let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta)?.0;
@@ -447,7 +447,7 @@ impl<'a> FSRExpr<'a> {
                 let constant = FSRConstant::from_str(s, sub_meta);
                 candidates.push(FSRToken::Constant(constant));
                 length += 1;
-                start = start + length;
+                start += length;
                 length = 0;
                 continue;
             }
@@ -497,18 +497,18 @@ impl<'a> FSRExpr<'a> {
                 let constant = FSRConstant::from_str(s, sub_meta);
                 candidates.push(FSRToken::Constant(constant));
                 length += 1;
-                start = start + length;
+                start += length;
                 length = 0;
                 continue;
             }
 
-            if states.eq_peek(&ExprState::WaitToken) && t_c.is_digit(10) {
+            if states.eq_peek(&ExprState::WaitToken) && t_c.is_ascii_digit() {
                 loop {
                     if start + length >= source.len() {
                         break;
                     }
                     let c = source[start + length] as char;
-                    if c.is_digit(10) == false {
+                    if !c.is_ascii_digit() {
                         break;
                     }
 
@@ -524,7 +524,7 @@ impl<'a> FSRExpr<'a> {
                 c.single_op = single_op;
                 single_op = None;
                 candidates.push(FSRToken::Constant(c));
-                start = start + length;
+                start += length;
                 length = 0;
                 continue;
             }
@@ -547,7 +547,7 @@ impl<'a> FSRExpr<'a> {
                         break;
                     }
                     let c = source[start + length] as char;
-                    if ASTParser::is_name_letter(c as u8) == false {
+                    if !ASTParser::is_name_letter(c as u8) {
                         break;
                     }
 
@@ -555,7 +555,7 @@ impl<'a> FSRExpr<'a> {
                 }
 
                 if start + length >= source.len()
-                    || (source[start + length] != '(' as u8 && source[start + length] != '[' as u8)
+                    || (source[start + length] != b'(' && source[start + length] != b'[')
                 {
                     let name = str::from_utf8(&source[start..start + length]).unwrap();
                     let mut sub_meta = meta.clone();
@@ -564,7 +564,7 @@ impl<'a> FSRExpr<'a> {
                     variable.single_op = single_op;
                     single_op = None;
                     candidates.push(FSRToken::Variable(variable));
-                    start = start + length;
+                    start += length;
                     length = 0;
                     states.pop_state();
                     continue;
@@ -584,7 +584,7 @@ impl<'a> FSRExpr<'a> {
                 call.single_op = single_op;
                 single_op = None;
                 candidates.push(FSRToken::Call(call));
-                start = start + length;
+                start += length;
                 length = 0;
                 states.pop_state();
                 continue;
@@ -596,12 +596,12 @@ impl<'a> FSRExpr<'a> {
                 let len = ASTParser::read_valid_bracket(&source[start + length..], sub_meta)?;
                 length += len;
                 let slice = FSRSlice::parse(&source[start..start + length + 1]).unwrap();
-                start = start + length;
+                start += length;
                 length = 0;
                 continue;
             }
 
-            if (states.eq_peek(&ExprState::Variable) && ASTParser::is_name_letter(t_i) == false)
+            if (states.eq_peek(&ExprState::Variable) && !ASTParser::is_name_letter(t_i))
                 || last_loop
             {
                 let name = str::from_utf8(&source[start..start + length]).unwrap();
@@ -611,30 +611,28 @@ impl<'a> FSRExpr<'a> {
                 variable.single_op = single_op;
                 single_op = None;
                 candidates.push(FSRToken::Variable(variable));
-                start = start + length;
+                start += length;
                 length = 0;
                 states.pop_state();
                 continue;
             }
 
-            if states.eq_peek(&ExprState::Slice) && FSRSlice::is_valid_char(t_c as u8) == false {
+            if states.eq_peek(&ExprState::Slice) && !FSRSlice::is_valid_char(t_c as u8) {
                 unimplemented!()
             }
         }
 
-        if candidates.len() == 0 {
+        if candidates.is_empty() {
             return Ok((FSRToken::EmptyExpr, start + length));
         }
 
         operators.sort_by(|a, b| -> Ordering { 
             if a.0 != b.0 {
                 Node::is_higher_priority(a.0, b.0) 
+            } else if a.1 < b.1 {
+                Ordering::Greater
             } else {
-                if a.1 < b.1 {
-                    Ordering::Greater
-                } else {
-                    Ordering::Less
-                }
+                Ordering::Less
             }
             
         });
@@ -671,8 +669,8 @@ impl<'a> FSRExpr<'a> {
             ));
         }
 
-        if (&candidates).len().eq(&1) {
-            if operators.len() != 0 {
+        if candidates.len().eq(&1) {
+            if !operators.is_empty() {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + operators[0].1;
                 let err = SyntaxError::new_with_type(
@@ -689,10 +687,10 @@ impl<'a> FSRExpr<'a> {
         for operator in operators {
             let split_offset = operator.1;
             let mut sub_meta = meta.clone();
-            sub_meta.offset = 0 + meta.offset;
+            sub_meta.offset = meta.offset;
             let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta)?.0;
             let mut sub_meta = meta.clone();
-            sub_meta.offset = 0 + meta.offset;
+            sub_meta.offset = meta.offset;
             let right = FSRExpr::parse(&source[split_offset + 1..], false, sub_meta.clone())?.0;
             let n_left = left.clone();
             if operator.0.eq("=") {
@@ -733,10 +731,10 @@ impl<'a> FSRExpr<'a> {
             ));
         }
 
-        return Err(SyntaxError::new(&meta, "".to_string()));
+        Err(SyntaxError::new(&meta, "".to_string()))
     }
 
     pub fn get_op(&self) -> &str {
-        return self.op.unwrap();
+        self.op.unwrap()
     }
 }

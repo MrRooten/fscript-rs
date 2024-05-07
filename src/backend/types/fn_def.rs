@@ -19,7 +19,7 @@ pub struct FSRFn {
 
 impl<'a> FSRFn {
     pub fn get_def(&self) -> &FSRnE {
-        return &self.fn_def
+        &self.fn_def
     }
 
     pub fn get_args(&self) -> &Vec<String> {

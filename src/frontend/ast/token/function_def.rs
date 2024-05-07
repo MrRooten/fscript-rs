@@ -33,23 +33,23 @@ enum State {
 
 impl<'a> FSRFnDef<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_name(&self) -> &'a str {
-        return &self.name;
+        self.name
     }
 
     pub fn get_len(&self) -> usize {
-        return self.len;
+        self.len
     }
 
     pub fn get_args(&self) -> &Vec<FSRToken<'a>> {
-        return &self.args;
+        &self.args
     }
 
     pub fn get_body(&self) -> &FSRBlock<'a> {
-        return &self.body;
+        &self.body
     }
 
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<Self, SyntaxError> {
@@ -78,7 +78,7 @@ impl<'a> FSRFnDef<'a> {
         let mut pre_state = State::Continue;
         let mut len = 0;
         for c in &source[2..] {
-            let c = c.clone() as char;
+            let c = *c as char;
             len += 1;
             if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {
                 len -= 1;
@@ -139,7 +139,7 @@ impl<'a> FSRFnDef<'a> {
             FSRBlock::parse(&source[fn_block_start..fn_block_start + fn_block_len], block_meta)?;
 
         Ok(Self {
-            name: name,
+            name,
             args: fn_args.get_args().clone(),
             body: Rc::new(fn_block),
             len: fn_block_start + fn_block_len,

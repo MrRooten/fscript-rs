@@ -25,13 +25,13 @@ pub enum BracketState {
 
 impl BracketState {
     pub fn is_bracket(&self) -> bool {
-        return self == &BracketState::Bracket
+        self == &BracketState::Bracket
             || self == &BracketState::Braces
-            || self == &BracketState::Parenthesis;
+            || self == &BracketState::Parenthesis
     }
 
     pub fn is_string(&self) -> bool {
-        return self == &SingleQuote || self == &DoubleQuote;
+        self == &SingleQuote || self == &DoubleQuote
     }
 }
 
@@ -39,9 +39,15 @@ pub struct BracketStates {
     states: Vec<(BracketState, usize)>,
 }
 
+impl Default for BracketStates {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BracketStates {
     pub fn new() -> Self {
-        return Self { states: vec![] };
+        Self { states: vec![] }
     }
 
     pub fn set_up_state(&mut self, new_state: BracketState, offset: usize) {
@@ -66,7 +72,7 @@ impl BracketStates {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.states.len() == 0;
+        self.states.len() == 0
     }
 }
 
@@ -84,30 +90,30 @@ impl ASTParser {
     }
 
     pub fn is_blank_char_with_new_line(c: u8) -> bool {
-        return c as char == ' ' || c as char == '\r' || c as char == '\t' || c as char == '\n';
+        c as char == ' ' || c as char == '\r' || c as char == '\t' || c as char == '\n'
     }
 
     pub fn is_blank_char(c : u8) -> bool {
-        return c as char == ' ' || c as char == '\r' || c as char == '\t';
+        c as char == ' ' || c as char == '\r' || c as char == '\t'
     }
 
 
     pub fn is_name_letter_first(c: u8) -> bool {
-        return (c as char).is_lowercase()
+        (c as char).is_lowercase()
             || (c as char).is_uppercase()
-            || (c as char) == '_';
+            || (c as char) == '_'
     }
 
     pub fn is_name_letter(c: u8) -> bool {
-        return (c as char).is_lowercase()
+        (c as char).is_lowercase()
             || (c as char).is_uppercase()
-            || (c as char).is_digit(10)
+            || (c as char).is_ascii_digit()
             || (c as char) == '_'
-            || (c as char) == ':';
+            || (c as char) == ':'
     }
 
     pub fn is_token_letter(c: u8) -> bool {
-        return (c as char).is_lowercase() || (c as char).is_uppercase();
+        (c as char).is_lowercase() || (c as char).is_uppercase()
     }
 
     pub fn end_token_char(c: u8) -> bool {
@@ -121,7 +127,7 @@ impl ASTParser {
     }
 
     pub fn is_end_expr(c: u8) -> bool {
-        return (c as char) == '\n' || (c as char) == ';';
+        (c as char) == '\n' || (c as char) == ';'
     }
 
     pub(crate) fn read_valid_expr(source: &[u8]) -> usize {
@@ -132,32 +138,28 @@ impl ASTParser {
                 break;
             }
             let c = source[index];
-            if stack.len() == 0 && Self::is_end_expr(c) {
+            if stack.is_empty() && Self::is_end_expr(c) {
                 index += 1;
                 break;
             }
         }
-        return index;
+        index
     }
 
     pub fn helper(c: char, states: &mut BracketStates, offset: usize, meta: &FSRMeta) -> Result<(), SyntaxError> {
-        if (c == ')' || c == '}' || c == ']') && states.peek().0.is_bracket() {
-            if c == ')'
+        if (c == ')' || c == '}' || c == ']') && states.peek().0.is_bracket() && c == ')'
                 && states.peek().0 == BracketState::Parenthesis
                 && c == '}'
                 && states.peek().0 == BracketState::Braces
-                && c == ']'
-                && states.peek().0 == BracketState::Bracket
-            {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset += offset;
-                let err = SyntaxError::new_with_type(
-                    &meta,
-                    "can not start with right bracket",
-                    SyntaxErrType::BracketNotMatch,
-                );
-                return Err(err);
-            }
+                && c == ']' && states.peek().0 == BracketState::Bracket {
+            let mut sub_meta = meta.clone();
+            sub_meta.offset += offset;
+            let err = SyntaxError::new_with_type(
+                meta,
+                "can not start with right bracket",
+                SyntaxErrType::BracketNotMatch,
+            );
+            return Err(err);
         }
 
         if c == ')' && states.peek().0 == BracketState::Parenthesis {
@@ -165,17 +167,17 @@ impl ASTParser {
             return Ok(());
         }
 
-        if c == '(' && (states.is_empty() || states.peek().0.is_string() == false) {
+        if c == '(' && (states.is_empty() || !states.peek().0.is_string()) {
             states.push_state(BracketState::Parenthesis, offset);
             return Ok(());
         }
 
-        if c == '[' && (states.is_empty() || states.peek().0.is_string() == false) {
+        if c == '[' && (states.is_empty() || !states.peek().0.is_string()) {
             states.push_state(BracketState::Bracket, offset);
             return Ok(());
         }
 
-        if c == '{' && (states.is_empty() || states.peek().0.is_string() == false) {
+        if c == '{' && (states.is_empty() || !states.peek().0.is_string()) {
             states.push_state(BracketState::Braces, offset);
             return Ok(());
         }
@@ -190,37 +192,37 @@ impl ASTParser {
             return Ok(());
         }
 
-        if (states.is_empty() == false && states.peek().0.is_string()) && c == '\\' {
+        if (!states.is_empty() && states.peek().0.is_string()) && c == '\\' {
             states.push_state(BracketState::EscapeQuote, offset);
             return Ok(());
         }
 
-        if states.is_empty() == false && states.peek().0 == BracketState::EscapeQuote {
+        if !states.is_empty() && states.peek().0 == BracketState::EscapeQuote {
             states.pop_state();
             return Ok(());
         }
 
-        if c == '\'' && (states.is_empty() == false && states.peek().0 == SingleQuote) {
+        if c == '\'' && (!states.is_empty() && states.peek().0 == SingleQuote) {
             states.pop_state();
             return Ok(());
         }
 
-        if c == '\'' && (states.is_empty() == false && states.peek().0.is_bracket()) {
+        if c == '\'' && (!states.is_empty() && states.peek().0.is_bracket()) {
             states.push_state(SingleQuote, offset);
             return Ok(());
         }
 
-        if c == '"' && (states.is_empty() == false && states.peek().0.is_bracket()) {
+        if c == '"' && (!states.is_empty() && states.peek().0.is_bracket()) {
             states.push_state(DoubleQuote, offset);
             return Ok(());
         }
 
-        if c == '"' && (states.is_empty() == false && states.peek().0 == DoubleQuote) {
+        if c == '"' && (!states.is_empty() && states.peek().0 == DoubleQuote) {
             states.pop_state();
             return Ok(());
         }
 
-        return Ok(());
+        Ok(())
     }
     pub fn read_valid_name_bracket(source: &[u8], meta: FSRMeta) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
@@ -228,8 +230,8 @@ impl ASTParser {
         let mut len = 0;
 
         for _c in source {
-            let c = _c.clone() as char;
-            if is_start == false && states.is_empty() {
+            let c = *_c as char;
+            if !is_start && states.is_empty() {
                 break;
             }
 
@@ -243,7 +245,7 @@ impl ASTParser {
             len += 1;
         }
 
-        if states.is_empty() == false {
+        if !states.is_empty() {
             let mut sub_meta = meta.clone();
             sub_meta.offset += states.peek().1;
             let err = SyntaxError::new_with_type(
@@ -253,7 +255,7 @@ impl ASTParser {
             );
             return Err(err);
         }
-        return Ok(len);
+        Ok(len)
     }
 
     pub fn read_valid_bracket(source: &[u8], meta: FSRMeta) -> Result<usize, SyntaxError> {
@@ -261,8 +263,8 @@ impl ASTParser {
         let mut is_start = true;
         let mut len = 0;
         for _c in source {
-            let c = _c.clone() as char;
-            if is_start == false && states.is_empty() {
+            let c = *_c as char;
+            if !is_start && states.is_empty() {
                 break;
             }
             is_start = false;
@@ -272,7 +274,7 @@ impl ASTParser {
             len += 1;
         }
 
-        if states.is_empty() == false {
+        if !states.is_empty() {
             let mut sub_meta = meta.clone();
             sub_meta.offset += states.peek().1;
             let err = SyntaxError::new_with_type(
@@ -282,22 +284,22 @@ impl ASTParser {
             );
             return Err(err);
         }
-        return Ok(len);
+        Ok(len)
     }
 
     pub fn read_to_comma(source: &[u8], meta: &FSRMeta) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut len = 0;
         for _c in source {
-            let c = _c.clone() as char;
+            let c = *_c as char;
             if states.is_empty() && c == ',' {
                 break;
             }
 
-            Self::helper(c, &mut states, len, &meta)?;
+            Self::helper(c, &mut states, len, meta)?;
             len += 1;
         }
-        return Ok(len);
+        Ok(len)
     }
 
 
@@ -314,7 +316,7 @@ impl ASTParser {
             i += 1;
         }
 
-        return Ok(res);
+        Ok(res)
     }
 
     pub fn get_static_op(op: &str) -> &'static str {

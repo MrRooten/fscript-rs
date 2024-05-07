@@ -28,13 +28,19 @@ impl Node {
     }
 
     pub fn get_subs(&mut self) -> &mut HashMap<char, Box<Node>> {
-        return &mut self.subs;
+        &mut self.subs
     }
 }
 
 pub struct FSTrie {
     root: Box<Node>,
     self_inc: u32,
+}
+
+impl Default for FSTrie {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FSTrie {
@@ -61,14 +67,14 @@ impl FSTrie {
             self_inc: 0,
         };
         s.init();
-        return s;
+        s
     }
 
     pub fn match_token(&mut self, token: &[u8]) -> Option<&NodeType> {
         let mut cur = &mut self.root;
         for c in token {
-            let c = c.clone();
-            if (c as char).is_ascii_alphabetic() == false {
+            let c = *c;
+            if !(c as char).is_ascii_alphabetic() {
                 break;
             }
             let node = cur.get_node(&(c as char));
@@ -85,7 +91,7 @@ impl FSTrie {
         if cur.end_type == NodeType::NotEnd {
             return None;
         }
-        return Some(&cur.end_type);
+        Some(&cur.end_type)
     }
 
     pub fn insert(&mut self, value: &str, n_type: NodeType) {

@@ -16,6 +16,12 @@ pub static mut NONE_OBJECT: Option<FSRObject> = None;
 pub static mut TRUE_OBJECT: Option<FSRObject> = None;
 pub static mut FALSE_OBJECT: Option<FSRObject> = None;
 
+impl<'a> Default for FSRVM<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> FSRVM<'a> {
     pub fn new() -> Self {
         Self::init_static_object();
@@ -43,15 +49,15 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn get_true_id(&self) -> u64 {
-        return 1;
+        1
     }
 
     pub fn get_false_id(&self) -> u64 {
-        return 2;
+        2
     }
 
     pub fn get_none_id(&self) -> u64 {
-        return 0;
+        0
     }
 
     pub fn init_static_object() {
@@ -94,7 +100,7 @@ impl<'a> FSRVM<'a> {
     pub fn new_object(&mut self) -> &Box<FSRObject<'a>> {
         let id = self.update_id.fetch_add(1, Ordering::Relaxed);
         let obj = FSRObject {
-            obj_id: id.clone(),
+            obj_id: id,
             value: FSRValue::None,
             cls: "",
             ref_count: AtomicU64::new(0)
@@ -104,14 +110,14 @@ impl<'a> FSRVM<'a> {
     }
 
     fn new_stataic_object_with_id(id: u64, value: FSRValue<'static>) -> FSRObject<'static> {
-        let obj = FSRObject {
+        
+
+        FSRObject {
             obj_id: id,
-            value: value,
+            value,
             cls: "",
             ref_count: AtomicU64::new(0)
-        };
-
-        return obj;
+        }
     }
 
     pub fn get_obj_by_id(&self, id: &u64) -> Option<&Box<FSRObject<'a>>> {
@@ -128,7 +134,7 @@ impl<'a> FSRVM<'a> {
         object.obj_id = id;
         self.obj_map.insert(id, object);
         
-        return id; 
+        id
     }
 
     pub fn get_mut_obj_by_id(&mut self, id: &u64) -> Option<&mut Box<FSRObject<'a>>> {

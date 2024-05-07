@@ -29,23 +29,23 @@ enum FSRAssignState {
 impl<'a> FSRAssign<'a> {
 
     pub fn get_left(&self) -> &Rc<FSRToken<'a>> {
-        return &self.left
+        &self.left
     }
 
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_name(&self) -> &str {
-        return &self.name;
+        self.name
     }
 
     pub fn get_assign_expr(&self) -> &Rc<FSRToken<'a>> {
-        return &self.expr;
+        &self.expr
     }
 
     pub fn get_len(&self) -> usize {
-        return self.len;
+        self.len
     }
     pub fn parse(source: &'a [u8], meta: &FSRMeta) -> Result<FSRAssign<'a>, SyntaxError> {
         
@@ -81,7 +81,7 @@ impl<'a> FSRAssign<'a> {
             }
 
             if c as char == '=' && (state == FSRAssignState::NameStart || state == FSRAssignState::NameEnd) {
-                start = start + length;
+                start += length;
                 length = 0;
                 state = FSRAssignState::RightValue;
                 continue;

@@ -12,11 +12,11 @@ pub struct FSRClass<'a> {
 
 impl<'a> FSRClass<'a> {
     pub fn new(name: &'a str) -> FSRClass<'a> {
-        let cls = FSRClass {
-            name: name,
+        
+        FSRClass {
+            name,
             attrs: HashMap::new(),
-        };
-        cls
+        }
     }
 
     pub fn insert_attr(&mut self, name: &'a str, object: FSRObject<'a>, vm: &mut FSRVM<'a>) {
@@ -29,14 +29,11 @@ impl<'a> FSRClass<'a> {
     }
 
     pub fn get_attr(&self, name: &str) -> Option<u64> {
-        return match self.attrs.get(name) {
-            Some(s) => Some(s.clone()),
-            None => None
-        };
+        return self.attrs.get(name).copied();
     }
 
     pub fn get_name(&self) -> &str {
-        return self.name
+        self.name
     }
 
 

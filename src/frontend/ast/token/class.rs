@@ -14,20 +14,20 @@ pub struct FSRClassFrontEnd<'a> {
 impl<'a> FSRClassFrontEnd<'a> {
 
     pub fn get_name(&self) -> &'a str {
-        return self.name;
+        self.name
     }
 
     pub fn get_block(&self) -> &FSRBlock<'a> {
-        return &self.block;
+        &self.block
     }
 
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<(Self, usize), SyntaxError> {
         let start_token = str::from_utf8(&source[0..5]).unwrap();
-        if start_token.eq("class") == false {
+        if !start_token.eq("class") {
             unimplemented!()
         }
 
@@ -44,7 +44,7 @@ impl<'a> FSRClassFrontEnd<'a> {
             c = source[start];
         }
         let mut length = 0;
-        if ASTParser::is_name_letter_first(c) == false {
+        if !ASTParser::is_name_letter_first(c) {
             unimplemented!()
         }
 
@@ -56,7 +56,7 @@ impl<'a> FSRClassFrontEnd<'a> {
         }
         length -= 1;
         let name = str::from_utf8(&source[start..start+length]).unwrap();
-        start = start + length;
+        start += length;
         length = 0;
 
         while start < source.len() && ASTParser::is_blank_char(source[start]) {

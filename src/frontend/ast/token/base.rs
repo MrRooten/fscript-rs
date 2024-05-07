@@ -62,9 +62,15 @@ pub struct FSRMeta {
     pub(crate) offset: usize,
 }
 
+impl Default for FSRMeta {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FSRMeta {
     pub fn new() -> Self {
-        return Self {
+        Self {
             offset: 0
         }
     }

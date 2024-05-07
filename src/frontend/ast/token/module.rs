@@ -16,7 +16,7 @@ struct ModuleStates {
 
 impl ModuleStates {
     pub fn new() -> Self {
-        return Self { states: vec![] };
+        Self { states: vec![] }
     }
 
     pub fn set_up_state(&mut self, new_state: ModuleState) {
@@ -41,7 +41,7 @@ impl ModuleStates {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.states.len() == 0;
+        self.states.len() == 0
     }
 }
 
@@ -56,11 +56,11 @@ pub struct FSRModuleFrontEnd<'a> {
 
 impl<'a> FSRModuleFrontEnd<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_len(&self) -> usize {
-        return self.len;
+        self.len
     }
 
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<FSRModuleFrontEnd<'a>, SyntaxError> {
@@ -94,7 +94,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             }
 
             if c == '{' {
-                start = start + length;
+                start += length;
                 length = 0;
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
@@ -124,7 +124,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                     let expr = FSRExpr::parse(&source[start..], false, sub_meta)?;
                     length += expr.1;
                     module.tokens.push(expr.0);
-                    start = length + start;
+                    start += length;
                     length = 0;
                     continue;
                 }
@@ -136,7 +136,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 let expr = FSRExpr::parse(&source[start..], false, sub_meta)?;
                 length += expr.1;
                 module.tokens.push(expr.0);
-                start = length + start;
+                start += length;
                 length = 0;
                 continue;
             }
@@ -147,7 +147,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 let if_block = FSRIf::parse(&source[start..], sub_meta)?;
                 length += if_block.get_len();
                 module.tokens.push(FSRToken::IfExp(if_block));
-                start = length + start;
+                start += length;
                 length = 0;
             }
             else if t == &NodeType::WhileState {
@@ -156,7 +156,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 let for_block = FSRWhile::parse(&source[start..], sub_meta)?;
                 length += for_block.get_len();
                 module.tokens.push(FSRToken::WhileExp(for_block));
-                start = length + start;
+                start += length;
                 length = 0;
             }
             else if t == &NodeType::FnState {
@@ -165,7 +165,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 let fn_def = FSRFnDef::parse(&source[start..], sub_meta)?;
                 length += fn_def.get_len();
                 module.tokens.push(FSRToken::FunctionDef(fn_def));
-                start = start + length;
+                start += length;
                 length = 0;
             }
             else if t == &NodeType::ReturnState {
@@ -174,7 +174,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 let ret_expr = FSRReturn::parse(&source[start..], sub_meta)?;
                 length += ret_expr.1;
                 module.tokens.push(FSRToken::Return(ret_expr.0));
-                start = start + length;
+                start += length;
                 length = 0;
             }
             else if t == &NodeType::ImportState {
@@ -183,7 +183,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 let import_statement = FSRImport::parse(&source[start..], sub_meta)?;
                 length += import_statement.1;
                 module.tokens.push(FSRToken::Import(import_statement.0.to_owned()));
-                start = start + length;
+                start += length;
                 length = 0;
             }
             else if t == &NodeType::ClassState {
@@ -192,7 +192,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 let class_def = FSRClassFrontEnd::parse(&source[start..], sub_meta)?;
                 length += class_def.1;
                 module.tokens.push(FSRToken::Class(class_def.0.to_owned()));
-                start = start + length;
+                start += length;
                 length = 0;
             }
             else {
@@ -201,6 +201,6 @@ impl<'a> FSRModuleFrontEnd<'a> {
 
         }
         module.len = start + length;
-        return Ok(module);
+        Ok(module)
     }
 }

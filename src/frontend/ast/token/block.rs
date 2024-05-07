@@ -24,7 +24,7 @@ struct BlockStates {
 
 impl BlockStates {
     pub fn new() -> Self {
-        return Self { states: vec![] };
+        Self { states: vec![] }
     }
 
     pub fn set_up_state(&mut self, new_state: BlockState) {
@@ -49,7 +49,7 @@ impl BlockStates {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.states.len() == 0;
+        self.states.len() == 0
     }
 }
 
@@ -62,15 +62,15 @@ pub struct FSRBlock<'a> {
 
 impl<'a> FSRBlock<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_tokens(&self) -> &Vec<FSRToken<'a>> {
-        return &self.tokens;
+        &self.tokens
     }
 
     pub fn get_len(&self) -> usize {
-        return self.len;
+        self.len
     }
 
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<Self, SyntaxError> {
@@ -98,7 +98,7 @@ impl<'a> FSRBlock<'a> {
                 continue;
             }
 
-            if c == '}' && states.peek() == &BlockState::Start && is_start != true {
+            if c == '}' && states.peek() == &BlockState::Start && !is_start {
                 break;
             }
 
@@ -117,7 +117,7 @@ impl<'a> FSRBlock<'a> {
             }
 
             if c == '{' && states.peek() == &BlockState::Block {
-                start = start + length;
+                start += length;
                 length = 0;
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
@@ -148,7 +148,7 @@ impl<'a> FSRBlock<'a> {
                         let expr = FSRExpr::parse(&source[start..], false, sub_meta)?;
                         length += expr.1;
                         block.tokens.push(expr.0);
-                        start = length + start;
+                        start += length;
                         length = 0;
                         continue;
                     }
@@ -160,7 +160,7 @@ impl<'a> FSRBlock<'a> {
                     let if_block = FSRIf::parse(&source[start..], sub_meta)?;
                     length += if_block.get_len();
                     block.tokens.push(FSRToken::IfExp(if_block));
-                    start = length + start;
+                    start += length;
                     length = 0;
                 } 
                 else if t == &NodeType::WhileState {
@@ -169,7 +169,7 @@ impl<'a> FSRBlock<'a> {
                     let while_block = FSRWhile::parse(&source[start..], sub_meta)?;
                     length += while_block.get_len();
                     block.tokens.push(FSRToken::WhileExp(while_block));
-                    start = length + start;
+                    start += length;
                     length = 0;
                 }
                 else if t == &NodeType::FnState {
@@ -178,7 +178,7 @@ impl<'a> FSRBlock<'a> {
                     let fn_def = FSRFnDef::parse(&source[start..], sub_meta)?;
                     length += fn_def.get_len();
                     block.tokens.push(FSRToken::FunctionDef(fn_def));
-                    start = start + length;
+                    start += length;
                     length = 0;
                 }
                 else if t == &NodeType::ReturnState {
@@ -187,12 +187,12 @@ impl<'a> FSRBlock<'a> {
                     let ret_expr = FSRReturn::parse(&source[start..], sub_meta)?;
                     length += ret_expr.1;
                     block.tokens.push(FSRToken::Return(ret_expr.0));
-                    start = start + length;
+                    start += length;
                     length = 0;
                 }
             }
         }
         block.len = start + length;
-        return Ok(block);
+        Ok(block)
     }
 }

@@ -19,38 +19,38 @@ pub struct FSRConstant {
 
 impl FSRConstant {
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_constant(&self) -> &FSRConstantType {
-        return &self.constant;
+        &self.constant
     }
 
     pub fn from_str(s: &[u8], meta: FSRMeta) -> Self {
-        return FSRConstant{
+        FSRConstant{
             constant: FSRConstantType::String(s.to_vec()),
             len: 0,
             single_op: None,
             meta
-        };
+        }
     }
 
     pub fn from_float(f: f64, meta: FSRMeta) -> Self {
-        return FSRConstant{
+        FSRConstant{
             constant: FSRConstantType::Float(f),
             len: 0,
             single_op: None,
             meta
-        };
+        }
     }
 
     pub fn from_int(i: i64, meta: FSRMeta) -> Self {
-        return FSRConstant{
+        FSRConstant{
             constant: FSRConstantType::Integer(i),
             len: 0,
             single_op: None,
             meta
-        };
+        }
     }
 
     pub fn get_len(&self) -> usize {

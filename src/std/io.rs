@@ -34,5 +34,5 @@ pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     m.insert("print", print_fn);
     m.insert("println", println_fn);
     m.insert("dump", dump_fn);
-    return m;
+    m
 }

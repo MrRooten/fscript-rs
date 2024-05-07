@@ -40,7 +40,7 @@ impl<'a> CallState<'a> {
             let origin_obj = FSRObject::id_to_obj(obj_id);
             origin_obj.ref_dec();
         }
-        self.var_map.insert(id.clone(), obj_id);
+        self.var_map.insert(*id, obj_id);
     }
 
     pub fn has_var(&self, id: &u64) -> bool {
@@ -52,7 +52,7 @@ impl<'a> CallState<'a> {
     }
 
     pub fn insert_const(&mut self, id: &u64, obj_id: u64) {
-        self.const_map.insert(id.clone(), obj_id);
+        self.const_map.insert(*id, obj_id);
     }
 
     pub fn set_reverse_ip(&mut self, ip: (usize, usize)) {
@@ -68,7 +68,7 @@ impl<'a> CallState<'a> {
             cur_cls: None,
             ret_val: None,
             exp: None,
-            name: name,
+            name,
         }
     }
 }
@@ -83,8 +83,8 @@ enum SValue<'a> {
 impl SValue<'_> {
     pub fn get_value(&self) -> u64 {
         match self {
-            SValue::StackId(i) => i.0.clone(),
-            SValue::GlobalId(i) => i.clone(),
+            SValue::StackId(i) => i.0,
+            SValue::GlobalId(i) => *i,
             SValue::AttrId(_) => todo!(),
         }
     }
@@ -93,12 +93,12 @@ impl SValue<'_> {
         match self {
             SValue::StackId(s) => {
                 if let Some(id) = state.get_var(&s.0) {
-                    id.clone()
+                    *id
                 } else {
-                    vm.get_global_obj_by_name(s.1).unwrap().clone()
+                    *vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
-            SValue::GlobalId(id) => id.clone(),
+            SValue::GlobalId(id) => *id,
             SValue::AttrId((id, name)) => *id,
         }
     }
@@ -117,6 +117,12 @@ type BytecodeFn<'a> = fn (
 pub struct FSRThreadRuntime<'a> {
     call_stack: Vec<CallState<'a>>,
     bytecode_map: HashMap<BytecodeOperator, BytecodeFn<'a>>
+}
+
+impl<'a> Default for FSRThreadRuntime<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<'a> FSRThreadRuntime<'a> {
@@ -147,13 +153,13 @@ impl<'a> FSRThreadRuntime<'a> {
     fn load_integer_const(i: &i64, vm: &mut FSRVM) -> u64 {
         let obj = FSRObject {
             obj_id: 0,
-            value: FSRValue::Integer(i.clone()),
+            value: FSRValue::Integer(*i),
             cls: "Integer",
             ref_count: AtomicU64::new(0),
         };
 
-        let id = vm.register_object(obj);
-        return id;
+        
+        vm.register_object(obj)
     }
 
     fn load_string_const(s: String, vm: &mut FSRVM<'a>) -> u64 {
@@ -164,8 +170,8 @@ impl<'a> FSRThreadRuntime<'a> {
             ref_count: AtomicU64::new(0),
         };
 
-        let id = vm.register_object(obj);
-        return id;
+        
+        vm.register_object(obj)
     }
 
     fn get_cur_stack(&mut self) -> &mut CallState<'a> {
@@ -191,11 +197,7 @@ impl<'a> FSRThreadRuntime<'a> {
             unimplemented!()
         }
         if let FSRRetValue::GlobalId(id) = &res.unwrap() {
-            if id == &1 {
-                return true;
-            } else {
-                return false;
-            }
+            return id == &1
         }
         unimplemented!()
     }
@@ -246,17 +248,17 @@ impl<'a> FSRThreadRuntime<'a> {
                 };
                 *is_attr = false;
                 if let FSRValue::ClassInst(inst) = &mut obj.value {
-                    inst.set_attr(&attr_name, real_obj);
+                    inst.set_attr(attr_name, real_obj);
                 }
                 return Ok(false);
             }
             state.insert_var(&assign_id.get_value(), id);
         } else if let SValue::StackId(s_id) = obj_id {
             let id = match state.get_var(&s_id.0) {
-                Some(s) => s.clone(),
-                None => vm.get_global_obj_by_name(s_id.1).unwrap().clone(),
+                Some(s) => *s,
+                None => *vm.get_global_obj_by_name(s_id.1).unwrap(),
             };
-            if *is_attr == true {
+            if *is_attr {
                 let obj_id = exp.pop().unwrap().get_global_id(state, vm);
                 *is_attr = false;
                 let obj = FSRObject::id_to_mut_obj(obj_id);
@@ -272,7 +274,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn binary_add_process(
@@ -314,7 +316,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn binary_mul_process(
@@ -355,7 +357,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 exp.push(SValue::GlobalId(res_id));
             }
         };
-        return Ok(false);
+        Ok(false)
     }
 
     fn binary_dot_process(
@@ -396,7 +398,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         *is_attr = true;
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn call_process(
@@ -412,9 +414,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_id = match exp.pop().unwrap() {
             SValue::StackId(s) => {
                 if let Some(id) = state.get_var(&s.0) {
-                    id.clone()
+                    *id
                 } else {
-                    vm.get_global_obj_by_name(s.1).unwrap().clone()
+                    *vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
             SValue::GlobalId(id) => id,
@@ -525,10 +527,9 @@ impl<'a> FSRThreadRuntime<'a> {
                     self.pop_stack();
                 }
             }
-        } else {
-        }
+        } 
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn if_test_process(
@@ -543,9 +544,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let test_val = match exp.pop().unwrap() {
             SValue::StackId(s) => {
                 if let Some(id) = state.get_var(&s.0) {
-                    id.clone()
+                    *id
                 } else {
-                    vm.get_global_obj_by_name(s.1).unwrap().clone()
+                    *vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
             SValue::GlobalId(id) => id,
@@ -555,12 +556,12 @@ impl<'a> FSRThreadRuntime<'a> {
         };
         if test_val == vm.get_false_id() || test_val == vm.get_none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                *ip = (ip.0 + n.clone() as usize, 0);
+                *ip = (ip.0 + *n as usize, 0);
                 return Ok(true);
             }
         }
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn while_test_process(
@@ -575,9 +576,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let test_val = match exp.pop().unwrap() {
             SValue::StackId(s) => {
                 if let Some(id) = state.get_var(&s.0) {
-                    id.clone()
+                    *id
                 } else {
-                    vm.get_global_obj_by_name(s.1).unwrap().clone()
+                    *vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
             SValue::GlobalId(id) => id,
@@ -587,11 +588,11 @@ impl<'a> FSRThreadRuntime<'a> {
         };
         if test_val == vm.get_false_id() || test_val == vm.get_none_id() {
             if let ArgType::WhileTest(n) = bytecode.get_arg() {
-                *ip = (ip.0 + n.clone() as usize + 1, 0);
+                *ip = (ip.0 + *n as usize + 1, 0);
                 return Ok(true);
             }
         }
-        return Ok(false);
+        Ok(false)
     }
 
     fn define_fn(
@@ -630,7 +631,7 @@ impl<'a> FSRThreadRuntime<'a> {
             *ip = (ip.0 + *n as usize + 2, 0);
             return Ok(true);
         }
-        return Ok(false);
+        Ok(false)
     }
 
     fn end_define_fn(
@@ -645,7 +646,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.pop_stack();
         let cur = self.get_cur_stack();
         *ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
-        return Ok(true);
+        Ok(true)
     }
 
     fn compare_test(
@@ -668,7 +669,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn ret_value(
@@ -686,7 +687,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //exp.push(SValue::GlobalId(v));
         cur.ret_val = Some(v);
         *ip = (cur.reverse_ip.0, cur.reverse_ip.1);
-        return Ok(true);
+        Ok(true)
     }
 
     fn while_block_end(
@@ -699,11 +700,11 @@ impl<'a> FSRThreadRuntime<'a> {
         is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         if let ArgType::WhileEnd(n) = bytecode.get_arg() {
-            *ip = (ip.0 - n.clone() as usize, 0);
+            *ip = (ip.0 - *n as usize, 0);
             return Ok(true);
         }
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn assign_args(
@@ -719,7 +720,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::Variable(s_id, _) = bytecode.get_arg() {
             state.insert_var(s_id, v);
         }
-        return Ok(false);
+        Ok(false)
     }
 
     fn class_def(
@@ -740,7 +741,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let new_cls = FSRClass::new(id.1);
         state.cur_cls = Some(new_cls);
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn end_class_def(
@@ -759,7 +760,7 @@ impl<'a> FSRThreadRuntime<'a> {
         cls_obj.set_value(FSRValue::Class(obj));
         let obj_id = vm.register_object(cls_obj);
         vm.register_global_object(&name, obj_id);
-        return Ok(false);
+        Ok(false)
     }
 
     fn process(
@@ -773,11 +774,11 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let bc_op = self.bytecode_map.get(bytecode.get_operator()).unwrap();
         let v = bc_op(self, exp, bytecode, state, ip, vm, is_attr)?;
-        if v == true {
+        if v {
             return Ok(v);
         }
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn run_expr(
@@ -810,21 +811,21 @@ impl<'a> FSRThreadRuntime<'a> {
                 is_attr = false;
                 let s = unsafe { &mut *ptr };
                 if let ArgType::Variable(id, name) = arg.get_arg() {
-                    exp_stack.push(SValue::StackId((id.clone(), name)));
+                    exp_stack.push(SValue::StackId((*id, name)));
                 } else if let ArgType::ConstInteger(id, i) = arg.get_arg() {
                     let int_const = Self::load_integer_const(i, vm);
-                    s.insert_const(id, int_const.clone());
+                    s.insert_const(id, int_const);
                     exp_stack.push(SValue::GlobalId(int_const));
                 } else if let ArgType::ConstString(id, i) = arg.get_arg() {
                     let string_const = Self::load_string_const(i.clone(), vm);
-                    s.insert_const(id, string_const.clone());
+                    s.insert_const(id, string_const);
                     exp_stack.push(SValue::GlobalId(string_const));
                 } else if let ArgType::Attr(id, name) = arg.get_arg() {
-                    exp_stack.push(SValue::AttrId((id.clone(), name)));
+                    exp_stack.push(SValue::AttrId((*id, name)));
                 }
             } else {
                 v = self.process(&mut exp_stack, arg, s, ip, vm, &mut is_attr)?;
-                if v == true {
+                if v {
                     return Ok(());
                 }
             }
@@ -832,7 +833,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         ip.0 += 1;
         ip.1 = 0;
-        return Ok(());
+        Ok(())
     }
 
     pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) {

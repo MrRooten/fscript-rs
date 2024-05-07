@@ -82,7 +82,7 @@ impl FSRError {
     pub fn new<S>(msg: S, code: FSRErrCode) -> Self
     where S: ToString {
         Self {
-            code: code,
+            code,
             msg: msg.to_string(),
         }
     }

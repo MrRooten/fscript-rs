@@ -32,6 +32,6 @@ impl FSRString {
         let mut object = FSRObject::new();
         object.set_cls("String");
 
-        return object
+        object
     }
 }

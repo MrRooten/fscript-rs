@@ -23,6 +23,6 @@ impl FSRSlice<'_> {
 
     pub fn is_valid_char(c: u8) -> bool {
         let c = c as char;
-        return c.is_digit(16) || c == ':';
+        c.is_ascii_hexdigit() || c == ':'
     }
 }

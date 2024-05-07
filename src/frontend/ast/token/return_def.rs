@@ -10,18 +10,18 @@ pub struct FSRReturn<'a> {
 
 impl<'a> FSRReturn<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_return_expr(&self) -> &Box<FSRToken<'a>> {
-        return &self.expr;
+        &self.expr
     }
     
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
         let sub = &source[0..6];
         let first_6_char = str::from_utf8(sub).unwrap();
-        if first_6_char.eq("return") == false {
+        if !first_6_char.eq("return") {
             let err = SyntaxError::new(&meta, "Not a return token");
             return Err(err);
         }
@@ -39,9 +39,9 @@ impl<'a> FSRReturn<'a> {
         };
 
         len += expr.1;
-        return Ok((Self {
+        Ok((Self {
             expr: Box::new(expr.0),
             meta,
-        }, len));
+        }, len))
     }
 }

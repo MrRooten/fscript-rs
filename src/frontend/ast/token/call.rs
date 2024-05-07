@@ -23,15 +23,15 @@ enum CallState {
 
 impl<'a> FSRCall<'a> {
     pub fn get_meta(&self) -> &FSRMeta {
-        return &self.meta;
+        &self.meta
     }
 
     pub fn get_args(&self) -> &Vec<FSRToken<'a>> {
-        return &self.args;
+        &self.args
     }
 
     pub fn get_name(&self) -> &'a str {
-        return self.name;
+        self.name
     }
 
     pub fn parse(source: &'a [u8], meta: FSRMeta) -> Result<Self, SyntaxError> {
@@ -61,7 +61,7 @@ impl<'a> FSRCall<'a> {
             if state == CallState::Name && t_i as char == '(' {
                 name = str::from_utf8(&source[start..start+length]).unwrap();
                 state = CallState::Args;
-                start = start + length;
+                start += length;
                 start += 1;
                 length = 0;
                 break;
@@ -82,7 +82,7 @@ impl<'a> FSRCall<'a> {
             let expr = FSRExpr::parse(s, true, sub_meta)?;
             fn_args.push(expr.0);
         }
-        return Ok(
+        Ok(
             Self {
                 name,
                 args: fn_args,
@@ -90,10 +90,10 @@ impl<'a> FSRCall<'a> {
                 single_op: None,
                 meta
             }
-        );
+        )
     }
 
     pub fn get_len(&self) -> usize {
-        return self.len;
+        self.len
     }
 }

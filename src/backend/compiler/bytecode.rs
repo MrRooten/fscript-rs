@@ -64,11 +64,11 @@ impl BytecodeArg {
     pub fn new(_: BytecodeOperator, _: u64) {}
 
     pub fn get_operator(&self) -> &BytecodeOperator {
-        return &self.operator
+        &self.operator
     }
 
     pub fn get_arg(&self) -> &ArgType {
-        return &self.arg
+        &self.arg
     }
 }
 
@@ -139,6 +139,12 @@ pub struct VarMap<'a> {
     const_id: AtomicU64,
 }
 
+impl<'a> Default for VarMap<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> VarMap<'a> {
     pub fn has_var(&self, var: &str) -> bool {
         return self.var_map.get(var).is_some();
@@ -159,7 +165,7 @@ impl<'a> VarMap<'a> {
     }
 
     pub fn has_attr(&self, attr: &str) -> bool {
-        return self.attr_map.contains_key(attr);
+        self.attr_map.contains_key(attr)
     }
 
     pub fn get_attr(&self, attr: &str) -> Option<&u64> {
@@ -195,7 +201,7 @@ impl<'a> Bytecode {
             return Some(s);
         }
 
-        return None;
+        None
     }
 
     fn load_call(
@@ -217,28 +223,28 @@ impl<'a> Bytecode {
 
         let name = call.get_name();
         if is_attr {
-            if var_map_ref.has_attr(name) == false {
+            if !var_map_ref.has_attr(name) {
                 let v = name;
                 var_map_ref.insert_attr(v);
             }
             let id = var_map_ref.get_attr(name).unwrap();
             result.push_back(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Attr(id.clone(), name.to_string()),
+                arg: ArgType::Attr(*id, name.to_string()),
             });
             result.push_back(BytecodeArg {
                 operator: BytecodeOperator::BinaryDot,
                 arg: ArgType::None,
             });
         } else {
-            if var_map_ref.has_var(name) == false {
+            if !var_map_ref.has_var(name) {
                 let v = name;
                 var_map_ref.insert_var(v);
             }
             let id = var_map_ref.get_var(name).unwrap();
             result.push_back(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Variable(id.clone(), name.to_string()),
+                arg: ArgType::Variable(*id, name.to_string()),
             });
         }
 
@@ -247,7 +253,7 @@ impl<'a> Bytecode {
             arg: ArgType::CallArgsNumber(call.get_args().len()),
         });
 
-        return (result, var_map_ref);
+        (result, var_map_ref)
     }
 
     fn load_variable(
@@ -255,53 +261,53 @@ impl<'a> Bytecode {
         var_map: &'a mut VarMap<'a>,
         is_attr: bool
     ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
-        if var_map.has_var(&var.get_name()) == false {
+        if !var_map.has_var(var.get_name()) {
             let v = var.get_name();
             var_map.insert_var(v);
         }
 
-        let arg_id = var_map.get_var(&var.get_name()).unwrap();
+        let arg_id = var_map.get_var(var.get_name()).unwrap();
         let op_arg;
         if is_attr {
             op_arg = BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Attr(arg_id.clone(), var.get_name().to_string()),
+                arg: ArgType::Attr(*arg_id, var.get_name().to_string()),
             };
         } else {
             op_arg = BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Variable(arg_id.clone(), var.get_name().to_string()),
+                arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
             };
         }
         
         let mut ans = LinkedList::new();
         ans.push_back(op_arg);
         
-        return (ans, var_map);
+        (ans, var_map)
     }
 
     fn load_assign_arg(
         var: &'a FSRVariable<'a>,
         var_map: &'a mut VarMap<'a>,
     ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
-        if var_map.has_var(&var.get_name()) == false {
+        if !var_map.has_var(var.get_name()) {
             let v = var.get_name();
             var_map.insert_var(v);
         }
 
-        let arg_id = var_map.get_var(&var.get_name()).unwrap();
-        let op_arg;
+        let arg_id = var_map.get_var(var.get_name()).unwrap();
+        
 
-        op_arg = BytecodeArg {
+        let op_arg = BytecodeArg {
             operator: BytecodeOperator::AssignArgs,
-            arg: ArgType::Variable(arg_id.clone(), var.get_name().to_string()),
+            arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
         };
         
         
         let mut ans = LinkedList::new();
         ans.push_back(op_arg);
         
-        return (ans, var_map);
+        (ans, var_map)
     }
 
     fn load_expr(
@@ -364,7 +370,7 @@ impl<'a> Bytecode {
 
         op_code.push_back(BytecodeOperator::get_op(expr.get_op()));
 
-        return (op_code, var_map_ref.unwrap());
+        (op_code, var_map_ref.unwrap())
     }
 
     fn load_block(
@@ -382,7 +388,7 @@ impl<'a> Bytecode {
             }
         }
 
-        return (vs, ref_self);
+        (vs, ref_self)
     }
 
     fn load_if_def(
@@ -391,12 +397,12 @@ impl<'a> Bytecode {
     ) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
         let test_exp = if_def.get_test();
         let mut vs = vec![];
-        let mut v = Self::load_token_with_map(&test_exp, var_map);
+        let mut v = Self::load_token_with_map(test_exp, var_map);
         let mut test_list = LinkedList::new();
         let mut t = v.0.remove(0);
         test_list.append(&mut t);
 
-        let block_items = Self::load_block(&if_def.get_block(), v.1);
+        let block_items = Self::load_block(if_def.get_block(), v.1);
         test_list.push_back(BytecodeArg {
             operator: BytecodeOperator::IfTest,
             arg: ArgType::IfTestNext(block_items.0.len() as u64),
@@ -404,7 +410,7 @@ impl<'a> Bytecode {
         vs.push(test_list);
         vs.extend(block_items.0);
 
-        return (vs, block_items.1);
+        (vs, block_items.1)
     }
 
     fn load_while_def(
@@ -413,12 +419,12 @@ impl<'a> Bytecode {
     ) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
         let test_exp = while_def.get_test();
         let mut vs = vec![];
-        let mut v = Self::load_token_with_map(&test_exp, var_map);
+        let mut v = Self::load_token_with_map(test_exp, var_map);
         let mut test_list = LinkedList::new();
         let mut t = v.0.remove(0);
         test_list.append(&mut t);
 
-        let mut block_items = Self::load_block(&while_def.get_block(), v.1);
+        let mut block_items = Self::load_block(while_def.get_block(), v.1);
         test_list.push_back(BytecodeArg {
             operator: BytecodeOperator::WhileTest,
             arg: ArgType::WhileTest(block_items.0.len() as u64),
@@ -432,7 +438,7 @@ impl<'a> Bytecode {
         });
         vs.extend(block_items.0);
 
-        return (vs, block_items.1);
+        (vs, block_items.1)
     }
 
     fn load_token_with_map(
@@ -440,7 +446,7 @@ impl<'a> Bytecode {
         var_map: &'a mut VarMap<'a>,
     ) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
         if let FSRToken::Expr(expr) = token {
-            let v = Self::load_expr(&expr, var_map);
+            let v = Self::load_expr(expr, var_map);
             let r = v.1;
             return (vec![v.0], r);
         } else if let FSRToken::Variable(v) = token {
@@ -507,7 +513,7 @@ impl<'a> Bytecode {
             operator: BytecodeOperator::Assign,
             arg: ArgType::None,
         });
-        return (result_list, right.1);
+        (result_list, right.1)
     }
 
     fn load_constant(
@@ -518,7 +524,7 @@ impl<'a> Bytecode {
         if let FSRConstantType::Integer(i) = token.get_constant() {
             result_list.push_back(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstInteger(0, i.clone()),
+                arg: ArgType::ConstInteger(0, *i),
             });
         }
         else if let FSRConstantType::String(s) = token.get_constant() {
@@ -528,7 +534,7 @@ impl<'a> Bytecode {
             });
         }
         
-        return (result_list, var_map)
+        (result_list, var_map)
     }
 
     fn load_ret(
@@ -538,19 +544,19 @@ impl<'a> Bytecode {
         let v = Self::load_token_with_map(ret.get_return_expr().as_ref(), var_map);
         let mut ret_expr = LinkedList::new();
         let mut r = v.0;
-        if r.len() > 0 {
+        if !r.is_empty() {
             ret_expr.append(&mut r[0]);
         }
         ret_expr.push_back(BytecodeArg { operator: BytecodeOperator::ReturnValue, arg: ArgType::None });
 
-        return (ret_expr, v.1);
+        (ret_expr, v.1)
     }
 
     fn load_function(fn_def: &'a FSRFnDef<'a>, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut result = vec![];
         let name = fn_def.get_name();
         //let mut define_fn = LinkedList::new();
-        if var_map.has_var(name) == false {
+        if !var_map.has_var(name) {
             var_map.insert_var(name);
         }
 
@@ -576,7 +582,7 @@ impl<'a> Bytecode {
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable(arg_id.clone(), name.to_string()),
+            arg: ArgType::Variable(*arg_id, name.to_string()),
         };
         
         
@@ -624,22 +630,22 @@ impl<'a> Bytecode {
         });
         result.push(end_of_fn);
         // result.push(end_list);
-        return (result, var_map);
+        (result, var_map)
     }
 
     fn load_class(class_def: &'a FSRClassFrontEnd<'a>, var_map: &'a mut VarMap<'a>) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut result = vec![];
         let name = class_def.get_name();
-        if var_map.has_var(name) == false {
+        if !var_map.has_var(name) {
             let v = name;
             var_map.insert_var(v);
         }
         let arg_id = var_map.get_var(name).unwrap();
-        let op_arg;
+        
 
-        op_arg = BytecodeArg {
+        let op_arg = BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable(arg_id.clone(), name.to_string()),
+            arg: ArgType::Variable(*arg_id, name.to_string()),
         };
         
 
@@ -659,13 +665,13 @@ impl<'a> Bytecode {
             arg: ArgType::None,
         });
         result.push(end_of_cls);
-        return (result, var_map);
+        (result, var_map)
     }
 
     fn load_isolate_block(token: &FSRToken<'a>) -> Vec<LinkedList<BytecodeArg>> {
         let mut var_map = VarMap::new();
         let v = Self::load_token_with_map(token, &mut var_map);
-        return v.0;
+        v.0
     }
 
     pub fn load_ast(name: &str, token: FSRToken<'a>) -> Bytecode {
@@ -675,7 +681,7 @@ impl<'a> Bytecode {
             let single_line = Vec::from_iter(v);
             result.push(single_line);
         }
-        return Self {
+        Self {
             bytecode: result,
             name: name.to_string(),
         }
