@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::{
     backend::vm::{runtime::FSRVM, thread::CallState},
     utils::error::FSRError,
@@ -75,9 +77,9 @@ fn mul<'a>(
 }
 
 fn div<'a>(
-    args: Vec<u64>,
-    stack: &'a mut CallState,
-    vm: &FSRVM<'a>,
+    _args: Vec<u64>,
+    _stack: &'a mut CallState,
+    _vm: &FSRVM<'a>,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     // let self_id = args[0];
     // let other_id = args[1];
@@ -92,6 +94,7 @@ fn div<'a>(
 
     unimplemented!()
 }
+
 
 fn left_shift<'a>(
     args: Vec<u64>,
@@ -113,6 +116,7 @@ fn left_shift<'a>(
 
     unimplemented!()
 }
+
 
 fn right_shift<'a>(
     args: Vec<u64>,

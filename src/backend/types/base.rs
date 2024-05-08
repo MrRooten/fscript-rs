@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell, path::Display, rc::Rc, sync::atomic::{AtomicU64, Ordering}
+    cell::RefCell, rc::Rc, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{backend::{
@@ -226,7 +226,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn is_fsr_function(&self) -> bool {
         if let FSRValue::Function(fn_def) = &self.value {
-            if let FSRnE::FSRFn(f) = &fn_def.get_def() {
+            if let FSRnE::FSRFn(_) = &fn_def.get_def() {
                 return true;
             }
         }

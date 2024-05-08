@@ -30,6 +30,8 @@ pub enum BytecodeOperator {
     BinaryAdd,
     BinarySub,
     BinaryMul,
+    BinaryRShift,
+    BinaryLShift,
     CompareTest,
     ReturnValue,
     Call,
@@ -128,6 +130,16 @@ impl BytecodeOperator {
                 operator: BytecodeOperator::CompareTest,
                 arg: ArgType::Compare(Self::get_static_op(op)),
             };
+        } else if op.eq("<<") {
+            return BytecodeArg {
+                operator: BytecodeOperator::BinaryLShift,
+                arg: ArgType::None,
+            };
+        } else if op.eq(">>") {
+            return BytecodeArg {
+                operator: BytecodeOperator::BinaryRShift,
+                arg: ArgType::None,
+            };
         }
         unimplemented!()
     }
@@ -139,7 +151,9 @@ pub struct VarMap<'a> {
     var_id: AtomicU64,
     attr_map: HashMap<&'a str, u64>,
     attr_id: AtomicU64,
+    #[allow(unused)]
     const_map: HashMap<&'a str, FSRConstant>,
+    #[allow(unused)]
     const_id: AtomicU64,
 }
 
@@ -188,13 +202,10 @@ impl<'a> VarMap<'a> {
     }
 }
 
-pub struct ExprList {
-    var_map: VarMap<'static>,
-    list: Vec<LinkedList<BytecodeArg>>,
-}
 
 #[derive(Debug)]
 pub struct Bytecode {
+    #[allow(unused)]
     name: String,
     bytecode: Vec<Vec<BytecodeArg>>,
 }
@@ -272,17 +283,13 @@ impl<'a> Bytecode {
 
         let arg_id = var_map.get_var(var.get_name()).unwrap();
         let op_arg = match is_attr {
-            true => {
-                BytecodeArg {
-                    operator: BytecodeOperator::Load,
-                    arg: ArgType::Attr(*arg_id, var.get_name().to_string()),
-                }
+            true => BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::Attr(*arg_id, var.get_name().to_string()),
             },
-            false => {
-                BytecodeArg {
-                    operator: BytecodeOperator::Load,
-                    arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
-                }
+            false => BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
             },
         };
 
@@ -567,7 +574,6 @@ impl<'a> Bytecode {
         let mut fn_var_map = VarMap::new();
         let mut fn_var_map_ref = &mut fn_var_map;
         let args = fn_def.get_args();
-        let mut var_map = var_map;
         let mut args_load = LinkedList::new();
         let mut arg_len = 0;
         for arg in args {

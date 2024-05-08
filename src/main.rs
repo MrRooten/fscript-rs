@@ -29,5 +29,5 @@ fn main() {
     let v = Bytecode::load_ast("main", FSRToken::Module(token));
     let mut runtime = FSRThreadRuntime::new();
     let mut vm = FSRVM::new();
-    runtime.start(&v, &mut vm);
+    runtime.start(&v, &mut vm).unwrap();
 }

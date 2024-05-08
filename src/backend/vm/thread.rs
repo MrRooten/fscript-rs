@@ -1,8 +1,7 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    cell::RefCell,
-    collections::{HashMap, LinkedList},
+    collections::HashMap,
     sync::atomic::AtomicU64,
 };
 
@@ -29,6 +28,7 @@ pub struct CallState<'a> {
     cur_cls: Option<FSRClass<'a>>,
     ret_val: Option<u64>,
     exp: Option<Vec<SValue<'a>>>,
+    #[allow(unused)]
     name: &'a str,
 }
 
@@ -101,7 +101,7 @@ impl SValue<'_> {
                 }
             }
             SValue::Global(id) => *id,
-            SValue::Attr((id, name)) => *id,
+            SValue::Attr((id, _)) => *id,
         }
     }
 }
@@ -212,12 +212,11 @@ impl<'a> FSRThreadRuntime<'a> {
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
         exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
-        ip: &mut (usize, usize),
+        _bytecode: &BytecodeArg,
+        _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
-        let state = self.get_cur_stack();
         let state = self.get_cur_stack();
         let assign_id = match exp.pop() {
             Some(s) => s,
@@ -280,12 +279,11 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_add_process(
         self: &mut FSRThreadRuntime<'a>,
         exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
-        ip: &mut (usize, usize),
+        _bytecode: &BytecodeArg,
+        _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
-        let state = self.get_cur_stack();
         let state = self.get_cur_stack();
         let v1 = match exp.pop() {
             Some(s) => s.get_global_id(state, vm),
@@ -323,11 +321,11 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_mul_process(
         self: &mut FSRThreadRuntime<'a>,
         exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
 
-        ip: &mut (usize, usize),
+        _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let v1 = match exp.pop() {
@@ -365,15 +363,15 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_dot_process(
         self: &mut FSRThreadRuntime<'a>,
         exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
 
-        ip: &mut (usize, usize),
+        _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let attr_id = match exp.pop().unwrap() {
-            SValue::Stack(i_) => unimplemented!(),
+            SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
             SValue::Attr(id) => id,
         };
@@ -454,7 +452,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
             SValue::Global(id) => id,
-            SValue::Attr((id, fname)) => id,
+            SValue::Attr((id, _)) => id,
         };
 
         if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
@@ -566,7 +564,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let test_val = match exp.pop().unwrap() {
@@ -599,7 +597,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let test_val = match exp.pop().unwrap() {
@@ -630,7 +628,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let name = match exp.pop().unwrap() {
@@ -641,7 +639,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if let ArgType::DefineFnArgs(n, arg_len) = bytecode.get_arg() {
             let mut args = vec![];
-            for i in 0..*arg_len {
+            for _ in 0..*arg_len {
                 let v = match exp.pop().unwrap() {
                     SValue::Stack(id) => id,
                     SValue::Attr(_) => panic!(),
@@ -665,13 +663,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn end_define_fn(
         self: &mut FSRThreadRuntime<'a>,
-        exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
+        _exp: &mut Vec<SValue<'a>>,
+        _bytecode: &BytecodeArg,
         ip: &mut (usize, usize),
-        vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _vm: &mut FSRVM<'a>,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
-        let state = self.get_cur_stack();
         self.pop_stack();
         let cur = self.get_cur_stack();
         *ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
@@ -682,9 +679,9 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         exp: &mut Vec<SValue<'a>>,
         bytecode: &BytecodeArg,
-        ip: &mut (usize, usize),
+        _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         if let ArgType::Compare(op) = bytecode.get_arg() {
@@ -704,10 +701,10 @@ impl<'a> FSRThreadRuntime<'a> {
     fn ret_value(
         self: &mut FSRThreadRuntime<'a>,
         exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let v = exp.pop().unwrap().get_global_id(state, vm);
@@ -721,11 +718,11 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn while_block_end(
         self: &mut FSRThreadRuntime<'a>,
-        exp: &mut Vec<SValue<'a>>,
+        _exp: &mut Vec<SValue<'a>>,
         bytecode: &BytecodeArg,
         ip: &mut (usize, usize),
-        vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _vm: &mut FSRVM<'a>,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         if let ArgType::WhileEnd(n) = bytecode.get_arg() {
             *ip = (ip.0 - *n as usize, 0);
@@ -737,12 +734,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn assign_args(
         self: &mut FSRThreadRuntime<'a>,
-        exp: &mut Vec<SValue<'a>>,
+        _exp: &mut Vec<SValue<'a>>,
         bytecode: &BytecodeArg,
 
-        ip: &mut (usize, usize),
-        vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _ip: &mut (usize, usize),
+        _vm: &mut FSRVM<'a>,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let v = state.args.pop().unwrap();
@@ -755,11 +752,11 @@ impl<'a> FSRThreadRuntime<'a> {
     fn class_def(
         self: &mut FSRThreadRuntime<'a>,
         exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
 
-        ip: &mut (usize, usize),
-        vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _ip: &mut (usize, usize),
+        _vm: &mut FSRVM<'a>,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let id = match exp.pop().unwrap() {
@@ -776,11 +773,11 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn end_class_def(
         self: &mut FSRThreadRuntime<'a>,
-        exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
-        ip: &mut (usize, usize),
+        _exp: &mut Vec<SValue<'a>>,
+        _bytecode: &BytecodeArg,
+        _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
-        is_attr: &mut bool,
+        _is_attr: &mut bool,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let mut cls_obj = FSRObject::new();
@@ -856,7 +853,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut exp_stack = vec![];
 
         let mut is_attr = false;
-        let mut v = false;
+        let mut v;
         while ip.1 < expr.len() {
             let arg = &expr[ip.1];
             ip.1 += 1;
@@ -879,12 +876,14 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) {
+    pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
         let mut ip = (0, 0);
         let p = self as *mut Self;
         while let Some(expr) = bytecode.get(ip) {
             let s = unsafe { &mut *p };
-            s.run_expr(expr, &mut ip, vm);
+            s.run_expr(expr, &mut ip, vm)?;
         }
+
+        Ok(())
     }
 }

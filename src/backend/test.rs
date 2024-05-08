@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
 
     use crate::{
         backend::{
@@ -9,7 +8,6 @@ mod tests {
         },
         frontend::ast::token::{
             base::{FSRPosition, FSRToken},
-            expr::FSRExpr,
             module::FSRModuleFrontEnd,
         },
     };
@@ -65,6 +63,6 @@ mod tests {
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();
         let mut vm = FSRVM::new();
-        runtime.start(&v, &mut vm);
+        runtime.start(&v, &mut vm).unwrap();
     }
 }

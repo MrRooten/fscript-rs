@@ -1,8 +1,4 @@
-use std::{
-    cell::{Cell, RefCell},
-    collections::HashMap,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::{collections::HashMap, sync::atomic::AtomicU64};
 
 use crate::{
     backend::types::{
@@ -11,15 +7,14 @@ use crate::{
         integer::FSRInteger,
         string::FSRString,
     },
-    frontend::ast::token::slice::FSRSlice,
     std::io::init_io,
 };
 
 use super::thread::FSRThreadRuntime;
 
 pub struct FSRVM<'a> {
+    #[allow(unused)]
     threads: HashMap<u64, FSRThreadRuntime<'a>>,
-    update_id: AtomicU64,
     obj_map: HashMap<u64, Box<FSRObject<'a>>>,
     global: HashMap<String, u64>,
     base_types: HashMap<&'a str, FSRClass<'a>>,
@@ -43,7 +38,6 @@ impl<'a> FSRVM<'a> {
         maps.insert(0, main_thread);
         let mut v = Self {
             threads: maps,
-            update_id: AtomicU64::new(1000),
             obj_map: HashMap::new(),
             base_types: HashMap::new(),
             global: HashMap::new(),
@@ -53,11 +47,9 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn check_delete(&mut self, id: u64) {
-        unsafe {
-            let obj = FSRObject::id_to_mut_obj(id);
-            if *obj.ref_count.get_mut() == 0 {
-                self.obj_map.remove(&id);
-            }
+        let obj = FSRObject::id_to_mut_obj(id);
+        if *obj.ref_count.get_mut() == 0 {
+            self.obj_map.remove(&id);
         }
     }
 
@@ -126,7 +118,7 @@ impl<'a> FSRVM<'a> {
     pub fn get_obj_by_id(&self, id: &u64) -> Option<&FSRObject<'a>> {
         match self.obj_map.get(id) {
             Some(s) => Some(s),
-            None => None
+            None => None,
         }
     }
 
@@ -138,11 +130,11 @@ impl<'a> FSRVM<'a> {
         obj as *const FSRObject as u64
     }
 
-    pub fn register_object(&mut self, mut object: FSRObject<'a>) -> u64 {
+    pub fn register_object(&mut self, object: FSRObject<'a>) -> u64 {
         let mut object = Box::new(object);
         let id = Self::get_object_id(&object);
         object.obj_id = id;
-        
+
         self.obj_map.insert(id, object);
 
         id

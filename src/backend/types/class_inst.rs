@@ -4,6 +4,7 @@ use super::base::FSRObject;
 
 #[derive(Debug, Clone)]
 pub struct FSRClassInst<'a> {
+    #[allow(unused)]
     name: &'a str,
     attrs: HashMap<&'a str, u64>,
 }
