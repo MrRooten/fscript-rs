@@ -845,7 +845,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn run_expr(
-        &'a mut self,
+        &mut self,
         expr: &'a Vec<BytecodeArg>,
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
@@ -878,10 +878,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
     pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
         let mut ip = (0, 0);
-        let p = self as *mut Self;
         while let Some(expr) = bytecode.get(ip) {
-            let s = unsafe { &mut *p };
-            s.run_expr(expr, &mut ip, vm)?;
+            self.run_expr(expr, &mut ip, vm)?;
         }
 
         Ok(())
