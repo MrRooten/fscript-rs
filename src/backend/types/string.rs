@@ -41,10 +41,10 @@ impl FSRString {
         cls
     }
 
-    pub fn new_inst<'a>(_: String, _: &'a mut FSRVM<'a>) -> FSRObject<'a> {
+    pub fn new_inst<'a>(s: String) -> FSRObject<'a> {
         let mut object = FSRObject::new();
         object.set_cls("String");
-
+        object.set_value(FSRValue::String(s));
         object
     }
 }

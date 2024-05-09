@@ -47,18 +47,13 @@ mod tests {
                 dump(self)
                 return 123
             }
+
+            fn __str__(self) {
+                return 'abc'
+            }
         }
         c = Abc('456')
-        b = Abc(\"123\")
-        b.dd = c
-        dump(b.dd.abc)
-
-        a = 1
-        while a < 3 {
-            println(a)
-            a = a + 1 + 4*6
-        }
-        println(a)
+        println(c)
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();

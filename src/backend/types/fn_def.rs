@@ -73,6 +73,9 @@ impl<'a> FSRFn {
             return f(args, stack, vm);
         }
 
+        if let FSRnE::FSRFn(f) = &self.fn_def {
+            
+        }
         unimplemented!()
     }
 }

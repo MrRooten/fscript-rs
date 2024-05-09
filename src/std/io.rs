@@ -13,11 +13,11 @@ use crate::{
 
 pub fn fsr_fn_print<'a>(
     args: Vec<u64>,
-    _stack: &mut CallState,
-    _vm: &FSRVM<'a>,
+    state: &mut CallState,
+    vm: &FSRVM<'a>,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
-    let obj = value.to_string();
+    let obj = value.to_string(state, vm);
     if let FSRValue::String(s) = &obj.value {
         print!("{}", s);
     }
@@ -26,11 +26,11 @@ pub fn fsr_fn_print<'a>(
 
 pub fn fsr_fn_println<'a>(
     args: Vec<u64>,
-    _stack: &mut CallState,
-    _vm: &FSRVM<'a>,
+    state: &mut CallState,
+    vm: &FSRVM<'a>,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
-    let obj = value.to_string();
+    let obj = value.to_string(state, vm);
     if let FSRValue::String(s) = &obj.value {
         println!("{}", s);
     }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Keys, HashMap};
 
 use super::base::FSRObject;
 
@@ -28,5 +28,13 @@ impl<'a> FSRClassInst<'a> {
             obj.ref_dec();
         }
         self.attrs.insert(name, value);
+    }
+
+    pub fn list_attrs(&self) -> Keys<&'a str, u64> {
+        return self.attrs.keys();
+    }
+
+    pub fn get_cls_name(&self) -> &str {
+        return &self.name
     }
 }

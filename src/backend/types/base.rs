@@ -1,18 +1,27 @@
 use std::{
-    cell::RefCell, rc::Rc, sync::atomic::{AtomicU64, Ordering}
+    cell::RefCell,
+    collections::hash_map::Keys,
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::{backend::{
-    types::fn_def::FSRnE,
-    vm::{runtime::{FALSE_OBJECT, FSRVM, NONE_OBJECT, TRUE_OBJECT}, thread::CallState},
-}, utils::error::{FSRErrCode, FSRError}};
+use crate::{
+    backend::{
+        types::fn_def::FSRnE,
+        vm::{
+            runtime::{FALSE_OBJECT, FSRVM, NONE_OBJECT, TRUE_OBJECT},
+            thread::CallState,
+        },
+    },
+    utils::error::{FSRErrCode, FSRError},
+};
 
-use super::{class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn};
+use super::{class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, list::FSRList, string::FSRString};
 
 pub enum FSRGlobalObjId {
-    None=0,
-    True=1,
-    False=2
+    None = 0,
+    True = 1,
+    False = 2,
 }
 
 #[derive(Debug, Clone)]
@@ -24,28 +33,60 @@ pub enum FSRValue<'a> {
     ClassInst(FSRClassInst<'a>),
     Function(FSRFn),
     Bool(bool),
+    List(FSRList),
     None,
 }
 
 #[derive(Debug)]
 pub enum FSRRetValue<'a> {
     Value(FSRObject<'a>),
-    GlobalId(u64)
+    GlobalId(u64),
 }
 
-impl<'a> std::fmt::Display for FSRValue<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'a> FSRValue<'a> {
+
+
+    fn to_string(&self, 
+        stack: &mut CallState,
+        vm: &FSRVM<'a>) -> Option<String> {
         let s = match self {
-            FSRValue::Integer(e) => e.to_string(),
-            FSRValue::Float(e) => e.to_string(),
-            FSRValue::String(e) => e.to_string(),
-            FSRValue::Class(_) => todo!(),
-            FSRValue::ClassInst(_) => todo!(),
-            FSRValue::Function(_) => todo!(),
-            FSRValue::None => todo!(),
-            FSRValue::Bool(e) => e.to_string(),
+            FSRValue::Integer(e) => Some(e.to_string()),
+            FSRValue::Float(e) => Some(e.to_string()),
+            FSRValue::String(e) => Some(e.to_string()),
+            FSRValue::Class(_) => None,
+            FSRValue::ClassInst(inst) => {
+                let cls = match vm.get_global_obj_by_name(inst.get_cls_name()) {
+                    Some(s) => s,
+                    None => {
+                        return None;
+                    }
+                };
+                let cls = FSRObject::id_to_obj(*cls);
+                let cls = cls.as_class();
+                let v = cls.get_attr("__str__");
+                if let Some(obj_id) = v {
+                    let obj = FSRObject::id_to_obj(obj_id);
+                    let ret = obj.call(vec![], stack, vm);
+                    let ret_value = match ret {
+                        Ok(o) => o,
+                        Err(_) => {
+                            return None;
+                        }
+                    };
+
+                    if let FSRRetValue::Value(v) = ret_value {
+                        return Some(v.as_string().to_string())
+                    }
+                }
+                None
+            },
+            FSRValue::Function(_) => None,
+            FSRValue::None => None,
+            FSRValue::Bool(e) => Some(e.to_string()),
+            FSRValue::List(e) => Some(e.to_string()),
         };
-        write!(f, "{}", s)
+        
+        s
     }
 }
 
@@ -53,7 +94,7 @@ impl<'a> std::fmt::Display for FSRValue<'a> {
 pub struct FSRObject<'a> {
     pub(crate) obj_id: u64,
     pub(crate) value: FSRValue<'a>,
-    pub(crate) ref_count       : AtomicU64,
+    pub(crate) ref_count: AtomicU64,
     pub(crate) cls: &'a str,
 }
 
@@ -81,6 +122,21 @@ impl<'a> FSRObject<'a> {
         self.cls = cls
     }
 
+    pub fn as_string(&self) -> &str {
+        if let FSRValue::String(s) = &self.value {
+            return s
+        }
+        unimplemented!()
+    }
+
+    pub fn as_class(&self) -> &FSRClass {
+        if let FSRValue::Class(cls) = &self.value {
+            return cls;
+        }
+
+        unimplemented!()
+    }
+
     pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
         if let Some(btype) = vm.get_cls(self.cls) {
             return btype.get_attr(name);
@@ -88,7 +144,7 @@ impl<'a> FSRObject<'a> {
         let cls = vm.get_global_obj_by_name(self.cls);
         let cls_id = match cls {
             Some(s) => *s,
-            None => return None
+            None => return None,
         };
 
         let cls_obj = FSRObject::id_to_obj(cls_id);
@@ -110,7 +166,7 @@ impl<'a> FSRObject<'a> {
                         obj_id: 0,
                         value: v,
                         cls: "Integer",
-                        ref_count: AtomicU64::new(0)
+                        ref_count: AtomicU64::new(0),
                     };
                 }
             }
@@ -127,12 +183,7 @@ impl<'a> FSRObject<'a> {
                 }
             }
         } else if method.eq("__str__") {
-            return Self {
-                obj_id: 0,
-                value: FSRValue::String(self.value.to_string()),
-                cls: "String",
-                ref_count: AtomicU64::new(0),
-            };
+            
         }
 
         unimplemented!()
@@ -140,13 +191,13 @@ impl<'a> FSRObject<'a> {
 
     pub fn sp_object(id: u64) -> &'static FSRObject<'static> {
         if id == 0 {
-            return unsafe { NONE_OBJECT.as_ref().unwrap() }
+            return unsafe { NONE_OBJECT.as_ref().unwrap() };
         }
         if id == 1 {
-            return unsafe { TRUE_OBJECT.as_ref().unwrap() }
+            return unsafe { TRUE_OBJECT.as_ref().unwrap() };
         }
         if id == 2 {
-            return unsafe { FALSE_OBJECT.as_ref().unwrap() }
+            return unsafe { FALSE_OBJECT.as_ref().unwrap() };
         }
 
         panic!()
@@ -188,10 +239,13 @@ impl<'a> FSRObject<'a> {
         vm: &FSRVM<'a>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
-        let self_method =  match self_object.get_cls_attr(name, vm) {
+        let self_method = match self_object.get_cls_attr(name, vm) {
             Some(s) => s,
             None => {
-                return Err(FSRError::new(format!("no such a method `{}`", name), FSRErrCode::NoSuchMethod))
+                return Err(FSRError::new(
+                    format!("no such a method `{}`", name),
+                    FSRErrCode::NoSuchMethod,
+                ))
             }
         };
         let method_object = Self::id_to_obj(self_method);
@@ -216,6 +270,14 @@ impl<'a> FSRObject<'a> {
         }
 
         None
+    }
+
+    pub fn list_attrs(&self) -> Keys<&'a str, u64> {
+        if let FSRValue::ClassInst(inst) = &self.value {
+            return inst.list_attrs();
+        }
+
+        unimplemented!()
     }
 
     #[inline]
@@ -245,8 +307,15 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    pub fn to_string(&self) -> FSRObject<'a> {
-        return self.invoke("__str__", vec![]);
+    pub fn to_string(&self, 
+        stack: &mut CallState,
+        vm: &FSRVM<'a>,) -> FSRObject<'a> {
+        if let Some(s) = self.value.to_string(stack, vm) {
+            return FSRString::new_inst(s);
+        }
+
+        return FSRString::new_inst(format!("<`{}` Object at {:?}>", self.cls, self as *const Self));
+        //return self.invoke("__str__", vec![]);
     }
 
     pub fn is_fsr_function(&self) -> bool {
@@ -255,7 +324,7 @@ impl<'a> FSRObject<'a> {
                 return true;
             }
         }
-        
+
         false
     }
 
@@ -263,7 +332,7 @@ impl<'a> FSRObject<'a> {
         if let FSRValue::Class(_) = &self.value {
             return true;
         }
-        
+
         false
     }
 
@@ -273,7 +342,7 @@ impl<'a> FSRObject<'a> {
                 return (f.0.clone(), f.1);
             }
         }
-        
+
         panic!()
     }
 
@@ -287,10 +356,9 @@ impl<'a> FSRObject<'a> {
 
     pub fn get_fsr_class_name(&self) -> &str {
         if let FSRValue::Class(cls) = &self.value {
-            return cls.get_name()
+            return cls.get_name();
         }
 
         unimplemented!()
     }
-
 }
