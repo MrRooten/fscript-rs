@@ -9,6 +9,12 @@ use crate::{backend::{
 
 use super::{class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn};
 
+pub enum FSRGlobalObjId {
+    None=0,
+    True=1,
+    False=2
+}
+
 #[derive(Debug, Clone)]
 pub enum FSRValue<'a> {
     Integer(i64),
@@ -74,7 +80,6 @@ impl<'a> FSRObject<'a> {
     pub fn set_cls(&mut self, cls: &'a str) {
         self.cls = cls
     }
-
 
     pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
         if let Some(btype) = vm.get_cls(self.cls) {
@@ -147,14 +152,17 @@ impl<'a> FSRObject<'a> {
         panic!()
     }
 
+    #[inline]
     pub fn ref_add(&self) {
         self.ref_count.fetch_add(1, Ordering::Relaxed);
     }
 
+    #[inline]
     pub fn ref_dec(&self) {
         self.ref_count.fetch_sub(1, Ordering::Relaxed);
     }
 
+    #[inline]
     pub fn id_to_obj(id: u64) -> &'a FSRObject<'a> {
         if id < 1000 {
             return Self::sp_object(id);
@@ -165,6 +173,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    #[inline]
     pub fn id_to_mut_obj(id: u64) -> &'a mut FSRObject<'a> {
         unsafe {
             let ptr = id as *mut FSRObject;
@@ -190,6 +199,7 @@ impl<'a> FSRObject<'a> {
         Ok(v)
     }
 
+    #[inline]
     pub fn get_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
         if let Some(s) = self.get_cls_attr(name, vm) {
             return Some(s);
@@ -206,6 +216,21 @@ impl<'a> FSRObject<'a> {
         }
 
         None
+    }
+
+    #[inline]
+    pub fn is_true(&self) -> bool {
+        return self.obj_id == FSRGlobalObjId::True as u64;
+    }
+
+    #[inline]
+    pub fn is_false(&self) -> bool {
+        return self.obj_id == FSRGlobalObjId::False as u64;
+    }
+
+    #[inline]
+    pub fn is_none(&self) -> bool {
+        return self.obj_id == FSRGlobalObjId::None as u64;
     }
 
     pub fn call(
