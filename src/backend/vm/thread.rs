@@ -24,6 +24,7 @@ pub struct CallState<'a> {
     var_map: HashMap<u64, u64>,
     const_map: HashMap<u64, u64>,
     reverse_ip: (usize, usize),
+    cur_ip: (usize, usize),
     args: Vec<u64>,
     cur_cls: Option<FSRClass<'a>>,
     ret_val: Option<u64>,
@@ -71,6 +72,7 @@ impl<'a> CallState<'a> {
             ret_val: None,
             exp: None,
             name,
+            cur_ip: (0, 0),
         }
     }
 }

@@ -302,7 +302,7 @@ impl<'a> FSRObject<'a> {
         vm: &FSRVM<'a>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
-            return fn_def.invoke(args, stack, vm);
+            return fn_def.invoke(args, stack, None, vm);
         }
         unimplemented!()
     }

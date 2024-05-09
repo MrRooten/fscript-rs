@@ -1,7 +1,7 @@
 use std::{rc::Rc, sync::atomic::AtomicU64};
 
 use crate::{
-    backend::vm::{runtime::FSRVM, thread::CallState},
+    backend::vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}},
     utils::error::FSRError,
 };
 
@@ -67,6 +67,7 @@ impl<'a> FSRFn {
         &self,
         args: Vec<u64>,
         stack: &mut CallState,
+        thread: Option<&mut FSRThreadRuntime>,
         vm: &FSRVM<'a>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
@@ -74,7 +75,7 @@ impl<'a> FSRFn {
         }
 
         if let FSRnE::FSRFn(f) = &self.fn_def {
-            
+
         }
         unimplemented!()
     }
