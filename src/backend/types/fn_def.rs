@@ -1,7 +1,7 @@
 use std::{rc::Rc, sync::atomic::AtomicU64};
 
 use crate::{
-    backend::vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}},
+    backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}}},
     utils::error::FSRError,
 };
 
@@ -15,18 +15,36 @@ type FSRRustFn = for<'a> fn(
     stack: &mut CallState,
     vm: &FSRVM<'a>,
 ) -> Result<FSRRetValue<'a>, FSRError>;
+
 #[derive(Debug, Clone)]
-pub enum FSRnE {
+pub struct FSRFnInner<'a> {
+    name    : Rc<String>,
+    fn_ip   : (u64, u64),
+    bytecode    : &'a Bytecode
+}
+
+impl<'a> FSRFnInner<'a> {
+    pub fn get_name(&self) -> Rc<String> {
+        return self.name.clone();
+    }
+
+    pub fn get_ip(&self) -> (u64, u64) {
+        return self.fn_ip;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum FSRnE<'a> {
     RustFn(FSRRustFn),
-    FSRFn((Rc<String>, (u64, u64))),
+    FSRFn(FSRFnInner<'a>),
 }
 
 #[derive(Debug, Clone)]
-pub struct FSRFn {
-    fn_def: FSRnE,
+pub struct FSRFn<'a> {
+    fn_def: FSRnE<'a>,
 }
 
-impl<'a> FSRFn {
+impl<'a> FSRFn<'a> {
     pub fn get_def(&self) -> &FSRnE {
         &self.fn_def
     }
@@ -35,9 +53,15 @@ impl<'a> FSRFn {
         unimplemented!()
     }
 
-    pub fn from_fsr_fn(module: &str, u: (u64, u64), _: Vec<String>) -> FSRObject<'static> {
+    pub fn from_fsr_fn(module: &str, u: (u64, u64), _: Vec<String>, bytecode: &'a Bytecode) -> FSRObject<'a> {
+        let fn_obj = FSRFnInner {
+            name: Rc::new(module.to_string()),
+            fn_ip: u,
+            bytecode: bytecode
+        };
+
         let v = Self {
-            fn_def: FSRnE::FSRFn((Rc::new(module.to_string()), u)),
+            fn_def: FSRnE::FSRFn(fn_obj),
         };
         FSRObject {
             obj_id: 0,
@@ -47,7 +71,7 @@ impl<'a> FSRFn {
         }
     }
 
-    pub fn from_rust_fn(f: FSRRustFn) -> FSRObject<'static> {
+    pub fn from_rust_fn(f: FSRRustFn) -> FSRObject<'a> {
         let v = Self {
             fn_def: FSRnE::RustFn(f),
         };

@@ -31,7 +31,7 @@ pub enum FSRValue<'a> {
     String(String),
     Class(FSRClass<'a>),
     ClassInst(FSRClassInst<'a>),
-    Function(FSRFn),
+    Function(FSRFn<'a>),
     Bool(bool),
     List(FSRList),
     None,
@@ -339,7 +339,7 @@ impl<'a> FSRObject<'a> {
     pub fn get_fsr_offset(&self) -> (Rc<String>, (u64, u64)) {
         if let FSRValue::Function(fn_def) = &self.value {
             if let FSRnE::FSRFn(f) = &fn_def.get_def() {
-                return (f.0.clone(), f.1);
+                return (f.get_name(), f.get_ip());
             }
         }
 

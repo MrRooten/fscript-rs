@@ -53,7 +53,7 @@ mod tests {
             }
         }
         c = Abc('456')
-        println(c)
+        
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();

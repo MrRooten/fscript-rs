@@ -115,6 +115,7 @@ type BytecodeFn<'a> = fn(
     ip: &mut (usize, usize),
     vm: &mut FSRVM<'a>,
     is_attr: &mut bool,
+    bc: &'a Bytecode,
 ) -> Result<bool, FSRError>;
 
 pub struct FSRThreadRuntime<'a> {
@@ -218,6 +219,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let assign_id = match exp.pop() {
@@ -285,6 +287,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let v1 = match exp.pop() {
@@ -328,6 +331,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let v1 = match exp.pop() {
@@ -370,6 +374,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let attr_id = match exp.pop().unwrap() {
@@ -410,7 +415,7 @@ impl<'a> FSRThreadRuntime<'a> {
         state: &mut CallState,
         vm: &mut FSRVM<'a>,
         exp: &mut Vec<SValue<'a>>,
-        args: &mut Vec<u64>,
+        args: &mut Vec<u64>
     ) {
         let mut i = 0;
         while i < args_num {
@@ -442,6 +447,7 @@ impl<'a> FSRThreadRuntime<'a> {
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         //let ptr = vm as *mut FSRVM;
         let fn_id = match exp.pop().unwrap() {
@@ -567,6 +573,7 @@ impl<'a> FSRThreadRuntime<'a> {
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let test_val = match exp.pop().unwrap() {
@@ -600,6 +607,7 @@ impl<'a> FSRThreadRuntime<'a> {
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let test_val = match exp.pop().unwrap() {
@@ -627,10 +635,11 @@ impl<'a> FSRThreadRuntime<'a> {
     fn define_fn(
         &mut self,
         exp: &mut Vec<SValue<'a>>,
-        bytecode: &BytecodeArg,
+        bytecode_args: &BytecodeArg,
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let name = match exp.pop().unwrap() {
@@ -639,7 +648,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Global(_) => panic!(),
         };
 
-        if let ArgType::DefineFnArgs(n, arg_len) = bytecode.get_arg() {
+        if let ArgType::DefineFnArgs(n, arg_len) = bytecode_args.get_arg() {
             let mut args = vec![];
             for _ in 0..*arg_len {
                 let v = match exp.pop().unwrap() {
@@ -649,7 +658,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 };
                 args.push(v.1.to_string());
             }
-            let fn_obj = FSRFn::from_fsr_fn("main", (ip.0 as u64 + 1, 0), args);
+            let fn_obj = FSRFn::from_fsr_fn("main", (ip.0 as u64 + 1, 0), args, bc);
             let fn_id = vm.register_object(fn_obj);
             if let Some(cur_cls) = &mut state.cur_cls {
                 cur_cls.insert_attr_id(name.1, fn_id);
@@ -670,6 +679,7 @@ impl<'a> FSRThreadRuntime<'a> {
         ip: &mut (usize, usize),
         _vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         self.pop_stack();
         let cur = self.get_cur_stack();
@@ -684,6 +694,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         if let ArgType::Compare(op) = bytecode.get_arg() {
@@ -707,6 +718,7 @@ impl<'a> FSRThreadRuntime<'a> {
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let v = exp.pop().unwrap().get_global_id(state, vm);
@@ -725,6 +737,7 @@ impl<'a> FSRThreadRuntime<'a> {
         ip: &mut (usize, usize),
         _vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if let ArgType::WhileEnd(n) = bytecode.get_arg() {
             *ip = (ip.0 - *n as usize, 0);
@@ -742,6 +755,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _ip: &mut (usize, usize),
         _vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let v = state.args.pop().unwrap();
@@ -759,6 +773,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _ip: &mut (usize, usize),
         _vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let id = match exp.pop().unwrap() {
@@ -780,6 +795,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         _is_attr: &mut bool,
+        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_stack();
         let mut cls_obj = FSRObject::new();
@@ -799,9 +815,10 @@ impl<'a> FSRThreadRuntime<'a> {
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
         is_attr: &mut bool,
+        bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let bc_op = self.bytecode_map.get(bytecode.get_operator()).unwrap();
-        let v = bc_op(self, exp, bytecode, ip, vm, is_attr)?;
+        let v = bc_op(self, exp, bytecode, ip, vm, is_attr, bc)?;
         if v {
             return Ok(v);
         }
@@ -851,6 +868,7 @@ impl<'a> FSRThreadRuntime<'a> {
         expr: &'a Vec<BytecodeArg>,
         ip: &mut (usize, usize),
         vm: &mut FSRVM<'a>,
+        bc: &'a Bytecode,
     ) -> Result<(), FSRError> {
         let mut exp_stack = vec![];
 
@@ -866,7 +884,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 let state = self.get_cur_stack();
                 Self::load_var(&mut is_attr, &mut exp_stack, arg, vm, state);
             } else {
-                v = self.process(&mut exp_stack, arg, ip, vm, &mut is_attr)?;
+                v = self.process(&mut exp_stack, arg, ip, vm, &mut is_attr, bc)?;
                 if v {
                     return Ok(());
                 }
@@ -881,9 +899,11 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
         let mut ip = (0, 0);
         while let Some(expr) = bytecode.get(ip) {
-            self.run_expr(expr, &mut ip, vm)?;
+            self.run_expr(expr, &mut ip, vm, &bytecode)?;
         }
 
         Ok(())
     }
+
+
 }
