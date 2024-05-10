@@ -896,7 +896,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     }
 
     pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
-
+        self.set_vm(vm);
         let mut context = ThreadContext {
             exp: vec![],
             ip: (0, 0),
