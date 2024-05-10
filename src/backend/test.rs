@@ -42,15 +42,6 @@ mod tests {
                 println(self.abc)
                 return self
             }
-
-            fn test(self) {
-                dump(self)
-                return 123
-            }
-
-            fn __str__(self) {
-                return 'abc'
-            }
         }
         c = Abc('456')
         
