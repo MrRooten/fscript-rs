@@ -24,8 +24,7 @@ class Abc {
 c = Abc('456')
 println(c)
 a = [1, 2, 3, c]
-println(a)
-        ";
+println(a)";
 
         println!("Running code:");
         println!("{}", source_code);
