@@ -10,24 +10,29 @@ use fscript_rs::{
 };
 
 fn main() {
-    let expr = "
-    fn abc(ddc) {
-        println(ddc)
-    }
-    ddc = 'asdf'
-    abc(ddc)
-
-    fn ccddefg(ddc) {
-        println(ddc)
+    let source_code = "
+class Abc {
+    fn __new__(self, abc) {
+        self.abc = 123
+        return self
     }
 
-    ccddefg('sdfsdfsdf')
-    println('okokokokok')
-    ";
-    let meta = FSRPosition::new();
-    let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-    let v = Bytecode::load_ast("main", FSRToken::Module(token));
-    let mut runtime = FSRThreadRuntime::new();
-    let mut vm = FSRVM::new();
-    runtime.start(&v, &mut vm).unwrap();
+    fn __str__(self) {
+        return 'Abc: abc = 123'
+    }
+}
+c = Abc('456')
+println(c)
+a = [1, 2, 3, c]
+println(a)
+        ";
+
+        println!("Running code:");
+        println!("{}", source_code);
+        println!("\n\n\n---------------------");
+        let v = Bytecode::compile("main", source_code);
+        let mut runtime = FSRThreadRuntime::new();
+        let mut vm = FSRVM::new();
+        runtime.set_vm(&mut vm);
+        runtime.start(&v, &mut vm).unwrap();
 }
