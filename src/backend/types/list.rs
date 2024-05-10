@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, string::FSRString}, vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}}}, utils::error::FSRError};
+use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, string::FSRString}, vm::{runtime::FSRVM, thread::FSRThreadRuntime}}, utils::error::FSRError};
 
 use super::{base::FSRRetValue, class::FSRClass, fn_def::FSRFn};
 
@@ -39,7 +39,7 @@ fn list_string<'a>(
         let s_obj = obj.to_string(thread);
         if let FSRValue::String(_s) = &s_obj.value {
             s.push_str(_s);
-            s.push_str(",");
+            s.push(',');
         }
     }
 

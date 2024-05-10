@@ -35,6 +35,6 @@ impl<'a> FSRClassInst<'a> {
     }
 
     pub fn get_cls_name(&self) -> &str {
-        return &self.name
+        self.name
     }
 }

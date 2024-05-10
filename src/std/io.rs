@@ -6,7 +6,7 @@ use crate::{
             base::{FSRObject, FSRRetValue, FSRValue},
             fn_def::FSRFn,
         },
-        vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}},
+        vm::thread::FSRThreadRuntime,
     },
     utils::error::FSRError,
 };

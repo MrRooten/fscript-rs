@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::{
     backend::{
         types::{base::FSRValue, integer::FSRInteger},
-        vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}},
+        vm::{runtime::FSRVM, thread::FSRThreadRuntime},
     },
     utils::error::FSRError,
 };
@@ -18,7 +18,7 @@ pub struct FSRString {}
 
 fn string_len<'a>(
     args: Vec<u64>,
-    thread: &mut FSRThreadRuntime<'a>
+    _thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
@@ -42,7 +42,7 @@ impl FSRString {
         cls
     }
 
-    pub fn new_inst<'a>(s: Cow<'a, str>) -> FSRObject<'a> {
+    pub fn new_inst(s: Cow<'_, str>) -> FSRObject<'_> {
         let mut object = FSRObject::new();
         object.set_cls("String");
         object.set_value(FSRValue::String(s));

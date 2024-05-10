@@ -1,7 +1,7 @@
 use std::{rc::Rc, sync::atomic::AtomicU64};
 
 use crate::{
-    backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}}},
+    backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}},
     utils::error::FSRError,
 };
 
@@ -24,15 +24,15 @@ pub struct FSRFnInner<'a> {
 
 impl<'a> FSRFnInner<'a> {
     pub fn get_name(&self) -> Rc<String> {
-        return self.name.clone();
+        self.name.clone()
     }
 
     pub fn get_ip(&self) -> (usize, usize) {
-        return self.fn_ip;
+        self.fn_ip
     }
 
     pub fn get_bytecode(&self) -> &Bytecode {
-        return &self.bytecode
+        self.bytecode
     }
 }
 
@@ -60,7 +60,7 @@ impl<'a> FSRFn<'a> {
         let fn_obj = FSRFnInner {
             name: Rc::new(module.to_string()),
             fn_ip: u,
-            bytecode: bytecode
+            bytecode
         };
 
         let v = Self {

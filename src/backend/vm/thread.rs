@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     backend::{
-        compiler::bytecode::{self, ArgType, Bytecode, BytecodeArg, BytecodeOperator},
+        compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
         types::{
             base::{FSRObject, FSRRetValue, FSRValue},
             class::FSRClass,
@@ -23,7 +23,6 @@ pub struct CallState<'a> {
     var_map: HashMap<u64, u64>,
     const_map: HashMap<u64, u64>,
     reverse_ip: (usize, usize),
-    cur_ip: (usize, usize),
     args: Vec<u64>,
     cur_cls: Option<FSRClass<'a>>,
     ret_val: Option<u64>,
@@ -71,7 +70,6 @@ impl<'a> CallState<'a> {
             ret_val: None,
             exp: None,
             name,
-            cur_ip: (0, 0),
         }
     }
 }
@@ -128,21 +126,14 @@ type BytecodeFn<'a> = fn(
     bc: &'a Bytecode,
 ) -> Result<bool, FSRError>;
 
+#[derive(Default)]
 pub struct FSRThreadRuntime<'a> {
     call_stack: Vec<CallState<'a>>,
     bytecode_map: HashMap<BytecodeOperator, BytecodeFn<'a>>,
     vm_ptr      : Option<*mut FSRVM<'a>>
 }
 
-impl<'a> Default for FSRThreadRuntime<'a> {
-    fn default() -> Self {
-        Self {
-            call_stack: vec![],
-            bytecode_map: HashMap::new(),
-            vm_ptr: None,
-        }
-    }
-}
+
 
 impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     pub fn get_vm(&self) -> &FSRVM<'a> {
@@ -249,7 +240,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_stack();
@@ -314,10 +305,10 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn binary_add_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let state = self.get_cur_mut_stack();
+        let _state = self.get_cur_mut_stack();
         let v1 = match context.exp.pop() {
             Some(s) => s.get_global_id(self),
             None => {
@@ -354,10 +345,10 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn binary_mul_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let state = self.get_cur_mut_stack();
+        let _state = self.get_cur_mut_stack();
         let v1 = match context.exp.pop() {
             Some(s) => s.get_global_id(self),
             None => {
@@ -393,10 +384,10 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn binary_dot_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let state = self.get_cur_mut_stack();
+        let _state = self.get_cur_mut_stack();
         let attr_id = match context.exp.pop().unwrap() {
             SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
@@ -514,7 +505,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                     }
                     let new_obj = FSRObject::id_to_obj(id);
                     let offset = new_obj.get_fsr_offset().1;
-                    context.ip = (offset.0 as usize, 0);
+                    context.ip = (offset.0, 0);
                     return Ok(true);
                 } else {
                     panic!("not existed method ")
@@ -540,7 +531,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                         self.get_cur_mut_stack().args.push(*arg);
                     }
                     let offset = fn_obj.get_fsr_offset().1;
-                    context.ip = (offset.0 as usize, 0);
+                    context.ip = (offset.0, 0);
                     return Ok(true);
                 } else {
                     let v = fn_obj.call(args, self).unwrap();
@@ -563,7 +554,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                     }
                     //let offset = fn_obj.get_fsr_offset();
                     let offset = fn_obj.get_fsr_offset().1;
-                    context.ip = (offset.0 as usize, 0);
+                    context.ip = (offset.0, 0);
                     return Ok(true);
                 } else {
                     let v = fn_obj.call(args, self).unwrap();
@@ -681,7 +672,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn end_define_fn(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         self.pop_stack();
@@ -714,10 +705,10 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn ret_value(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let state = self.get_cur_mut_stack();
+        let _state = self.get_cur_mut_stack();
         let v = context.exp.pop().unwrap().get_global_id(self);
         self.pop_stack();
         let cur = self.get_cur_mut_stack();
@@ -743,7 +734,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
 
     fn assign_args(
         self: &mut FSRThreadRuntime<'a>,
-        context: &mut ThreadContext<'a>,
+        _context: &mut ThreadContext<'a>,
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
@@ -758,7 +749,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn class_def(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        bytecode: &BytecodeArg,
+        _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_stack();
@@ -798,7 +789,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let bc_op = self.bytecode_map.get(bytecode.get_operator()).unwrap();
-        let v = bc_op(self, context, &bytecode, bc)?;
+        let v = bc_op(self, context, bytecode, bc)?;
         if v {
             return Ok(v);
         }
@@ -861,7 +852,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
 
             if arg.get_operator() == &BytecodeOperator::Load {
                 let state = self.get_cur_mut_stack();
-                Self::load_var(&mut context.is_attr, &mut context.exp, arg, &mut context.vm, state);
+                Self::load_var(&mut context.is_attr, &mut context.exp, arg, context.vm, state);
             } else {
                 v = self.process(context, arg, bc)?;
                 if self.get_cur_stack().ret_val.is_some() {
@@ -889,7 +880,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             is_attr: false,
         };
         while let Some(expr) = bytecode.get(context.ip) {
-            self.run_expr(expr, &mut context, &bytecode)?;
+            self.run_expr(expr, &mut context, bytecode)?;
         }
 
         Ok(())
@@ -913,12 +904,12 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             }
             //let offset = fn_obj.get_fsr_offset();
             let offset = fn_def.get_ip();
-            context.ip = (offset.0 as usize, 0);
+            context.ip = (offset.0, 0);
         }
         
         while let Some(expr) = fn_def.get_bytecode().get(context.ip) {
             let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
-            if v == true {
+            if v {
                 break;
             }
         }
@@ -930,10 +921,10 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         // println!("{:#?}", v);
         match ret_val {
             Some(s) => {
-                return Ok(s)
+                Ok(s)
             },
             None => {
-                return Ok(0)
+                Ok(0)
             }
         }
     }

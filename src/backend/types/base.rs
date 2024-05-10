@@ -7,7 +7,7 @@ use crate::{
         types::fn_def::FSRnE,
         vm::{
             runtime::{FALSE_OBJECT, FSRVM, NONE_OBJECT, TRUE_OBJECT},
-            thread::{CallState, FSRThreadRuntime},
+            thread::FSRThreadRuntime,
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -283,17 +283,17 @@ impl<'a> FSRObject<'a> {
 
     #[inline]
     pub fn is_true(&self) -> bool {
-        return self.obj_id == FSRGlobalObjId::True as u64;
+        self.obj_id == FSRGlobalObjId::True as u64
     }
 
     #[inline]
     pub fn is_false(&self) -> bool {
-        return self.obj_id == FSRGlobalObjId::False as u64;
+        self.obj_id == FSRGlobalObjId::False as u64
     }
 
     #[inline]
     pub fn is_none(&self) -> bool {
-        return self.obj_id == FSRGlobalObjId::None as u64;
+        self.obj_id == FSRGlobalObjId::None as u64
     }
 
     pub fn call(
@@ -308,7 +308,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn get_self_id(&self) -> u64 {
-        return self as *const Self as u64;
+        self as *const Self as u64
     }
 
     pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>) -> FSRObject<'a> {
