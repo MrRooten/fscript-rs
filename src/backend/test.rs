@@ -37,22 +37,34 @@ mod tests {
         class Abc {
             fn __new__(self, abc) {
                 self.abc = 123
-                println('abc = 123')
-                self.abc = 456
                 return self
             }
 
             fn __str__(self) {
-                return 'abc'
+                return 'Abc: abc = 123'
             }
         }
         c = Abc('456')
         println(c)
+        a = [1, 2, 3, c]
+        println(a)
+        
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();
         let mut vm = FSRVM::new();
         runtime.set_vm(&mut vm);
         runtime.start(&v, &mut vm).unwrap();
+    }
+
+    #[test]
+    fn test_list() {
+        let expr = "
+        [1, 2, 3]
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
     }
 }

@@ -33,13 +33,22 @@ fn list_string<'a>(
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let mut s = String::new();
     s.push('[');
-
-    for obj_id in args {
-        let obj = FSRObject::id_to_obj(obj_id);
-        let s_obj = obj.to_string(thread);
-        if let FSRValue::String(_s) = &s_obj.value {
-            s.push_str(_s);
-            s.push(',');
+    let obj_id = args[0];
+    let obj = FSRObject::id_to_obj(obj_id);
+    if let FSRValue::List(l) = &obj.value {
+        let mut count = 0;
+        let size = l.get_items().len();
+        for id in l.get_items() {
+            let obj = FSRObject::id_to_obj(*id);
+            let s_obj = obj.to_string(thread);
+            if let FSRValue::String(_s) = &s_obj.value {
+                s.push_str(_s);
+                if count < size - 1 {
+                    s.push_str(", ");
+                }
+                
+            }
+            count += 1;
         }
     }
 
@@ -60,6 +69,21 @@ impl FSRList {
 
     pub fn as_string(&self) -> String {
         unimplemented!()
+    }
+
+    pub fn new(vs: Vec<u64>) -> FSRObject<'static> {
+        let s = Self {
+            vs,
+        };
+
+        let mut object = FSRObject::new();
+        object.set_cls("List");
+        object.set_value(FSRValue::List(s));
+        object
+    }
+
+    pub fn get_items(&self) -> &Vec<u64> {
+        &self.vs
     }
 }
 

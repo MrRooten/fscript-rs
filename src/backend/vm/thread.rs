@@ -11,7 +11,7 @@ use crate::{
             base::{FSRObject, FSRRetValue, FSRValue},
             class::FSRClass,
             class_inst::FSRClassInst,
-            fn_def::{FSRFn, FSRFnInner},
+            fn_def::{FSRFn, FSRFnInner}, list::FSRList,
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -161,6 +161,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::AssignArgs, Self::assign_args);
         map.insert(BytecodeOperator::ClassDef, Self::class_def);
         map.insert(BytecodeOperator::EndDefineClass, Self::end_class_def);
+        map.insert(BytecodeOperator::LoadList, Self::load_list);
+
 
         Self {
             call_stack: vec![CallState::new("base")],
@@ -743,6 +745,28 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         if let ArgType::Variable(s_id, _) = bytecode.get_arg() {
             state.insert_var(s_id, v);
         }
+        Ok(false)
+    }
+
+    fn load_list(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        if let ArgType::LoadListNumber(n) = bytecode.get_arg() {
+            let mut list = vec![];
+            let n = *n;
+            for _ in 0..n {
+                let v = context.exp.pop().unwrap().get_global_id(self);
+                list.push(v);
+            }
+
+            let list = FSRList::new(list);
+            let id = context.vm.register_object(list);
+            context.exp.push(SValue::Global(id));
+        }
+
         Ok(false)
     }
 

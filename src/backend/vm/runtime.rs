@@ -2,10 +2,7 @@ use std::{collections::HashMap, sync::atomic::AtomicU64};
 
 use crate::{
     backend::types::{
-        base::{FSRObject, FSRValue},
-        class::FSRClass,
-        integer::FSRInteger,
-        string::FSRString,
+        base::{FSRObject, FSRValue}, class::FSRClass, integer::FSRInteger, list::FSRList, string::FSRString
     },
     std::io::init_io,
 };
@@ -94,6 +91,9 @@ impl<'a> FSRVM<'a> {
 
         let string = FSRString::get_class(self);
         self.base_types.insert("String", string);
+
+        let list = FSRList::get_class(self);
+        self.base_types.insert("List", list);
 
         let objs = init_io();
         for obj in objs {

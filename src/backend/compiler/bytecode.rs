@@ -4,19 +4,7 @@ use std::{
 };
 
 use crate::frontend::ast::token::{
-    assign::FSRAssign,
-    base::{FSRPosition, FSRToken},
-    block::FSRBlock,
-    call::FSRCall,
-    class::FSRClassFrontEnd,
-    constant::{FSRConstant, FSRConstantType},
-    expr::FSRExpr,
-    function_def::FSRFnDef,
-    if_statement::FSRIf,
-    module::FSRModuleFrontEnd,
-    return_def::FSRReturn,
-    variable::FSRVariable,
-    while_statement::FSRWhile,
+    assign::FSRAssign, base::{FSRPosition, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, function_def::FSRFnDef, if_statement::FSRIf, list::FSRListFrontEnd, module::FSRModuleFrontEnd, return_def::FSRReturn, variable::FSRVariable, while_statement::FSRWhile
 };
 
 #[derive(Debug, PartialEq, Hash, Eq)]
@@ -25,6 +13,7 @@ pub enum BytecodeOperator {
     Pop,
     Load,
     LoadAttr,
+    LoadList,
     Assign,
     AssignArgs,
     BinaryAdd,
@@ -65,6 +54,7 @@ pub enum ArgType {
     CallArgsNumber(usize),
     DefineFnArgs(u64, u64),
     DefineClassLine(u64),
+    LoadListNumber(usize),
     None,
 }
 
@@ -501,6 +491,9 @@ impl<'a> Bytecode {
         } else if let FSRToken::Return(ret) = token {
             let v = Self::load_ret(ret, var_map);
             return (vec![v.0], v.1);
+        } else if let FSRToken::List(list) = token {
+            let v = Self::load_list(list, var_map);
+            return (vec![v.0], v.1);
         }
 
         unimplemented!()
@@ -524,7 +517,7 @@ impl<'a> Bytecode {
 
     fn load_constant(
         token: &'a FSRConstant,
-        var_map: &'a mut VarMap<'a>,
+        var_map: &'a mut VarMap<'a>
     ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result_list = LinkedList::new();
         if let FSRConstantType::Integer(i) = token.get_constant() {
@@ -540,6 +533,32 @@ impl<'a> Bytecode {
         }
 
         (result_list, var_map)
+    }
+
+    fn load_list(
+        token: &'a FSRListFrontEnd,
+        var_map: &'a mut VarMap<'a>
+    ) -> (LinkedList<BytecodeArg>, &'a mut VarMap<'a>) {
+        let mut result_list = LinkedList::new();
+        let mut self_var = var_map;
+        for sub_t in token.get_items().iter().rev() {
+            let v = Bytecode::load_token_with_map(sub_t, self_var);
+            let mut expr = v.0;
+            self_var = v.1;
+            result_list.append(&mut expr[0]);
+            let load = BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::None,
+            };
+            result_list.push_back(load);
+        }
+
+        let load_list = BytecodeArg {
+            operator: BytecodeOperator::LoadList,
+            arg: ArgType::LoadListNumber(token.get_items().len()),
+        };
+        result_list.push_back(load_list);
+        return (result_list, self_var);
     }
 
     fn load_ret(

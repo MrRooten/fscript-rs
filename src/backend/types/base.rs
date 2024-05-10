@@ -86,7 +86,26 @@ impl<'a> FSRValue<'a> {
             FSRValue::Function(_) => None,
             FSRValue::None => None,
             FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
-            FSRValue::List(e) => Some(Cow::Owned(e.as_string())),
+            FSRValue::List(_) => {
+                let res = FSRObject::invoke_method("__str__", vec![self_id], thread).unwrap();
+                match res {
+                    FSRRetValue::Value(v) => {
+                        if let FSRValue::String(s) = v.value {
+                            return Some(s)
+                        }
+                        return None
+                    },
+                    FSRRetValue::GlobalId(id) => {
+                        let obj = FSRObject::id_to_obj(id);
+                        if let FSRValue::String(s) = &obj.value {
+                            return Some(s.clone());
+                        }
+
+                        return None
+                    },
+                }
+
+            },
         };
 
         s
