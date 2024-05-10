@@ -7,12 +7,12 @@ use std::{
 
 use crate::{
     backend::{
-        compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
+        compiler::bytecode::{self, ArgType, Bytecode, BytecodeArg, BytecodeOperator},
         types::{
             base::{FSRObject, FSRRetValue, FSRValue},
             class::FSRClass,
             class_inst::FSRClassInst,
-            fn_def::FSRFn,
+            fn_def::{FSRFn, FSRFnInner},
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -640,7 +640,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                 };
                 args.push(v.1.to_string());
             }
-            let fn_obj = FSRFn::from_fsr_fn("main", (context.ip.0 as u64 + 1, 0), args, bc);
+            let fn_obj = FSRFn::from_fsr_fn("main", (context.ip.0 + 1, 0), args, bc);
             let fn_id = context.vm.register_object(fn_obj);
             if let Some(cur_cls) = &mut state.cur_cls {
                 cur_cls.insert_attr_id(name.1, fn_id);
@@ -851,7 +851,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'b mut FSRVM<'a>) -> Result<(), FSRError> {
+    pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
 
         let mut context = ThreadContext {
             exp: vec![],
@@ -863,6 +863,20 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             self.run_expr(expr, &mut context, &bytecode)?;
         }
 
+        Ok(())
+    }
+
+    pub fn call_fn(&mut self, fn_def: &'a FSRFnInner, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
+        let mut context = ThreadContext {
+            exp: vec![],
+            ip: fn_def.get_ip(),
+            vm,
+            is_attr: false,
+        };
+
+        while let Some(expr) = fn_def.get_bytecode().get(context.ip) {
+            self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
+        }
         Ok(())
     }
 

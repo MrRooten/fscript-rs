@@ -19,7 +19,7 @@ type FSRRustFn = for<'a> fn(
 #[derive(Debug, Clone)]
 pub struct FSRFnInner<'a> {
     name    : Rc<String>,
-    fn_ip   : (u64, u64),
+    fn_ip   : (usize, usize),
     bytecode    : &'a Bytecode
 }
 
@@ -28,8 +28,12 @@ impl<'a> FSRFnInner<'a> {
         return self.name.clone();
     }
 
-    pub fn get_ip(&self) -> (u64, u64) {
+    pub fn get_ip(&self) -> (usize, usize) {
         return self.fn_ip;
+    }
+
+    pub fn get_bytecode(&self) -> &Bytecode {
+        return &self.bytecode
     }
 }
 
@@ -53,7 +57,7 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    pub fn from_fsr_fn(module: &str, u: (u64, u64), _: Vec<String>, bytecode: &'a Bytecode) -> FSRObject<'a> {
+    pub fn from_fsr_fn(module: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode) -> FSRObject<'a> {
         let fn_obj = FSRFnInner {
             name: Rc::new(module.to_string()),
             fn_ip: u,
@@ -99,7 +103,8 @@ impl<'a> FSRFn<'a> {
         }
 
         if let FSRnE::FSRFn(f) = &self.fn_def {
-
+            let thread = thread.unwrap();
+            // thread.call_fn(f, vm);
         }
         unimplemented!()
     }

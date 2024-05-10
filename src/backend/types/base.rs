@@ -336,7 +336,7 @@ impl<'a> FSRObject<'a> {
         false
     }
 
-    pub fn get_fsr_offset(&self) -> (Rc<String>, (u64, u64)) {
+    pub fn get_fsr_offset(&self) -> (Rc<String>, (usize, usize)) {
         if let FSRValue::Function(fn_def) = &self.value {
             if let FSRnE::FSRFn(f) = &fn_def.get_def() {
                 return (f.get_name(), f.get_ip());
