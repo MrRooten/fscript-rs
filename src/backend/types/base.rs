@@ -120,6 +120,13 @@ pub struct FSRObject<'a> {
     pub(crate) cls: &'a str,
 }
 
+impl Clone for FSRObject<'_> {
+    fn clone(&self) -> Self {
+        // Only use for SValue like tempory value
+        Self { obj_id: 0, value: self.value.clone(), ref_count: AtomicU64::new(0), cls: self.cls.clone() }
+    }
+}
+
 impl<'a> Default for FSRObject<'a> {
     fn default() -> Self {
         Self::new()
@@ -157,6 +164,11 @@ impl<'a> FSRObject<'a> {
         }
 
         unimplemented!()
+    }
+
+    #[inline]
+    pub fn obj_to_id(obj: &FSRObject<'a>) -> u64 {
+        obj as *const Self as u64
     }
 
     pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {

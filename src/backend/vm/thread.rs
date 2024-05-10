@@ -79,6 +79,7 @@ enum SValue<'a> {
     Stack((u64, &'a String)),
     Attr((u64, &'a String)),
     Global(u64),
+    Object(FSRObject<'a>)
 }
 
 impl SValue<'_> {
@@ -87,6 +88,7 @@ impl SValue<'_> {
             SValue::Stack(i) => i.0,
             SValue::Global(i) => *i,
             SValue::Attr(_) => todo!(),
+            SValue::Object(_) => todo!(),
         }
     }
 
@@ -103,7 +105,18 @@ impl SValue<'_> {
             }
             SValue::Global(id) => *id,
             SValue::Attr((id, _)) => *id,
+            SValue::Object(obj) => {
+                FSRObject::obj_to_id(obj)
+            },
         }
+    }
+
+    pub fn get_object(&self) -> Option<&FSRObject> {
+        if let SValue::Object(obj) = self {
+            return Some(obj);
+        }
+
+        return None;
     }
 }
 
@@ -278,7 +291,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                     inst.set_attr(attr_name, real_obj);
                 }
                 return Ok(false);
-            }
+            } 
             state.insert_var(&assign_id.get_value(), id);
         } else if let SValue::Stack(s_id) = obj_id {
             let id = match state.get_var(&s_id.0) {
@@ -299,6 +312,9 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                 obj.ref_add();
                 state.insert_var(&assign_id.get_value(), id);
             }
+        } else if let SValue::Object(object) = obj_id {
+            let id: u64 = context.vm.register_object(object);
+            state.insert_var(&assign_id.get_value(), id);
         }
 
         Ok(false)
@@ -394,6 +410,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
             SValue::Attr(id) => id,
+            SValue::Object(_) => todo!(),
         };
         let dot_father = match context.exp.pop() {
             Some(s) => s.get_global_id(self),
@@ -469,6 +486,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             }
             SValue::Global(id) => id,
             SValue::Attr((id, _)) => id,
+            SValue::Object(_) => todo!(),
         };
 
         if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
@@ -503,6 +521,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
 
                 if let Some(id) = self_new {
                     for arg in args.iter().rev() {
+                        let obj = FSRObject::id_to_obj(*arg);
+                        obj.ref_add();
                         self.get_cur_mut_stack().args.push(*arg);
                     }
                     let new_obj = FSRObject::id_to_obj(id);
@@ -530,6 +550,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                     context.exp.clear();
 
                     for arg in args.iter().rev() {
+                        let obj = FSRObject::id_to_obj(*arg);
+                        obj.ref_add();
                         self.get_cur_mut_stack().args.push(*arg);
                     }
                     let offset = fn_obj.get_fsr_offset().1;
@@ -552,6 +574,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                 
                 if fn_obj.is_fsr_function() {
                     for arg in args.iter().rev() {
+                        let obj = FSRObject::id_to_obj(*arg);
+                        obj.ref_add();
                         self.get_cur_mut_stack().args.push(*arg);
                     }
                     //let offset = fn_obj.get_fsr_offset();
@@ -645,6 +669,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             SValue::Stack(id) => id,
             SValue::Attr(_) => panic!(),
             SValue::Global(_) => panic!(),
+            SValue::Object(_) => todo!(),
         };
 
         if let ArgType::DefineFnArgs(n, arg_len) = bytecode.get_arg() {
@@ -654,6 +679,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                     SValue::Stack(id) => id,
                     SValue::Attr(_) => panic!(),
                     SValue::Global(_) => panic!(),
+                    SValue::Object(_) => todo!(),
                 };
                 args.push(v.1.to_string());
             }
@@ -781,6 +807,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             SValue::Stack(i) => i,
             SValue::Attr(_) => panic!(),
             SValue::Global(_) => panic!(),
+            SValue::Object(_) => todo!(),
         };
 
         let new_cls = FSRClass::new(id.1);
@@ -868,8 +895,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         
         while context.ip.1 < expr.len() {
             let arg = &expr[context.ip.1];
-            // let t = format!("{:?} => {:?}", context.ip, arg);
-            // println!("{}",t);
+            let t = format!("{:?} => {:?}", context.ip, arg);
+            println!("{}",t);
             context.ip.1 += 1;
 
             self.set_exp_stack_ret(&mut context.exp);

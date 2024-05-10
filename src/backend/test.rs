@@ -44,10 +44,15 @@ mod tests {
                 return 'Abc: abc = 123'
             }
         }
-        c = Abc('456')
-        println(c)
+
+        c = Abc('123')
+
+        fn test(b) {
+            dump(b)
+        }
         a = [1, 2, 3, c]
-        println(a)
+        test(a)
+        dump(a)
         
         ";
         let v = Bytecode::compile("main", source_code);
