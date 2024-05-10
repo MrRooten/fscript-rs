@@ -79,6 +79,7 @@ enum SValue<'a> {
     Stack((u64, &'a String)),
     Attr((u64, &'a String)),
     Global(u64),
+    #[allow(dead_code)]
     Object(FSRObject<'a>)
 }
 
@@ -111,6 +112,7 @@ impl SValue<'_> {
         }
     }
 
+    #[allow(unused)]
     pub fn get_object(&self) -> Option<&FSRObject> {
         if let SValue::Object(obj) = self {
             return Some(obj);
