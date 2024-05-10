@@ -428,6 +428,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         let name = attr_id.1;
         let id = dot_father_obj.get_attr(name, context.vm);
         if let Some(id) = id {
+            let obj = FSRObject::id_to_obj(id);
+            println!("{:#?}", obj);
             context.exp.push(SValue::Global(dot_father));
             context.exp.push(SValue::Attr((id, name)));
         } else {

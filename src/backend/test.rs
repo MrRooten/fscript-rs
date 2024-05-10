@@ -15,15 +15,7 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        class Abc {
-            fn __new__(self, abc) {
-                self.abc = 123
-                return self
-            }
-
-        }
-
-        a = Abc(123123)
+        c.abc.ttc = 4455
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
@@ -53,12 +45,8 @@ mod tests {
         }
 
         c = Abc('123')
-
-        fn test(b) {
-            dump(b)
-        }
-        a = [1, 2, 3, c]
-        println(a)
+        println(c.abc.ttc)
+        c.abc.ttc = 4455
         println(c.abc.ttc)
         ";
         let v = Bytecode::compile("main", source_code);

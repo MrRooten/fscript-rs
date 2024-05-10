@@ -48,6 +48,7 @@
             "cargo": {
                 "args": [
                     "test",
+                    
                     "--no-run",
                     "--bin=fscript-rs",
                     "--package=fscript-rs"
