@@ -86,7 +86,7 @@ impl<'a> FSRValue<'a> {
             FSRValue::Function(_) => None,
             FSRValue::None => None,
             FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
-            FSRValue::List(e) => Some(Cow::Owned(e.to_string())),
+            FSRValue::List(e) => Some(Cow::Owned(e.as_string())),
         };
 
         s

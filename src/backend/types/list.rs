@@ -58,7 +58,7 @@ impl FSRList {
         cls
     }
 
-    pub fn to_string(&self) -> String {
+    pub fn as_string(&self) -> String {
         unimplemented!()
     }
 }
