@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, string::FSRString}, vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}}}, utils::error::FSRError};
 
 use super::{base::FSRRetValue, class::FSRClass, fn_def::FSRFn};
@@ -43,7 +45,7 @@ fn list_string<'a>(
 
     s.push(']');
 
-    Ok(FSRRetValue::Value(FSRString::new_inst(s)))
+    Ok(FSRRetValue::Value(FSRString::new_inst(Cow::Owned(s))))
 }
 
 impl FSRList {

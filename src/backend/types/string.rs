@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
     backend::{
         types::{base::FSRValue, integer::FSRInteger},
@@ -40,10 +42,11 @@ impl FSRString {
         cls
     }
 
-    pub fn new_inst<'a>(s: String) -> FSRObject<'a> {
+    pub fn new_inst<'a>(s: Cow<'a, str>) -> FSRObject<'a> {
         let mut object = FSRObject::new();
         object.set_cls("String");
         object.set_value(FSRValue::String(s));
         object
     }
+
 }

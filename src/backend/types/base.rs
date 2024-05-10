@@ -1,8 +1,5 @@
 use std::{
-    cell::RefCell,
-    collections::hash_map::Keys,
-    rc::Rc,
-    sync::atomic::{AtomicU64, Ordering},
+    borrow::Cow, cell::RefCell, collections::hash_map::Keys, rc::Rc, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{
@@ -16,7 +13,9 @@ use crate::{
     utils::error::{FSRErrCode, FSRError},
 };
 
-use super::{class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, list::FSRList, string::FSRString};
+use super::{
+    class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, list::FSRList, string::FSRString,
+};
 
 pub enum FSRGlobalObjId {
     None = 0,
@@ -28,7 +27,7 @@ pub enum FSRGlobalObjId {
 pub enum FSRValue<'a> {
     Integer(i64),
     Float(f64),
-    String(String),
+    String(Cow<'a, str>),
     Class(FSRClass<'a>),
     ClassInst(FSRClassInst<'a>),
     Function(FSRFn<'a>),
@@ -44,14 +43,11 @@ pub enum FSRRetValue<'a> {
 }
 
 impl<'a> FSRValue<'a> {
-
-
-    fn to_string(&self, 
-        thread: &mut FSRThreadRuntime<'a>,) -> Option<String> {
+    fn to_string(&self, self_id: u64, thread: &mut FSRThreadRuntime<'a>) -> Option<Cow<str>> {
         let s = match self {
-            FSRValue::Integer(e) => Some(e.to_string()),
-            FSRValue::Float(e) => Some(e.to_string()),
-            FSRValue::String(e) => Some(e.to_string()),
+            FSRValue::Integer(e) => Some(Cow::Owned(e.to_string())),
+            FSRValue::Float(e) => Some(Cow::Owned(e.to_string())),
+            FSRValue::String(e) => Some(e.clone()),
             FSRValue::Class(_) => None,
             FSRValue::ClassInst(inst) => {
                 let vm = thread.get_vm();
@@ -66,7 +62,7 @@ impl<'a> FSRValue<'a> {
                 let v = cls.get_attr("__str__");
                 if let Some(obj_id) = v {
                     let obj = FSRObject::id_to_obj(obj_id);
-                    let ret = obj.call(vec![], thread);
+                    let ret = obj.call(vec![self_id], thread);
                     let ret_value = match ret {
                         Ok(o) => o,
                         Err(_) => {
@@ -75,17 +71,24 @@ impl<'a> FSRValue<'a> {
                     };
 
                     if let FSRRetValue::Value(v) = ret_value {
-                        return Some(v.as_string().to_string())
+                        return Some(Cow::Owned(v.as_string().to_string()));
+                    }
+
+                    if let FSRRetValue::GlobalId(id) = ret_value {
+                        let obj = FSRObject::id_to_obj(id);
+                        if let FSRValue::String(s) = &obj.value {
+                            return Some(Cow::Borrowed(s));
+                        }
                     }
                 }
                 None
-            },
+            }
             FSRValue::Function(_) => None,
             FSRValue::None => None,
-            FSRValue::Bool(e) => Some(e.to_string()),
-            FSRValue::List(e) => Some(e.to_string()),
+            FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
+            FSRValue::List(e) => Some(Cow::Owned(e.to_string())),
         };
-        
+
         s
     }
 }
@@ -124,7 +127,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn as_string(&self) -> &str {
         if let FSRValue::String(s) = &self.value {
-            return s
+            return s;
         }
         unimplemented!()
     }
@@ -183,7 +186,6 @@ impl<'a> FSRObject<'a> {
                 }
             }
         } else if method.eq("__str__") {
-            
         }
 
         unimplemented!()
@@ -248,7 +250,7 @@ impl<'a> FSRObject<'a> {
             }
         };
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args,  thread)?;
+        let v = method_object.call(args, thread)?;
         Ok(v)
     }
 
@@ -305,13 +307,20 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    pub fn to_string(&self, 
-        thread: &mut FSRThreadRuntime<'a>,) -> FSRObject<'a> {
-        if let Some(s) = self.value.to_string(thread) {
+    pub fn get_self_id(&self) -> u64 {
+        return self as *const Self as u64;
+    }
+
+    pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>) -> FSRObject<'a> {
+        let s = self.value.to_string(self.obj_id, thread);
+        if let Some(s) = s {
             return FSRString::new_inst(s);
         }
 
-        return FSRString::new_inst(format!("<`{}` Object at {:?}>", self.cls, self as *const Self));
+        return FSRString::new_inst(Cow::Owned(format!(
+            "<`{}` Object at {:?}>",
+            self.cls, self as *const Self
+        )));
         //return self.invoke("__str__", vec![]);
     }
 

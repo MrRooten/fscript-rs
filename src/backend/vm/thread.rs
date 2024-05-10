@@ -1,8 +1,7 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    collections::HashMap,
-    sync::atomic::AtomicU64,
+    borrow::Cow, collections::HashMap, sync::atomic::AtomicU64
 };
 
 use crate::{
@@ -197,7 +196,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn load_string_const(s: String, vm: &mut FSRVM<'a>) -> u64 {
         let obj = FSRObject {
             obj_id: 0,
-            value: FSRValue::String(s),
+            value: FSRValue::String(Cow::Owned(s)),
             cls: "String",
             ref_count: AtomicU64::new(0),
         };
@@ -849,11 +848,13 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         expr: &'a Vec<BytecodeArg>,
         context: &mut ThreadContext<'a>,
         bc: &'a Bytecode,
-    ) -> Result<(), FSRError> {
+    ) -> Result<bool, FSRError> {
         let mut v;
         
         while context.ip.1 < expr.len() {
             let arg = &expr[context.ip.1];
+            // let t = format!("{:?} => {:?}", context.ip, arg);
+            // println!("{}",t);
             context.ip.1 += 1;
 
             self.set_exp_stack_ret(&mut context.exp);
@@ -863,9 +864,12 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                 Self::load_var(&mut context.is_attr, &mut context.exp, arg, &mut context.vm, state);
             } else {
                 v = self.process(context, arg, bc)?;
+                if self.get_cur_stack().ret_val.is_some() {
+                    return Ok(true);
+                }
                 if v {
                     context.exp.clear();
-                    return Ok(());
+                    return Ok(false);
                 }
             }
         }
@@ -873,7 +877,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         context.ip.0 += 1;
         context.ip.1 = 0;
         context.exp.clear();
-        Ok(())
+        Ok(false)
     }
 
     pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
@@ -891,18 +895,47 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    pub fn call_fn(&mut self, fn_def: &'a FSRFnInner) -> Result<(), FSRError> {
+    pub fn call_fn(&mut self, fn_def: &'a FSRFnInner, args: Vec<u64>) -> Result<u64, FSRError> {
         let mut context = ThreadContext {
             exp: vec![],
             ip: fn_def.get_ip(),
             is_attr: false,
             vm: self.get_mut_vm(),
         };
+        {
+            //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
+            self.call_stack.push(CallState::new("__str__"));
+            context.exp.clear();
+            
 
-        while let Some(expr) = fn_def.get_bytecode().get(context.ip) {
-            self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
+            for arg in args.iter().rev() {
+                self.get_cur_mut_stack().args.push(*arg);
+            }
+            //let offset = fn_obj.get_fsr_offset();
+            let offset = fn_def.get_ip();
+            context.ip = (offset.0 as usize, 0);
         }
-        Ok(())
+        
+        while let Some(expr) = fn_def.get_bytecode().get(context.ip) {
+            let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
+            if v == true {
+                break;
+            }
+        }
+
+        let cur = self.get_cur_mut_stack();
+        let ret_val = cur.ret_val;
+        // let s = ret_val.unwrap();
+        // let v = FSRObject::id_to_obj(s);
+        // println!("{:#?}", v);
+        match ret_val {
+            Some(s) => {
+                return Ok(s)
+            },
+            None => {
+                return Ok(0)
+            }
+        }
     }
 
 

@@ -105,7 +105,8 @@ impl<'a> FSRFn<'a> {
             // let vm_patr = vm as *mut FSRVM;
             // let vm = unsafe { &mut *vm_patr };
             //thread.call_fn(f, vm);
-            FSRThreadRuntime::call_fn(thread, f);
+            let v = FSRThreadRuntime::call_fn(thread, f, args)?;
+            return Ok(FSRRetValue::GlobalId(v));
         }
         unimplemented!()
     }

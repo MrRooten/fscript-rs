@@ -37,14 +37,17 @@ mod tests {
         class Abc {
             fn __new__(self, abc) {
                 self.abc = 123
-                println(self.abc)
+                println('abc = 123')
                 self.abc = 456
-                println(self.abc)
                 return self
+            }
+
+            fn __str__(self) {
+                return 'abc'
             }
         }
         c = Abc('456')
-        
+        println(c)
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();
