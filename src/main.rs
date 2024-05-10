@@ -1,13 +1,9 @@
-use fscript_rs::{
+use fscript_rs::
     backend::{
         compiler::bytecode::Bytecode,
         vm::{runtime::FSRVM, thread::FSRThreadRuntime},
-    },
-    frontend::ast::token::{
-        base::{FSRPosition, FSRToken},
-        module::FSRModuleFrontEnd,
-    },
-};
+    }
+;
 
 fn main() {
     let source_code = "
