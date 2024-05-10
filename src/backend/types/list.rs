@@ -1,4 +1,4 @@
-use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, string::FSRString}, vm::{runtime::FSRVM, thread::CallState}}, utils::error::FSRError};
+use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, string::FSRString}, vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}}}, utils::error::FSRError};
 
 use super::{base::FSRRetValue, class::FSRClass, fn_def::FSRFn};
 
@@ -9,8 +9,7 @@ pub struct FSRList {
 
 fn list_len<'a>(
     args: Vec<u64>,
-    _: &mut CallState,
-    _: &FSRVM<'a>,
+    _: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
@@ -28,15 +27,14 @@ fn list_len<'a>(
 
 fn list_string<'a>(
     args: Vec<u64>,
-    state: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let mut s = String::new();
     s.push('[');
 
     for obj_id in args {
         let obj = FSRObject::id_to_obj(obj_id);
-        let s_obj = obj.to_string(state, vm);
+        let s_obj = obj.to_string(thread);
         if let FSRValue::String(_s) = &s_obj.value {
             s.push_str(_s);
             s.push_str(",");

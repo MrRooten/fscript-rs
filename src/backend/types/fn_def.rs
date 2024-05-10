@@ -12,8 +12,7 @@ use super::{
 
 type FSRRustFn = for<'a> fn(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>,
 ) -> Result<FSRRetValue<'a>, FSRError>;
 
 #[derive(Debug, Clone)]
@@ -92,19 +91,21 @@ impl<'a> FSRFn<'a> {
     }
 
     pub fn invoke(
-        &self,
+        &'a self,
         args: Vec<u64>,
-        stack: &mut CallState,
-        thread: Option<&mut FSRThreadRuntime>,
-        vm: &FSRVM<'a>,
+        thread: &mut FSRThreadRuntime<'a>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
-            return f(args, stack, vm);
+            return f(args, thread);
         }
 
         if let FSRnE::FSRFn(f) = &self.fn_def {
-            let thread = thread.unwrap();
-            // thread.call_fn(f, vm);
+            // let ptr = thread as *mut FSRThreadRuntime;
+            // let thread = unsafe { &mut *ptr };
+            // let vm_patr = vm as *mut FSRVM;
+            // let vm = unsafe { &mut *vm_patr };
+            //thread.call_fn(f, vm);
+            FSRThreadRuntime::call_fn(thread, f);
         }
         unimplemented!()
     }

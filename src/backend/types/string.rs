@@ -1,7 +1,7 @@
 use crate::{
     backend::{
         types::{base::FSRValue, integer::FSRInteger},
-        vm::{runtime::FSRVM, thread::CallState},
+        vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}},
     },
     utils::error::FSRError,
 };
@@ -16,8 +16,7 @@ pub struct FSRString {}
 
 fn string_len<'a>(
     args: Vec<u64>,
-    _: &mut CallState,
-    _: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 

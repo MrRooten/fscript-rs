@@ -6,18 +6,17 @@ use crate::{
             base::{FSRObject, FSRRetValue, FSRValue},
             fn_def::FSRFn,
         },
-        vm::{runtime::FSRVM, thread::CallState},
+        vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}},
     },
     utils::error::FSRError,
 };
 
 pub fn fsr_fn_print<'a>(
     args: Vec<u64>,
-    state: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
-    let obj = value.to_string(state, vm);
+    let obj = value.to_string(thread);
     if let FSRValue::String(s) = &obj.value {
         print!("{}", s);
     }
@@ -26,11 +25,10 @@ pub fn fsr_fn_print<'a>(
 
 pub fn fsr_fn_println<'a>(
     args: Vec<u64>,
-    state: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
-    let obj = value.to_string(state, vm);
+    let obj = value.to_string(thread);
     if let FSRValue::String(s) = &obj.value {
         println!("{}", s);
     }
@@ -39,8 +37,7 @@ pub fn fsr_fn_println<'a>(
 
 pub fn fsr_fn_dump<'a>(
     args: Vec<u64>,
-    _stack: &mut CallState,
-    _vm: &FSRVM<'a>,
+    _thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);

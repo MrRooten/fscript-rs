@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use crate::{
-    backend::vm::{runtime::FSRVM, thread::CallState},
+    backend::vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}},
     utils::error::FSRError,
 };
 
@@ -15,8 +15,7 @@ pub struct FSRInteger {}
 
 fn add<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -36,8 +35,7 @@ fn add<'a>(
 
 fn sub<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -57,8 +55,7 @@ fn sub<'a>(
 
 fn mul<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -79,7 +76,7 @@ fn mul<'a>(
 fn div<'a>(
     _args: Vec<u64>,
     _stack: &'a mut CallState,
-    _vm: &FSRVM<'a>,
+    _thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     // let self_id = args[0];
     // let other_id = args[1];
@@ -98,8 +95,7 @@ fn div<'a>(
 
 fn left_shift<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -120,8 +116,7 @@ fn left_shift<'a>(
 
 fn right_shift<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -140,8 +135,7 @@ fn right_shift<'a>(
 
 fn greater<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -162,8 +156,7 @@ fn greater<'a>(
 
 fn less<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -184,8 +177,7 @@ fn less<'a>(
 
 fn greater_equal<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -206,8 +198,7 @@ fn greater_equal<'a>(
 
 fn less_equal<'a>(
     args: Vec<u64>,
-    stack: &mut CallState,
-    vm: &FSRVM<'a>,
+    thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);

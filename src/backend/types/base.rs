@@ -10,7 +10,7 @@ use crate::{
         types::fn_def::FSRnE,
         vm::{
             runtime::{FALSE_OBJECT, FSRVM, NONE_OBJECT, TRUE_OBJECT},
-            thread::CallState,
+            thread::{CallState, FSRThreadRuntime},
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -47,14 +47,14 @@ impl<'a> FSRValue<'a> {
 
 
     fn to_string(&self, 
-        stack: &mut CallState,
-        vm: &FSRVM<'a>) -> Option<String> {
+        thread: &mut FSRThreadRuntime<'a>,) -> Option<String> {
         let s = match self {
             FSRValue::Integer(e) => Some(e.to_string()),
             FSRValue::Float(e) => Some(e.to_string()),
             FSRValue::String(e) => Some(e.to_string()),
             FSRValue::Class(_) => None,
             FSRValue::ClassInst(inst) => {
+                let vm = thread.get_vm();
                 let cls = match vm.get_global_obj_by_name(inst.get_cls_name()) {
                     Some(s) => s,
                     None => {
@@ -66,7 +66,7 @@ impl<'a> FSRValue<'a> {
                 let v = cls.get_attr("__str__");
                 if let Some(obj_id) = v {
                     let obj = FSRObject::id_to_obj(obj_id);
-                    let ret = obj.call(vec![], stack, vm);
+                    let ret = obj.call(vec![], thread);
                     let ret_value = match ret {
                         Ok(o) => o,
                         Err(_) => {
@@ -235,11 +235,10 @@ impl<'a> FSRObject<'a> {
     pub fn invoke_method(
         name: &str,
         args: Vec<u64>,
-        stack: &mut CallState,
-        vm: &FSRVM<'a>,
+        thread: &mut FSRThreadRuntime<'a>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
-        let self_method = match self_object.get_cls_attr(name, vm) {
+        let self_method = match self_object.get_cls_attr(name, thread.get_vm()) {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -249,7 +248,7 @@ impl<'a> FSRObject<'a> {
             }
         };
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, stack, vm)?;
+        let v = method_object.call(args,  thread)?;
         Ok(v)
     }
 
@@ -296,21 +295,19 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn call(
-        &self,
+        &'a self,
         args: Vec<u64>,
-        stack: &mut CallState,
-        vm: &FSRVM<'a>,
+        thread: &mut FSRThreadRuntime<'a>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
-            return fn_def.invoke(args, stack, None, vm);
+            return fn_def.invoke(args, thread);
         }
         unimplemented!()
     }
 
     pub fn to_string(&self, 
-        stack: &mut CallState,
-        vm: &FSRVM<'a>,) -> FSRObject<'a> {
-        if let Some(s) = self.value.to_string(stack, vm) {
+        thread: &mut FSRThreadRuntime<'a>,) -> FSRObject<'a> {
+        if let Some(s) = self.value.to_string(thread) {
             return FSRString::new_inst(s);
         }
 
