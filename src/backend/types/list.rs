@@ -36,9 +36,8 @@ fn list_string<'a>(
     let obj_id = args[0];
     let obj = FSRObject::id_to_obj(obj_id);
     if let FSRValue::List(l) = &obj.value {
-        let mut count = 0;
         let size = l.get_items().len();
-        for id in l.get_items() {
+        for (count, id) in l.get_items().iter().enumerate() {
             let obj = FSRObject::id_to_obj(*id);
             let s_obj = obj.to_string(thread);
             if let FSRValue::String(_s) = &s_obj.value {
@@ -48,7 +47,6 @@ fn list_string<'a>(
                 }
                 
             }
-            count += 1;
         }
     }
 
@@ -71,7 +69,7 @@ impl FSRList {
         unimplemented!()
     }
 
-    pub fn new(vs: Vec<u64>) -> FSRObject<'static> {
+    pub fn new_object(vs: Vec<u64>) -> FSRObject<'static> {
         let s = Self {
             vs,
         };

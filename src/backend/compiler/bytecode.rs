@@ -558,7 +558,7 @@ impl<'a> Bytecode {
             arg: ArgType::LoadListNumber(token.get_items().len()),
         };
         result_list.push_back(load_list);
-        return (result_list, self_var);
+        (result_list, self_var)
     }
 
     fn load_ret(

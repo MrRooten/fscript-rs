@@ -51,9 +51,8 @@ mod tests {
             dump(b)
         }
         a = [1, 2, 3, c]
-        test(a)
-        dump(a)
-        
+        println(a)
+        println(c.abc)
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();

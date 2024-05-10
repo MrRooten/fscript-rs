@@ -118,7 +118,7 @@ impl SValue<'_> {
             return Some(obj);
         }
 
-        return None;
+        None
     }
 }
 
@@ -427,13 +427,12 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
         let name = attr_id.1;
         let id = dot_father_obj.get_attr(name, context.vm);
-        if id.is_none() {
-            context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr((attr_id.0, name)));
-        } else {
-            let id = id.unwrap();
+        if let Some(id) = id {
             context.exp.push(SValue::Global(dot_father));
             context.exp.push(SValue::Attr((id, name)));
+        } else {
+            context.exp.push(SValue::Global(dot_father));
+            context.exp.push(SValue::Attr((attr_id.0, name)));
         }
 
         context.is_attr = true;
@@ -790,7 +789,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                 list.push(v);
             }
 
-            let list = FSRList::new(list);
+            let list = FSRList::new_object(list);
             let id = context.vm.register_object(list);
             context.exp.push(SValue::Global(id));
         }
