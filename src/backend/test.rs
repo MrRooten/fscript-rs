@@ -29,6 +29,7 @@ mod tests {
         class Dc {
             fn __new__(self) {
                 self.ttc = 123
+                dump(self)
                 return self
             }
         }
@@ -44,10 +45,11 @@ mod tests {
             }
         }
 
-        c = Abc('123')
-        println(c.abc.ttc)
-        c.abc.ttc = 4455
-        println(c.abc.ttc)
+        fn test() {
+            a = 123
+        }
+
+        test()
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();

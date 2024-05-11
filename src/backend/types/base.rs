@@ -256,6 +256,11 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline]
+    pub fn count_ref(&self) -> u64 {
+        unsafe { *self.ref_count.as_ptr() }
+    }
+
+    #[inline]
     pub fn id_to_obj(id: u64) -> &'a FSRObject<'a> {
         if id < 1000 {
             return Self::sp_object(id);

@@ -5,3 +5,4 @@ pub mod fn_def;
 pub mod integer;
 pub mod string;
 pub mod list;
+pub mod module;

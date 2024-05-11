@@ -1,7 +1,7 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    borrow::Cow, collections::HashMap, sync::atomic::AtomicU64
+    borrow::Cow, collections::{HashMap, HashSet}, sync::atomic::AtomicU64
 };
 
 use crate::{
@@ -237,11 +237,22 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         unimplemented!()
     }
 
-    fn pop_stack(&mut self) {
+    fn pop_stack(&mut self, _vm: &mut FSRVM, escape: Option<HashSet<u64>>) {
         let v = self.call_stack.pop().unwrap();
         for kv in v.var_map {
             let obj = FSRObject::id_to_obj(kv.1);
+            if let Some(l) = &escape {
+                if l.contains(&kv.1) {
+                    obj.ref_dec();
+                    continue;
+                }
+            }
+            
             obj.ref_dec();
+            if obj.count_ref() == 0 {
+                println!("Delete Object: {:#?}", obj);
+            }
+            //vm.check_delete(kv.1);
         }
     }
 
@@ -281,16 +292,19 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             let father = obj_id.get_global_id(self);
             let father = FSRObject::id_to_mut_obj(father);
             if let SValue::Attr((_, attr_name)) = assign_id {
-                // let obj = FSRObject::id_to_obj(to_assign_obj_id);
+                let obj = FSRObject::id_to_mut_obj(to_assign_obj_id);
+                obj.ref_add();
                 // println!("{:#?}", obj);
                 father.set_attr(attr_name, to_assign_obj_id);
             }
             context.is_attr = false;
         } else {
-            let obj = obj_id.get_global_id(self);
+            let obj_id = obj_id.get_global_id(self);
+            let to_assign_obj = FSRObject::id_to_mut_obj(obj_id);
+            to_assign_obj.ref_add();
             let state = self.get_cur_mut_stack();
             if let SValue::Stack((var_id, _)) = assign_id {
-                state.insert_var(&var_id, obj);
+                state.insert_var(&var_id, obj_id);
             }
         }
         // if let SValue::Global(id) = obj_id {
@@ -455,8 +469,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         let name = attr_id.1;
         let id = dot_father_obj.get_attr(name, context.vm);
         if let Some(id) = id {
-            let obj = FSRObject::id_to_obj(id);
-            println!("{:#?}", obj);
+            // let obj = FSRObject::id_to_obj(id);
+            // println!("{:#?}", obj);
             context.exp.push(SValue::Global(dot_father));
             context.exp.push(SValue::Attr((id, name)));
         } else {
@@ -613,14 +627,22 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                     return Ok(true);
                 } else {
                     let v = fn_obj.call(args, self).unwrap();
+                    
                     if let FSRRetValue::Value(v) = v {
                         let id = context.vm.register_object(v);
                         context.exp.push(SValue::Global(id));
+                        let vm = self.get_mut_vm();
+                        let mut esp = HashSet::new();
+                        esp.insert(id);
+                        self.pop_stack(vm, Some(esp));
                     } else if let FSRRetValue::GlobalId(id) = v {
                         context.exp.push(SValue::Global(id));
+                        let vm = self.get_mut_vm();
+                        let mut esp = HashSet::new();
+                        esp.insert(id);
+                        self.pop_stack(vm, Some(esp));
                     }
-
-                    self.pop_stack();
+                    
                 }
             }
         }
@@ -732,7 +754,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        self.pop_stack();
+        let vm = self.get_mut_vm();
+        self.pop_stack(vm, None);
         let cur = self.get_cur_mut_stack();
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
         Ok(true)
@@ -765,13 +788,17 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let _state = self.get_cur_mut_stack();
+        
         let v = context.exp.pop().unwrap().get_global_id(self);
-        self.pop_stack();
+        let mut esp = HashSet::new();
+        esp.insert(v);
+        let vm = self.get_mut_vm();
+        self.pop_stack(vm, Some(esp));
         let cur = self.get_cur_mut_stack();
         //exp.push(SValue::GlobalId(v));
         cur.ret_val = Some(v);
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1);
+        
         Ok(true)
     }
 
@@ -924,9 +951,9 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         
         while context.ip.1 < expr.len() {
             let arg = &expr[context.ip.1];
-            let t = format!("{:?} => {:?}", context.ip, arg);
-            println!("{:?}", context.exp);
-            println!("{}",t);
+            // let t = format!("{:?} => {:?}", context.ip, arg);
+            // println!("{:?}", context.exp);
+            // println!("{}",t);
             context.ip.1 += 1;
 
             self.set_exp_stack_ret(&mut context.exp);
