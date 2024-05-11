@@ -650,7 +650,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         };
         if test_val == context.vm.get_false_id() || test_val == context.vm.get_none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                context.ip = (context.ip.0 + *n as usize + 1 as usize, 0);
+                context.ip = (context.ip.0 + *n as usize + 1_usize, 0);
                 return Ok(true);
             }
         }
