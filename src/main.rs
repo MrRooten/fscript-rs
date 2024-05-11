@@ -26,6 +26,11 @@ fn main() {
         c = Abc('123')
         c.abc.ttc = 4455
         println(c.abc.ttc)
+
+        c = 123
+        if c > 12 {
+            println('sdfasdfasdf')
+        }
         ";
     let v = Bytecode::compile("main", source_code);
     let mut runtime = FSRThreadRuntime::new();
