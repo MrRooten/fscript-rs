@@ -200,4 +200,18 @@ mod frontend_tests {
         println!("{:#?}", s);
     }
 
+    #[test]
+    fn test_if_else() {
+        let s = "
+        if abc == 123 {
+
+        } else {
+            
+        }
+        ";
+        let meta = FSRPosition::new();
+        let s = FSRModuleFrontEnd::parse(s.as_bytes(),  meta).unwrap();
+        println!("{:#?}", s);
+    }
+
 }

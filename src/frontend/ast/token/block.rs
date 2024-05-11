@@ -179,6 +179,8 @@ impl<'a> FSRBlock<'a> {
                     block.tokens.push(FSRToken::Return(ret_expr.0));
                     start += length;
                     length = 0;
+                } else if t == &NodeType::Else {
+                    
                 }
             }
         }

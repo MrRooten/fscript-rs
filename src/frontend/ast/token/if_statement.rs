@@ -7,15 +7,17 @@ use crate::utils::error::SyntaxError;
 
 use super::base::FSRPosition;
 use super::base::FSRToken;
+use super::r#else::FSRElse;
 use super::statement::ASTTokenEnum;
 use super::statement::ASTTokenInterface;
 
 #[derive(Debug, Clone)]
 pub struct FSRIf<'a> {
-    test: Box<FSRToken<'a>>,
-    body: Box<FSRBlock<'a>>,
-    len: usize,
-    meta: FSRPosition,
+    pub(crate) test: Box<FSRToken<'a>>,
+    pub(crate) body: Box<FSRBlock<'a>>,
+    elses        : Option<Box<FSRElse<'a>>>,
+    pub(crate) len: usize,
+    pub(crate) meta: FSRPosition,
 }
 
 #[derive(PartialEq, Clone)]
@@ -114,18 +116,36 @@ impl<'a> FSRIf<'a> {
         sub_meta.offset = meta.offset + 2;
         let test_expr = FSRExpr::parse(test, false, sub_meta)?.0;
 
-        let start = 2 + len;
+        let mut start = 2 + len;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
-        let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
 
+        start += b_len;
+        b_len = 0;
+        while ASTParser::is_blank_char_with_new_line(source[start]) {
+            start += 1;
+        }
+
+        let mut may_else = None;
+
+        if start + 4 < source.len() {
+            let may_else_token = unsafe { std::str::from_utf8_unchecked(&source[start..start+4]) };
+            if may_else_token.eq("else") {
+                let sub_meta = meta.from_offset(start);
+                let elses = FSRElse::parse(&source[start..], sub_meta)?;
+                start += elses.get_len();
+                may_else = Some(Box::new(elses));
+            }
+        }
         Ok(Self {
             test: Box::new(test_expr),
             body: Box::new(body),
             len: start + b_len,
+            elses: may_else,
             meta,
         })
     }
