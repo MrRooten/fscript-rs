@@ -24,7 +24,6 @@ fn main() {
         }
 
         c = Abc('123')
-        println(c.abc.ttc)
         c.abc.ttc = 4455
         println(c.abc.ttc)
         ";

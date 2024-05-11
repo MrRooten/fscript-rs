@@ -123,7 +123,7 @@ pub struct FSRObject<'a> {
 impl Clone for FSRObject<'_> {
     fn clone(&self) -> Self {
         // Only use for SValue like tempory value
-        Self { obj_id: 0, value: self.value.clone(), ref_count: AtomicU64::new(0), cls: self.cls.clone() }
+        Self { obj_id: 0, value: self.value.clone(), ref_count: AtomicU64::new(0), cls: self.cls }
     }
 }
 
@@ -155,6 +155,15 @@ impl<'a> FSRObject<'a> {
         if let FSRValue::String(s) = &self.value {
             return s;
         }
+        unimplemented!()
+    }
+
+    pub fn set_attr(&mut self, name: &'a str, obj_id: u64) {
+        if let FSRValue::ClassInst(inst) = &mut self.value {
+            inst.set_attr(name, obj_id);
+            return ;
+        }
+
         unimplemented!()
     }
 
