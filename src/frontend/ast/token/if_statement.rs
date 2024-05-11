@@ -15,6 +15,7 @@ use super::statement::ASTTokenInterface;
 pub struct FSRIf<'a> {
     pub(crate) test: Box<FSRToken<'a>>,
     pub(crate) body: Box<FSRBlock<'a>>,
+    #[allow(unused)]
     elses        : Option<Box<FSRElse<'a>>>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,

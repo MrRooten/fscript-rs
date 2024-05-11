@@ -6,15 +6,16 @@ use crate::{
 use super::{
     base::{FSRPosition, FSRToken},
     block::FSRBlock,
-    statement::ASTToken,
 };
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 struct ElseIf<'a> {
     test: Option<Box<FSRToken<'a>>>,
     body: Box<FSRBlock<'a>>,
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct FSRElse<'a> {
     else_ifs: Vec<ElseIf<'a>>,
@@ -76,10 +77,10 @@ impl<'a> FSRElse<'a> {
         }
 
         let sub_meta = meta.from_offset(start);
-        return Ok(Self {
-            else_ifs: else_ifs,
+        Ok(Self {
+            else_ifs,
             len: start,
             meta: sub_meta,
-        });
+        })
     }
 }
