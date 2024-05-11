@@ -127,7 +127,7 @@ impl<'a> FSRIf<'a> {
 
         start += b_len;
         b_len = 0;
-        while ASTParser::is_blank_char_with_new_line(source[start]) {
+        while start < source.len() && ASTParser::is_blank_char_with_new_line(source[start]) {
             start += 1;
         }
 
