@@ -10,9 +10,22 @@ use super::{
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-struct ElseIf<'a> {
+pub struct ElseIf<'a> {
     test: Option<Box<FSRToken<'a>>>,
     body: Box<FSRBlock<'a>>,
+}
+
+impl<'a> ElseIf<'a> {
+    pub fn get_test(&self) -> Option<&FSRToken<'a>> {
+        match &self.test {
+            Some(s) => Some(s),
+            None => None
+        }
+    }
+
+    pub fn get_block(&self) -> &FSRBlock<'a> {
+        &self.body
+    }
 }
 
 #[allow(unused)]
@@ -24,12 +37,17 @@ pub struct FSRElse<'a> {
 }
 
 impl<'a> FSRElse<'a> {
+
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
     pub fn get_len(&self) -> usize {
         self.len
+    }
+
+    pub fn get_elses(&self) -> &Vec<ElseIf<'a>> {
+        &self.else_ifs
     }
 
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRElse<'a>, SyntaxError> {
@@ -43,8 +61,8 @@ impl<'a> FSRElse<'a> {
 
             let may_if_token = unsafe { std::str::from_utf8_unchecked(&source[start..start + 2]) };
             if may_if_token.eq("if") {
-                let sub_meta = meta.from_offset(start + 2);
-                let if_block = FSRIf::parse(&source[start + 2..], sub_meta)?;
+                let sub_meta = meta.from_offset(start);
+                let if_block = FSRIf::parse(&source[start..], sub_meta)?;
                 start += if_block.get_len();
                 let e = ElseIf {
                     test: Some(if_block.test),

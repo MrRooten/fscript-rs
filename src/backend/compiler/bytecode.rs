@@ -28,6 +28,9 @@ pub enum BytecodeOperator {
     InsertArg,
     IfBlockStart,
     IfTest,
+    ElseIf,
+    ElseIfStart,
+    Else,
     IfBlockEnd,
     WhileBlockStart,
     WhileTest,
@@ -46,7 +49,7 @@ pub enum ArgType {
     ConstString(u64, String),
     ConstInteger(u64, i64),
     Attr(u64, String),
-    IfTestNext(u64),
+    IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
     WhileTest(u64), //i64 is return to test, u64 is skip the block,
     WhileEnd(i64),
     Compare(&'static str),
@@ -392,22 +395,69 @@ impl<'a> Bytecode {
         if_def: &'a FSRIf<'a>,
         var_map: &'a mut VarMap<'a>,
     ) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
+        let mut var_ref = var_map;
         let test_exp = if_def.get_test();
         let mut vs = vec![];
-        let mut v = Self::load_token_with_map(test_exp, var_map);
+        let mut v = Self::load_token_with_map(test_exp, var_ref);
+        var_ref = v.1;
         let mut test_list = LinkedList::new();
         let mut t = v.0.remove(0);
         test_list.append(&mut t);
 
-        let block_items = Self::load_block(if_def.get_block(), v.1);
+        let block_items = Self::load_block(if_def.get_block(), var_ref);
+        var_ref = block_items.1;
+        let mut count_elses = 0;
+        if let Some(s) = if_def.get_elses() {
+            count_elses = s.get_elses().len();
+        }
         test_list.push_back(BytecodeArg {
             operator: BytecodeOperator::IfTest,
-            arg: ArgType::IfTestNext(block_items.0.len() as u64),
+            arg: ArgType::IfTestNext((block_items.0.len() as u64, count_elses as u64)),
         });
         vs.push(test_list);
         vs.extend(block_items.0);
+        if let Some(s) = if_def.get_elses() {
+            for e in s.get_elses() {
+                let test_exp = e.get_test();
 
-        (vs, block_items.1)
+                let mut test_list = LinkedList::new();
+                if let Some(t) = test_exp {
+                    let block = e.get_block();
+                    let block_items = Self::load_block(block, var_ref);
+                    var_ref = block_items.1;
+                    test_list.push_back(BytecodeArg {
+                        operator: BytecodeOperator::ElseIf,
+                        arg: ArgType::IfTestNext((block_items.0.len() as u64, 0)),
+                    });
+                    let mut v = Self::load_token_with_map(t, var_ref);
+                    var_ref = v.1;
+                    let mut t = v.0.remove(0);
+                    test_list.append(&mut t);
+                    test_list.push_back(BytecodeArg {
+                        operator: BytecodeOperator::IfTest,
+                        arg: ArgType::IfTestNext((block_items.0.len() as u64, 0)),
+                    });
+                    vs.push(test_list);
+                    vs.extend(block_items.0);
+                } else {
+                    let block = e.get_block();
+                    let block_items = Self::load_block(block, var_ref);
+                    test_list.push_back(BytecodeArg {
+                        operator: BytecodeOperator::Else,
+                        arg: ArgType::IfTestNext((block_items.0.len() as u64, 0)),
+                    });
+                    
+                    var_ref = block_items.1;
+                    
+                    vs.push(test_list);
+                    vs.extend(block_items.0);
+                }
+
+                
+
+            }
+        }
+        (vs, var_ref)
     }
 
     fn load_while_def(

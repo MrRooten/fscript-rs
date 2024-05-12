@@ -117,7 +117,36 @@ pub struct ThreadContext<'a> {
     exp: Vec<SValue<'a>>,
     ip: (usize, usize),
     vm: &'a mut FSRVM<'a>,
-    is_attr: bool
+    is_attr: bool,
+    last_if_test    : Vec<bool>
+}
+
+impl ThreadContext<'_> {
+    pub fn false_last_if_test(&mut self) {
+        let l = self.last_if_test.len() - 1;
+        self.last_if_test[l] = false;
+    }
+
+    pub fn true_last_if_test(&mut self) {
+        let l = self.last_if_test.len() - 1;
+        self.last_if_test[l] = true;
+    }
+
+    pub fn peek_last_if_test(&self) -> bool {
+        if self.last_if_test.is_empty() {
+            return false;
+        }
+
+        self.last_if_test[self.last_if_test.len() - 1]
+    }
+
+    pub fn push_last_if_test(&mut self, test: bool) {
+        self.last_if_test.push(test)
+    }
+
+    pub fn pop_last_if_test(&mut self) {
+        self.last_if_test.pop();
+    }
 }
 
 type BytecodeFn<'a> = fn(
@@ -168,6 +197,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::ClassDef, Self::class_def);
         map.insert(BytecodeOperator::EndDefineClass, Self::end_class_def);
         map.insert(BytecodeOperator::LoadList, Self::load_list);
+        map.insert(BytecodeOperator::Else, Self::else_process);
 
 
         Self {
@@ -672,11 +702,46 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         };
         if test_val == context.vm.get_false_id() || test_val == context.vm.get_none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                context.ip = (context.ip.0 + *n as usize + 1_usize, 0);
+                context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
+                context.false_last_if_test();
                 return Ok(true);
             }
         }
+        context.true_last_if_test();
+        Ok(false)
+    }
 
+    fn else_process(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        if context.peek_last_if_test() {
+            if let ArgType::IfTestNext(n) = bytecode.get_arg() {
+                context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
+                return Ok(true);
+            }
+        } 
+        
+        context.false_last_if_test();
+        Ok(false)
+    }
+
+    #[allow(unused)]
+    fn else_if_match(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        if context.peek_last_if_test() {
+            if let ArgType::IfTestNext(n) = bytecode.get_arg() {
+                context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
+                return Ok(true);
+            }
+        }
+        context.false_last_if_test();
         Ok(false)
     }
 
@@ -986,7 +1051,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             exp: vec![],
             ip: (0, 0),
             vm,
-            is_attr: false
+            is_attr: false,
+            last_if_test: vec![false],
         };
         while let Some(expr) = bytecode.get(context.ip) {
             self.run_expr(expr, &mut context, bytecode)?;
@@ -1000,7 +1066,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             exp: vec![],
             ip: fn_def.get_ip(),
             is_attr: false,
-            vm: self.get_mut_vm()
+            vm: self.get_mut_vm(),
+            last_if_test: vec![false],
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);

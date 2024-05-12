@@ -44,14 +44,14 @@ impl<'a> FSRWhile<'a> {
         if s != "while" {
             let mut sub_meta = meta.clone();
             sub_meta.offset = meta.offset;
-            let err = SyntaxError::new(&sub_meta, "not if token");
+            let err = SyntaxError::new(&sub_meta, "not while token");
             return Err(err);
         }
 
         if source[5] as char != ' ' && source[5] as char != '(' {
             let mut sub_meta = meta.clone();
             sub_meta.offset = meta.offset + 5;
-            let err = SyntaxError::new(&sub_meta, "not a valid if delemiter");
+            let err = SyntaxError::new(&sub_meta, "not a valid while delemiter");
             return Err(err);
         }
 

@@ -15,7 +15,11 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        c.abc.ttc = 4455
+        if 123 {
+
+        } else if 123 {
+
+        }
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
@@ -47,6 +51,9 @@ mod tests {
 
         fn test() {
             a = 123
+            if a > 3 {
+                println('abc')
+            }
         }
 
         test()

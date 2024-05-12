@@ -154,6 +154,15 @@ impl<'a> FSRIf<'a> {
     pub fn get_len(&self) -> usize {
         self.len
     }
+
+    pub fn get_elses(&self) -> Option<&FSRElse> {
+        match &self.elses {
+            Some(s) => Some(s),
+            None => {
+                None
+            }
+        }
+    }
 }
 
 pub enum FSRIfState {
