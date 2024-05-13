@@ -207,6 +207,8 @@ mod frontend_tests {
 
         } else if 123 {
 
+        } else if 123 {
+            
         }
         ";
         let meta = FSRPosition::new();

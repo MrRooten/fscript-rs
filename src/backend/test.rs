@@ -15,10 +15,12 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        if 123 {
-
-        } else if 123 {
-
+        if a < 3 {
+            println('abc')
+        } else if a < 3 {
+            println('else')
+        } else if a > 3 {
+            println('else2')
         }
         ";
         let meta = FSRPosition::new();
@@ -51,8 +53,12 @@ mod tests {
 
         fn test() {
             a = 123
-            if a > 3 {
+            if a < 3 {
                 println('abc')
+            } else if a < 3 {
+                println('else')
+            } else if a > 3 {
+                println('else2')
             }
         }
 

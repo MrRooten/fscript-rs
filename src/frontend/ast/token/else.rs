@@ -50,11 +50,13 @@ impl<'a> FSRElse<'a> {
         &self.else_ifs
     }
 
+
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRElse<'a>, SyntaxError> {
         let mut else_ifs = vec![];
         let mut s = unsafe { std::str::from_utf8_unchecked(&source[0..4]) };
-        let mut start = 4;
+        let mut start = 0;
         while s.eq("else") {
+            start += 4;
             while source[start] as char == ' ' {
                 start += 1;
             }
@@ -62,7 +64,7 @@ impl<'a> FSRElse<'a> {
             let may_if_token = unsafe { std::str::from_utf8_unchecked(&source[start..start + 2]) };
             if may_if_token.eq("if") {
                 let sub_meta = meta.from_offset(start);
-                let if_block = FSRIf::parse(&source[start..], sub_meta)?;
+                let if_block = FSRIf::parse_without_else(&source[start..], sub_meta)?;
                 start += if_block.get_len();
                 let e = ElseIf {
                     test: Some(if_block.test),

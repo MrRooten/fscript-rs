@@ -457,6 +457,13 @@ impl<'a> Bytecode {
 
             }
         }
+
+        let mut end_if = LinkedList::new();
+        end_if.push_back(BytecodeArg {
+            operator: BytecodeOperator::IfBlockEnd,
+            arg: ArgType::None
+        });
+        vs.push(end_if);
         (vs, var_ref)
     }
 
