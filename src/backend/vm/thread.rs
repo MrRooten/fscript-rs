@@ -199,6 +199,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::LoadList, Self::load_list);
         map.insert(BytecodeOperator::Else, Self::else_process);
         map.insert(BytecodeOperator::ElseIf, Self::else_if_match);
+        map.insert(BytecodeOperator::ElseIfTest, Self::else_if_test_process);
         map.insert(BytecodeOperator::IfBlockEnd, Self::if_end);
 
         Self {
@@ -728,7 +729,6 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        
         let state = self.get_cur_mut_stack();
         let test_val = match context.exp.pop().unwrap() {
             SValue::Stack(s) => {

@@ -57,7 +57,7 @@ mod tests {
                 println('abc')
             } else if a < 3 {
                 println('else')
-            } else if a > 3 {
+            } else {
                 println('else2')
             }
         }

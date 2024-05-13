@@ -28,6 +28,7 @@ pub enum BytecodeOperator {
     InsertArg,
     IfBlockStart,
     IfTest,
+    ElseIfTest,
     ElseIf,
     ElseIfStart,
     Else,
@@ -434,7 +435,7 @@ impl<'a> Bytecode {
                     let mut t = v.0.remove(0);
                     test_list.append(&mut t);
                     test_list.push_back(BytecodeArg {
-                        operator: BytecodeOperator::IfTest,
+                        operator: BytecodeOperator::ElseIfTest,
                         arg: ArgType::IfTestNext((block_items.0.len() as u64, 0)),
                     });
                     vs.push(test_list);
