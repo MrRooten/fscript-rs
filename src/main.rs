@@ -5,32 +5,34 @@ use fscript_rs::backend::{
 
 fn main() {
     let source_code = "
-        class Dc {
-            fn __new__(self) {
-                self.ttc = 123
-                dump(self)
-                return self
-            }
+    class Dc {
+        fn __new__(self) {
+            self.ttc = 123
+            dump(self)
+            return self
+        }
+    }
+
+    class Abc {
+        fn __new__(self, abc) {
+            self.abc = Dc()
+            return self
         }
 
-        class Abc {
-            fn __new__(self, abc) {
-                self.abc = Dc()
-                return self
-            }
-
-            fn __str__(self) {
-                return 'Abc: abc = 123'
-            }
+        fn __str__(self) {
+            return 'Abc: abc = 123'
         }
-        a = 3
+    }
+    a = 3
 
-        for a in [1, 2, 3, 4] {
-            println(a)
+    b = [1, 2, 3, 4, 5]
+
+    for a in b {
+        if a > 3 {
+            println('bigger than 3')
         }
-
-        a = Abc('dfdf')
         println(a)
+    }
     ";
     let v = Bytecode::compile("main", source_code);
     let mut runtime = FSRThreadRuntime::new();

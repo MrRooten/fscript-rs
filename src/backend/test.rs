@@ -52,7 +52,9 @@ mod tests {
         }
         a = 3
 
-        for a in [1, 2, 3, 4] {
+        b = [1, 2, 3, 4, 5]
+
+        for a in b {
             if a > 2 {
                 break
             } else {
@@ -88,10 +90,13 @@ mod tests {
                 return 'Abc: abc = 123'
             }
         }
+        a = 3
 
-        for a in [1, 2, 3] {
-            if a > 1 {
-                println('sfsdf')
+        b = [1, 2, 3, 4, 5]
+
+        for a in b {
+            if a > 3 {
+                println('bigger than 3')
             }
             println(a)
         }

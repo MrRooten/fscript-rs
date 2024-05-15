@@ -26,12 +26,14 @@ class Abc {
 }
 a = 3
 
-for a in [1, 2, 3, 4] {
+b = [1, 2, 3, 4, 5]
+
+for a in b {
+    if a > 3 {
+        println('bigger than 3')
+    }
     println(a)
 }
-
-a = Abc('dfdf')
-println(a)
 ";
 let v = Bytecode::compile("main", source_code);
 let mut runtime = FSRThreadRuntime::new();
@@ -43,19 +45,8 @@ runtime.start(&v, &mut vm).unwrap();
 1
 2
 3
+bigger than 3
 4
-FSRObject {
-    obj_id: 5232438800,
-    value: ClassInst(
-        FSRClassInst {
-            name: "Dc",
-            attrs: {
-                "ttc": 5232438912,
-            },
-        },
-    ),
-    ref_count: 1,
-    cls: "Dc",
-}
-Abc: abc = 123
+bigger than 3
+5
 ```
