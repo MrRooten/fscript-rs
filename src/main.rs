@@ -23,16 +23,23 @@ fn main() {
             return 'Abc: abc = 123'
         }
     }
-    a = 3
 
-    b = [1, 2, 3, 4, 5]
+    fn main() {
+        b = [1, 2, 3, 4, 5]
 
-    for a in b {
-        if a > 3 {
-            println('bigger than 3')
+        for a in b {
+            if a > 4 {
+                println('bigger than 4')
+            } else if a > 3 {
+                println('bigger than 3')
+            }
+            println(a)
         }
-        println(a)
     }
+
+    main()
+
+    
     ";
     let v = Bytecode::compile("main", source_code);
     let mut runtime = FSRThreadRuntime::new();
