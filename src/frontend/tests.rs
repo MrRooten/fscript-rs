@@ -110,10 +110,13 @@ mod frontend_tests {
     }
 
     #[test]
-    fn test_for() {
+    fn test_while() {
         let s = 
         "while abc==123 {
             a = print(123)
+            if a > 3 {
+                continue
+            }
         }
         ";
         let meta = FSRPosition::new();
@@ -215,5 +218,16 @@ mod frontend_tests {
         let s = FSRModuleFrontEnd::parse(s.as_bytes(),  meta).unwrap();
         println!("{:#?}", s);
     }
+
+    // #[test]
+    // fn test_for() {
+    //     let s = "for abc in [1, 2, 3] {
+
+    //     }
+    //     ";
+    //     let meta = FSRPosition::new();
+    //     let s = FSRFor::parse(s.as_bytes(),  meta).unwrap();
+    //     println!("{:#?}", s);
+    // }
 
 }

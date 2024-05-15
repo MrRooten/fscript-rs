@@ -13,7 +13,9 @@ pub enum NodeType {
     ClassState,
     ReturnState,
     ImportState,
-    Else
+    Else,
+    Break,
+    Continue
 }
 
 #[allow(unused)]
@@ -56,6 +58,8 @@ impl FSTrie {
         self.insert("return", NodeType::ReturnState);
         self.insert("import", NodeType::ImportState);
         self.insert("else", NodeType::Else);
+        self.insert("break", NodeType::Break);
+        self.insert("continue", NodeType::Continue);
     }
 
     pub fn new() -> FSTrie {

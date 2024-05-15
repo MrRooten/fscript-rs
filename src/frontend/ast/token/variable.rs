@@ -2,10 +2,10 @@ use super::base::FSRPosition;
 
 #[derive(Debug, Clone)]
 pub struct FSRVariable<'a> {
-    name: &'a str,
+    pub(crate) name: &'a str,
     pub(crate) single_op: Option<&'a str>,
     pub(crate) len: usize,
-    meta: FSRPosition,
+    pub(crate) meta: FSRPosition,
 }
 
 impl<'a> FSRVariable<'a> {

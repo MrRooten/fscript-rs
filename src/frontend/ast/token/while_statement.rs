@@ -8,10 +8,10 @@ use super::base::FSRToken;
 
 #[derive(Debug, Clone)]
 pub struct FSRWhile<'a> {
-    test: Box<FSRToken<'a>>,
-    body: Box<FSRBlock<'a>>,
-    len: usize,
-    meta: FSRPosition,
+    pub(crate) test: Box<FSRToken<'a>>,
+    pub(crate) body: Box<FSRBlock<'a>>,
+    pub(crate) len: usize,
+    pub(crate) meta: FSRPosition,
 }
 
 #[derive(PartialEq, Clone)]

@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use super::base::{FSRPosition, FSRToken};
+use super::for_statement::FSRFor;
 use super::function_def::FSRFnDef;
 use super::if_statement::FSRIf;
 use super::return_def::FSRReturn;
@@ -181,6 +182,22 @@ impl<'a> FSRBlock<'a> {
                     length = 0;
                 } else if t == &NodeType::Else {
                     
+                } else if t == &NodeType::Break {
+                    let mut sub_meta = meta.from_offset(start);
+                    block.tokens.push(FSRToken::Break(sub_meta));
+                    start += "break".len();
+                } else if t == &NodeType::Continue {
+                    let mut sub_meta = meta.from_offset(start);
+                    block.tokens.push(FSRToken::Continue(sub_meta));
+                    start += "continue".len();
+                } else if t == &NodeType::ForState {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + start;
+                    let for_def = FSRFor::parse(&source[start..], sub_meta)?;
+                    length += for_def.get_len();
+                    block.tokens.push(FSRToken::ForBlock(for_def));
+                    start += length;
+                    length = 0;
                 }
             }
         }

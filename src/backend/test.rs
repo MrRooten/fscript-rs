@@ -30,6 +30,20 @@ mod tests {
     }
 
     #[test]
+    fn test_for_bc() {
+        let expr = "
+        b = [1, 2, 3]
+        for i in b {
+            println(i)
+        }
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
     fn test_2() {
         let source_code = "
         class Dc {
@@ -80,5 +94,25 @@ mod tests {
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_while() {
+        let source_code = "
+        a = 0
+        while a < 100 {
+            println(a)
+            a = a + 1
+            if a > 3 {
+                continue
+            }
+            println('abc')
+        }
+        ";
+        let v = Bytecode::compile("main", source_code);
+        let mut runtime = FSRThreadRuntime::new();
+        let mut vm = FSRVM::new();
+        runtime.set_vm(&mut vm);
+        runtime.start(&v, &mut vm).unwrap();
     }
 }

@@ -16,12 +16,12 @@ use super::{base::FSRToken, call::FSRCall, variable::FSRVariable};
 
 #[derive(Debug, Clone)]
 pub struct FSRExpr<'a> {
-    single_op: Option<&'a str>,
-    left: Box<FSRToken<'a>>,
-    right: Box<FSRToken<'a>>,
-    op: Option<&'a str>,
-    len: usize,
-    meta: FSRPosition,
+    pub(crate)single_op: Option<&'a str>,
+    pub(crate)left: Box<FSRToken<'a>>,
+    pub(crate)right: Box<FSRToken<'a>>,
+    pub(crate)op: Option<&'a str>,
+    pub(crate)len: usize,
+    pub(crate)meta: FSRPosition,
 }
 
 impl<'a> FSRExpr<'a> {

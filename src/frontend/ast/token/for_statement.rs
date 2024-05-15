@@ -22,6 +22,26 @@ enum State {
 }
 
 impl<'a> FSRFor<'a> {
+    pub fn get_len(&self) -> usize {
+        self.len
+    }
+
+    pub fn get_meta(&self) -> &FSRPosition {
+        &self.meta
+    }
+
+    pub fn get_var_name(&self) -> &str {
+        &self.var_name
+    }
+
+    pub fn get_expr(&self) -> &FSRToken {
+        &self.expr
+    }
+
+    pub fn get_block(&self) -> &FSRBlock<'a> {
+        &self.body
+    }
+
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
         let s = unsafe { std::str::from_utf8_unchecked(&source[0..3]) };
         
@@ -32,20 +52,20 @@ impl<'a> FSRFor<'a> {
             return Err(err);
         }
         
-        if ASTParser::is_blank_char(source[3]) == false {
+        if !ASTParser::is_blank_char(source[3]){
             let mut sub_meta = meta.from_offset(3);
             sub_meta.offset = meta.offset;
             let err = SyntaxError::new(&sub_meta, "blank space after for token");
             return Err(err);
         }
 
-        let mut start = 4;
+        let mut start = 3;
         while start < source.len() && ASTParser::is_blank_char(source[start]) {
             start += 1;
         }
 
         let mut name = String::new();
-        if ASTParser::is_name_letter_first(source[start]) == false {
+        if !ASTParser::is_name_letter_first(source[start]) {
             let mut sub_meta = meta.from_offset(start);
             sub_meta.offset = meta.offset;
             let err = SyntaxError::new(&sub_meta, "variable name not name letter first");
@@ -59,7 +79,7 @@ impl<'a> FSRFor<'a> {
             start += 1;
         }
 
-        if ASTParser::is_blank_char(source[start]) == false {
+        if !ASTParser::is_blank_char(source[start]) {
             let mut sub_meta = meta.from_offset(start);
             sub_meta.offset = meta.offset;
             let err = SyntaxError::new(&sub_meta, "blank space after for token");
@@ -81,7 +101,7 @@ impl<'a> FSRFor<'a> {
 
         start += 2;
 
-        if ASTParser::is_blank_char(source[start]) == false {
+        if !ASTParser::is_blank_char(source[start]) {
             let mut sub_meta = meta.from_offset(start);
             sub_meta.offset = meta.offset;
             let err = SyntaxError::new(&sub_meta, "blank space after in token");
@@ -147,11 +167,13 @@ impl<'a> FSRFor<'a> {
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
+        start += body.get_len();
+        
         Ok(Self {
             var_name: name,
             expr: Box::new(expr),
             body: Box::new(body),
-            len,
+            len: start,
             meta,
         })
     }

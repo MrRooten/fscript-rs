@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::frontend::ast::token::{
-    assign::FSRAssign, base::{FSRPosition, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, function_def::FSRFnDef, if_statement::FSRIf, list::FSRListFrontEnd, module::FSRModuleFrontEnd, return_def::FSRReturn, variable::FSRVariable, while_statement::FSRWhile
+    assign::FSRAssign, base::{FSRPosition, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf, list::FSRListFrontEnd, module::FSRModuleFrontEnd, return_def::FSRReturn, variable::FSRVariable, while_statement::FSRWhile
 };
 
 #[derive(Debug, PartialEq, Hash, Eq)]
@@ -12,7 +12,6 @@ pub enum BytecodeOperator {
     Push,
     Pop,
     Load,
-    LoadAttr,
     LoadList,
     Assign,
     AssignArgs,
@@ -41,6 +40,13 @@ pub enum BytecodeOperator {
     EndDefineFn,
     EndDefineClass,
     ClassDef,
+    ForDef,
+    ForLoad,
+    Break,
+    Continue,
+    LoadForIter,
+    PushForNext, // call iter_obj.__next__()
+    ForBlockEnd
 }
 
 #[derive(Debug)]
@@ -59,6 +65,7 @@ pub enum ArgType {
     DefineFnArgs(u64, u64),
     DefineClassLine(u64),
     LoadListNumber(usize),
+    ForEnd(i64),
     None,
 }
 
@@ -468,6 +475,81 @@ impl<'a> Bytecode {
         (vs, var_ref)
     }
 
+    #[allow(unused)]
+    fn load_for_def(
+        for_def: &'a FSRFor<'a>,
+        var_map: &'a mut VarMap<'a>
+    ) -> (Vec<LinkedList<BytecodeArg>>, &'a mut VarMap<'a>) {
+        let mut result = vec![];
+        
+        let mut var_self = var_map;
+        let v = Self::load_token_with_map(for_def.get_expr(), var_self);
+        let mut expr = v.0;
+        var_self = v.1;
+        let mut t = expr.remove(0);
+        if !var_self.has_attr("__iter__") {
+            var_self.insert_attr("__iter__");
+        }
+        let id = var_self.get_attr("__iter__").unwrap();
+        t.push_back(BytecodeArg {
+            operator: BytecodeOperator::Load,
+            arg: ArgType::Attr(*id, "__iter__".to_string()),
+        });
+        t.push_back(BytecodeArg {
+            operator: BytecodeOperator::Call,
+            arg: ArgType::CallArgsNumber(1),
+        });
+
+        t.push_back(BytecodeArg {
+            operator: BytecodeOperator::LoadForIter,
+            arg: ArgType::None,
+        });
+        result.push(t);
+
+        let mut load_next = LinkedList::new();
+        if !var_self.has_attr("__next__") {
+            var_self.insert_attr("__next__");
+        }
+        let id = var_self.get_attr("__next__").unwrap();
+        load_next.push_back(BytecodeArg {
+            operator: BytecodeOperator::Load,
+            arg: ArgType::Attr(*id, "__next__".to_string()),
+        });
+        load_next.push_back(BytecodeArg {
+            operator: BytecodeOperator::Call,
+            arg: ArgType::CallArgsNumber(1),
+        });
+        load_next.push_back(BytecodeArg {
+            operator: BytecodeOperator::PushForNext,
+            arg: ArgType::None
+        });
+        if !var_self.has_var(for_def.get_var_name()) {
+            var_self.insert_var(for_def.get_var_name());
+        }
+
+        let arg_id = var_self.get_var(for_def.get_var_name()).unwrap();
+        load_next.push_back(BytecodeArg {
+            operator: BytecodeOperator::Load,
+            arg: ArgType::Variable(*arg_id, for_def.get_var_name().to_string())
+        });
+        load_next.push_back(BytecodeArg {
+            operator: BytecodeOperator::Assign,
+            arg: ArgType::None
+        });
+
+        result.push(load_next);
+        let mut block_items = Self::load_block(for_def.get_block(), var_self);
+        var_self = block_items.1;
+        result.append(&mut block_items.0);
+        let mut end = LinkedList::new();
+        end.push_back(BytecodeArg {
+            operator: BytecodeOperator::ForBlockEnd,
+            arg: ArgType::ForEnd(result.len() as i64),
+        });
+        result.push(end);
+        (result, var_self)
+    }
+
     fn load_while_def(
         while_def: &'a FSRWhile<'a>,
         var_map: &'a mut VarMap<'a>,
@@ -494,6 +576,24 @@ impl<'a> Bytecode {
         vs.extend(block_items.0);
 
         (vs, block_items.1)
+    }
+
+    fn load_break() -> LinkedList<BytecodeArg> {
+        let mut break_list = LinkedList::new();
+        break_list.push_back(BytecodeArg {
+            operator: BytecodeOperator::Break,
+            arg: ArgType::None,
+        });
+        break_list
+    }
+
+    fn load_continue() -> LinkedList<BytecodeArg> {
+        let mut break_list = LinkedList::new();
+        break_list.push_back(BytecodeArg {
+            operator: BytecodeOperator::Continue,
+            arg: ArgType::None,
+        });
+        break_list
     }
 
     fn load_token_with_map(
@@ -552,6 +652,15 @@ impl<'a> Bytecode {
         } else if let FSRToken::List(list) = token {
             let v = Self::load_list(list, var_map);
             return (vec![v.0], v.1);
+        } else if let FSRToken::Break(_) = token {
+            let v = Self::load_break();
+            return (vec![v], var_map);
+        } else if let FSRToken::Continue(_) = token {
+            let v = Self::load_continue();
+            return (vec![v], var_map);
+        } else if let FSRToken::ForBlock(b) = token {
+            let v = Self::load_for_def(b, var_map);
+            return (v.0, v.1);
         }
 
         unimplemented!()

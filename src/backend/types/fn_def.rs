@@ -100,11 +100,6 @@ impl<'a> FSRFn<'a> {
         }
 
         if let FSRnE::FSRFn(f) = &self.fn_def {
-            // let ptr = thread as *mut FSRThreadRuntime;
-            // let thread = unsafe { &mut *ptr };
-            // let vm_patr = vm as *mut FSRVM;
-            // let vm = unsafe { &mut *vm_patr };
-            //thread.call_fn(f, vm);
             let v = FSRThreadRuntime::call_fn(thread, f, args)?;
             return Ok(FSRRetValue::GlobalId(v));
         }
