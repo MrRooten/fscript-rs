@@ -155,56 +155,8 @@ impl<'a> FSRIf<'a> {
             let err = SyntaxError::new(&sub_meta, "not a valid if delemiter");
             return Err(err);
         }
-
-        let mut state = State::Continue;
-        let mut pre_state = State::Continue;
-        let mut len = 0;
-        for c in &source[2..] {
-            let c = *c as char;
-
-            len += 1;
-            if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {
-                len -= 1;
-                break;
-            }
-
-            if c == '\n' {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + len - 1;
-                let err = SyntaxError::new(&sub_meta, "Invalid If statement");
-                return Err(err);
-            }
-
-            if state == State::EscapeQuote {
-                state = pre_state.clone();
-                continue;
-            }
-
-            if c == '\'' && state == State::Continue {
-                state = State::SingleQuote;
-                continue;
-            }
-
-            if c == '\'' && state == State::SingleQuote {
-                state = State::Continue;
-                continue;
-            }
-
-            if c == '\"' && state == State::DoubleQuote {
-                state = State::DoubleQuote;
-                continue;
-            }
-
-            if c == '\"' && state == State::DoubleQuote {
-                state = State::Continue;
-                continue;
-            }
-
-            if c == '\\' && (state == State::DoubleQuote || state == State::SingleQuote) {
-                pre_state = state;
-                state = State::EscapeQuote;
-            }
-        }
+        let sub_meta = meta.from_offset(2);
+        let len = ASTParser::read_valid_bracket_until_big(&source[2..], sub_meta)?;
 
         let test = &source[2..2 + len];
         let mut sub_meta = meta.clone();

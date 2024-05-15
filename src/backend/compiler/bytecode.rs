@@ -46,7 +46,8 @@ pub enum BytecodeOperator {
     Continue,
     LoadForIter,
     PushForNext, // call iter_obj.__next__()
-    ForBlockEnd
+    ForBlockEnd,
+    SpecialLoadFor
 }
 
 #[derive(Debug)]
@@ -66,6 +67,7 @@ pub enum ArgType {
     DefineClassLine(u64),
     LoadListNumber(usize),
     ForEnd(i64),
+    ForLine(u64),
     None,
 }
 
@@ -496,13 +498,18 @@ impl<'a> Bytecode {
             arg: ArgType::Attr(*id, "__iter__".to_string()),
         });
         t.push_back(BytecodeArg {
-            operator: BytecodeOperator::Call,
-            arg: ArgType::CallArgsNumber(1),
+            operator: BytecodeOperator::BinaryDot,
+            arg: ArgType::None
         });
-
+        t.push_back(BytecodeArg {
+            operator: BytecodeOperator::Call,
+            arg: ArgType::CallArgsNumber(0),
+        });
+        let mut block_items = Self::load_block(for_def.get_block(), var_self);
+        var_self = block_items.1;
         t.push_back(BytecodeArg {
             operator: BytecodeOperator::LoadForIter,
-            arg: ArgType::None,
+            arg: ArgType::ForLine(block_items.0.len() as u64 + 3),
         });
         result.push(t);
 
@@ -512,12 +519,20 @@ impl<'a> Bytecode {
         }
         let id = var_self.get_attr("__next__").unwrap();
         load_next.push_back(BytecodeArg {
+            operator: BytecodeOperator::SpecialLoadFor,
+            arg: ArgType::None,
+        });
+        load_next.push_back(BytecodeArg {
             operator: BytecodeOperator::Load,
             arg: ArgType::Attr(*id, "__next__".to_string()),
         });
         load_next.push_back(BytecodeArg {
+            operator: BytecodeOperator::BinaryDot,
+            arg: ArgType::None
+        });
+        load_next.push_back(BytecodeArg {
             operator: BytecodeOperator::Call,
-            arg: ArgType::CallArgsNumber(1),
+            arg: ArgType::CallArgsNumber(0),
         });
         load_next.push_back(BytecodeArg {
             operator: BytecodeOperator::PushForNext,
@@ -536,15 +551,15 @@ impl<'a> Bytecode {
             operator: BytecodeOperator::Assign,
             arg: ArgType::None
         });
-
+        
+        
+        
         result.push(load_next);
-        let mut block_items = Self::load_block(for_def.get_block(), var_self);
-        var_self = block_items.1;
         result.append(&mut block_items.0);
         let mut end = LinkedList::new();
         end.push_back(BytecodeArg {
             operator: BytecodeOperator::ForBlockEnd,
-            arg: ArgType::ForEnd(result.len() as i64),
+            arg: ArgType::ForEnd(result.len() as i64 - 1),
         });
         result.push(end);
         (result, var_self)

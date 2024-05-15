@@ -209,6 +209,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::LoadForIter, Self::load_for_iter);
         map.insert(BytecodeOperator::ForBlockEnd, Self::for_block_end);
         map.insert(BytecodeOperator::PushForNext, Self::push_for_next);
+        map.insert(BytecodeOperator::SpecialLoadFor, Self::special_load_for);
 
         Self {
             call_stack: vec![CallState::new("base")],
@@ -290,7 +291,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             
             obj.ref_dec();
             if obj.count_ref() == 0 {
-                println!("Delete Object: {:#?}", obj);
+                // println!("Delete Object: {:#?}", obj);
             }
             //vm.check_delete(kv.1);
         }
@@ -793,10 +794,15 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     fn load_for_iter(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        _bytecode: &BytecodeArg,
+        bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError>  {
+        
         let iter_obj = context.exp.pop().unwrap().get_global_id(self);
+        if let ArgType::ForLine(n) = bytecode.get_arg() {
+            context.break_line.push(context.ip.0 + *n as usize);
+            context.continue_line.push(context.ip.0 + 1);
+        }
         context.for_iter_obj.push(iter_obj);
         Ok(false)
     }
@@ -1046,6 +1052,16 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    fn special_load_for(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        _: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        context.exp.push(SValue::Global(*context.for_iter_obj.last().unwrap()));
+        Ok(false)
+    }
+
     fn process(
         &mut self,
         context: &mut ThreadContext<'a>,
@@ -1109,7 +1125,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         while context.ip.1 < expr.len() {
             let arg = &expr[context.ip.1];
             // let t = format!("{:?} => {:?}", context.ip, arg);
-            // println!("{:?}", context.exp);
+            //println!("{:?}", context.exp);
             // println!("{}",t);
             context.ip.1 += 1;
 

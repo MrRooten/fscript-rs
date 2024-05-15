@@ -71,6 +71,15 @@ impl BracketStates {
     }
 }
 
+#[derive(PartialEq, Clone)]
+enum State {
+    SingleQuote,
+    DoubleQuote,
+    _EscapeNewline,
+    EscapeQuote,
+    Continue,
+}
+
 impl ASTParser {
     pub fn get_max_token_length() -> usize {
         unimplemented!()
@@ -209,6 +218,72 @@ impl ASTParser {
 
         Ok(())
     }
+
+    pub fn read_valid_bracket_until_big(source: &[u8], meta: FSRPosition) -> Result<usize, SyntaxError> {
+        let mut state = State::Continue;
+        let mut pre_state = State::Continue;
+        let mut len = 0;
+        loop {
+            let c = source[len] as char;
+            if len >= source.len() {
+                return Err(SyntaxError::new(&meta.from_offset(source.len()), "not found {"));
+            }
+            len += 1;
+
+            if c == '(' || c == '[' {
+                let sub_meta = meta.from_offset(len);
+                let b_len = Self::read_valid_bracket(&source[len..], sub_meta)?;
+                len += b_len;
+                continue;
+            }
+
+            if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {
+                len -= 1;
+                break;
+            }
+
+            if c == '\n' {
+                let mut sub_meta = meta.clone();
+                sub_meta.offset = meta.offset + len - 1;
+                let err = SyntaxError::new(&sub_meta, "Invalid If statement");
+                return Err(err);
+            }
+
+            if state == State::EscapeQuote {
+                state = pre_state.clone();
+                continue;
+            }
+
+            if c == '\'' && state == State::Continue {
+                state = State::SingleQuote;
+                continue;
+            }
+
+            if c == '\'' && state == State::SingleQuote {
+                state = State::Continue;
+                continue;
+            }
+
+            if c == '\"' && state == State::DoubleQuote {
+                state = State::DoubleQuote;
+                continue;
+            }
+
+            if c == '\"' && state == State::DoubleQuote {
+                state = State::Continue;
+                continue;
+            }
+
+            if c == '\\' && (state == State::DoubleQuote || state == State::SingleQuote) {
+                pre_state = state;
+                state = State::EscapeQuote;
+            }
+        }
+
+        Ok(len)
+    }
+
+
     pub fn read_valid_name_bracket(source: &[u8], meta: FSRPosition) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut is_start = true;

@@ -32,9 +32,33 @@ mod tests {
     #[test]
     fn test_for_bc() {
         let expr = "
-        b = [1, 2, 3]
-        for i in b {
-            println(i)
+        class Dc {
+            fn __new__(self) {
+                self.ttc = 123
+                dump(self)
+                return self
+            }
+        }
+
+        class Abc {
+            fn __new__(self, abc) {
+                self.abc = Dc()
+                return self
+            }
+
+            fn __str__(self) {
+                return 'Abc: abc = 123'
+            }
+        }
+        a = 3
+
+        for a in [1, 2, 3, 4] {
+            if a > 2 {
+                break
+            } else {
+                println('ok')
+            }
+            println(a)
         }
         ";
         let meta = FSRPosition::new();
@@ -65,12 +89,12 @@ mod tests {
             }
         }
 
-        a = [1]
-        b = a.__iter__()
-        c = b.__next__()
-        println(c)
-        c = b.__next__()
-        println(c)
+        for a in [1, 2, 3] {
+            if a > 1 {
+                println('sfsdf')
+            }
+            println(a)
+        }
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();

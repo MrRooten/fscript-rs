@@ -8,6 +8,7 @@ fn main() {
         class Dc {
             fn __new__(self) {
                 self.ttc = 123
+                dump(self)
                 return self
             }
         }
@@ -22,16 +23,18 @@ fn main() {
                 return 'Abc: abc = 123'
             }
         }
+        a = 3
 
-        c = Abc('123')
-        c.abc.ttc = 4455
-        println(c.abc.ttc)
-
-        c = 123
-        if c > 12 {
-            println('sdfasdfasdf')
+        for a in [1, 2, 3, 4] {
+            if a > 2 {
+                continue
+            }
+            println(a)
         }
-        ";
+
+        a = Abc('dfdf')
+        println(a)
+    ";
     let v = Bytecode::compile("main", source_code);
     let mut runtime = FSRThreadRuntime::new();
     let mut vm = FSRVM::new();
