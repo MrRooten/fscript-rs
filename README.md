@@ -36,7 +36,6 @@ println(a)
 let v = Bytecode::compile("main", source_code);
 let mut runtime = FSRThreadRuntime::new();
 let mut vm = FSRVM::new();
-runtime.set_vm(&mut vm);
 runtime.start(&v, &mut vm).unwrap();
 ```
 
