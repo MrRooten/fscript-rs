@@ -14,7 +14,7 @@ use crate::{
 };
 
 use super::{
-    class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, list::FSRList, string::FSRString,
+    class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator, list::FSRList, string::FSRString
 };
 
 pub enum FSRGlobalObjId {
@@ -33,6 +33,7 @@ pub enum FSRValue<'a> {
     Function(FSRFn<'a>),
     Bool(bool),
     List(FSRList),
+    Iterator(FSRInnerIterator),
     None,
 }
 
@@ -84,7 +85,7 @@ impl<'a> FSRValue<'a> {
                 None
             }
             FSRValue::Function(_) => None,
-            FSRValue::None => None,
+            FSRValue::None => Some(Cow::Borrowed("None")),
             FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::List(_) => {
                 let res = FSRObject::invoke_method("__str__", vec![self_id], thread).unwrap();
@@ -106,6 +107,7 @@ impl<'a> FSRValue<'a> {
                 }
 
             },
+            FSRValue::Iterator(_) => None,
         };
 
         s
@@ -235,23 +237,34 @@ impl<'a> FSRObject<'a> {
         if id == 0 {
             return unsafe { NONE_OBJECT.as_ref().unwrap() };
         }
-        if id == 1 {
+        else if id == 1 {
             return unsafe { TRUE_OBJECT.as_ref().unwrap() };
         }
-        if id == 2 {
+        else if id == 2 {
             return unsafe { FALSE_OBJECT.as_ref().unwrap() };
         }
 
         panic!()
     }
 
+    pub fn is_sp_object(id: u64) -> bool {
+        id < 1000
+    }
+
+
     #[inline]
     pub fn ref_add(&self) {
+        if Self::is_sp_object(self.obj_id) {
+            return ;
+        }
         self.ref_count.fetch_add(1, Ordering::Relaxed);
     }
 
     #[inline]
     pub fn ref_dec(&self) {
+        if Self::is_sp_object(self.obj_id) {
+            return ;
+        }
         self.ref_count.fetch_sub(1, Ordering::Relaxed);
     }
 

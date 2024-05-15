@@ -70,6 +70,7 @@ pub struct RuntimeBaseError {}
 pub enum FSRErrCode {
     EmptyExpStack,
     NoSuchMethod,
+    NoSuchObject
 }
 
 #[derive(Debug)]

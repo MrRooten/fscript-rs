@@ -329,23 +329,40 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             };
 
             let to_assign_obj_id = to_assign_obj.get_global_id(self);
-            let father = obj_id.get_global_id(self);
-            let father = FSRObject::id_to_mut_obj(father);
-            if let SValue::Attr((_, attr_name)) = assign_id {
-                let obj = FSRObject::id_to_mut_obj(to_assign_obj_id);
-                obj.ref_add();
-                // println!("{:#?}", obj);
-                father.set_attr(attr_name, to_assign_obj_id);
+            if !FSRObject::is_sp_object(to_assign_obj_id) {
+                let father = obj_id.get_global_id(self);
+                let father = FSRObject::id_to_mut_obj(father);
+                if let SValue::Attr((_, attr_name)) = assign_id {
+                    let obj = FSRObject::id_to_mut_obj(to_assign_obj_id);
+                    obj.ref_add();
+                    father.set_attr(attr_name, to_assign_obj_id);
+                }
+                context.is_attr = false;
+            } else {
+                let father = obj_id.get_global_id(self);
+                let father = FSRObject::id_to_mut_obj(father);
+                if let SValue::Attr((_, attr_name)) = assign_id {
+                    father.set_attr(attr_name, to_assign_obj_id);
+                }
+                context.is_attr = false;
             }
-            context.is_attr = false;
+            
         } else {
             let obj_id = obj_id.get_global_id(self);
-            let to_assign_obj = FSRObject::id_to_mut_obj(obj_id);
-            to_assign_obj.ref_add();
-            let state = self.get_cur_mut_stack();
-            if let SValue::Stack((var_id, _)) = assign_id {
-                state.insert_var(&var_id, obj_id);
+            if !FSRObject::is_sp_object(obj_id) {
+                let to_assign_obj = FSRObject::id_to_mut_obj(obj_id);
+                to_assign_obj.ref_add();
+                let state = self.get_cur_mut_stack();
+                if let SValue::Stack((var_id, _)) = assign_id {
+                    state.insert_var(&var_id, obj_id);
+                }
+            } else {
+                let state = self.get_cur_mut_stack();
+                if let SValue::Stack((var_id, _)) = assign_id {
+                    state.insert_var(&var_id, obj_id);
+                }
             }
+            
         }
 
         Ok(false)

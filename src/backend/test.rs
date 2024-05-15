@@ -65,18 +65,12 @@ mod tests {
             }
         }
 
-        fn test() {
-            a = 123
-            if a < 3 {
-                println('abc')
-            } else if a < 3 {
-                println('else')
-            } else {
-                println('else2')
-            }
-        }
-
-        test()
+        a = [1]
+        b = a.__iter__()
+        c = b.__next__()
+        println(c)
+        c = b.__next__()
+        println(c)
         ";
         let v = Bytecode::compile("main", source_code);
         let mut runtime = FSRThreadRuntime::new();

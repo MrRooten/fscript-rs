@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, string::FSRString}, vm::{runtime::FSRVM, thread::FSRThreadRuntime}}, utils::error::FSRError};
+use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::{runtime::FSRVM, thread::FSRThreadRuntime}}, utils::error::FSRError};
 
 use super::{base::FSRRetValue, class::FSRClass, fn_def::FSRFn};
 
@@ -55,6 +55,19 @@ fn list_string<'a>(
     Ok(FSRRetValue::Value(FSRString::new_inst(Cow::Owned(s))))
 }
 
+fn iter<'a>(
+    args: Vec<u64>,
+    _: &mut FSRThreadRuntime<'a>
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let self_id = args[0];
+    let iterator = FSRInnerIterator {
+        obj: self_id,
+        index: 0,
+    };
+
+    return Ok(FSRRetValue::Value(FSRInnerIterator::new_inst(iterator)));
+}
+
 impl FSRList {
     pub fn get_class<'a>(vm: &mut FSRVM<'a>) -> FSRClass<'a> {
         let mut cls = FSRClass::new("List");
@@ -62,6 +75,8 @@ impl FSRList {
         cls.insert_attr("len", len_m, vm);
         let to_string = FSRFn::from_rust_fn(list_string);
         cls.insert_attr("__str__", to_string, vm);
+        let get_iter = FSRFn::from_rust_fn(iter);
+        cls.insert_attr("__iter__", get_iter, vm);
         cls
     }
 
