@@ -44,7 +44,7 @@ impl<'a> FSRIf<'a> {
     }
 
     pub fn parse_without_else(source: &'a [u8], meta: FSRPosition) -> Result<FSRIf<'a>, SyntaxError> {
-        let s = unsafe { std::str::from_utf8_unchecked(&source[0..2]) };
+        let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
@@ -138,7 +138,7 @@ impl<'a> FSRIf<'a> {
     }
 
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRIf<'a>, SyntaxError> {
-        let s = unsafe { std::str::from_utf8_unchecked(&source[0..2]) };
+        let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
@@ -180,7 +180,7 @@ impl<'a> FSRIf<'a> {
         let mut may_else = None;
 
         if start + 4 < source.len() {
-            let may_else_token = unsafe { std::str::from_utf8_unchecked(&source[start..start+4]) };
+            let may_else_token = std::str::from_utf8(&source[start..start+4]).unwrap();
             if may_else_token.eq("else") {
                 let sub_meta = meta.from_offset(start);
                 let elses = FSRElse::parse(&source[start..], sub_meta)?;

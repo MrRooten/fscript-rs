@@ -37,7 +37,7 @@ impl<'a> FSRWhile<'a> {
     }
 
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
-        let s = unsafe { std::str::from_utf8_unchecked(&source[0..5]) };
+        let s = std::str::from_utf8(&source[0..5]).unwrap();
         if source.len() < 5 {
             unimplemented!()
         }

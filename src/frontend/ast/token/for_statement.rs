@@ -43,7 +43,7 @@ impl<'a> FSRFor<'a> {
     }
 
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
-        let s = unsafe { std::str::from_utf8_unchecked(&source[0..3]) };
+        let s = std::str::from_utf8(&source[0..3]).unwrap();
         
         if s != "for" {
             let mut sub_meta = meta.clone();
@@ -91,7 +91,7 @@ impl<'a> FSRFor<'a> {
             start += 1;
         }
 
-        let s = unsafe { std::str::from_utf8_unchecked(&source[start..start+2]) };
+        let s = std::str::from_utf8(&source[start..start+2]).unwrap();
         if !s.eq("in") {
             let mut sub_meta = meta.from_offset(start);
             sub_meta.offset = meta.offset;

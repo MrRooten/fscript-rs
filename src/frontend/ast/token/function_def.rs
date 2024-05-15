@@ -52,7 +52,7 @@ impl<'a> FSRFnDef<'a> {
     }
 
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
-        let s = unsafe { std::str::from_utf8_unchecked(&source[0..2]) };
+        let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let mut sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "fn define body length too small");
