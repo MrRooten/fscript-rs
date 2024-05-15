@@ -6,9 +6,17 @@ not write interface yet, unit tests have some examples
 
 ```Rust
 let source_code = "
+class Dc {
+    fn __new__(self) {
+        self.ttc = 123
+        dump(self)
+        return self
+    }
+}
+
 class Abc {
     fn __new__(self, abc) {
-        self.abc = 123
+        self.abc = Dc()
         return self
     }
 
@@ -16,41 +24,39 @@ class Abc {
         return 'Abc: abc = 123'
     }
 }
-c = Abc('456')
-println(c)
-a = [1, 2, 3, c]
-println(a)";
+a = 3
 
-println!("Running code:");
-println!("{}", source_code);
-println!("\n\n\n---------------------");
+for a in [1, 2, 3, 4] {
+    println(a)
+}
+
+a = Abc('dfdf')
+println(a)
+";
 let v = Bytecode::compile("main", source_code);
 let mut runtime = FSRThreadRuntime::new();
 let mut vm = FSRVM::new();
+runtime.set_vm(&mut vm);
 runtime.start(&v, &mut vm).unwrap();
 ```
 
 ```
-Running code:
-
-class Abc {
-    fn __new__(self, abc) {
-        self.abc = 123
-        return self
-    }
-
-    fn __str__(self) {
-        return 'Abc: abc = 123'
-    }
+1
+2
+3
+4
+FSRObject {
+    obj_id: 5232438800,
+    value: ClassInst(
+        FSRClassInst {
+            name: "Dc",
+            attrs: {
+                "ttc": 5232438912,
+            },
+        },
+    ),
+    ref_count: 1,
+    cls: "Dc",
 }
-c = Abc('456')
-println(c)
-a = [1, 2, 3, c]
-println(a)
-
-
-
----------------------
 Abc: abc = 123
-[1, 2, 3, Abc: abc = 123]
 ```

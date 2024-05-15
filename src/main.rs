@@ -26,9 +26,6 @@ fn main() {
         a = 3
 
         for a in [1, 2, 3, 4] {
-            if a > 2 {
-                continue
-            }
             println(a)
         }
 
