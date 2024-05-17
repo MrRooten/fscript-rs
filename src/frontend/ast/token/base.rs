@@ -23,7 +23,7 @@ pub enum FSRToken<'a> {
     Block(FSRBlock<'a>),
     WhileExp(FSRWhile<'a>),
     Module(FSRModuleFrontEnd<'a>),
-    Import(FSRImport),
+    Import(FSRImport<'a>),
     List(FSRListFrontEnd<'a>),
     Class(FSRClassFrontEnd<'a>),
     EmptyExpr,

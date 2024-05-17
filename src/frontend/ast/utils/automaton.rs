@@ -15,7 +15,8 @@ pub enum NodeType {
     ImportState,
     Else,
     Break,
-    Continue
+    Continue,
+    Import
 }
 
 #[allow(unused)]
@@ -60,6 +61,7 @@ impl FSTrie {
         self.insert("else", NodeType::Else);
         self.insert("break", NodeType::Break);
         self.insert("continue", NodeType::Continue);
+        self.insert("import", NodeType::Import);
     }
 
     pub fn new() -> FSTrie {

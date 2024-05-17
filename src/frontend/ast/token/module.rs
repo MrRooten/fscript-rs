@@ -202,6 +202,14 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 module.tokens.push(FSRToken::ForBlock(for_def));
                 start += length;
                 length = 0;
+            } else if t == &NodeType::Import {
+                let mut sub_meta = meta.clone();
+                sub_meta.offset = meta.offset + start;
+                let import_def = FSRImport::parse(&source[start..], sub_meta)?;
+                length += import_def.1;
+                module.tokens.push(FSRToken::Import(import_def.0));
+                start += length;
+                length = 0;
             }
         }
         module.len = start + length;

@@ -3,19 +3,22 @@ use crate::utils::error::SyntaxError;
 use super::base::FSRPosition;
 use std::str;
 #[derive(Debug, Clone)]
-pub struct FSRImport {
-    _module_name: String,
+pub struct FSRImport<'a> {
+    _module_name: Vec<&'a str>,
     meta: FSRPosition,
 }
 
-impl FSRImport {
+impl<'a> FSRImport<'a> {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
-        while len < source.len() && source[len] == b'\n' {
+        while len < source.len() && source[len] != b'\n' {
+            if source[len] as char == '\\' {
+                len += 1;
+            }
             len += 1;
         }
 
@@ -25,11 +28,11 @@ impl FSRImport {
         }
 
         let module_start = sub.find(' ').unwrap();
-        let mod_name = &sub[module_start..len];
+        let mod_name = sub[module_start..len].trim();
 
         Ok((
             Self {
-                _module_name: mod_name.to_string(),
+                _module_name: mod_name.split('.').collect::<Vec<&str>>(),
                 meta,
             },
             len,
