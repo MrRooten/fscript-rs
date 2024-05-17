@@ -222,6 +222,14 @@ mod frontend_tests {
     }
 
     #[test]
+    fn test_logic_else() {
+        let s = "a > 3 && b < 4";
+        let meta = FSRPosition::new();
+        let s = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
+        println!("{:#?}", s);
+    }
+
+    #[test]
     fn test_for() {
         let s = "for abc in [1, 2, 3] {
 

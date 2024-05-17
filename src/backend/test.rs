@@ -89,7 +89,7 @@ mod tests {
         }
 
         for a in [1, 2, 3] {
-            if a > 1 {
+            if a > 1 && a < 1 {
                 println('sfsdf')
             }
             println(a)
