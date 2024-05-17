@@ -1,6 +1,5 @@
 use fscript_rs::backend::{
-    compiler::bytecode::Bytecode,
-    vm::{runtime::FSRVM, thread::FSRThreadRuntime},
+    types::module::FSRModule, vm::{runtime::FSRVM, thread::FSRThreadRuntime}
 };
 
 fn main() {
@@ -32,7 +31,7 @@ fn main() {
         a = Abc('dfdf')
         println(a)
     ";
-    let v = Bytecode::compile("main", source_code);
+    let v = FSRModule::from_code("main", source_code).unwrap();
     let mut runtime = FSRThreadRuntime::new();
     let mut vm = FSRVM::new();
     runtime.start(&v, &mut vm).unwrap();

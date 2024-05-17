@@ -11,7 +11,7 @@ use crate::{
             base::{FSRObject, FSRRetValue, FSRValue},
             class::FSRClass,
             class_inst::FSRClassInst,
-            fn_def::{FSRFn, FSRFnInner}, list::FSRList,
+            fn_def::{FSRFn, FSRFnInner}, list::FSRList, module::FSRModule,
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -1153,7 +1153,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
+    pub fn start(&'a mut self, module: &'a FSRModule<'a>, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
         self.set_vm(vm);
         let mut context = ThreadContext {
             exp: vec![],
@@ -1165,8 +1165,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             continue_line: vec![],
             for_iter_obj: vec![],
         };
-        while let Some(expr) = bytecode.get(context.ip) {
-            self.run_expr(expr, &mut context, bytecode)?;
+        while let Some(expr) = module.get_bc(&context.ip) {
+            self.run_expr(expr, &mut context, module.get_bytecode())?;
         }
 
         Ok(())
@@ -1197,7 +1197,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             context.ip = (offset.0, 0);
         }
         
-        while let Some(expr) = fn_def.get_bytecode().get(context.ip) {
+        while let Some(expr) = fn_def.get_bytecode().get(&context.ip) {
             let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
             if v {
                 break;
