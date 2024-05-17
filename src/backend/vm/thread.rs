@@ -210,6 +210,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::ForBlockEnd, Self::for_block_end);
         map.insert(BytecodeOperator::PushForNext, Self::push_for_next);
         map.insert(BytecodeOperator::SpecialLoadFor, Self::special_load_for);
+        map.insert(BytecodeOperator::AndJump, Self::process_logic_and);
+        map.insert(BytecodeOperator::OrJump, Self::process_logic_or);
 
         Self {
             call_stack: vec![CallState::new(&Cow::Borrowed("base"))],
@@ -1059,6 +1061,40 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         context.exp.push(SValue::Global(*context.for_iter_obj.last().unwrap()));
+        Ok(false)
+    }
+
+    fn process_logic_and(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bc: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let first = context.exp.pop().unwrap().get_global_id(self);
+        if first == 0 || first == 2 {
+            if let ArgType::AddOffset(offset) = bc.get_arg() {
+                context.ip.1 += *offset;
+                context.exp.push(SValue::Global(2));
+            }
+        }
+
+        Ok(false)
+    }
+
+    fn process_logic_or(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bc: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let first = context.exp.pop().unwrap().get_global_id(self);
+        if first != 0 && first != 2 {
+            if let ArgType::AddOffset(offset) = bc.get_arg() {
+                context.ip.1 += *offset;
+                context.exp.push(SValue::Global(1));
+            }
+        }
+
         Ok(false)
     }
 

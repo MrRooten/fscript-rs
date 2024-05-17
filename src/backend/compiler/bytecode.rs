@@ -21,6 +21,8 @@ pub enum BytecodeOperator {
     BinaryRShift,
     BinaryLShift,
     CompareTest,
+    AndJump,
+    OrJump,
     ReturnValue,
     Call,
     BinaryDot,
@@ -67,6 +69,7 @@ pub enum ArgType {
     DefineClassLine(u64),
     LoadListNumber(usize),
     ForEnd(i64),
+    AddOffset(usize),
     ForLine(u64),
     None,
 }
@@ -107,44 +110,44 @@ impl BytecodeOperator {
         unimplemented!()
     }
 
-    pub fn get_op(op: &str) -> BytecodeArg {
+    pub fn get_op(op: &str) -> Option<BytecodeArg> {
         if op.eq("+") {
-            return BytecodeArg {
+            return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryAdd,
                 arg: ArgType::None,
-            };
+            });
         } else if op.eq("*") {
-            return BytecodeArg {
+            return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryMul,
                 arg: ArgType::None,
-            };
+            });
         } else if op.eq(".") {
-            return BytecodeArg {
+            return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryDot,
                 arg: ArgType::None,
-            };
+            });
         } else if op.eq("=") {
-            return BytecodeArg {
+            return Some(BytecodeArg {
                 operator: BytecodeOperator::Assign,
                 arg: ArgType::None,
-            };
+            });
         } else if op.eq(">") || op.eq("<") || op.eq(">=") || op.eq("<=") {
-            return BytecodeArg {
+            return Some(BytecodeArg {
                 operator: BytecodeOperator::CompareTest,
                 arg: ArgType::Compare(Self::get_static_op(op)),
-            };
+            });
         } else if op.eq("<<") {
-            return BytecodeArg {
+            return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryLShift,
                 arg: ArgType::None,
-            };
+            });
         } else if op.eq(">>") {
-            return BytecodeArg {
+            return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryRShift,
                 arg: ArgType::None,
-            };
+            });
         }
-        unimplemented!()
+        None
     }
 }
 
@@ -347,12 +350,14 @@ impl<'a> Bytecode {
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else {
+            println!("{:#?}", expr.get_left());
             unimplemented!()
         }
 
+        let mut second = LinkedList::new();
         if let FSRToken::Expr(sub_expr) = expr.get_right() {
             let mut v = Self::load_expr(sub_expr, var_map_ref.unwrap());
-            op_code.append(&mut v.0);
+            second.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else if let FSRToken::Variable(v) = expr.get_right() {
             let mut is_attr = false;
@@ -360,7 +365,7 @@ impl<'a> Bytecode {
                 is_attr = true;
             }
             let mut v = Self::load_variable(v, var_map_ref.unwrap(), is_attr);
-            op_code.append(&mut v.0);
+            second.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else if let FSRToken::Call(c) = expr.get_right() {
             let mut is_attr = false;
@@ -368,17 +373,32 @@ impl<'a> Bytecode {
                 is_attr = true;
             }
             let mut v = Self::load_call(c, var_map_ref.unwrap(), is_attr);
-            op_code.append(&mut v.0);
+            second.append(&mut v.0);
             var_map_ref = Some(v.1);
             //call special process
             return (op_code, var_map_ref.unwrap());
         } else if let FSRToken::Constant(c) = expr.get_right() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap());
-            op_code.append(&mut v.0);
+            second.append(&mut v.0);
             var_map_ref = Some(v.1);
         }
-
-        op_code.push_back(BytecodeOperator::get_op(expr.get_op()));
+        if expr.get_op().eq("&&") {
+            op_code.push_back(BytecodeArg { 
+                operator: BytecodeOperator::AndJump, 
+                arg: ArgType::AddOffset(second.len())
+            });
+        } else if expr.get_op().eq("||") {
+            op_code.push_back(BytecodeArg { 
+                operator: BytecodeOperator::OrJump, 
+                arg: ArgType::AddOffset(second.len())
+            });
+        }
+        
+        op_code.append(&mut second);
+        if let Some(s) = BytecodeOperator::get_op(expr.get_op()) {
+            op_code.push_back(s);
+        }
+        
 
         (op_code, var_map_ref.unwrap())
     }

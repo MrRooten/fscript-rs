@@ -23,20 +23,8 @@ fn main() {
         }
     }
 
-    fn main() {
-        b = [1, 2, 3, 4, 5]
-
-        for a in b {
-            if a > 4 {
-                println('bigger than 4')
-            } else if a > 3 {
-                println('bigger than 3')
-            }
-            println(a)
-        }
-    }
-
-    main()
+    a = 1 > 2 || 3 > 1
+    println(a)
 
     
     ";

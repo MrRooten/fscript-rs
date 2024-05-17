@@ -49,7 +49,7 @@ mod frontend_tests {
 
     #[test]
     fn test_assign() {
-        let s = "a = 'abcdefg'.len() + 3 - 2";
+        let s = "a = 1 > 3 && 1 < 3";
         let meta = FSRPosition::new();
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
         if let FSRToken::Assign(e) = expr.0 {

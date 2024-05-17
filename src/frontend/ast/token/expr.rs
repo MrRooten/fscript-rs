@@ -166,16 +166,16 @@ impl<'a> Node<'a> {
             return 3;
         }
 
-        if op.eq(">") || op.eq("<") || op.ends_with('=') {
+        if op.eq(">") || op.eq("<") || op.eq("==") || op.eq("!=") {
             return 0;
         }
 
         if op.eq("&&") || op.eq("||") {
-            return -3;
+            return -2;
         }
 
         if op.eq("=") {
-            return -2;
+            return -3;
         }
 
         if op.eq(",") {

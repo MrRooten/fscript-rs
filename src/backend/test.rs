@@ -89,16 +89,8 @@ mod tests {
                 return 'Abc: abc = 123'
             }
         }
-        a = 3
-
-        b = [1, 2, 3, 4, 5]
-
-        for a in [1, 2, 3] {
-            if a > 1 {
-                println('sfsdf')
-            }
-            println(a)
-        }
+        a = 1 > 3 || 1 < 3
+        println(a)
         ";
         let v = FSRModule::from_code("main", source_code).unwrap();
         let mut runtime = FSRThreadRuntime::new();
