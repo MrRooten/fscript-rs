@@ -170,12 +170,16 @@ impl<'a> Node<'a> {
             return 0;
         }
 
+        if op.eq("&&") || op.eq("||") {
+            return -3;
+        }
+
         if op.eq("=") {
             return -2;
         }
 
         if op.eq(",") {
-            return -3;
+            return -4;
         }
         -1
     }
@@ -264,6 +268,8 @@ impl<'a> FSRExpr<'a> {
             || op == '*'
             || op == '.'
             || op == ','
+            || op == '&'
+            || op == '|'
         {
             return true;
         }
@@ -779,7 +785,7 @@ impl<'a> FSRExpr<'a> {
         let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta)?.0;
 
         let mut sub_meta = meta.from_offset(0);
-        let right = FSRExpr::parse(&source[split_offset + 1..], false, sub_meta.clone())?.0;
+        let right = FSRExpr::parse(&source[split_offset + operator.0.len()..], false, sub_meta.clone())?.0;
         let n_left = left.clone();
 
         if operator.0.eq("=") {

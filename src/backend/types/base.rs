@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, cell::RefCell, collections::hash_map::Keys, rc::Rc, sync::atomic::{AtomicU64, Ordering}
+    borrow::Cow, cell::RefCell, collections::hash_map::Keys, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{
@@ -400,7 +400,7 @@ impl<'a> FSRObject<'a> {
         false
     }
 
-    pub fn get_fsr_offset(&self) -> (Rc<String>, (usize, usize)) {
+    pub fn get_fsr_offset(&self) -> (&Cow<str>, (usize, usize)) {
         if let FSRValue::Function(fn_def) = &self.value {
             if let FSRnE::FSRFn(f) = &fn_def.get_def() {
                 return (f.get_name(), f.get_ip());

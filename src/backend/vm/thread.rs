@@ -11,7 +11,7 @@ use crate::{
             base::{FSRObject, FSRRetValue, FSRValue},
             class::FSRClass,
             class_inst::FSRClassInst,
-            fn_def::{FSRFn, FSRFnInner}, list::FSRList,
+            fn_def::{FSRFn, FSRFnInner}, list::FSRList, module::FSRModule,
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -28,7 +28,7 @@ pub struct CallState<'a> {
     ret_val: Option<u64>,
     exp: Option<Vec<SValue<'a>>>,
     #[allow(unused)]
-    name: &'a str,
+    name: Cow<'a,str>,
 }
 
 impl<'a> CallState<'a> {
@@ -60,7 +60,7 @@ impl<'a> CallState<'a> {
         self.reverse_ip = ip;
     }
 
-    pub fn new(name: &'a str) -> Self {
+    pub fn new(name: &'a Cow<str>) -> Self {
         Self {
             var_map: HashMap::new(),
             const_map: HashMap::new(),
@@ -69,7 +69,7 @@ impl<'a> CallState<'a> {
             cur_cls: None,
             ret_val: None,
             exp: None,
-            name,
+            name: name.clone(),
         }
     }
 }
@@ -212,7 +212,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::SpecialLoadFor, Self::special_load_for);
 
         Self {
-            call_stack: vec![CallState::new("base")],
+            call_stack: vec![CallState::new(&Cow::Borrowed("base"))],
             bytecode_map: map,
             vm_ptr: None
         }
@@ -567,7 +567,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                 let state = self.get_cur_mut_stack();
                 state.set_reverse_ip(context.ip);
                 state.exp = Some(context.exp.clone());
-                self.call_stack.push(CallState::new("__new__"));
+                self.call_stack.push(CallState::new(&Cow::Borrowed("__new__")));
                 context.exp.clear();
                 let self_obj = FSRObject::id_to_obj(self_id);
                 let self_new = self_obj.get_cls_attr("__new__", context.vm);
@@ -599,7 +599,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                     //Save callstate
                     state.set_reverse_ip(context.ip);
                     state.exp = Some(context.exp.clone());
-                    self.call_stack.push(CallState::new("tmp"));
+                    self.call_stack.push(CallState::new(&Cow::Borrowed("tmp")));
                     //Clear exp stack
                     context.exp.clear();
 
@@ -623,7 +623,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
                 }
             } else {
                 self.save_ip_to_callstate(n, &mut context.exp, &mut args, &mut context.ip);
-                self.call_stack.push(CallState::new("tmp2"));
+                self.call_stack.push(CallState::new(&Cow::Borrowed("tmp2")));
                 context.exp.clear();
                 
                 if fn_obj.is_fsr_function() {
@@ -1153,7 +1153,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    pub fn start(&'a mut self, bytecode: &'a Bytecode, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
+    pub fn start(&'a mut self, module: &'a FSRModule<'a>, vm: &'a mut FSRVM<'a>) -> Result<(), FSRError> {
         self.set_vm(vm);
         let mut context = ThreadContext {
             exp: vec![],
@@ -1165,8 +1165,8 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             continue_line: vec![],
             for_iter_obj: vec![],
         };
-        while let Some(expr) = bytecode.get(context.ip) {
-            self.run_expr(expr, &mut context, bytecode)?;
+        while let Some(expr) = module.get_bc(&context.ip) {
+            self.run_expr(expr, &mut context, module.get_bytecode())?;
         }
 
         Ok(())
@@ -1185,7 +1185,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
-            self.call_stack.push(CallState::new("__str__"));
+            self.call_stack.push(CallState::new(fn_def.get_name()));
             context.exp.clear();
             
 
@@ -1197,7 +1197,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
             context.ip = (offset.0, 0);
         }
         
-        while let Some(expr) = fn_def.get_bytecode().get(context.ip) {
+        while let Some(expr) = fn_def.get_bytecode().get(&context.ip) {
             let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
             if v {
                 break;

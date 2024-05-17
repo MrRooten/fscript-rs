@@ -3,8 +3,7 @@ mod tests {
 
     use crate::{
         backend::{
-            compiler::bytecode::Bytecode,
-            vm::{runtime::FSRVM, thread::FSRThreadRuntime},
+            compiler::bytecode::Bytecode, types::module::FSRModule, vm::{runtime::FSRVM, thread::FSRThreadRuntime}
         },
         frontend::ast::token::{
             base::{FSRPosition, FSRToken},
@@ -94,14 +93,14 @@ mod tests {
 
         b = [1, 2, 3, 4, 5]
 
-        for a in b {
-            if a > 3 {
-                println('bigger than 3')
+        for a in [1, 2, 3] {
+            if a > 1 {
+                println('sfsdf')
             }
             println(a)
         }
         ";
-        let v = Bytecode::compile("main", source_code);
+        let v = FSRModule::from_code("main", source_code).unwrap();
         let mut runtime = FSRThreadRuntime::new();
         let mut vm = FSRVM::new();
         runtime.set_vm(&mut vm);
@@ -132,7 +131,7 @@ mod tests {
             println('abc')
         }
         ";
-        let v = Bytecode::compile("main", source_code);
+        let v = FSRModule::from_code("main", source_code).unwrap();
         let mut runtime = FSRThreadRuntime::new();
         let mut vm = FSRVM::new();
         runtime.set_vm(&mut vm);

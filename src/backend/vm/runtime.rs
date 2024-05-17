@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::atomic::AtomicU64};
 
 use crate::{
     backend::types::{
-        base::{FSRObject, FSRValue}, class::FSRClass, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, string::FSRString
+        base::{FSRObject, FSRValue}, class::FSRClass, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
     },
     std::io::init_io,
 };
@@ -15,6 +15,7 @@ pub struct FSRVM<'a> {
     obj_map: HashMap<u64, Box<FSRObject<'a>>>,
     global: HashMap<String, u64>,
     base_types: HashMap<&'a str, FSRClass<'a>>,
+    global_modules  : HashMap<&'a str, FSRModule<'a>>
 }
 
 pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -38,6 +39,7 @@ impl<'a> FSRVM<'a> {
             obj_map: HashMap::new(),
             base_types: HashMap::new(),
             global: HashMap::new(),
+            global_modules: HashMap::new(),
         };
         v.init();
         v
@@ -149,5 +151,13 @@ impl<'a> FSRVM<'a> {
 
     pub fn get_global_obj_by_name(&self, name: &str) -> Option<&u64> {
         return self.global.get(name);
+    }
+
+    pub fn register_module(&mut self, name: &'a str, module: FSRModule<'a>) {
+        self.global_modules.insert(name, module);
+    }
+
+    pub fn get_module(&self, name: &str) -> Option<&FSRModule<'a>> {
+        self.global_modules.get(name)
     }
 }

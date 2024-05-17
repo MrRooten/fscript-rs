@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::atomic::AtomicU64};
+use std::{borrow::Cow, sync::atomic::AtomicU64};
 
 use crate::{
     backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}},
@@ -17,14 +17,14 @@ type FSRRustFn = for<'a> fn(
 
 #[derive(Debug, Clone)]
 pub struct FSRFnInner<'a> {
-    name    : Rc<String>,
+    name    : Cow<'a, str>,
     fn_ip   : (usize, usize),
     bytecode    : &'a Bytecode
 }
 
 impl<'a> FSRFnInner<'a> {
-    pub fn get_name(&self) -> Rc<String> {
-        self.name.clone()
+    pub fn get_name(&self) -> &Cow<str> {
+        &self.name
     }
 
     pub fn get_ip(&self) -> (usize, usize) {
@@ -58,7 +58,7 @@ impl<'a> FSRFn<'a> {
 
     pub fn from_fsr_fn(module: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode) -> FSRObject<'a> {
         let fn_obj = FSRFnInner {
-            name: Rc::new(module.to_string()),
+            name: Cow::Owned(module.to_string()),
             fn_ip: u,
             bytecode
         };
