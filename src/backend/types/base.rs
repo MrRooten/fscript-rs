@@ -6,7 +6,7 @@ use crate::{
     backend::{
         types::fn_def::FSRnE,
         vm::{
-            runtime::{FALSE_OBJECT, FSRVM, NONE_OBJECT, TRUE_OBJECT},
+            runtime::{FSRVM, OBJECTS},
             thread::FSRThreadRuntime,
         },
     },
@@ -234,14 +234,10 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn sp_object(id: u64) -> &'static FSRObject<'static> {
-        if id == 0 {
-            return unsafe { NONE_OBJECT.as_ref().unwrap() };
-        }
-        else if id == 1 {
-            return unsafe { TRUE_OBJECT.as_ref().unwrap() };
-        }
-        else if id == 2 {
-            return unsafe { FALSE_OBJECT.as_ref().unwrap() };
+        unsafe { 
+            if let Some(obj) = OBJECTS.get(id as usize) {
+                return obj
+            }
         }
 
         panic!()

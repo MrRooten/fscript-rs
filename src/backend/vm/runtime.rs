@@ -18,10 +18,10 @@ pub struct FSRVM<'a> {
     global_modules  : HashMap<&'a str, FSRModule<'a>>
 }
 
-pub static mut NONE_OBJECT: Option<FSRObject> = None;
-pub static mut TRUE_OBJECT: Option<FSRObject> = None;
-pub static mut FALSE_OBJECT: Option<FSRObject> = None;
-
+// pub static mut NONE_OBJECT: Option<FSRObject> = None;
+// pub static mut TRUE_OBJECT: Option<FSRObject> = None;
+// pub static mut FALSE_OBJECT: Option<FSRObject> = None;
+pub static mut OBJECTS: Vec<FSRObject> = vec![];
 impl<'a> Default for FSRVM<'a> {
     fn default() -> Self {
         Self::new()
@@ -66,16 +66,10 @@ impl<'a> FSRVM<'a> {
 
     pub fn init_static_object() {
         unsafe {
-            if NONE_OBJECT.is_none() {
-                NONE_OBJECT = Some(Self::new_stataic_object_with_id(0, FSRValue::None));
-            }
-
-            if TRUE_OBJECT.is_none() {
-                TRUE_OBJECT = Some(Self::new_stataic_object_with_id(1, FSRValue::Bool(true)));
-            }
-
-            if FALSE_OBJECT.is_none() {
-                FALSE_OBJECT = Some(Self::new_stataic_object_with_id(2, FSRValue::Bool(false)));
+            if OBJECTS.is_empty() {
+                OBJECTS.push(Self::new_stataic_object_with_id(0, FSRValue::None));
+                OBJECTS.push(Self::new_stataic_object_with_id(1, FSRValue::Bool(true)));
+                OBJECTS.push(Self::new_stataic_object_with_id(2, FSRValue::Bool(false)));
             }
         }
     }

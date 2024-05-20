@@ -89,7 +89,7 @@ mod tests {
                 return 'Abc: abc = 123'
             }
         }
-        a = 1 > 3 || 1 < 3
+        a = 1 < 3 || 1 > 3
         println(a)
         ";
         let v = FSRModule::from_code("main", source_code).unwrap();
