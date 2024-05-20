@@ -165,9 +165,29 @@ type BytecodeFn<'a> = fn(
 ) -> Result<bool, FSRError>;
 
 #[derive(Default)]
+pub struct VecMap<'a> {
+    inner   : Vec<BytecodeFn<'a>>
+}
+
+impl<'a> VecMap<'a> {
+    pub fn insert(&mut self, k: BytecodeOperator, f: BytecodeFn<'a>) {
+        if k as usize != self.inner.len() {
+            panic!()
+        }
+
+        self.inner.push(f);
+    }
+
+    #[inline]
+    pub fn get(&self, k: &BytecodeOperator) -> Option<&BytecodeFn<'a>> {
+        self.inner.get(*k as usize)
+    }
+}
+
+#[derive(Default)]
 pub struct FSRThreadRuntime<'a> {
     call_stack: Vec<CallState<'a>>,
-    bytecode_map: HashMap<BytecodeOperator, BytecodeFn<'a>>,
+    bytecode_map: VecMap<'a>,
     vm_ptr      : Option<*mut FSRVM<'a>>
 }
 
@@ -182,7 +202,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     }
 
     pub fn new() -> FSRThreadRuntime<'a> {
-        let mut map: HashMap<BytecodeOperator, BytecodeFn> = HashMap::new();
+        let mut map = VecMap::default();
         map.insert(BytecodeOperator::Assign, Self::assign_process);
         map.insert(BytecodeOperator::BinaryAdd, Self::binary_add_process);
         map.insert(BytecodeOperator::BinaryDot, Self::binary_dot_process);

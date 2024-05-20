@@ -4,50 +4,64 @@ use std::{
 };
 
 use crate::frontend::ast::token::{
-    assign::FSRAssign, base::{FSRPosition, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType}, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf, list::FSRListFrontEnd, module::FSRModuleFrontEnd, return_def::FSRReturn, variable::FSRVariable, while_statement::FSRWhile
+    assign::FSRAssign,
+    base::{FSRPosition, FSRToken},
+    block::FSRBlock,
+    call::FSRCall,
+    class::FSRClassFrontEnd,
+    constant::{FSRConstant, FSRConstantType},
+    expr::FSRExpr,
+    for_statement::FSRFor,
+    function_def::FSRFnDef,
+    if_statement::FSRIf,
+    list::FSRListFrontEnd,
+    module::FSRModuleFrontEnd,
+    return_def::FSRReturn,
+    variable::FSRVariable,
+    while_statement::FSRWhile,
 };
 
-#[derive(Debug, PartialEq, Hash, Eq)]
+#[derive(Debug, PartialEq, Hash, Eq, Clone, Copy)]
 pub enum BytecodeOperator {
-    Load,
-    LoadList,
-    Assign,
-    AssignArgs,
-    BinaryAdd,
-    BinarySub,
-    BinaryMul,
-    BinaryRShift,
-    BinaryLShift,
-    CompareTest,
-    AndJump,
-    OrJump,
-    ReturnValue,
-    Call,
-    BinaryDot,
-    InsertArg,
-    IfBlockStart,
-    IfTest,
-    ElseIfTest,
-    ElseIf,
-    ElseIfStart,
-    Else,
-    IfBlockEnd,
-    WhileBlockStart,
-    WhileTest,
-    WhileBlockEnd,
-    DefineFn,
-    RetFn,
-    EndDefineFn,
-    EndDefineClass,
-    ClassDef,
-    ForDef,
-    ForLoad,
-    Break,
-    Continue,
-    LoadForIter,
-    PushForNext, // call iter_obj.__next__()
-    ForBlockEnd,
-    SpecialLoadFor
+    Assign = 0,
+    BinaryAdd = 1,
+    BinaryDot = 2,
+    BinaryMul = 3,
+    Call = 4,
+    IfTest = 5,
+    WhileTest = 6,
+    DefineFn = 7,
+    EndDefineFn = 8,
+    CompareTest = 9,
+    ReturnValue = 10,
+    WhileBlockEnd = 11,
+    AssignArgs = 12,
+    ClassDef = 13,
+    EndDefineClass = 14,
+    LoadList = 15,
+    Else = 16,
+    ElseIf = 17,
+    ElseIfTest = 18,
+    IfBlockEnd = 19,
+    Break = 20,
+    Continue = 21,
+    LoadForIter = 22,
+    PushForNext = 24, // call iter_obj.__next__()
+    ForBlockEnd = 23,
+    SpecialLoadFor = 25,
+    AndJump = 26,
+    OrJump = 27,
+    
+    // BinarySub,
+    
+    BinaryRShift = 28,
+    BinaryLShift = 29,
+    
+    
+    
+    
+    
+    Load = 1000,
 }
 
 #[derive(Debug)]
@@ -58,7 +72,7 @@ pub enum ArgType {
     ConstInteger(u64, i64),
     Attr(u64, String),
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
-    WhileTest(u64), //i64 is return to test, u64 is skip the block,
+    WhileTest(u64),         //i64 is return to test, u64 is skip the block,
     WhileEnd(i64),
     Compare(&'static str),
     FnLines(usize),
@@ -207,7 +221,6 @@ impl<'a> VarMap<'a> {
         }
     }
 }
-
 
 #[derive(Debug)]
 pub struct Bytecode {
@@ -381,22 +394,21 @@ impl<'a> Bytecode {
             var_map_ref = Some(v.1);
         }
         if expr.get_op().eq("&&") {
-            op_code.push(BytecodeArg { 
-                operator: BytecodeOperator::AndJump, 
-                arg: ArgType::AddOffset(second.len())
+            op_code.push(BytecodeArg {
+                operator: BytecodeOperator::AndJump,
+                arg: ArgType::AddOffset(second.len()),
             });
         } else if expr.get_op().eq("||") {
-            op_code.push(BytecodeArg { 
-                operator: BytecodeOperator::OrJump, 
-                arg: ArgType::AddOffset(second.len())
+            op_code.push(BytecodeArg {
+                operator: BytecodeOperator::OrJump,
+                arg: ArgType::AddOffset(second.len()),
             });
         }
-        
+
         op_code.append(&mut second);
         if let Some(s) = BytecodeOperator::get_op(expr.get_op()) {
             op_code.push(s);
         }
-        
 
         (op_code, var_map_ref.unwrap())
     }
@@ -474,21 +486,18 @@ impl<'a> Bytecode {
                         operator: BytecodeOperator::Else,
                         arg: ArgType::IfTestNext((block_items.0.len() as u64, 0)),
                     });
-                    
+
                     var_ref = block_items.1;
-                    
+
                     vs.push(test_list);
                     vs.extend(block_items.0);
                 }
-
-                
-
             }
         }
 
         let end_if = vec![BytecodeArg {
             operator: BytecodeOperator::IfBlockEnd,
-            arg: ArgType::None
+            arg: ArgType::None,
         }];
         vs.push(end_if);
         (vs, var_ref)
@@ -497,10 +506,10 @@ impl<'a> Bytecode {
     #[allow(unused)]
     fn load_for_def(
         for_def: &'a FSRFor<'a>,
-        var_map: &'a mut VarMap<'a>
+        var_map: &'a mut VarMap<'a>,
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut result = vec![];
-        
+
         let mut var_self = var_map;
         let v = Self::load_token_with_map(for_def.get_expr(), var_self);
         let mut expr = v.0;
@@ -516,7 +525,7 @@ impl<'a> Bytecode {
         });
         t.push(BytecodeArg {
             operator: BytecodeOperator::BinaryDot,
-            arg: ArgType::None
+            arg: ArgType::None,
         });
         t.push(BytecodeArg {
             operator: BytecodeOperator::Call,
@@ -545,7 +554,7 @@ impl<'a> Bytecode {
         });
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::BinaryDot,
-            arg: ArgType::None
+            arg: ArgType::None,
         });
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::Call,
@@ -553,7 +562,7 @@ impl<'a> Bytecode {
         });
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::PushForNext,
-            arg: ArgType::None
+            arg: ArgType::None,
         });
         if !var_self.has_var(for_def.get_var_name()) {
             var_self.insert_var(for_def.get_var_name());
@@ -562,15 +571,13 @@ impl<'a> Bytecode {
         let arg_id = var_self.get_var(for_def.get_var_name()).unwrap();
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable(*arg_id, for_def.get_var_name().to_string())
+            arg: ArgType::Variable(*arg_id, for_def.get_var_name().to_string()),
         });
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::Assign,
-            arg: ArgType::None
+            arg: ArgType::None,
         });
-        
-        
-        
+
         result.push(load_next);
         result.append(&mut block_items.0);
         let end = vec![BytecodeArg {
@@ -714,7 +721,7 @@ impl<'a> Bytecode {
 
     fn load_constant(
         token: &'a FSRConstant,
-        var_map: &'a mut VarMap<'a>
+        var_map: &'a mut VarMap<'a>,
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result_list = Vec::new();
         if let FSRConstantType::Integer(i) = token.get_constant() {
@@ -734,7 +741,7 @@ impl<'a> Bytecode {
 
     fn load_list(
         token: &'a FSRListFrontEnd,
-        var_map: &'a mut VarMap<'a>
+        var_map: &'a mut VarMap<'a>,
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result_list = Vec::new();
         let mut self_var = var_map;
@@ -871,11 +878,13 @@ impl<'a> Bytecode {
         let mut class_var_map = VarMap::new();
         let v = Self::load_block(class_def.get_block(), &mut class_var_map);
 
-        let ans = vec![op_arg, BytecodeArg {
-            operator: BytecodeOperator::ClassDef,
-            arg: ArgType::DefineClassLine(v.0.len() as u64),
-        }];
-
+        let ans = vec![
+            op_arg,
+            BytecodeArg {
+                operator: BytecodeOperator::ClassDef,
+                arg: ArgType::DefineClassLine(v.0.len() as u64),
+            },
+        ];
 
         result.push(ans);
         result.extend(v.0);
