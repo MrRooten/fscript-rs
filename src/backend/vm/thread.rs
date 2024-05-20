@@ -172,7 +172,6 @@ pub struct FSRThreadRuntime<'a> {
 }
 
 
-
 impl<'a, 'b:'a> FSRThreadRuntime<'a> {
     pub fn get_vm(&self) -> &FSRVM<'a> {
         unsafe { &*self.vm_ptr.unwrap() }
@@ -256,6 +255,7 @@ impl<'a, 'b:'a> FSRThreadRuntime<'a> {
         return self.call_stack.get(l - 1).unwrap();
     }
 
+    #[inline]
     fn compare(left: u64, right: u64, op: &str, thread: &mut Self) -> bool {
         let res;
 

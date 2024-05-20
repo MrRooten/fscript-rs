@@ -89,8 +89,10 @@ mod tests {
                 return 'Abc: abc = 123'
             }
         }
-        a = 1 < 3 || 1 > 3
-        println(a)
+        a = 1
+        while a < 300000 {
+            a = a + 1
+        }
         ";
         let v = FSRModule::from_code("main", source_code).unwrap();
         let mut runtime = FSRThreadRuntime::new();
