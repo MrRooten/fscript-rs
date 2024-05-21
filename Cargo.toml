@@ -9,3 +9,7 @@ edition = "2021"
 
 # [profile.test] # fixed
 # opt-level = 2
+
+[features]
+default = ["perf"]
+perf = []
