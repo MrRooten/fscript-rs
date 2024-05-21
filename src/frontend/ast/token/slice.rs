@@ -5,13 +5,6 @@ pub struct FSRSlice<'a> {
     _end: usize,
 }
 
-#[derive(PartialEq)]
-enum SliceState {
-    _Name,
-    _Start,
-    _Args,
-    _WaitToken,
-}
 
 impl FSRSlice<'_> {
     pub fn parse(_source: &[u8]) -> Result<Self, &str> {
