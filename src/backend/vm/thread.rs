@@ -51,11 +51,11 @@ impl<'a> CallState<'a> {
     }
 
     pub fn has_var(&self, id: &u64) -> bool {
-        return self.var_map.get(id).is_some();
+        self.var_map.contains_key(id)
     }
 
     pub fn has_const(&self, id: &u64) -> bool {
-        return self.const_map.get(id).is_some();
+        self.const_map.contains_key(id)
     }
 
     pub fn insert_const(&mut self, id: &u64, obj_id: u64) {
@@ -175,6 +175,8 @@ pub struct VecMap<'a> {
     start: HashMap<BytecodeOperator, Instant>,
     #[cfg(feature = "perf")]
     acumulate: HashMap<BytecodeOperator, Duration>,
+    #[cfg(feature = "perf")]
+    count: HashMap<BytecodeOperator, u64>,
 }
 
 impl<'a> VecMap<'a> {
@@ -194,6 +196,13 @@ impl<'a> VecMap<'a> {
     #[cfg(feature = "perf")]
     pub fn start_time(&mut self, k: &BytecodeOperator) {
         self.start.insert(*k, Instant::now());
+        if !self.count.contains_key(k) {
+            self.count.insert(*k, 0);
+        }
+
+        if let Some(s) = self.count.get_mut(k) {
+            s.add_assign(1);
+        }
     }
 
     #[cfg(feature = "perf")]
@@ -201,7 +210,7 @@ impl<'a> VecMap<'a> {
         let v = self.start.get(k).unwrap();
         let now = Instant::now();
         let diff = now - *v;
-        if self.acumulate.get(k).is_none() {
+        if !self.acumulate.contains_key(k) {
             self.acumulate.insert(*k, Duration::new(0, 0));
         }
 
@@ -1259,6 +1268,8 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         #[cfg(feature = "perf")]
         println!("{:#?}", self.bytecode_map.acumulate);
 
+        #[cfg(feature = "perf")]
+        println!("{:#?}", self.bytecode_map.count);
         Ok(())
     }
 

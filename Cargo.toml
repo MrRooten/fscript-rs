@@ -7,9 +7,13 @@ edition = "2021"
 
 [dependencies]
 
-# [profile.test] # fixed
+# [profile.test]
 # opt-level = 2
 
 [features]
 default = ["perf"]
 perf = []
+
+
+[profile.release]
+debug = true

@@ -23,9 +23,11 @@ fn main() {
         }
     }
 
-    a = 1 > 2 || 3 > 1
-    println(a)
-
+    a = 1 
+    b = 1
+    while a < 300000 {
+        a = a + b
+    }
     
     ";
     let v = FSRModule::from_code("main", source_code).unwrap();
