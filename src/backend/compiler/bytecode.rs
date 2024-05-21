@@ -185,7 +185,7 @@ impl<'a> Default for VarMap<'a> {
 
 impl<'a> VarMap<'a> {
     pub fn has_var(&self, var: &str) -> bool {
-        return self.var_map.get(var).is_some();
+        self.var_map.contains_key(var)
     }
 
     pub fn get_var(&self, var: &str) -> Option<&u64> {

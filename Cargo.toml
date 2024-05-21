@@ -11,9 +11,9 @@ edition = "2021"
 # opt-level = 2
 
 [features]
-default = ["perf"]
+default = []
 perf = []
 
 
-[profile.release]
-debug = true
+# [profile.release]
+# debug = true

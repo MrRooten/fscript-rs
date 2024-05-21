@@ -1,11 +1,19 @@
 #![allow(clippy::ptr_arg)]
 
+#[cfg(feature = "perf")]
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     ops::AddAssign,
     sync::atomic::AtomicU64,
     time::{Duration, Instant},
+};
+
+#[cfg(not(feature = "perf"))]
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    sync::atomic::AtomicU64,
 };
 
 use crate::{
@@ -89,7 +97,7 @@ enum SValue<'a> {
     Object(FSRObject<'a>),
 }
 
-impl SValue<'_> {
+impl<'a> SValue<'a> {
     pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> u64 {
         let state = thread.get_cur_stack();
         let vm = thread.get_vm();
@@ -108,7 +116,7 @@ impl SValue<'_> {
     }
 
     #[allow(unused)]
-    pub fn get_object(&self) -> Option<&FSRObject> {
+    pub fn get_object(&self) -> Option<&FSRObject<'a>> {
         if let SValue::Object(obj) = self {
             return Some(obj);
         }
@@ -1165,7 +1173,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline]
+    #[inline(always)]
     fn load_var(
         exp_stack: &mut Vec<SValue<'a>>,
         arg: &'a BytecodeArg,
@@ -1202,6 +1210,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         }
     }
 
+    #[inline(always)]
     fn run_expr(
         &mut self,
         expr: &'a Vec<BytecodeArg>,
