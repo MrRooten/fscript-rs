@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, cell::RefCell, collections::hash_map::Keys, mem, sync::atomic::{AtomicU64, Ordering}
+    borrow::Cow, cell::RefCell, collections::hash_map::Keys, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{
