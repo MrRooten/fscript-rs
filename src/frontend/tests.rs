@@ -1,6 +1,9 @@
 
 #[cfg(test)]
 mod frontend_tests {
+    use std::collections::HashMap;
+    use std::time::Instant;
+
     use crate::frontend::ast::parse::ASTParser;
     use crate::frontend::ast::token::base::FSRPosition;
     use crate::frontend::ast::token::class::FSRClassFrontEnd;
@@ -248,4 +251,25 @@ mod frontend_tests {
         println!("{:#?}", s);
     }
 
+    #[test]
+    fn test_bench_hash_map() {
+        let start = Instant::now();
+        let mut m = HashMap::new();
+        for i in 0..1000000 {
+            m.insert(0, i);
+        }
+        let end = Instant::now();
+        println!("{:?}", end - start);
+    }
+
+    #[test]
+    fn test_bench_vec() {
+        let mut v = [0];
+        let start = Instant::now();
+        for i in 0..1000000 {
+            v[0] = i;
+        }
+        let end = Instant::now();
+        println!("{:?}", end - start);
+    }
 }

@@ -248,7 +248,7 @@ impl<'a> FSRObject<'a> {
     }
 
 
-    #[inline]
+    #[inline(always)]
     pub fn ref_add(&self) {
         if Self::is_sp_object(self.obj_id) {
             return ;
@@ -256,7 +256,7 @@ impl<'a> FSRObject<'a> {
         self.ref_count.fetch_add(1, Ordering::Relaxed);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn ref_dec(&self) {
         if Self::is_sp_object(self.obj_id) {
             return ;
@@ -264,12 +264,12 @@ impl<'a> FSRObject<'a> {
         self.ref_count.fetch_sub(1, Ordering::Relaxed);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn count_ref(&self) -> u64 {
         unsafe { *self.ref_count.as_ptr() }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn id_to_obj(id: u64) -> &'a FSRObject<'a> {
         if id < 1000 {
             return Self::sp_object(id);

@@ -113,16 +113,11 @@ mod tests {
     }
 
     #[test]
-    fn test_while() {
+    fn test_while_backend() {
         let source_code = "
         a = 0
-        while a < 100 {
-            println(a)
+        while a < 1000000 {
             a = a + 1
-            if a > 3 {
-                continue
-            }
-            println('abc')
         }
         ";
         let v = FSRModule::from_code("main", source_code).unwrap();

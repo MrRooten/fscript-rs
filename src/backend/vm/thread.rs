@@ -36,6 +36,7 @@ use crate::{
 
 use super::runtime::FSRVM;
 
+
 pub struct CallState<'a> {
     var_map: HashMap<u64, u64, GxBuildHasher>,
     const_map: HashMap<u64, u64, GxBuildHasher>,

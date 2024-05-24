@@ -213,11 +213,11 @@ impl<'a> VarMap<'a> {
     pub fn new() -> Self {
         Self {
             var_map: HashMap::new(),
-            var_id: AtomicU64::new(100),
+            var_id: AtomicU64::new(1),
             attr_map: HashMap::new(),
-            attr_id: AtomicU64::new(100),
+            attr_id: AtomicU64::new(1),
             const_map: HashMap::new(),
-            const_id: AtomicU64::new(100),
+            const_id: AtomicU64::new(1),
         }
     }
 }
