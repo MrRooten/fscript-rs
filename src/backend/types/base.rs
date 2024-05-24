@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, cell::RefCell, collections::hash_map::Keys, sync::atomic::{AtomicU64, Ordering}
+    borrow::Cow, cell::RefCell, collections::hash_map::Keys, mem, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{
@@ -262,6 +262,15 @@ impl<'a> FSRObject<'a> {
             return ;
         }
         self.ref_count.fetch_sub(1, Ordering::Relaxed);
+
+        if self.count_ref() == 0 {
+            // Self::drop_object(self.obj_id)
+            // println!("Drop self: {:?}", self);
+        }
+    }
+
+    pub fn drop_object(id: u64) {
+        let _cleanup = unsafe { Box::from_raw(id as *mut Self) };
     }
 
     #[inline(always)]

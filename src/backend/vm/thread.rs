@@ -129,8 +129,12 @@ impl<'a> CallState<'a> {
 
     pub fn insert_var(&mut self, id: &u64, obj_id: u64) {
         if self.var_map.contains_key(id) {
-            let origin_obj = FSRObject::id_to_obj(obj_id);
+            let to_be_dec = self.var_map.get(id).unwrap();
+            let origin_obj = FSRObject::id_to_obj(*to_be_dec);
             origin_obj.ref_dec();
+            // if origin_obj.count_ref() == 0 {
+            //     FSRObject::drop_object(obj_id);
+            // }
         }
         self.var_map.insert(*id, obj_id);
     }

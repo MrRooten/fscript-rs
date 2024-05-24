@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::atomic::AtomicU64};
+use std::{collections::HashMap, mem, sync::atomic::AtomicU64};
 
 use crate::{
     backend::types::{
@@ -134,8 +134,8 @@ impl<'a> FSRVM<'a> {
         let id = Self::get_object_id(&object);
         object.obj_id = id;
 
-        self.obj_map.insert(id, object);
-
+        //self.obj_map.insert(id, object);
+        Box::leak(object);
         id
     }
 
