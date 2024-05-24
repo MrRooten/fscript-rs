@@ -17,7 +17,6 @@ use std::{
     sync::atomic::AtomicU64,
 };
 
-use gxhash::{GxBuildHasher, GxHashMap};
 
 use crate::{
     backend::{
@@ -103,8 +102,8 @@ impl<'a> Iterator for TempIterator<'a> {
 }
 
 pub struct CallState<'a> {
-    var_map:  HashMap<u64, u64, GxBuildHasher>,
-    const_map: HashMap<u64, u64, GxBuildHasher>,
+    var_map:  HashMap<u64, u64>,
+    const_map: HashMap<u64, u64>,
     reverse_ip: (usize, usize),
     args: Vec<u64>,
     cur_cls: Option<FSRClass<'a>>,
@@ -154,8 +153,8 @@ impl<'a> CallState<'a> {
 
     pub fn new(name: &'a Cow<str>) -> Self {
         Self {
-            var_map: GxHashMap::default(),
-            const_map: GxHashMap::default(),
+            var_map: HashMap::new(),
+            const_map: HashMap::new(),
             reverse_ip: (0, 0),
             args: Vec::new(),
             cur_cls: None,

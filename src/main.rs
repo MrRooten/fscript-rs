@@ -6,10 +6,9 @@ use fscript_rs::backend::{
 
 fn main() {
     let source_code = "
-    a = 1 
-    b = 1
-    for i in [1,2,3] {
-        
+    a = 1
+    while a < 300000 {
+        a = a + 1
     }
     println(a)
     
