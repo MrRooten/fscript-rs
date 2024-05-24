@@ -17,6 +17,8 @@ use std::{
     sync::atomic::AtomicU64,
 };
 
+use gxhash::{GxBuildHasher, GxHashMap};
+
 use crate::{
     backend::{
         compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
@@ -35,8 +37,8 @@ use crate::{
 use super::runtime::FSRVM;
 
 pub struct CallState<'a> {
-    var_map: HashMap<u64, u64>,
-    const_map: HashMap<u64, u64>,
+    var_map: HashMap<u64, u64, GxBuildHasher>,
+    const_map: HashMap<u64, u64, GxBuildHasher>,
     reverse_ip: (usize, usize),
     args: Vec<u64>,
     cur_cls: Option<FSRClass<'a>>,
@@ -77,8 +79,8 @@ impl<'a> CallState<'a> {
 
     pub fn new(name: &'a Cow<str>) -> Self {
         Self {
-            var_map: HashMap::new(),
-            const_map: HashMap::new(),
+            var_map: GxHashMap::default(),
+            const_map: GxHashMap::default(),
             reverse_ip: (0, 0),
             args: Vec::new(),
             cur_cls: None,
