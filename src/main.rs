@@ -7,7 +7,7 @@ use fscript_rs::backend::{
 fn main() {
     let source_code = "
     a = 1
-    while a < 3 {
+    while a < 300000 {
         a = a + 1
     }
     println(a)
