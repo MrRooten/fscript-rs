@@ -1,6 +1,6 @@
 #![allow(clippy::ptr_arg)]
 
-use std::rc::Rc;
+use std::{collections::hash_set::Iter, rc::Rc};
 #[cfg(feature = "perf")]
 use std::{
     borrow::Cow,
@@ -36,9 +36,74 @@ use crate::{
 
 use super::runtime::FSRVM;
 
+#[allow(unused)]
+struct TempHashMap {
+    vs      : Vec<u64>,
+    iters   : HashSet<u64>,
+    iter    : u64
+}
+
+struct TempIterator<'a> {
+    vs      : &'a Vec<u64>,
+    iter    : Iter<'a, u64>
+}
+
+#[allow(unused)]
+impl TempHashMap {
+    #[inline(always)]
+    pub fn get(&self, i: &u64) -> Option<&u64> {
+        self.vs.get(*i as usize)
+    }
+
+    #[inline(always)]
+    pub fn insert(&mut self, i: u64, v: u64) {
+        self.iters.insert(i);
+        self.vs[i as usize] = v;
+    }
+
+    #[inline(always)]
+    pub fn contains_key(&self, i: &u64) -> bool {
+        if self.vs.get(*i as usize).is_none() {
+            return false;
+        }
+
+        self.vs[*i as usize] != 0
+    }
+
+    pub fn new() -> Self {
+        Self {
+            vs: vec![0;100],
+            iters: HashSet::new(),
+            iter: 0,
+        }
+    }
+
+    pub fn iter(&self) -> TempIterator {
+        TempIterator {
+            vs: &self.vs,
+            iter: self.iters.iter(),
+        }
+    }
+}
+
+
+
+impl<'a> Iterator for TempIterator<'a> {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(s) = self.iter.next() {
+            let v = *s as usize;
+            Some(*self.vs.get(v).unwrap())
+        } else {
+            None
+        }
+
+    }
+}
 
 pub struct CallState<'a> {
-    var_map: HashMap<u64, u64, GxBuildHasher>,
+    var_map:  HashMap<u64, u64, GxBuildHasher>,
     const_map: HashMap<u64, u64, GxBuildHasher>,
     reverse_ip: (usize, usize),
     args: Vec<u64>,
@@ -51,7 +116,16 @@ pub struct CallState<'a> {
 
 impl<'a> CallState<'a> {
     pub fn get_var(&self, id: &u64) -> Option<&u64> {
-        self.var_map.get(id)
+        if let Some(s) = self.var_map.get(id) {
+            if s == &0 {
+                return None
+            }
+
+            return Some(s)
+        }
+
+        None
+        
     }
 
     pub fn insert_var(&mut self, id: &u64, obj_id: u64) {
