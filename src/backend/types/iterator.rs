@@ -12,7 +12,7 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct FSRInnerIterator {
     pub(crate) obj: u64,
-    pub(crate) index: usize,
+    pub(crate) index: usize
 }
 
 fn next_obj<'a>(

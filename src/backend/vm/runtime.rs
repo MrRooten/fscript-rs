@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::atomic::AtomicU64};
+use std::{cell::RefCell, collections::HashMap, sync::atomic::AtomicU64};
 
 use crate::{
     backend::types::{
@@ -12,10 +12,10 @@ use super::thread::FSRThreadRuntime;
 pub struct FSRVM<'a> {
     #[allow(unused)]
     threads: HashMap<u64, FSRThreadRuntime<'a>>,
-    obj_map: HashMap<u64, Box<FSRObject<'a>>>,
     global: HashMap<String, u64>,
     base_types: HashMap<&'a str, FSRClass<'a>>,
-    global_modules  : HashMap<&'a str, FSRModule<'a>>
+    global_modules  : HashMap<&'a str, FSRModule<'a>>,
+    const_integer_global: RefCell<HashMap<i64, u64>>
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -36,20 +36,29 @@ impl<'a> FSRVM<'a> {
         maps.insert(0, main_thread);
         let mut v = Self {
             threads: maps,
-            obj_map: HashMap::new(),
             base_types: HashMap::new(),
             global: HashMap::new(),
             global_modules: HashMap::new(),
+            const_integer_global: RefCell::new(HashMap::new()),
         };
         v.init();
         v
     }
 
-    pub fn check_delete(&mut self, id: u64) {
-        let obj = FSRObject::id_to_mut_obj(id);
-        if *obj.ref_count.get_mut() == 0 {
-            self.obj_map.remove(&id);
-        }
+    pub fn get_integer(&self, integer: i64) -> u64 {
+        let mut const_obj = self.const_integer_global.borrow_mut();
+        const_obj.entry(integer).or_insert_with(|| {
+            let obj = FSRObject {
+                obj_id: 0,
+                value: FSRValue::Integer(integer),
+                cls: "Integer",
+                ref_count: AtomicU64::new(1),
+            };
+
+            self.register_object(obj)
+        });
+
+        *const_obj.get(&integer).unwrap()
     }
 
     pub fn get_true_id(&self) -> u64 {
@@ -114,13 +123,6 @@ impl<'a> FSRVM<'a> {
         }
     }
 
-    pub fn get_obj_by_id(&self, id: &u64) -> Option<&FSRObject<'a>> {
-        match self.obj_map.get(id) {
-            Some(s) => Some(s),
-            None => None,
-        }
-    }
-
     pub fn register_global_object(&mut self, name: &str, obj_id: u64) {
         self.global.insert(name.to_string(), obj_id);
     }
@@ -129,7 +131,7 @@ impl<'a> FSRVM<'a> {
         obj as *const FSRObject as u64
     }
 
-    pub fn register_object(&mut self, object: FSRObject<'a>) -> u64 {
+    pub fn register_object(&self, object: FSRObject<'a>) -> u64 {
         let mut object = Box::new(object);
         let id = Self::get_object_id(&object);
         object.obj_id = id;
@@ -137,10 +139,6 @@ impl<'a> FSRVM<'a> {
         //self.obj_map.insert(id, object);
         Box::leak(object);
         id
-    }
-
-    pub fn get_mut_obj_by_id(&mut self, id: &u64) -> Option<&mut Box<FSRObject<'a>>> {
-        return self.obj_map.get_mut(id);
     }
 
     pub fn get_global_obj_by_name(&self, name: &str) -> Option<&u64> {

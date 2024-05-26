@@ -13,7 +13,7 @@ use std::{
 #[cfg(not(feature = "perf"))]
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     sync::atomic::AtomicU64,
 };
 
@@ -102,8 +102,8 @@ impl<'a> Iterator for TempIterator<'a> {
 }
 
 pub struct CallState<'a> {
-    var_map:  HashMap<u64, u64>,
-    const_map: HashMap<u64, u64>,
+    var_map:  TempHashMap,
+    const_map: TempHashMap,
     reverse_ip: (usize, usize),
     args: Vec<u64>,
     cur_cls: Option<FSRClass<'a>>,
@@ -132,9 +132,11 @@ impl<'a> CallState<'a> {
             let to_be_dec = self.var_map.get(id).unwrap();
             let origin_obj = FSRObject::id_to_obj(*to_be_dec);
             origin_obj.ref_dec();
-            // if origin_obj.count_ref() == 0 {
-            //     FSRObject::drop_object(obj_id);
-            // }
+
+            if origin_obj.count_ref() == 0 {
+                //println!("Will Drop: {:#?}", origin_obj);
+                FSRObject::drop_object(*to_be_dec);
+            }
         }
         self.var_map.insert(*id, obj_id);
     }
@@ -157,8 +159,8 @@ impl<'a> CallState<'a> {
 
     pub fn new(name: &'a Cow<str>) -> Self {
         Self {
-            var_map: HashMap::new(),
-            const_map: HashMap::new(),
+            var_map: TempHashMap::new(),
+            const_map: TempHashMap::new(),
             reverse_ip: (0, 0),
             args: Vec::new(),
             cur_cls: None,
@@ -368,14 +370,16 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
     }
 
     fn load_integer_const(i: &i64, vm: &mut FSRVM) -> u64 {
-        let obj = FSRObject {
-            obj_id: 0,
-            value: FSRValue::Integer(*i),
-            cls: "Integer",
-            ref_count: AtomicU64::new(0),
-        };
+        // let obj = FSRObject {
+        //     obj_id: 0,
+        //     value: FSRValue::Integer(*i),
+        //     cls: "Integer",
+        //     ref_count: AtomicU64::new(0),
+        // };
 
-        vm.register_object(obj)
+        // vm.register_object(obj)
+        
+        vm.get_integer(*i)
     }
 
     fn load_string_const(s: String, vm: &mut FSRVM<'a>) -> u64 {
@@ -426,10 +430,10 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
 
     fn pop_stack(&mut self, _vm: &mut FSRVM, escape: Option<HashSet<u64>>) {
         let v = self.call_stack.pop().unwrap();
-        for kv in v.var_map {
-            let obj = FSRObject::id_to_obj(kv.1);
+        for kv in v.var_map.iter() {
+            let obj = FSRObject::id_to_obj(kv);
             if let Some(l) = &escape {
-                if l.contains(&kv.1) {
+                if l.contains(&kv) {
                     obj.ref_dec();
                     continue;
                 }
