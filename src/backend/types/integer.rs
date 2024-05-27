@@ -14,7 +14,7 @@ use super::{
 pub struct FSRInteger {}
 
 fn add<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -34,7 +34,7 @@ fn add<'a>(
 }
 
 fn sub<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -54,7 +54,7 @@ fn sub<'a>(
 }
 
 fn mul<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -74,7 +74,7 @@ fn mul<'a>(
 }
 
 fn div<'a>(
-    _args: Vec<u64>,
+    _args: &[u64],
     _stack: &'a mut CallState,
     _thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -94,7 +94,7 @@ fn div<'a>(
 
 
 fn left_shift<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -115,7 +115,7 @@ fn left_shift<'a>(
 
 
 fn right_shift<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -134,7 +134,7 @@ fn right_shift<'a>(
 }
 
 fn greater<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -155,7 +155,7 @@ fn greater<'a>(
 }
 
 fn less<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -176,7 +176,7 @@ fn less<'a>(
 }
 
 fn greater_equal<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -197,7 +197,7 @@ fn greater_equal<'a>(
 }
 
 fn less_equal<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);

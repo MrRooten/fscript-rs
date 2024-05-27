@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub fn fsr_fn_print<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
@@ -24,7 +24,7 @@ pub fn fsr_fn_print<'a>(
 }
 
 pub fn fsr_fn_println<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
@@ -36,7 +36,7 @@ pub fn fsr_fn_println<'a>(
 }
 
 pub fn fsr_fn_dump<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     _thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);

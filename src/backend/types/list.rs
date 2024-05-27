@@ -10,7 +10,7 @@ pub struct FSRList {
 }
 
 fn list_len<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     _: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -28,7 +28,7 @@ fn list_len<'a>(
 }
 
 fn list_string<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let mut s = String::new();
@@ -56,7 +56,7 @@ fn list_string<'a>(
 }
 
 fn iter<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     _: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_id = args[0];
@@ -95,7 +95,7 @@ impl FSRList {
         object
     }
 
-    pub fn get_items(&self) -> &Vec<u64> {
+    pub fn get_items(&self) -> &[u64] {
         &self.vs
     }
 }

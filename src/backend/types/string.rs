@@ -17,7 +17,7 @@ use super::{
 pub struct FSRString {}
 
 fn string_len<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     _thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);

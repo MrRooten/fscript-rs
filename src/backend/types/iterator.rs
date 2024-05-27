@@ -16,7 +16,7 @@ pub struct FSRInnerIterator {
 }
 
 fn next_obj<'a>(
-    args: Vec<u64>,
+    args: &[u64],
     thread: &mut FSRThreadRuntime<'a>,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_obj = args[0];
@@ -37,7 +37,7 @@ fn next_obj<'a>(
             let v = cls.get_attr("__index__");
             if let Some(obj_id) = v {
                 let obj = FSRObject::id_to_obj(obj_id);
-                let ret = obj.call(vec![it.obj], thread);
+                let ret = obj.call(&vec![it.obj], thread);
                 result = Some(ret?);
             }
         } else if let FSRValue::List(l) = &from_obj.value {

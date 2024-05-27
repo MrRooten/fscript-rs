@@ -408,17 +408,17 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         let res;
 
         if op.eq(">") {
-            res = FSRObject::invoke_offset_method(BinaryOffset::Greater, vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::Greater, &vec![left, right], thread);
         } else if op.eq("<") {
-            res = FSRObject::invoke_offset_method(BinaryOffset::Less, vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::Less, &vec![left, right], thread);
         } else if op.eq(">=") {
-            res = FSRObject::invoke_offset_method(BinaryOffset::GreatEqual, vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::GreatEqual, &vec![left, right], thread);
         } else if op.eq("<=") {
-            res = FSRObject::invoke_offset_method(BinaryOffset::LessEqual, vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::LessEqual, &vec![left, right], thread);
         } else if op.eq("==") {
-            res = FSRObject::invoke_offset_method(BinaryOffset::Equal, vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::Equal, &vec![left, right], thread);
         } else if op.eq("!=") {
-            res = FSRObject::invoke_offset_method(BinaryOffset::NotEqual, vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::NotEqual, &vec![left, right], thread);
         } else {
             unimplemented!()
         }
@@ -541,7 +541,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             }
         };
         //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
-        let res = FSRObject::invoke_offset_method(BinaryOffset::Add, vec![v1, v2], self)?;
+        let res = FSRObject::invoke_offset_method(BinaryOffset::Add, &vec![v1, v2], self)?;
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = FSRVM::register_object(object);
@@ -581,7 +581,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             }
         };
         //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
-        let res = FSRObject::invoke_offset_method(BinaryOffset::Mul, vec![v1, v2], self)?;
+        let res = FSRObject::invoke_offset_method(BinaryOffset::Mul, &vec![v1, v2], self)?;
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = FSRVM::register_object(object);
@@ -757,7 +757,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                     context.ip = (offset.0, 0);
                     return Ok(true);
                 } else {
-                    let v = fn_obj.call(args, self).unwrap();
+                    let v = fn_obj.call(&args, self).unwrap();
 
                     if let FSRRetValue::Value(v) = v {
                         let id = FSRVM::register_object(v);
@@ -782,7 +782,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                     context.ip = (offset.0, 0);
                     return Ok(true);
                 } else {
-                    let v = fn_obj.call(args, self).unwrap();
+                    let v = fn_obj.call(&args, self).unwrap();
 
                     if let FSRRetValue::Value(v) = v {
                         let id = FSRVM::register_object(v);
@@ -1288,7 +1288,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn set_exp_stack_ret(&mut self, exp_stack: &mut Vec<Rc<SValue<'a>>>) {
         let stack = self.get_cur_mut_stack();
         if stack.exp.is_some() {
@@ -1374,7 +1374,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    pub fn call_fn(&mut self, fn_def: &'a FSRFnInner, args: Vec<u64>) -> Result<u64, FSRError> {
+    pub fn call_fn(&mut self, fn_def: &'a FSRFnInner, args: &Vec<u64>) -> Result<u64, FSRError> {
         let mut context = ThreadContext {
             exp: vec![],
             ip: fn_def.get_ip(),

@@ -68,7 +68,7 @@ impl<'a> FSRValue<'a> {
                 let v = cls.get_attr("__str__");
                 if let Some(obj_id) = v {
                     let obj = FSRObject::id_to_obj(obj_id);
-                    let ret = obj.call(vec![self_id], thread);
+                    let ret = obj.call(&vec![self_id], thread);
                     let ret_value = match ret {
                         Ok(o) => o,
                         Err(_) => {
@@ -93,7 +93,7 @@ impl<'a> FSRValue<'a> {
             FSRValue::None => Some(Cow::Borrowed("None")),
             FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::List(_) => {
-                let res = FSRObject::invoke_method("__str__", vec![self_id], thread).unwrap();
+                let res = FSRObject::invoke_method("__str__", &vec![self_id], thread).unwrap();
                 match res {
                     FSRRetValue::Value(v) => {
                         if let FSRValue::String(s) = v.value {
@@ -314,7 +314,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn invoke_method(
         name: &str,
-        args: Vec<u64>,
+        args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
@@ -334,7 +334,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn invoke_offset_method(
         offset: BinaryOffset,
-        args: Vec<u64>,
+        args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
@@ -396,7 +396,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn call(
         &'a self,
-        args: Vec<u64>,
+        args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {

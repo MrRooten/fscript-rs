@@ -15,10 +15,12 @@ fn main() {
     a = 1
     b = 1
     c = 1
+    d = 1
     while a < 300000 {
         a = a + b
     }
     println(a)
+    println(d)
     ";
     let v = FSRModule::from_code("main", source_code).unwrap();
     let mut runtime = FSRThreadRuntime::new();
