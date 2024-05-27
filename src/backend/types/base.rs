@@ -258,6 +258,7 @@ impl<'a> FSRObject<'a> {
         panic!()
     }
 
+    #[inline(always)]
     pub fn is_sp_object(id: u64) -> bool {
         id < 1000
     }
@@ -304,7 +305,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn id_to_mut_obj(id: u64) -> &'a mut FSRObject<'a> {
         unsafe {
             let ptr = id as *mut FSRObject;
@@ -332,6 +333,7 @@ impl<'a> FSRObject<'a> {
         Ok(v)
     }
 
+    #[inline]
     pub fn invoke_offset_method(
         offset: BinaryOffset,
         args: &Vec<u64>,
@@ -379,17 +381,17 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_true(&self) -> bool {
         self.obj_id == FSRGlobalObjId::True as u64
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_false(&self) -> bool {
         self.obj_id == FSRGlobalObjId::False as u64
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_none(&self) -> bool {
         self.obj_id == FSRGlobalObjId::None as u64
     }

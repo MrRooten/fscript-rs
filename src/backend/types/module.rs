@@ -37,6 +37,7 @@ impl<'a> FSRModule<'a> {
         })
     }
 
+    #[inline(always)]
     pub fn get_bc(&self, ip: &(usize, usize)) -> Option<&Vec<BytecodeArg>> {
         self.bytecode.get(ip)
     }
