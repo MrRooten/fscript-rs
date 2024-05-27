@@ -1,7 +1,7 @@
-use std::{borrow::Cow, collections::HashMap, sync::atomic::AtomicU64};
+use std::{borrow::Cow, sync::atomic::AtomicU64};
 
 use crate::{
-    backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}},
+    backend::{compiler::bytecode::Bytecode, vm::thread::FSRThreadRuntime},
     utils::error::FSRError,
 };
 

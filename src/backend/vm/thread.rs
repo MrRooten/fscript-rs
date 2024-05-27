@@ -382,7 +382,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         vm.get_integer(*i)
     }
 
-    fn load_string_const(s: String, vm: &mut FSRVM<'a>) -> u64 {
+    fn load_string_const(s: String, _vm: &mut FSRVM<'a>) -> u64 {
         let obj = FSRObject {
             obj_id: 0,
             value: FSRValue::String(Cow::Owned(s)),

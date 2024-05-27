@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::{
     backend::{
         types::{base::FSRValue, integer::FSRInteger},
-        vm::{runtime::FSRVM, thread::FSRThreadRuntime},
+        vm::thread::FSRThreadRuntime,
     },
     utils::error::FSRError,
 };

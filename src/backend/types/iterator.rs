@@ -1,5 +1,5 @@
 use crate::{
-    backend::vm::{runtime::FSRVM, thread::FSRThreadRuntime},
+    backend::vm::thread::FSRThreadRuntime,
     utils::error::{FSRErrCode, FSRError},
 };
 

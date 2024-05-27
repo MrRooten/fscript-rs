@@ -17,7 +17,6 @@ fn main() {
     c = 1
     while a < 300000 {
         a = a + b
-        c = Abc()
     }
     println(a)
     ";
