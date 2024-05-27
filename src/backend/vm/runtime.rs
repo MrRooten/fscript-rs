@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, sync::atomic::AtomicU64};
 
 use crate::{
     backend::types::{
-        base::{FSRObject, FSRValue}, class::FSRClass, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
+        base::{FSRGlobalObjId, FSRObject, FSRValue}, class::FSRClass, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
     },
     std::io::init_io,
 };
@@ -15,7 +15,7 @@ pub struct FSRVM<'a> {
     global: HashMap<String, u64>,
     base_types: HashMap<&'a str, FSRClass<'a>>,
     global_modules  : HashMap<&'a str, FSRModule<'a>>,
-    const_integer_global: RefCell<HashMap<i64, u64>>
+    const_integer_global: RefCell<HashMap<i64, u64>>,
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -29,6 +29,7 @@ impl<'a> Default for FSRVM<'a> {
 }
 
 impl<'a> FSRVM<'a> {
+
     pub fn new() -> Self {
         Self::init_static_object();
         let main_thread = FSRThreadRuntime::new();
@@ -51,11 +52,11 @@ impl<'a> FSRVM<'a> {
             let obj = FSRObject {
                 obj_id: 0,
                 value: FSRValue::Integer(integer),
-                cls: "Integer",
+                cls: FSRGlobalObjId::IntegerCls as u64,
                 ref_count: AtomicU64::new(1),
             };
 
-            self.register_object(obj)
+            FSRVM::register_object(obj)
         });
 
         *const_obj.get(&integer).unwrap()
@@ -79,6 +80,12 @@ impl<'a> FSRVM<'a> {
                 OBJECTS.push(Self::new_stataic_object_with_id(0, FSRValue::None));
                 OBJECTS.push(Self::new_stataic_object_with_id(1, FSRValue::Bool(true)));
                 OBJECTS.push(Self::new_stataic_object_with_id(2, FSRValue::Bool(false)));
+                OBJECTS.push(Self::new_stataic_object_with_id(3, FSRValue::Class(FSRInteger::get_class())));
+                OBJECTS.push(Self::new_stataic_object_with_id(4, FSRValue::Class(FSRFn::get_class())));
+                OBJECTS.push(Self::new_stataic_object_with_id(5, FSRValue::Class(FSRInnerIterator::get_class())));
+                OBJECTS.push(Self::new_stataic_object_with_id(6, FSRValue::Class(FSRList::get_class())));
+                OBJECTS.push(Self::new_stataic_object_with_id(7, FSRValue::Class(FSRString::get_class())));
+                OBJECTS.push(Self::new_stataic_object_with_id(8, FSRValue::Class(FSRClass::new("Class"))));
             }
         }
     }
@@ -91,34 +98,43 @@ impl<'a> FSRVM<'a> {
         // Set false variable as uniq object id 2
         self.global.insert("false".to_string(), 2);
 
-        let integer = FSRInteger::get_class(self);
+        let integer = FSRInteger::get_class();
         self.base_types.insert("Integer", integer);
 
-        let string = FSRString::get_class(self);
+        let string = FSRString::get_class();
         self.base_types.insert("String", string);
 
-        let list = FSRList::get_class(self);
+        let list = FSRList::get_class();
         self.base_types.insert("List", list);
 
-        let inner_iter = FSRInnerIterator::get_class(self);
+        let inner_iter = FSRInnerIterator::get_class();
         self.base_types.insert("InnerIterator", inner_iter);
 
         let objs = init_io();
         for obj in objs {
-            let id = self.register_object(obj.1);
+            let id = FSRVM::register_object(obj.1);
             self.global.insert(obj.0.to_string(), id);
         }
     }
 
-    pub fn get_cls(&self, name: &str) -> Option<&FSRClass<'a>> {
-        return self.base_types.get(name);
+    pub fn get_base_cls(&self, cls_id: u64) -> Option<&FSRClass<'a>> {
+        unsafe {
+            if let Some(s) = OBJECTS.get(cls_id as usize) {
+                if let FSRValue::Class(c) = &s.value {
+                    return Some(c);
+                } else {
+                    return None
+                }
+            }
+        }
+        None
     }
 
     fn new_stataic_object_with_id(id: u64, value: FSRValue<'static>) -> FSRObject<'static> {
         FSRObject {
             obj_id: id,
             value,
-            cls: "",
+            cls: 0,
             ref_count: AtomicU64::new(0),
         }
     }
@@ -131,7 +147,7 @@ impl<'a> FSRVM<'a> {
         obj as *const FSRObject as u64
     }
 
-    pub fn register_object(&self, object: FSRObject<'a>) -> u64 {
+    pub fn register_object(object: FSRObject<'a>) -> u64 {
         let mut object = Box::new(object);
         let id = Self::get_object_id(&object);
         object.obj_id = id;
@@ -140,6 +156,8 @@ impl<'a> FSRVM<'a> {
         Box::leak(object);
         id
     }
+
+
 
     pub fn get_global_obj_by_name(&self, name: &str) -> Option<&u64> {
         return self.global.get(name);

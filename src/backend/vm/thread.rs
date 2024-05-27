@@ -20,9 +20,9 @@ use std::{
 
 use crate::{
     backend::{
-        compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
+        compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
         types::{
-            base::{FSRObject, FSRRetValue, FSRValue},
+            base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
             class::FSRClass,
             class_inst::FSRClassInst,
             fn_def::{FSRFn, FSRFnInner},
@@ -386,11 +386,11 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         let obj = FSRObject {
             obj_id: 0,
             value: FSRValue::String(Cow::Owned(s)),
-            cls: "String",
+            cls: FSRGlobalObjId::StringCls as u64,
             ref_count: AtomicU64::new(0),
         };
 
-        vm.register_object(obj)
+        FSRVM::register_object(obj)
     }
 
     pub fn get_cur_mut_stack(&mut self) -> &mut CallState<'a> {
@@ -408,17 +408,17 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         let res;
 
         if op.eq(">") {
-            res = FSRObject::invoke_method("__gt__", vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::Greater, vec![left, right], thread);
         } else if op.eq("<") {
-            res = FSRObject::invoke_method("__lt__", vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::Less, vec![left, right], thread);
         } else if op.eq(">=") {
-            res = FSRObject::invoke_method("__gte__", vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::GreatEqual, vec![left, right], thread);
         } else if op.eq("<=") {
-            res = FSRObject::invoke_method("__lte__", vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::LessEqual, vec![left, right], thread);
         } else if op.eq("==") {
-            res = FSRObject::invoke_method("__eq__", vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::Equal, vec![left, right], thread);
         } else if op.eq("!=") {
-            res = FSRObject::invoke_method("__neq__", vec![left, right], thread);
+            res = FSRObject::invoke_offset_method(BinaryOffset::NotEqual, vec![left, right], thread);
         } else {
             unimplemented!()
         }
@@ -541,10 +541,10 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             }
         };
         //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
-        let res = FSRObject::invoke_method("__add__", vec![v1, v2], self)?;
+        let res = FSRObject::invoke_offset_method(BinaryOffset::Add, vec![v1, v2], self)?;
         match res {
             FSRRetValue::Value(object) => {
-                let res_id = context.vm.register_object(object);
+                let res_id = FSRVM::register_object(object);
                 context.exp.push(Rc::new(SValue::Global(res_id)));
             }
             FSRRetValue::GlobalId(res_id) => {
@@ -581,10 +581,10 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             }
         };
         //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
-        let res = FSRObject::invoke_method("__mul__", vec![v1, v2], self)?;
+        let res = FSRObject::invoke_offset_method(BinaryOffset::Mul, vec![v1, v2], self)?;
         match res {
             FSRRetValue::Value(object) => {
-                let res_id = context.vm.register_object(object);
+                let res_id = FSRVM::register_object(object);
                 context.exp.push(Rc::new(SValue::Global(res_id)));
             }
             FSRRetValue::GlobalId(res_id) => {
@@ -699,11 +699,12 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                 // New a object if fn_obj is fsr_cls
 
                 let mut self_obj = FSRObject::new();
-                self_obj.set_cls(fn_obj.get_fsr_class_name());
+                self_obj.set_cls(*context.vm.get_global_obj_by_name(fn_obj.get_fsr_class_name()).unwrap());
                 self_obj.set_value(FSRValue::ClassInst(FSRClassInst::new(
                     fn_obj.get_fsr_class_name(),
                 )));
-                let self_id = context.vm.register_object(self_obj);
+                //println!("{:#?}", self_obj);
+                let self_id = FSRVM::register_object(self_obj);
 
                 // set self as fisrt args and call __new__ method to initialize object
                 args.push(self_id);
@@ -759,7 +760,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                     let v = fn_obj.call(args, self).unwrap();
 
                     if let FSRRetValue::Value(v) = v {
-                        let id = context.vm.register_object(v);
+                        let id = FSRVM::register_object(v);
                         context.exp.push(Rc::new(SValue::Global(id)));
                     } else if let FSRRetValue::GlobalId(id) = v {
                         context.exp.push(Rc::new(SValue::Global(id)));
@@ -784,7 +785,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                     let v = fn_obj.call(args, self).unwrap();
 
                     if let FSRRetValue::Value(v) = v {
-                        let id = context.vm.register_object(v);
+                        let id = FSRVM::register_object(v);
                         context.exp.push(Rc::new(SValue::Global(id)));
                         let vm = self.get_mut_vm();
                         let mut esp = HashSet::new();
@@ -1025,7 +1026,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                 args.push(v.1.to_string());
             }
             let fn_obj = FSRFn::from_fsr_fn("main", (context.ip.0 + 1, 0), args, bc);
-            let fn_id = context.vm.register_object(fn_obj);
+            let fn_id = FSRVM::register_object(fn_obj);
             if let Some(cur_cls) = &mut state.cur_cls {
                 cur_cls.insert_attr_id(name.1, fn_id);
                 context.ip = (context.ip.0 + *n as usize + 2, 0);
@@ -1148,7 +1149,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             }
 
             let list = FSRList::new_object(list);
-            let id = context.vm.register_object(list);
+            let id = FSRVM::register_object(list);
             context.exp.push(Rc::new(SValue::Global(id)));
         }
 
@@ -1183,11 +1184,11 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_stack();
         let mut cls_obj = FSRObject::new();
-        cls_obj.set_cls("Class");
+        cls_obj.set_cls(FSRGlobalObjId::ClassCls as u64);
         let obj = state.cur_cls.take().unwrap();
         let name = obj.get_name().to_string();
         cls_obj.set_value(FSRValue::Class(obj));
-        let obj_id = context.vm.register_object(cls_obj);
+        let obj_id = FSRVM::register_object(cls_obj);
         context.vm.register_global_object(&name, obj_id);
         Ok(false)
     }
@@ -1268,9 +1269,15 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         //*is_attr = false;
         if let ArgType::Variable(id, name) = arg.get_arg() {
             exp_stack.push(Rc::new(SValue::Stack((*id, name))));
-        } else if let ArgType::ConstInteger(id, i) = arg.get_arg() {
+        } else if let ArgType::ConstInteger(_, i) = arg.get_arg() {
             let int_const = Self::load_integer_const(i, vm);
-            s.insert_const(id, int_const);
+            //s.insert_const(id, int_const);
+            // let temp_obj = FSRObject {
+            //     obj_id: 10001,
+            //     value: FSRValue::Integer(*i),
+            //     ref_count: AtomicU64::new(0),
+            //     cls: FSRGlobalObjId::IntegerCls as u64,
+            // };
             exp_stack.push(Rc::new(SValue::Global(int_const)));
         } else if let ArgType::ConstString(id, i) = arg.get_arg() {
             let string_const = Self::load_string_const(i.clone(), vm);

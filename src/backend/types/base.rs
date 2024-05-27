@@ -4,11 +4,10 @@ use std::{
 
 use crate::{
     backend::{
-        types::fn_def::FSRnE,
-        vm::{
+        compiler::bytecode::BinaryOffset, types::fn_def::FSRnE, vm::{
             runtime::{FSRVM, OBJECTS},
             thread::FSRThreadRuntime,
-        },
+        }
     },
     utils::error::{FSRErrCode, FSRError},
 };
@@ -21,6 +20,12 @@ pub enum FSRGlobalObjId {
     None = 0,
     True = 1,
     False = 2,
+    IntegerCls = 3,
+    FnCls = 4,
+    InnerIterator = 5,
+    ListCls = 6,
+    StringCls = 7,
+    ClassCls = 8
 }
 
 #[derive(Debug, Clone)]
@@ -119,7 +124,7 @@ pub struct FSRObject<'a> {
     pub(crate) obj_id: u64,
     pub(crate) value: FSRValue<'a>,
     pub(crate) ref_count: AtomicU64,
-    pub(crate) cls: &'a str,
+    pub(crate) cls: u64,
 }
 
 impl Clone for FSRObject<'_> {
@@ -140,7 +145,7 @@ impl<'a> FSRObject<'a> {
         FSRObject {
             obj_id: 0,
             value: FSRValue::None,
-            cls: "",
+            cls: 0,
             ref_count: AtomicU64::new(0),
         }
     }
@@ -149,7 +154,7 @@ impl<'a> FSRObject<'a> {
         self.value = value;
     }
 
-    pub fn set_cls(&mut self, cls: &'a str) {
+    pub fn set_cls(&mut self, cls: u64) {
         self.cls = cls
     }
 
@@ -183,18 +188,28 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
-        if let Some(btype) = vm.get_cls(self.cls) {
+        if let Some(btype) = vm.get_base_cls(self.cls) {
             return btype.get_attr(name);
         }
-        let cls = vm.get_global_obj_by_name(self.cls);
-        let cls_id = match cls {
-            Some(s) => *s,
-            None => return None,
-        };
 
-        let cls_obj = FSRObject::id_to_obj(cls_id);
+        let cls_obj = FSRObject::id_to_obj(self.cls);
         if let FSRValue::Class(cls) = &cls_obj.value {
             return cls.get_attr(name);
+        }
+
+        None
+    }
+
+    pub fn get_cls_offset_attr(&self, offset: BinaryOffset, vm: &FSRVM<'a>) -> Option<u64> {
+        if let Some(btype) = vm.get_base_cls(self.cls) {
+            return btype.get_offset_attr(offset.into());
+        }
+
+
+
+        let cls_obj = FSRObject::id_to_obj(self.cls);
+        if let FSRValue::Class(cls) = &cls_obj.value {
+            return cls.get_offset_attr(offset.into());
         }
 
         None
@@ -210,7 +225,7 @@ impl<'a> FSRObject<'a> {
                     return Self {
                         obj_id: 0,
                         value: v,
-                        cls: "Integer",
+                        cls: FSRGlobalObjId::IntegerCls as u64,
                         ref_count: AtomicU64::new(0),
                     };
                 }
@@ -222,7 +237,7 @@ impl<'a> FSRObject<'a> {
                     return Self {
                         obj_id: 0,
                         value: v,
-                        cls: "Integer",
+                        cls: FSRGlobalObjId::IntegerCls as u64,
                         ref_count: AtomicU64::new(0),
                     };
                 }
@@ -308,6 +323,26 @@ impl<'a> FSRObject<'a> {
             None => {
                 return Err(FSRError::new(
                     format!("no such a method `{}`", name),
+                    FSRErrCode::NoSuchMethod,
+                ))
+            }
+        };
+        let method_object = Self::id_to_obj(self_method);
+        let v = method_object.call(args, thread)?;
+        Ok(v)
+    }
+
+    pub fn invoke_offset_method(
+        offset: BinaryOffset,
+        args: Vec<u64>,
+        thread: &mut FSRThreadRuntime<'a>
+    ) -> Result<FSRRetValue<'a>, FSRError> {
+        let self_object = Self::id_to_obj(args[0]);
+        let self_method = match self_object.get_cls_offset_attr(offset, thread.get_vm()) {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    format!("no such a method `{:?}`", offset),
                     FSRErrCode::NoSuchMethod,
                 ))
             }

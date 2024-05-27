@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRObject, FSRRetValue},
+    base::{FSRGlobalObjId, FSRObject, FSRRetValue},
     class::FSRClass,
     fn_def::FSRFn,
 };
@@ -35,16 +35,16 @@ fn string_len<'a>(
 }
 
 impl FSRString {
-    pub fn get_class<'a>(vm: &mut FSRVM<'a>) -> FSRClass<'a> {
+    pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass::new("String");
         let len_m = FSRFn::from_rust_fn(string_len);
-        cls.insert_attr("len", len_m, vm);
+        cls.insert_attr("len", len_m);
         cls
     }
 
     pub fn new_inst(s: Cow<'_, str>) -> FSRObject<'_> {
         let mut object = FSRObject::new();
-        object.set_cls("String");
+        object.set_cls(FSRGlobalObjId::StringCls as u64);
         object.set_value(FSRValue::String(s));
         object
     }

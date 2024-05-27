@@ -13,8 +13,11 @@ fn main() {
         }
     }
     a = 1
-    while a < 3000000 {
-        a = a + 1
+    b = 1
+    c = 1
+    while a < 300000 {
+        a = a + b
+        c = Abc()
     }
     println(a)
     ";

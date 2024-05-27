@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::atomic::AtomicU64};
+use std::{borrow::Cow, collections::HashMap, sync::atomic::AtomicU64};
 
 use crate::{
     backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}},
@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRObject, FSRRetValue, FSRValue},
+    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
     class::FSRClass,
 };
 
@@ -69,7 +69,7 @@ impl<'a> FSRFn<'a> {
         FSRObject {
             obj_id: 0,
             value: FSRValue::Function(v),
-            cls: "Fn",
+            cls: FSRGlobalObjId::FnCls as u64,
             ref_count: AtomicU64::new(0),
         }
     }
@@ -81,13 +81,13 @@ impl<'a> FSRFn<'a> {
         FSRObject {
             obj_id: 0,
             value: FSRValue::Function(v),
-            cls: "Fn",
+            cls: FSRGlobalObjId::FnCls as u64,
             ref_count: AtomicU64::new(0),
         }
     }
 
-    pub fn get_class(_: &mut FSRVM) -> FSRClass<'static> {
-        unimplemented!()
+    pub fn get_class() -> FSRClass<'static> {
+        FSRClass::new("Fn")
     }
 
     pub fn invoke(

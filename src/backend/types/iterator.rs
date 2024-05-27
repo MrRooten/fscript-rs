@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRObject, FSRRetValue, FSRValue},
+    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
     class::FSRClass,
     fn_def::FSRFn,
 };
@@ -57,16 +57,16 @@ fn next_obj<'a>(
 }
 
 impl FSRInnerIterator {
-    pub fn get_class<'a>(vm: &mut FSRVM<'a>) -> FSRClass<'a> {
+    pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass::new("InnerIterator");
         let next = FSRFn::from_rust_fn(next_obj);
-        cls.insert_attr("__next__", next, vm);
+        cls.insert_attr("__next__", next);
         cls
     }
 
     pub fn new_inst<'a>(iterator: FSRInnerIterator) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls("InnerIterator");
+        object.set_cls(FSRGlobalObjId::InnerIterator as u64);
         object.set_value(FSRValue::Iterator(iterator));
         object
     }

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::{runtime::FSRVM, thread::FSRThreadRuntime}}, utils::error::FSRError};
 
-use super::{base::FSRRetValue, class::FSRClass, fn_def::FSRFn};
+use super::{base::{FSRGlobalObjId, FSRRetValue}, class::FSRClass, fn_def::FSRFn};
 
 #[derive(Debug, Clone)]
 pub struct FSRList {
@@ -69,14 +69,14 @@ fn iter<'a>(
 }
 
 impl FSRList {
-    pub fn get_class<'a>(vm: &mut FSRVM<'a>) -> FSRClass<'a> {
+    pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass::new("List");
         let len_m = FSRFn::from_rust_fn(list_len);
-        cls.insert_attr("len", len_m, vm);
+        cls.insert_attr("len", len_m);
         let to_string = FSRFn::from_rust_fn(list_string);
-        cls.insert_attr("__str__", to_string, vm);
+        cls.insert_attr("__str__", to_string);
         let get_iter = FSRFn::from_rust_fn(iter);
-        cls.insert_attr("__iter__", get_iter, vm);
+        cls.insert_attr("__iter__", get_iter);
         cls
     }
 
@@ -90,7 +90,7 @@ impl FSRList {
         };
 
         let mut object = FSRObject::new();
-        object.set_cls("List");
+        object.set_cls(FSRGlobalObjId::ListCls as u64);
         object.set_value(FSRValue::List(s));
         object
     }

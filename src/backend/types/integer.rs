@@ -1,12 +1,12 @@
 #![allow(unused)]
 
 use crate::{
-    backend::vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}},
+    backend::{compiler::bytecode::BinaryOffset, vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}}},
     utils::error::FSRError,
 };
 
 use super::{
-    base::{FSRObject, FSRRetValue, FSRValue},
+    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
     class::FSRClass,
     fn_def::FSRFn,
 };
@@ -218,28 +218,35 @@ fn less_equal<'a>(
 }
 
 impl<'a> FSRInteger {
-    pub fn get_class(vm: &mut FSRVM<'a>) -> FSRClass<'a> {
+    pub fn get_class() -> FSRClass<'a> {
         let mut cls = FSRClass::new("Integer");
         let add_fn = FSRFn::from_rust_fn(add);
-        cls.insert_attr("__add__", add_fn, vm);
+        //cls.insert_attr("__add__", add_fn);
+        cls.insert_offset_attr(BinaryOffset::Add as usize, add_fn);
         let sub_fn = FSRFn::from_rust_fn(sub);
-        cls.insert_attr("__sub__", sub_fn, vm);
+        //cls.insert_attr("__sub__", sub_fn);
+        cls.insert_offset_attr(BinaryOffset::Sub as usize, sub_fn);
         let mul_fn = FSRFn::from_rust_fn(mul);
-        cls.insert_attr("__mul__", mul_fn, vm);
+        //cls.insert_attr("__mul__", mul_fn);
+        cls.insert_offset_attr(BinaryOffset::Mul as usize, mul_fn);
         let gt_fn = FSRFn::from_rust_fn(greater);
-        cls.insert_attr("__gt__", gt_fn, vm);
+        //cls.insert_attr("__gt__", gt_fn);
+        cls.insert_offset_attr(BinaryOffset::Greater as usize, gt_fn);
         let gte_fn = FSRFn::from_rust_fn(greater_equal);
-        cls.insert_attr("__gte__", gte_fn, vm);
+        //cls.insert_attr("__gte__", gte_fn);
+        cls.insert_offset_attr(BinaryOffset::GreatEqual as usize, gte_fn);
         let lt_fn = FSRFn::from_rust_fn(less);
-        cls.insert_attr("__lt__", lt_fn, vm);
+        //cls.insert_attr("__lt__", lt_fn);
+        cls.insert_offset_attr(BinaryOffset::Less as usize, lt_fn);
         let lte_fn = FSRFn::from_rust_fn(less_equal);
-        cls.insert_attr("__lte__", lte_fn, vm);
+        //cls.insert_attr("__lte__", lte_fn);
+        cls.insert_offset_attr(BinaryOffset::LessEqual as usize, lte_fn);
         cls
     }
 
     pub fn new_inst(i: i64) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls("Integer");
+        object.set_cls(FSRGlobalObjId::IntegerCls as u64);
         object.set_value(FSRValue::Integer(i));
         object
     }

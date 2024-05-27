@@ -21,6 +21,25 @@ use crate::frontend::ast::token::{
     while_statement::FSRWhile,
 };
 
+#[derive(Debug, Clone, Copy)]
+pub enum BinaryOffset {
+    Add = 0,
+    Sub = 1,
+    Mul = 2,
+    Greater = 3,
+    GreatEqual = 4,
+    Less = 5,
+    LessEqual = 6,
+    Equal = 7,
+    NotEqual = 8
+}
+
+impl From<BinaryOffset> for usize {
+    fn from(val: BinaryOffset) -> Self {
+        val as usize
+    }
+}
+
 #[derive(Debug, PartialEq, Hash, Eq, Clone, Copy)]
 pub enum BytecodeOperator {
     Assign = 0,
