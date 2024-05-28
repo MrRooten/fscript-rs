@@ -248,7 +248,8 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    pub fn sp_object(id: u64) -> &'static FSRObject<'static> {
+    #[inline(always)]
+    fn sp_object(id: u64) -> &'static FSRObject<'static> {
         unsafe { 
             if let Some(obj) = OBJECTS.get(id as usize) {
                 return obj

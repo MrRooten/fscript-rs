@@ -13,7 +13,6 @@ pub struct FSRVM<'a> {
     #[allow(unused)]
     threads: HashMap<u64, FSRThreadRuntime<'a>>,
     global: HashMap<String, u64>,
-    base_types: HashMap<&'a str, FSRClass<'a>>,
     global_modules  : HashMap<&'a str, FSRModule<'a>>,
     const_integer_global: RefCell<HashMap<i64, u64>>,
 }
@@ -37,7 +36,6 @@ impl<'a> FSRVM<'a> {
         maps.insert(0, main_thread);
         let mut v = Self {
             threads: maps,
-            base_types: HashMap::new(),
             global: HashMap::new(),
             global_modules: HashMap::new(),
             const_integer_global: RefCell::new(HashMap::new()),
@@ -91,25 +89,6 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn init(&mut self) {
-        // Set none variable as uniq object id 0
-        self.global.insert("none".to_string(), 0);
-        // Set true variable as uniq object id 1
-        self.global.insert("true".to_string(), 1);
-        // Set false variable as uniq object id 2
-        self.global.insert("false".to_string(), 2);
-
-        let integer = FSRInteger::get_class();
-        self.base_types.insert("Integer", integer);
-
-        let string = FSRString::get_class();
-        self.base_types.insert("String", string);
-
-        let list = FSRList::get_class();
-        self.base_types.insert("List", list);
-
-        let inner_iter = FSRInnerIterator::get_class();
-        self.base_types.insert("InnerIterator", inner_iter);
-
         let objs = init_io();
         for obj in objs {
             let id = FSRVM::register_object(obj.1);

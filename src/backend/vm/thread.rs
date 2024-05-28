@@ -279,7 +279,7 @@ impl<'a> VecMap<'a> {
         self.inner.push(f);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn get(&self, k: &BytecodeOperator) -> Option<&BytecodeFn<'a>> {
         self.inner.get(*k as usize)
     }
@@ -310,6 +310,28 @@ impl<'a> VecMap<'a> {
         }
     }
 }
+
+// pub struct ExpStack<'a> {
+//     values      : Vec<Rc<SValue<'a>>>,
+//     pos         : i64
+// }
+
+// impl<'a> ExpStack<'a> {
+//     pub fn push(&mut self, value: Rc<SValue<'a>>) {
+//         self.pos += 1;
+//         if (self.pos as usize) < self.values.len() {
+//             self.values[self.pos as usize] = value;
+//         } else {
+//             self.values.push(value);
+//         }
+//     }
+
+//     pub fn pop(&mut self) -> Rc<SValue<'a>> {
+//         let v = self.values[self.pos as usize].clone();
+//         self.pos -= 1;
+//         v
+//     }
+// }
 
 #[derive(Default)]
 pub struct FSRThreadRuntime<'a> {
@@ -1271,13 +1293,6 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             exp_stack.push(Rc::new(SValue::Stack((*id, name))));
         } else if let ArgType::ConstInteger(_, i) = arg.get_arg() {
             let int_const = Self::load_integer_const(i, vm);
-            //s.insert_const(id, int_const);
-            // let temp_obj = FSRObject {
-            //     obj_id: 10001,
-            //     value: FSRValue::Integer(*i),
-            //     ref_count: AtomicU64::new(0),
-            //     cls: FSRGlobalObjId::IntegerCls as u64,
-            // };
             exp_stack.push(Rc::new(SValue::Global(int_const)));
         } else if let ArgType::ConstString(id, i) = arg.get_arg() {
             let string_const = Self::load_string_const(i.clone(), vm);
