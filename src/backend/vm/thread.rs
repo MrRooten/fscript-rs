@@ -415,6 +415,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         FSRVM::register_object(obj)
     }
 
+    #[inline(always)]
     pub fn get_cur_mut_stack(&mut self) -> &mut CallState<'a> {
         let l = self.call_stack.len();
         return self.call_stack.get_mut(l - 1).unwrap();
@@ -472,9 +473,30 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        _bytecode: &BytecodeArg,
+        bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
+        if let ArgType::Variable(var_id, _) = bytecode.get_arg() {
+            let obj_id = match context.exp.pop() {
+                Some(s) => s,
+                None => {
+                    return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
+                }
+            };
+            let obj_id = obj_id.get_global_id(self);
+            if !FSRObject::is_sp_object(obj_id) {
+                let to_assign_obj = FSRObject::id_to_mut_obj(obj_id);
+                to_assign_obj.ref_add();
+                let state = self.get_cur_mut_stack();
+                state.insert_var(var_id, obj_id);
+            } else {
+                let state = self.get_cur_mut_stack();
+                state.insert_var(var_id, obj_id);
+            }
+
+            return Ok(false);
+        }
+
         //Assign variable name
         let assign_id = match context.exp.pop() {
             Some(s) => s,
@@ -484,13 +506,17 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         };
 
         //To Assign obj or Dot Father object
+        
+        
+
+        
+
         let obj_id = match context.exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
             }
         };
-
         if context.is_attr {
             let to_assign_obj = match context.exp.pop() {
                 Some(s) => s,
@@ -533,6 +559,9 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                 }
             }
         }
+        
+
+        
 
         Ok(false)
     }
@@ -1261,6 +1290,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn process(
         &mut self,
         context: &mut ThreadContext<'a>,
@@ -1368,7 +1398,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
     ) -> Result<(), FSRError> {
         self.set_vm(vm);
         let mut context = ThreadContext {
-            exp: vec![],
+            exp: Vec::with_capacity(10),
             ip: (0, 0),
             vm,
             is_attr: false,
@@ -1391,7 +1421,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
 
     pub fn call_fn(&mut self, fn_def: &'a FSRFnInner, args: &Vec<u64>) -> Result<u64, FSRError> {
         let mut context = ThreadContext {
-            exp: vec![],
+            exp: Vec::with_capacity(10),
             ip: fn_def.get_ip(),
             is_attr: false,
             vm: self.get_mut_vm(),

@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests {
 
+    use std::time::Instant;
+
     use crate::{
         backend::{
-            compiler::bytecode::Bytecode, types::module::FSRModule, vm::{runtime::FSRVM, thread::FSRThreadRuntime}
+            compiler::bytecode::Bytecode, types::{base::FSRObject, module::FSRModule}, vm::{runtime::FSRVM, thread::FSRThreadRuntime}
         },
         frontend::ast::token::{
             base::{FSRPosition, FSRToken},
@@ -14,12 +16,9 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        if a < 3 {
-            println('abc')
-        } else if a < 3 {
-            println('else')
-        } else if a > 3 {
-            println('else2')
+        i = 0
+        while i < 10{
+            i = i + 1
         }
         ";
         let meta = FSRPosition::new();
@@ -125,5 +124,20 @@ mod tests {
         let mut vm = FSRVM::new();
         runtime.set_vm(&mut vm);
         runtime.start(&v, &mut vm).unwrap();
+    }
+
+    #[test]
+    fn test_new_object() {
+        let s = Instant::now();
+        let mut i = 0;
+        let mut vs = Vec::with_capacity(300000);
+        while i < 300000 {
+            let v = Box::new(FSRObject::new());
+            vs.push(v);
+            i += 1;
+            vs.pop();
+        }
+        let e = Instant::now();
+        println!("{:#?}", e - s);
     }
 }

@@ -76,6 +76,7 @@ pub enum BytecodeOperator {
     BinaryRShift = 28,
     BinaryLShift = 29,
     
+    StoreFast = 30,
     
     
     
@@ -102,6 +103,7 @@ pub enum ArgType {
     ForEnd(i64),
     AddOffset(usize),
     ForLine(u64),
+    StoreFastVar(u64, String),
     None,
 }
 
@@ -212,6 +214,9 @@ impl<'a> VarMap<'a> {
     }
 
     pub fn insert_var(&mut self, var: &'a str) {
+        if self.var_map.contains_key(var) {
+            return ;
+        }
         let v = self.var_id.fetch_add(1, Ordering::Relaxed);
         self.var_map.insert(var, v);
     }
@@ -727,15 +732,28 @@ impl<'a> Bytecode {
         var_map: &'a mut VarMap<'a>,
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result_list = Vec::new();
-        let mut left = Self::load_token_with_map(token.get_left(), var_map);
-        let mut right = Self::load_token_with_map(token.get_assign_expr(), left.1);
-        result_list.append(&mut right.0[0]);
-        result_list.append(&mut left.0[0]);
-        result_list.push(BytecodeArg {
-            operator: BytecodeOperator::Assign,
-            arg: ArgType::None,
-        });
-        (result_list, right.1)
+        if let FSRToken::Variable(v) = &**token.get_left() {
+            let mut right = Self::load_token_with_map(token.get_assign_expr(), var_map);
+            result_list.append(&mut right.0[0]);
+            right.1.insert_var(v.get_name());
+            let id = right.1.get_var(v.get_name()).unwrap();
+            result_list.push(BytecodeArg {
+                operator: BytecodeOperator::Assign,
+                arg: ArgType::Variable(*id, v.get_name().to_string()),
+            });
+            (result_list, right.1)
+        } else {
+            let mut left = Self::load_token_with_map(token.get_left(), var_map);
+            let mut right = Self::load_token_with_map(token.get_assign_expr(), left.1);
+            result_list.append(&mut right.0[0]);
+            result_list.append(&mut left.0[0]);
+            result_list.push(BytecodeArg {
+                operator: BytecodeOperator::Assign,
+                arg: ArgType::None,
+            });
+            (result_list, right.1)
+        }
+        
     }
 
     fn load_constant(
