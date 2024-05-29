@@ -176,6 +176,15 @@ enum SValue<'a> {
 }
 
 impl<'a> SValue<'a> {
+    #[inline(always)]
+    pub fn is_object(&self) -> bool {
+        if let SValue::Object(_) = self {
+            return true;
+        }
+
+        false
+    }
+
     pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> u64 {
         let state = thread.get_cur_stack();
         let vm = thread.get_vm();
@@ -524,9 +533,19 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                 let father = obj_id.get_global_id(self);
                 let father = FSRObject::id_to_mut_obj(father);
                 if let SValue::Attr((_, attr_name)) = assign_id {
-                    let obj = FSRObject::id_to_mut_obj(to_assign_obj_id);
-                    obj.ref_add();
-                    father.set_attr(attr_name, to_assign_obj_id);
+                    if to_assign_obj.is_object() {
+                        if let SValue::Object(obj) = to_assign_obj {
+                            let id = FSRVM::leak_object(obj);
+                            let tmp_to_assign_obj = FSRObject::id_to_obj(id);
+                            tmp_to_assign_obj.ref_add();
+                            father.set_attr(attr_name, id);
+                        } else {
+                            unimplemented!()
+                        }
+                    } else {
+                        father.set_attr(attr_name, to_assign_obj_id);
+                    }
+                    
                 }
                 context.is_attr = false;
             } else {
@@ -537,6 +556,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                 }
                 context.is_attr = false;
             }
+            context.exp.pop();
         } else {
             let obj_id = obj_id.get_global_id(self);
             if !FSRObject::is_sp_object(obj_id) {

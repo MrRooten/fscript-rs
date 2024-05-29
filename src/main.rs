@@ -6,10 +6,21 @@ use fscript_rs::backend::{
 
 fn main() {
     let source_code = "
-    a = 1
-    while a < 3000000 {
-        a = a + 1
+    class Abc {
+        fn __new__(self) {
+            self.abc = 123
+            return self
+        }
     }
+
+    a = 1
+    b = 1
+    while a < 3000000 {
+        a = a + b
+        b = b + 1
+    }
+
+    println(b)
     ";
     let v = FSRModule::from_code("main", source_code).unwrap();
     let mut runtime = FSRThreadRuntime::new();

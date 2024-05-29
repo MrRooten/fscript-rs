@@ -265,20 +265,20 @@ impl<'a> FSRObject<'a> {
     }
 
 
-    #[inline(always)]
+    #[inline]
     pub fn ref_add(&self) {
         if Self::is_sp_object(self.obj_id) {
             return ;
         }
-        self.ref_count.fetch_add(1, Ordering::Acquire);
+        self.ref_count.fetch_add(1, Ordering::AcqRel);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn ref_dec(&self) {
         if Self::is_sp_object(self.obj_id) {
             return ;
         }
-        self.ref_count.fetch_sub(1, Ordering::Acquire);
+        self.ref_count.fetch_sub(1, Ordering::AcqRel);
 
         if self.count_ref() == 0 {
             // Self::drop_object(self.obj_id)
