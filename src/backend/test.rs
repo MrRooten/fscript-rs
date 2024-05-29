@@ -16,8 +16,13 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
+        fn test() {
+            println('abc')
+        }
+    
         i = 0
-        while i < 10{
+        while i < 10 {
+            test()
             i = i + 1
         }
         ";
@@ -114,10 +119,15 @@ mod tests {
     #[test]
     fn test_while_backend() {
         let source_code = "
-        a = 0
-        while a < 10 {
-            a = a + 1
+        fn test() {
+            println('abc')
         }
+
+        i = 0
+        while i < 10 {
+            test()
+        }
+        
         ";
         let v = FSRModule::from_code("main", source_code).unwrap();
         let mut runtime = FSRThreadRuntime::new();

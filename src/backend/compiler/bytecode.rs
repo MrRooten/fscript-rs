@@ -86,13 +86,13 @@ pub enum BytecodeOperator {
     SpecialLoadFor = 25,
     AndJump = 26,
     OrJump = 27,
-    
+    Empty = 28,
     // BinarySub,
     
-    BinaryRShift = 28,
-    BinaryLShift = 29,
+    BinaryRShift = 29,
+    BinaryLShift = 30,
     
-    StoreFast = 30,
+    StoreFast = 31,
     
     
     
@@ -468,6 +468,10 @@ impl<'a> Bytecode {
             }
         }
 
+        if vs.is_empty() {
+            vs.push(vec![BytecodeArg { operator: BytecodeOperator::Empty, arg: ArgType::None }]);
+        }
+
         (vs, ref_self)
     }
 
@@ -640,20 +644,20 @@ impl<'a> Bytecode {
         let mut t = v.0.remove(0);
         test_list.append(&mut t);
 
-        let mut block_items = Self::load_block(while_def.get_block(), v.1);
+        let block_items = Self::load_block(while_def.get_block(), v.1);
         test_list.push(BytecodeArg {
             operator: BytecodeOperator::WhileTest,
-            arg: ArgType::WhileTest(block_items.0.len() as u64),
+            arg: ArgType::WhileTest(block_items.0.len() as u64 + 1),
         });
         vs.push(test_list);
         let len = block_items.0.len();
-        let l = block_items.0.get_mut(len - 1).unwrap();
-        l.push(BytecodeArg {
+        //let l = block_items.0.get_mut(len - 1).unwrap();
+        let end = BytecodeArg {
             operator: BytecodeOperator::WhileBlockEnd,
-            arg: ArgType::WhileEnd(len as i64),
-        });
+            arg: ArgType::WhileEnd(len as i64 + 1),
+        };
         vs.extend(block_items.0);
-
+        vs.push(vec![end]);
         (vs, block_items.1)
     }
 
@@ -900,7 +904,10 @@ impl<'a> Bytecode {
         result.push(args_load);
         result.push(load_args);
         //result.push(define_fn);
-        result.extend(fn_body);
+        if !fn_body.is_empty() {
+            result.extend(fn_body);
+        }
+        
 
         let end_of_fn = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineFn,

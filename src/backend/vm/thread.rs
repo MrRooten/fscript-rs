@@ -383,6 +383,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::SpecialLoadFor, Self::special_load_for);
         map.insert(BytecodeOperator::AndJump, Self::process_logic_and);
         map.insert(BytecodeOperator::OrJump, Self::process_logic_or);
+        map.insert(BytecodeOperator::Empty, Self::empty_process);
 
         Self {
             call_stack: vec![CallState::new(&Cow::Borrowed("base"))],
@@ -1323,6 +1324,15 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             }
         }
 
+        Ok(false)
+    }
+
+    fn empty_process(
+        self: &mut FSRThreadRuntime<'a>,
+        _context: &mut ThreadContext<'a>,
+        _bc: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
         Ok(false)
     }
 
