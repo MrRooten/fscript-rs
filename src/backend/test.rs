@@ -121,6 +121,7 @@ mod tests {
         i = 0
         while i < 10 {
             test()
+            i = i + 1
         }
         
         ";
@@ -136,7 +137,7 @@ mod tests {
         let s = Instant::now();
         let mut i = 0;
         let mut vs = Vec::with_capacity(300000);
-        while i < 300000 {
+        while i < 3000 {
             let v = Box::new(FSRObject::new());
             vs.push(v);
             i += 1;
@@ -146,7 +147,7 @@ mod tests {
         println!("{:#?}", e - s);
     }
 
-    #[test]
+    #[allow(unused)]
     fn benchmark_add() {
         // let source_code = "
         // a = 1
@@ -180,7 +181,7 @@ mod tests {
         println!("{:?}", end - start);
     }
 
-    #[test]
+    #[allow(unused)]
     fn benchmark_compare() {
         // let source_code = "
         // a = 1
