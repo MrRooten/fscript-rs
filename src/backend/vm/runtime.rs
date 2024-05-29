@@ -129,6 +129,15 @@ impl<'a> FSRVM<'a> {
         obj as *const FSRObject as u64
     }
 
+    pub fn leak_object(mut object: Box<FSRObject<'a>>) -> u64 {
+        let id = Self::get_object_id(&object);
+        object.obj_id = id;
+
+        //self.obj_map.insert(id, object);
+        Box::leak(object);
+        id
+    }
+
     pub fn register_object(object: FSRObject<'a>) -> u64 {
         let mut object = Box::new(object);
         let id = Self::get_object_id(&object);

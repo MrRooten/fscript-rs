@@ -265,20 +265,20 @@ impl<'a> FSRObject<'a> {
     }
 
 
-    #[inline(always)]
+    #[inline]
     pub fn ref_add(&self) {
         if Self::is_sp_object(self.obj_id) {
             return ;
         }
-        self.ref_count.fetch_add(1, Ordering::Relaxed);
+        self.ref_count.fetch_add(1, Ordering::AcqRel);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn ref_dec(&self) {
         if Self::is_sp_object(self.obj_id) {
             return ;
         }
-        self.ref_count.fetch_sub(1, Ordering::Relaxed);
+        self.ref_count.fetch_sub(1, Ordering::AcqRel);
 
         if self.count_ref() == 0 {
             // Self::drop_object(self.obj_id)
@@ -341,7 +341,13 @@ impl<'a> FSRObject<'a> {
         thread: &mut FSRThreadRuntime<'a>
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
-        let self_method = match self_object.get_cls_offset_attr(offset, thread.get_vm()) {
+        if let Some(self_method) = self_object.get_cls_offset_attr(offset, thread.get_vm()) {
+            let method_object = Self::id_to_obj(self_method);
+            let v = method_object.call(args, thread)?;
+            return Ok(v)
+        }
+        
+        let self_method = match self_object.get_cls_attr(offset.alias_name(), thread.get_vm()) {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
