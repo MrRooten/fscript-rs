@@ -10,7 +10,7 @@ fn main() {
     println(b)
 
     for c in b {
-        
+        println(c)
     }
     ";
     let v = FSRModule::from_code("main", source_code).unwrap();
