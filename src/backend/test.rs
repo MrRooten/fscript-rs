@@ -16,14 +16,9 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        fn test() {
-            println('abc')
-        }
-    
-        i = 0
-        while i < 10 {
-            test()
-            i = i + 1
+        b = [1, 2, 3]
+        for c in b {
+            dump(c)
         }
         ";
         let meta = FSRPosition::new();

@@ -130,7 +130,7 @@ impl<'a> CallState<'a> {
 
             if origin_obj.count_ref() == 0 {
                 //println!("Will Drop: {:#?}", origin_obj);
-                FSRObject::drop_object(*to_be_dec);
+                //FSRObject::drop_object(*to_be_dec);
             }
         }
         self.var_map.insert(*id, obj_id);
@@ -1024,12 +1024,19 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let iter_obj = context.exp.pop().unwrap().get_global_id(self);
+        let iter_obj = context.exp.pop().unwrap();
+        let iter_id = if let SValue::Object(obj) = iter_obj {
+            FSRVM::leak_object(obj)
+        } else {
+            iter_obj.get_global_id(self)
+        };
+        let v = FSRObject::id_to_obj(iter_id);
+        println!("{:#?}", v);
         if let ArgType::ForLine(n) = bytecode.get_arg() {
             context.break_line.push(context.ip.0 + *n as usize);
             context.continue_line.push(context.ip.0 + 1);
         }
-        context.for_iter_obj.push(iter_obj);
+        context.for_iter_obj.push(iter_id);
         Ok(false)
     }
 
@@ -1232,8 +1239,13 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             let mut list = vec![];
             let n = *n;
             for _ in 0..n {
-                let v = context.exp.pop().unwrap().get_global_id(self);
-                list.push(v);
+                let v = context.exp.pop().unwrap();
+                let v_id = if let SValue::Object(obj) = v {
+                    FSRVM::leak_object(obj)
+                } else {
+                    v.get_global_id(self)
+                };
+                list.push(v_id);
             }
 
             let list = FSRList::new_object(list);

@@ -7,6 +7,8 @@ use fscript_rs::backend::{
 fn main() {
     let source_code = "
     b = [1, 2, 3]
+    println(b)
+
     for c in b {
         dump(c)
     }
