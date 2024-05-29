@@ -270,7 +270,7 @@ impl<'a> FSRObject<'a> {
         if Self::is_sp_object(self.obj_id) {
             return ;
         }
-        self.ref_count.fetch_add(1, Ordering::Relaxed);
+        self.ref_count.fetch_add(1, Ordering::Acquire);
     }
 
     #[inline(always)]
@@ -278,7 +278,7 @@ impl<'a> FSRObject<'a> {
         if Self::is_sp_object(self.obj_id) {
             return ;
         }
-        self.ref_count.fetch_sub(1, Ordering::Relaxed);
+        self.ref_count.fetch_sub(1, Ordering::Acquire);
 
         if self.count_ref() == 0 {
             // Self::drop_object(self.obj_id)

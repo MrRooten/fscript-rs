@@ -217,12 +217,12 @@ impl<'a> VarMap<'a> {
         if self.var_map.contains_key(var) {
             return ;
         }
-        let v = self.var_id.fetch_add(1, Ordering::Relaxed);
+        let v = self.var_id.fetch_add(1, Ordering::Acquire);
         self.var_map.insert(var, v);
     }
 
     pub fn insert_attr(&mut self, attr: &'a str) {
-        let v = self.attr_id.fetch_add(1, Ordering::Relaxed);
+        let v = self.attr_id.fetch_add(1, Ordering::Acquire);
         self.attr_map.insert(attr, v);
     }
 

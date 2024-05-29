@@ -7,11 +7,9 @@ use fscript_rs::backend::{
 fn main() {
     let source_code = "
     a = 1
-    b = 1
     while a < 3000000 {
-        a = a + b
+        a = a + 1
     }
-
     ";
     let v = FSRModule::from_code("main", source_code).unwrap();
     let mut runtime = FSRThreadRuntime::new();
