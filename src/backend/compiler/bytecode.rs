@@ -31,7 +31,8 @@ pub enum BinaryOffset {
     Less = 5,
     LessEqual = 6,
     Equal = 7,
-    NotEqual = 8
+    NotEqual = 8,
+    NextObject,
 }
 
 impl BinaryOffset {
@@ -46,6 +47,7 @@ impl BinaryOffset {
             BinaryOffset::LessEqual => "__lte__",
             BinaryOffset::Equal => "__eq__",
             BinaryOffset::NotEqual => "__neq__",
+            BinaryOffset::NextObject => "__next__",
         }
     }
 }
