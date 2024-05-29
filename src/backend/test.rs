@@ -5,7 +5,7 @@ mod tests {
 
     use crate::{
         backend::{
-            compiler::bytecode::Bytecode, types::{base::FSRObject, module::FSRModule}, vm::{runtime::FSRVM, thread::FSRThreadRuntime}
+            compiler::bytecode::{BinaryOffset, Bytecode}, types::{base::FSRObject, integer::FSRInteger, module::FSRModule}, vm::{runtime::FSRVM, thread::FSRThreadRuntime}
         },
         frontend::ast::token::{
             base::{FSRPosition, FSRToken},
@@ -139,5 +139,73 @@ mod tests {
         }
         let e = Instant::now();
         println!("{:#?}", e - s);
+    }
+
+    #[test]
+    fn benchmark_add() {
+        // let source_code = "
+        // a = 1
+        // b = 1
+        // while a < 3000000 {
+        //     a = a + b
+        // }
+
+        // ";
+        // let v = FSRModule::from_code("main", source_code).unwrap();
+        let mut runtime = FSRThreadRuntime::new();
+        let mut vm = FSRVM::new();
+        let start = Instant::now();
+        //runtime.start(&v, &mut vm).unwrap();
+        
+        
+        runtime.set_vm(&mut vm);
+
+        for _ in 0..3000000 {
+            let obj = FSRInteger::new_inst(3);
+            let obj2 = FSRInteger::new_inst(4);
+
+            FSRObject::invoke_offset_method(
+                BinaryOffset::Add,
+                &vec![FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
+                &mut runtime,
+            )
+            .unwrap();
+        }
+        let end = Instant::now();
+        println!("{:?}", end - start);
+    }
+
+    #[test]
+    fn benchmark_compare() {
+        // let source_code = "
+        // a = 1
+        // b = 1
+        // while a < 3000000 {
+        //     a = a + b
+        // }
+
+        // ";
+        // let v = FSRModule::from_code("main", source_code).unwrap();
+        let mut runtime = FSRThreadRuntime::new();
+        let mut vm = FSRVM::new();
+        let start = Instant::now();
+        //runtime.start(&v, &mut vm).unwrap();
+        
+        
+        runtime.set_vm(&mut vm);
+
+        for _ in 0..3000000 {
+            let obj = FSRInteger::new_inst(3);
+            let obj2 = FSRInteger::new_inst(4);
+
+            FSRObject::invoke_offset_method(
+                BinaryOffset::Greater,
+                &vec![FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
+                &mut runtime,
+            )
+            .unwrap();
+        }
+        let end = Instant::now();
+        println!("{:?}", end - start);
     }
 }

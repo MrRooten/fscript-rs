@@ -60,14 +60,17 @@ impl<'a> FSRVM<'a> {
         *const_obj.get(&integer).unwrap()
     }
 
+    #[inline(always)]
     pub fn get_true_id(&self) -> u64 {
         1
     }
 
+    #[inline(always)]
     pub fn get_false_id(&self) -> u64 {
         2
     }
 
+    #[inline(always)]
     pub fn get_none_id(&self) -> u64 {
         0
     }

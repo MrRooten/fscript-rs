@@ -572,7 +572,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let _state = self.get_cur_mut_stack();
+        //let _state = self.get_cur_mut_stack();
         let v1 = match context.exp.pop() {
             Some(s) => s.get_global_id(self),
             None => {

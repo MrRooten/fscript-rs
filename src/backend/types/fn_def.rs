@@ -97,9 +97,7 @@ impl<'a> FSRFn<'a> {
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, thread);
-        }
-
-        if let FSRnE::FSRFn(f) = &self.fn_def {
+        } else if let FSRnE::FSRFn(f) = &self.fn_def {
             let v = FSRThreadRuntime::call_fn(thread, f, args)?;
             return Ok(FSRRetValue::GlobalId(v));
         }
