@@ -341,7 +341,13 @@ impl<'a> FSRObject<'a> {
         thread: &mut FSRThreadRuntime<'a>
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
-        let self_method = match self_object.get_cls_offset_attr(offset, thread.get_vm()) {
+        if let Some(self_method) = self_object.get_cls_offset_attr(offset, thread.get_vm()) {
+            let method_object = Self::id_to_obj(self_method);
+            let v = method_object.call(args, thread)?;
+            return Ok(v)
+        }
+        
+        let self_method = match self_object.get_cls_attr(offset.alias_name(), thread.get_vm()) {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(

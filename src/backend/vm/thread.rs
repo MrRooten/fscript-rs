@@ -794,6 +794,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                 Self::call_process_set_args(n, self, &mut context.exp, &mut args);
                 let state = self.get_cur_mut_stack();
                 state.set_reverse_ip(context.ip);
+                
                 state.exp = Some(context.exp.clone());
                 self.call_stack
                     .push(CallState::new(&Cow::Borrowed("__new__")));
@@ -1432,6 +1433,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         module: &'a FSRModule<'a>,
         vm: &'a mut FSRVM<'a>,
     ) -> Result<(), FSRError> {
+        let mut bytecode_count = 0;
         self.set_vm(vm);
         let mut context = ThreadContext {
             exp: Vec::with_capacity(10),
@@ -1445,6 +1447,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         };
         while let Some(expr) = module.get_bc(&context.ip) {
             self.run_expr(expr, &mut context, module.get_bytecode())?;
+            bytecode_count += expr.len();
         }
 
         #[cfg(feature = "perf")]
@@ -1452,6 +1455,8 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
 
         #[cfg(feature = "perf")]
         println!("{:#?}", self.bytecode_map.count);
+
+        println!("count: {}", bytecode_count);
         Ok(())
     }
 

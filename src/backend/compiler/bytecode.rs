@@ -34,6 +34,22 @@ pub enum BinaryOffset {
     NotEqual = 8
 }
 
+impl BinaryOffset {
+    pub fn alias_name(&self) -> &str {
+        match self {
+            BinaryOffset::Add => "__add__",
+            BinaryOffset::Sub => "__sub__",
+            BinaryOffset::Mul => "__mul__",
+            BinaryOffset::Greater => "__gt__",
+            BinaryOffset::GreatEqual => "__gte__",
+            BinaryOffset::Less => "__lt__",
+            BinaryOffset::LessEqual => "__lte__",
+            BinaryOffset::Equal => "__eq__",
+            BinaryOffset::NotEqual => "__neq__",
+        }
+    }
+}
+
 impl From<BinaryOffset> for usize {
     fn from(val: BinaryOffset) -> Self {
         val as usize
