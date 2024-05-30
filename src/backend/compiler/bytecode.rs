@@ -33,6 +33,8 @@ pub enum BinaryOffset {
     Equal = 7,
     NotEqual = 8,
     NextObject,
+    GetItem,
+    SetItem
 }
 
 impl BinaryOffset {
@@ -48,6 +50,8 @@ impl BinaryOffset {
             BinaryOffset::Equal => "__eq__",
             BinaryOffset::NotEqual => "__neq__",
             BinaryOffset::NextObject => "__next__",
+            BinaryOffset::GetItem => "__get__",
+            BinaryOffset::SetItem => "__set__",
         }
     }
 }
@@ -109,6 +113,7 @@ pub enum ArgType {
     ConstString(u64, String),
     ConstInteger(u64, i64),
     Attr(u64, String),
+    BinaryOperator(BinaryOffset),
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
     WhileTest(u64),         //i64 is return to test, u64 is skip the block,
     WhileEnd(i64),
@@ -420,6 +425,7 @@ impl<'a> Bytecode {
             let mut v = Self::load_variable(v, var_map_ref.unwrap(), is_attr);
             second.append(&mut v.0);
             var_map_ref = Some(v.1);
+
         } else if let FSRToken::Call(c) = expr.get_right() {
             let mut is_attr = false;
             if expr.get_op().eq(".") {
@@ -427,6 +433,7 @@ impl<'a> Bytecode {
             }
             let mut v = Self::load_call(c, var_map_ref.unwrap(), is_attr);
             second.append(&mut v.0);
+            op_code.append(&mut second);
             var_map_ref = Some(v.1);
             //call special process
             return (op_code, var_map_ref.unwrap());

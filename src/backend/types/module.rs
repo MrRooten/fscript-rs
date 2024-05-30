@@ -15,8 +15,8 @@ impl Clone for FSRModule<'_> {
         unimplemented!()
     }
     
-    fn clone_from(&mut self, source: &Self) {
-        *self = source.clone()
+    fn clone_from(&mut self, _source: &Self) {
+        unimplemented!()
     }
 }
 

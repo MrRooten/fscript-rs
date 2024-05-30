@@ -1,6 +1,6 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
-use crate::{backend::{types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::FSRError};
+use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::{FSRErrCode, FSRError}};
 
 use super::{base::{FSRGlobalObjId, FSRRetValue}, class::FSRClass, fn_def::FSRFn};
 
@@ -68,15 +68,42 @@ fn iter<'a>(
     return Ok(FSRRetValue::Value(FSRInnerIterator::new_inst(iterator)));
 }
 
+fn get_item<'a>(
+    args: &[u64],
+    _: &mut FSRThreadRuntime<'a>
+) -> Result<FSRRetValue<'a>, FSRError>  {
+    let self_id = args[0];
+    let index_id = args[1];
+    let obj = FSRObject::id_to_obj(self_id);
+    let index_obj = FSRObject::id_to_obj(index_id);
+    if let FSRValue::List(l) = &obj.value {
+        if let FSRValue::Integer(i) = &index_obj.value {
+            let index = *i as usize;
+            if let Some(s) = l.vs.get(index) {
+                return Ok(FSRRetValue::GlobalId(*s));
+            } else {
+                return Err(FSRError::new("list index of range", FSRErrCode::OutOfRange));
+            }
+        }
+    }
+    unimplemented!()
+}
+
 impl FSRList {
     pub fn get_class<'a>() -> FSRClass<'a> {
-        let mut cls = FSRClass::new("List");
+        let mut cls = FSRClass {
+            name: "List",
+            attrs: HashMap::new(),
+            offset_attrs: vec![0;30],
+        };
         let len_m = FSRFn::from_rust_fn(list_len);
         cls.insert_attr("len", len_m);
         let to_string = FSRFn::from_rust_fn(list_string);
         cls.insert_attr("__str__", to_string);
         let get_iter = FSRFn::from_rust_fn(iter);
         cls.insert_attr("__iter__", get_iter);
+        let get_item = FSRFn::from_rust_fn(get_item);
+        cls.insert_offset_attr(BinaryOffset::GetItem as usize, get_item);
         cls
     }
 

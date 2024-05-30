@@ -16,10 +16,7 @@ mod tests {
     #[test]
     fn test_1() {
         let expr = "
-        b = [1, 2, 3]
-        for c in b {
-            dump(c)
-        }
+        l = b.len()
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

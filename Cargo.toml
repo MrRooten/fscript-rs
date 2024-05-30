@@ -13,6 +13,7 @@ edition = "2021"
 [features]
 default = []
 perf = []
+bytecode_trace = []
 
 
 [profile.release]
