@@ -218,6 +218,8 @@ pub struct ThreadContext<'a> {
     break_line: Vec<usize>,
     continue_line: Vec<usize>,
     for_iter_obj: Vec<u64>,
+    #[allow(unused)]
+    module_stack: Vec<u64>
 }
 
 impl ThreadContext<'_> {
@@ -792,7 +794,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             let new_obj = FSRObject::id_to_obj(id);
             let offset = new_obj.get_fsr_offset().1;
             context.ip = (offset.0, 0);
-            return Ok(true);
+            Ok(true)
         } else {
             panic!("not existed method ")
         }
@@ -1539,6 +1541,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             break_line: vec![],
             continue_line: vec![],
             for_iter_obj: vec![],
+            module_stack: vec![],
         };
         while let Some(expr) = module.get_bc(&context.ip) {
             self.run_expr(expr, &mut context, module.get_bytecode())?;
@@ -1565,6 +1568,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             break_line: vec![],
             continue_line: vec![],
             for_iter_obj: vec![],
+            module_stack: vec![],
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);

@@ -9,6 +9,7 @@ fn main() {
     class Abc {
         fn __new__(self) {
             self.abc = 123
+            self.st = 'abcd'
             return self
         }
 
@@ -23,7 +24,7 @@ fn main() {
     }
 
     a = Abc()
-    println(a)
+    dump(a)
     ";
     let v = FSRModule::from_code("main", source_code).unwrap();
     let mut runtime = FSRThreadRuntime::new();

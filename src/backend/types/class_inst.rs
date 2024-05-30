@@ -1,12 +1,31 @@
-use std::collections::{hash_map::Keys, HashMap};
+use std::{
+    borrow::Cow, collections::{hash_map::Keys, HashMap}, fmt::Debug
+};
 
-use super::base::FSRObject;
+use super::base::{FSRObject, FSRValue};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FSRClassInst<'a> {
     #[allow(unused)]
     name: &'a str,
     attrs: HashMap<&'a str, u64>,
+}
+
+impl Debug for FSRClassInst<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut new_hash = HashMap::new();
+        for kv in &self.attrs {
+            let obj = FSRObject::id_to_obj(*kv.1);
+            if let FSRValue::Function(_) = &obj.value {
+                continue;
+            }
+            new_hash.insert(kv.0, Cow::Borrowed(obj));
+        }
+        f.debug_struct("FSRClassInst")
+            .field("name", &self.name)
+            .field("attrs", &new_hash)
+            .finish()
+    }
 }
 
 impl<'a> FSRClassInst<'a> {

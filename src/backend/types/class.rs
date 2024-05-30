@@ -2,13 +2,44 @@ use std::collections::HashMap;
 
 use crate::backend::vm::runtime::FSRVM;
 
-use super::base::FSRObject;
+use super::base::{FSRObject, FSRValue};
+use std::fmt::Debug;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FSRClass<'a> {
     pub(crate) name: &'a str,
     pub(crate) attrs: HashMap<&'a str, u64>,
     pub(crate) offset_attrs    : Vec<u64>
+}
+
+#[allow(unused)]
+#[derive(Debug)]
+enum TmpObject<'a> {
+    Object(&'a FSRObject<'a>),
+    String(String)
+}
+
+impl Debug for FSRClass<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut new_hash = HashMap::new();
+        for kv in &self.attrs {
+            let obj = FSRObject::id_to_obj(*kv.1);
+            if let FSRValue::Function(f) = &obj.value {
+                if f.is_fsr_function() {
+                    new_hash.insert(kv.0, TmpObject::String(format!("fn `{}`", kv.0)));
+                } else {
+                    new_hash.insert(kv.0, TmpObject::String(f.as_str()));
+                }
+                
+                continue;
+            }
+            new_hash.insert(kv.0, TmpObject::Object(obj));
+        }
+        f.debug_struct("FSRClass")
+        .field("name", &self.name)
+        .field("attrs", &new_hash)
+        .field("offset_attrs", &"").finish()
+    }
 }
 
 impl<'a> FSRClass<'a> {

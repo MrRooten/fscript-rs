@@ -48,6 +48,21 @@ pub struct FSRFn<'a> {
 }
 
 impl<'a> FSRFn<'a> {
+    pub fn as_str(&self) -> String {
+        if let FSRnE::RustFn(r) = self.fn_def {
+            return format!("<fn {:?}>", r)
+        } else if let FSRnE::FSRFn(f) = &self.fn_def {
+            return format!("<fn {:?}>", f.name)
+        }
+
+        unimplemented!()
+        
+    }
+
+    pub fn is_fsr_function(&self) -> bool {
+        matches!(&self.fn_def, FSRnE::FSRFn(_))
+    }
+
     pub fn get_def(&self) -> &FSRnE {
         &self.fn_def
     }

@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::hash_map::Keys,
+    fmt::Debug,
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -101,9 +102,7 @@ impl<'a> FSRValue<'a> {
             FSRValue::Float(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::String(e) => Some(e.clone()),
             FSRValue::Class(_) => None,
-            FSRValue::ClassInst(inst) => {
-                Self::inst_to_string(inst, self_id, thread)
-            }
+            FSRValue::ClassInst(inst) => Self::inst_to_string(inst, self_id, thread),
             FSRValue::Function(_) => None,
             FSRValue::None => Some(Cow::Borrowed("None")),
             FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
@@ -133,12 +132,31 @@ impl<'a> FSRValue<'a> {
     }
 }
 
-#[derive(Debug)]
+
 pub struct FSRObject<'a> {
     pub(crate) obj_id: u64,
     pub(crate) value: FSRValue<'a>,
     pub(crate) ref_count: AtomicU64,
     pub(crate) cls: u64,
+}
+
+impl Debug for FSRObject<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let cls = self.cls;
+        let obj = FSRObject::id_to_obj(cls);
+        let cls = match &obj.value {
+            FSRValue::Class(c) => c,
+            _ => {
+                unimplemented!()
+            }
+        };
+        f.debug_struct("FSRObject")
+            .field("obj_id", &self.obj_id)
+            .field("value", &self.value)
+            .field("ref_count", &self.ref_count)
+            .field("cls", cls)
+            .finish()
+    }
 }
 
 impl Clone for FSRObject<'_> {
