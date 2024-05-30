@@ -631,6 +631,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn binary_mul_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -888,7 +889,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
 
         Ok(false)
     }
-
+    
     fn if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1363,6 +1364,41 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         self.bytecode_map.start_time(op);
         let bc_op = self.bytecode_map.get(op).unwrap();
         let v = bc_op(self, context, bytecode, bc)?;
+        // let v = match op {
+        //     BytecodeOperator::Assign => Self::assign_process(self, context, bytecode, bc),
+        //     BytecodeOperator::BinaryAdd => Self::binary_add_process(self, context, bytecode, bc),
+        //     BytecodeOperator::BinaryDot => Self::binary_dot_process(self, context, bytecode, bc),
+        //     BytecodeOperator::BinaryMul => Self::binary_mul_process(self, context, bytecode, bc),
+        //     BytecodeOperator::Call => Self::call_process(self, context, bytecode, bc),
+        //     BytecodeOperator::IfTest => Self::if_test_process(self, context, bytecode, bc),
+        //     BytecodeOperator::WhileTest => Self::while_test_process(self, context, bytecode, bc),
+        //     BytecodeOperator::DefineFn => Self::define_fn(self, context, bytecode, bc),
+        //     BytecodeOperator::EndDefineFn => Self::end_define_fn(self, context, bytecode, bc),
+        //     BytecodeOperator::CompareTest => Self::compare_test(self, context, bytecode, bc),
+        //     BytecodeOperator::ReturnValue => Self::ret_value(self, context, bytecode, bc),
+        //     BytecodeOperator::WhileBlockEnd => Self::while_block_end(self, context, bytecode, bc),
+        //     BytecodeOperator::AssignArgs => Self::assign_args(self, context, bytecode, bc),
+        //     BytecodeOperator::ClassDef => Self::class_def(self, context, bytecode, bc),
+        //     BytecodeOperator::EndDefineClass => Self::end_class_def(self, context, bytecode, bc),
+        //     BytecodeOperator::LoadList => Self::load_list(self, context, bytecode, bc),
+        //     BytecodeOperator::Else => Self::else_process(self, context, bytecode, bc),
+        //     BytecodeOperator::ElseIf => Self::else_if_match(self, context, bytecode, bc),
+        //     BytecodeOperator::ElseIfTest => Self::else_if_test_process(self, context, bytecode, bc),
+        //     BytecodeOperator::IfBlockEnd => Self::if_end(self, context, bytecode, bc),
+        //     BytecodeOperator::Break => Self::break_process(self, context, bytecode, bc),
+        //     BytecodeOperator::Continue => Self::continue_process(self, context, bytecode, bc),
+        //     BytecodeOperator::LoadForIter => Self::load_for_iter(self, context, bytecode, bc),
+        //     BytecodeOperator::PushForNext => Self::push_for_next(self, context, bytecode, bc),
+        //     BytecodeOperator::ForBlockEnd => Self::for_block_end(self, context, bytecode, bc),
+        //     BytecodeOperator::SpecialLoadFor => Self::special_load_for(self, context, bytecode, bc),
+        //     BytecodeOperator::AndJump => Self::process_logic_and(self, context, bytecode, bc),
+        //     BytecodeOperator::OrJump => Self::process_logic_or(self, context, bytecode, bc),
+        //     BytecodeOperator::Empty => Self::empty_process(self, context, bytecode, bc),
+        //     BytecodeOperator::BinaryRShift => unimplemented!(),
+        //     BytecodeOperator::BinaryLShift => unimplemented!(),
+        //     BytecodeOperator::StoreFast => unimplemented!(),
+        //     BytecodeOperator::Load => unimplemented!(),
+        // }?;
         #[cfg(feature = "perf")]
         self.bytecode_map.end_time(op);
         if v {

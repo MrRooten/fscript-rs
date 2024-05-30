@@ -7,11 +7,7 @@ use fscript_rs::backend::{
 fn main() {
     let source_code = "
     b = [1, 2, 3]
-    println(b)
-
-    for c in b {
-        println(c)
-    }
+    println(b.len())
     ";
     let v = FSRModule::from_code("main", source_code).unwrap();
     let mut runtime = FSRThreadRuntime::new();

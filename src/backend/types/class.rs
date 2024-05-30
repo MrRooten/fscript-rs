@@ -8,7 +8,7 @@ use super::base::FSRObject;
 pub struct FSRClass<'a> {
     pub(crate) name: &'a str,
     pub(crate) attrs: HashMap<&'a str, u64>,
-    offset_attrs    : Vec<u64>
+    pub(crate) offset_attrs    : Vec<u64>
 }
 
 impl<'a> FSRClass<'a> {

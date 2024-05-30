@@ -97,8 +97,9 @@ mod frontend_tests {
     #[test]
     fn test_module() {
         let s = "
-        b = 1 + 3
-        c = 3 + 4
+        b = [1, 2, 3]
+        l = b.len()
+        println(l)
         ";
         let meta = FSRPosition::new();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
