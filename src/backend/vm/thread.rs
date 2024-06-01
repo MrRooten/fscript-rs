@@ -1436,6 +1436,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //     BytecodeOperator::StoreFast => unimplemented!(),
         //     BytecodeOperator::Load => unimplemented!(),
         // }?;
+        
         #[cfg(feature = "perf")]
         self.bytecode_map.end_time(op);
         if v {
