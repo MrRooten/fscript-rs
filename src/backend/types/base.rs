@@ -187,6 +187,22 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    pub fn is_true_id(&self) -> u64 {
+        if let FSRValue::None = self.value {
+            return 2
+        }
+
+        if let FSRValue::Bool(b) = self.value {
+            if b {
+                return 1
+            } else {
+                return 2
+            }
+        }
+
+        1
+    }
+
     pub fn set_value(&mut self, value: FSRValue<'a>) {
         self.value = value;
     }

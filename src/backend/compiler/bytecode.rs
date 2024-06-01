@@ -34,7 +34,7 @@ pub enum BinaryOffset {
     NotEqual = 8,
     NextObject,
     GetItem,
-    SetItem
+    SetItem,
 }
 
 impl BinaryOffset {
@@ -94,15 +94,11 @@ pub enum BytecodeOperator {
     OrJump = 27,
     Empty = 28,
     // BinarySub,
-    
     BinaryRShift = 29,
     BinaryLShift = 30,
-    
+
     StoreFast = 31,
-    
-    
-    
-    
+
     Load = 1000,
 }
 
@@ -163,6 +159,8 @@ impl BytecodeOperator {
             return "==";
         } else if op.eq(".") {
             return ".";
+        } else if op.eq("!=") {
+            return "!=";
         }
 
         unimplemented!()
@@ -189,7 +187,13 @@ impl BytecodeOperator {
                 operator: BytecodeOperator::Assign,
                 arg: ArgType::None,
             });
-        } else if op.eq(">") || op.eq("<") || op.eq(">=") || op.eq("<=") {
+        } else if op.eq(">")
+            || op.eq("<")
+            || op.eq(">=")
+            || op.eq("<=")
+            || op.eq("==")
+            || op.eq("!=")
+        {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::CompareTest,
                 arg: ArgType::Compare(Self::get_static_op(op)),
@@ -238,7 +242,7 @@ impl<'a> VarMap<'a> {
 
     pub fn insert_var(&mut self, var: &'a str) {
         if self.var_map.contains_key(var) {
-            return ;
+            return;
         }
         let v = self.var_id.fetch_add(1, Ordering::Acquire);
         self.var_map.insert(var, v);
@@ -425,7 +429,6 @@ impl<'a> Bytecode {
             let mut v = Self::load_variable(v, var_map_ref.unwrap(), is_attr);
             second.append(&mut v.0);
             var_map_ref = Some(v.1);
-
         } else if let FSRToken::Call(c) = expr.get_right() {
             let mut is_attr = false;
             if expr.get_op().eq(".") {
@@ -457,6 +460,8 @@ impl<'a> Bytecode {
         op_code.append(&mut second);
         if let Some(s) = BytecodeOperator::get_op(expr.get_op()) {
             op_code.push(s);
+        } else {
+            unimplemented!()
         }
 
         (op_code, var_map_ref.unwrap())
@@ -478,7 +483,10 @@ impl<'a> Bytecode {
         }
 
         if vs.is_empty() {
-            vs.push(vec![BytecodeArg { operator: BytecodeOperator::Empty, arg: ArgType::None }]);
+            vs.push(vec![BytecodeArg {
+                operator: BytecodeOperator::Empty,
+                arg: ArgType::None,
+            }]);
         }
 
         (vs, ref_self)
@@ -782,7 +790,6 @@ impl<'a> Bytecode {
             });
             (result_list, right.1)
         }
-        
     }
 
     fn load_constant(
@@ -916,7 +923,6 @@ impl<'a> Bytecode {
         if !fn_body.is_empty() {
             result.extend(fn_body);
         }
-        
 
         let end_of_fn = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineFn,

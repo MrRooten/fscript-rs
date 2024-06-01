@@ -1,4 +1,4 @@
-a = [1, 2, 3, 4, 5]
+a = [1, 2, 'abc', 4, 5]
 
 for i in a {
     println(i)

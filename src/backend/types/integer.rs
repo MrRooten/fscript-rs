@@ -217,6 +217,27 @@ fn less_equal<'a>(
     unimplemented!()
 }
 
+fn equal<'a>(
+    args: &[u64],
+    thread: &mut FSRThreadRuntime<'a>
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
+    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
+    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
+
+    if let FSRValue::Integer(self_int) = self_object.value {
+        if let FSRValue::Integer(other_int) = other_object.value {
+            if self_int == other_int {
+                return Ok(FSRRetValue::GlobalId(1));
+            } else {
+                return Ok(FSRRetValue::GlobalId(2));
+            }
+        }
+    }
+    unimplemented!()
+}
+
 impl<'a> FSRInteger {
     pub fn get_class() -> FSRClass<'a> {
         let mut cls = FSRClass::new("Integer");
@@ -241,6 +262,8 @@ impl<'a> FSRInteger {
         let lte_fn = FSRFn::from_rust_fn(less_equal);
         //cls.insert_attr("__lte__", lte_fn);
         cls.insert_offset_attr(BinaryOffset::LessEqual as usize, lte_fn);
+        let eq = FSRFn::from_rust_fn(equal);
+        cls.insert_offset_attr(BinaryOffset::Equal as usize, eq);
         cls
     }
 

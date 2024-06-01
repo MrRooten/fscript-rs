@@ -1,8 +1,19 @@
-println('test and benchmark self add 3000000')
-
 i = 0
-while i < 3000000 {
-    i = i + 1
+while i < 300000 {
+    i = 1 + i
+
+    if i == 50 {
+        println('i == 50 continue')
+        i = i + 1
+        continue
+    }
+
+    if i == 392 {
+        println('i == 392')
+        break
+    }
+
+    
 }
 
 println(i)

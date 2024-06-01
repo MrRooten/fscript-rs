@@ -11,7 +11,7 @@ use std::{
 };
 
 #[cfg(not(feature = "perf"))]
-use std::{borrow::Cow, collections::HashSet, sync::atomic::AtomicU64};
+use std::{borrow::Cow, collections::HashSet};
 
 use crate::{
     backend::{
@@ -23,7 +23,7 @@ use crate::{
             fn_def::{FSRFn, FSRFnInner},
             integer::FSRInteger,
             list::FSRList,
-            module::FSRModule,
+            module::FSRModule, string::FSRString,
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -107,6 +107,7 @@ pub struct CallState<'a> {
 }
 
 impl<'a> CallState<'a> {
+    #[inline]
     pub fn get_var(&self, id: &u64) -> Option<&u64> {
         if let Some(s) = self.var_map.get(id) {
             if s == &0 {
@@ -343,7 +344,7 @@ pub struct FSRThreadRuntime<'a> {
     vm_ptr: Option<*mut FSRVM<'a>>,
 }
 
-impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
+impl<'a> FSRThreadRuntime<'a> {
     pub fn get_vm(&self) -> &FSRVM<'a> {
         unsafe { &*self.vm_ptr.unwrap() }
     }
@@ -395,16 +396,16 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         self.vm_ptr = Some(vm as *mut FSRVM<'a>);
     }
 
-    fn load_string_const(s: String, _vm: &mut FSRVM<'a>) -> u64 {
-        let obj = FSRObject {
-            obj_id: 0,
-            value: FSRValue::String(Cow::Owned(s)),
-            cls: FSRGlobalObjId::StringCls as u64,
-            ref_count: AtomicU64::new(0),
-        };
+    // fn load_string_const(s: String, _vm: &mut FSRVM<'a>) -> u64 {
+    //     let obj = FSRObject {
+    //         obj_id: 0,
+    //         value: FSRValue::String(Cow::Owned(s)),
+    //         cls: FSRGlobalObjId::StringCls as u64,
+    //         ref_count: AtomicU64::new(0),
+    //     };
 
-        FSRVM::register_object(obj)
-    }
+    //     FSRVM::register_object(obj)
+    // }
 
     #[inline(always)]
     pub fn get_cur_mut_stack(&mut self) -> &mut CallState<'a> {
@@ -495,13 +496,12 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                 return Ok(false);
             }
             let obj_id = svalue.get_global_id(self);
+            let state = self.get_cur_mut_stack();
             if !FSRObject::is_sp_object(obj_id) {
-                let state = self.get_cur_mut_stack();
                 let to_assign_obj = FSRObject::id_to_obj(obj_id);
                 to_assign_obj.ref_add();
                 state.insert_var(var_id, obj_id);
             } else {
-                let state = self.get_cur_mut_stack();
                 state.insert_var(var_id, obj_id);
             }
 
@@ -726,7 +726,15 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
     ) {
         let mut i = 0;
         while i < args_num {
-            let a_id = exp.pop().unwrap().get_global_id(thread);
+            let arg = exp.pop().unwrap();
+            let a_id = match arg {
+                SValue::Stack(s) => *thread.get_cur_stack().get_var(&s.0).unwrap(),
+                SValue::Global(g) => g,
+                SValue::Object(obj) => {
+                    FSRVM::leak_object(obj)
+                },
+                _ => unimplemented!()
+            };
             args.push(a_id);
             i += 1;
         }
@@ -753,9 +761,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         fn_obj: &FSRObject,
         n: usize,
     ) -> Result<bool, FSRError> {
-        let mut args = vec![];
-
-        
+        let mut args = vec![];        
         // New a object if fn_obj is fsr_cls
 
         let mut self_obj = FSRObject::new();
@@ -869,7 +875,6 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
             let fn_obj = FSRObject::id_to_obj(fn_id);
 
-            let mut args = vec![];
             let n = *n;
 
             if fn_obj.is_fsr_cls() {
@@ -883,6 +888,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                     return Ok(v);
                 }
             } else {
+                let mut args = vec![];
                 self.save_ip_to_callstate(n, &mut context.exp, &mut args, &mut context.ip);
                 self.call_stack.push(CallState::new(&Cow::Borrowed("tmp2")));
                 context.exp.clear();
@@ -928,7 +934,7 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_stack();
-        let test_val = match context.exp.pop().unwrap() {
+        let test_val = match &context.exp.pop().unwrap() {
             SValue::Stack(s) => {
                 if let Some(id) = state.get_var(&s.0) {
                     *id
@@ -936,7 +942,10 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
                     *context.vm.get_global_obj_by_name(s.1).unwrap()
                 }
             }
-            SValue::Global(id) => id,
+            SValue::Global(id) => *id,
+            SValue::Object(obj) => {
+                obj.is_true_id()
+            },
             _ => {
                 unimplemented!()
             }
@@ -1445,8 +1454,8 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
     fn load_var(
         exp_stack: &mut Vec<SValue<'a>>,
         arg: &'a BytecodeArg,
-        vm: &mut FSRVM<'a>,
-        s: &mut CallState,
+        _vm: &mut FSRVM<'a>,
+        _s: &mut CallState,
     ) {
         //*is_attr = false;
         if let ArgType::Variable(id, name) = arg.get_arg() {
@@ -1455,10 +1464,11 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             //let int_const = Self::load_integer_const(i, vm);
             let i = FSRInteger::new_inst(*i);
             exp_stack.push(SValue::Object(Box::new(i)));
-        } else if let ArgType::ConstString(id, i) = arg.get_arg() {
-            let string_const = Self::load_string_const(i.clone(), vm);
-            s.insert_const(id, string_const);
-            exp_stack.push(SValue::Global(string_const));
+        } else if let ArgType::ConstString(_, i) = arg.get_arg() {
+            // let string_const = Self::load_string_const(i.clone(), vm);
+            // s.insert_const(id, string_const);
+            let i = FSRString::new_inst(Cow::Borrowed(i));
+            exp_stack.push(SValue::Object(Box::new(i)));
         } else if let ArgType::Attr(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr((*id, name)));
         }
@@ -1498,11 +1508,10 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
             context.ip.1 += 1;
 
             self.set_exp_stack_ret(&mut context.exp);
-
+            let state = self.get_cur_mut_stack();
             if arg.get_operator() == &BytecodeOperator::Load {
                 #[cfg(feature = "perf")]
                 self.bytecode_map.start_time(&BytecodeOperator::Load);
-                let state = self.get_cur_mut_stack();
                 Self::load_var(&mut context.exp, arg, context.vm, state);
                 #[cfg(feature = "perf")]
                 self.bytecode_map.end_time(&BytecodeOperator::Load);
@@ -1592,7 +1601,6 @@ impl<'a, 'b: 'a> FSRThreadRuntime<'a> {
 
         let cur = self.get_cur_mut_stack();
         let ret_val = cur.ret_val;
-        // let s = ret_val.unwrap();
         // let v = FSRObject::id_to_obj(s);
         // println!("{:#?}", v);
         match ret_val {
