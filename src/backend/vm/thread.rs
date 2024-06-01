@@ -23,7 +23,8 @@ use crate::{
             fn_def::{FSRFn, FSRFnInner},
             integer::FSRInteger,
             list::FSRList,
-            module::FSRModule, string::FSRString,
+            module::FSRModule,
+            string::FSRString,
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -220,7 +221,7 @@ pub struct ThreadContext<'a> {
     continue_line: Vec<usize>,
     for_iter_obj: Vec<u64>,
     #[allow(unused)]
-    module_stack: Vec<u64>
+    module_stack: Vec<u64>,
 }
 
 impl ThreadContext<'_> {
@@ -730,10 +731,8 @@ impl<'a> FSRThreadRuntime<'a> {
             let a_id = match arg {
                 SValue::Stack(s) => *thread.get_cur_stack().get_var(&s.0).unwrap(),
                 SValue::Global(g) => g,
-                SValue::Object(obj) => {
-                    FSRVM::leak_object(obj)
-                },
-                _ => unimplemented!()
+                SValue::Object(obj) => FSRVM::leak_object(obj),
+                _ => unimplemented!(),
             };
             args.push(a_id);
             i += 1;
@@ -761,7 +760,7 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_obj: &FSRObject,
         n: usize,
     ) -> Result<bool, FSRError> {
-        let mut args = vec![];        
+        let mut args = vec![];
         // New a object if fn_obj is fsr_cls
 
         let mut self_obj = FSRObject::new();
@@ -804,8 +803,6 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             panic!("not existed method ")
         }
-        
-
     }
 
     fn process_fn_is_attr(
@@ -943,9 +940,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
             SValue::Global(id) => *id,
-            SValue::Object(obj) => {
-                obj.is_true_id()
-            },
+            SValue::Object(obj) => obj.is_true_id(),
             _ => {
                 unimplemented!()
             }
@@ -1499,11 +1494,11 @@ impl<'a> FSRThreadRuntime<'a> {
 
         while context.ip.1 < expr.len() {
             let arg = &expr[context.ip.1];
-            #[cfg(feature="bytecode_trace")]
+            #[cfg(feature = "bytecode_trace")]
             {
                 let t = format!("{:?} => {:?}", context.ip, arg);
                 println!("{:?}", context.exp);
-                println!("{}",t);
+                println!("{}", t);
             }
             context.ip.1 += 1;
 
