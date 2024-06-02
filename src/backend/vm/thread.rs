@@ -1397,8 +1397,10 @@ impl<'a> FSRThreadRuntime<'a> {
         bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let op = bytecode.get_operator();
+
         #[cfg(feature = "perf")]
         self.bytecode_map.start_time(op);
+        
         let bc_op = self.bytecode_map.get(op).unwrap();
         let v = bc_op(self, context, bytecode, bc)?;
         // let v = match op {
@@ -1436,7 +1438,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //     BytecodeOperator::StoreFast => unimplemented!(),
         //     BytecodeOperator::Load => unimplemented!(),
         // }?;
-        
+
         #[cfg(feature = "perf")]
         self.bytecode_map.end_time(op);
         if v {
@@ -1506,11 +1508,15 @@ impl<'a> FSRThreadRuntime<'a> {
             self.set_exp_stack_ret(&mut context.exp);
             let state = self.get_cur_mut_stack();
             if arg.get_operator() == &BytecodeOperator::Load {
+
                 #[cfg(feature = "perf")]
                 self.bytecode_map.start_time(&BytecodeOperator::Load);
+
                 Self::load_var(&mut context.exp, arg, context.vm, state);
+
                 #[cfg(feature = "perf")]
                 self.bytecode_map.end_time(&BytecodeOperator::Load);
+
             } else {
                 v = self.process(context, arg, bc)?;
                 if self.get_cur_stack().ret_val.is_some() {
@@ -1548,7 +1554,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for_iter_obj: vec![],
             module_stack: vec![],
         };
-        while let Some(expr) = module.get_bc(&context.ip) {
+        while let Some(expr) = module.get_expr(&context.ip) {
             self.run_expr(expr, &mut context, module.get_bytecode())?;
             bytecode_count += expr.len();
         }

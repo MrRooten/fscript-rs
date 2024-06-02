@@ -69,6 +69,7 @@ impl<'a> FSRClass<'a> {
         return self.attrs.get(name).copied();
     }
 
+    #[inline]
     pub fn get_offset_attr(&self, offset: usize) -> Option<u64> {
         if let Some(s) = self.offset_attrs.get(offset) {
             if s == &0 {

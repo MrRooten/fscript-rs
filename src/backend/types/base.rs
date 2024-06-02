@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    cell::RefCell,
     collections::hash_map::Keys,
     fmt::Debug,
     sync::atomic::{AtomicU64, Ordering},
@@ -253,6 +252,7 @@ impl<'a> FSRObject<'a> {
         None
     }
 
+    #[inline]
     pub fn get_cls_offset_attr(&self, offset: BinaryOffset, vm: &FSRVM<'a>) -> Option<u64> {
         if let Some(btype) = vm.get_base_cls(self.cls) {
             return btype.get_offset_attr(offset.into());
@@ -264,39 +264,6 @@ impl<'a> FSRObject<'a> {
         }
 
         None
-    }
-
-    pub fn invoke(&self, method: &str, args: Vec<&RefCell<FSRObject<'a>>>) -> FSRObject<'a> {
-        if method.eq("__add__") {
-            let other = args[0];
-            let v = self as *const FSRObject<'a> as *mut Self;
-            if other.as_ptr() == v {
-                if let FSRValue::Integer(i) = self.value {
-                    let v = FSRValue::Integer(i + i);
-                    return Self {
-                        obj_id: 0,
-                        value: v,
-                        cls: FSRGlobalObjId::IntegerCls as u64,
-                        ref_count: AtomicU64::new(0),
-                    };
-                }
-            }
-            let other = other.borrow();
-            if let FSRValue::Integer(i) = self.value {
-                if let FSRValue::Integer(o_i) = other.value {
-                    let v = FSRValue::Integer(i + o_i);
-                    return Self {
-                        obj_id: 0,
-                        value: v,
-                        cls: FSRGlobalObjId::IntegerCls as u64,
-                        ref_count: AtomicU64::new(0),
-                    };
-                }
-            }
-        } else if method.eq("__str__") {
-        }
-
-        unimplemented!()
     }
 
     #[inline(always)]
