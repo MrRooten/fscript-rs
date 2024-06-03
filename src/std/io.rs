@@ -44,6 +44,16 @@ pub fn fsr_fn_dump<'a>(
     return Ok(FSRRetValue::GlobalId(0));
 }
 
+pub fn fsr_fn_format<'a>(
+    args: &[u64],
+    _thread: &mut FSRThreadRuntime<'a>
+) -> Result<FSRRetValue<'a>, FSRError> {
+    
+    let value = FSRObject::id_to_obj(args[0]);
+    println!("{:#?}", value);
+    return Ok(FSRRetValue::GlobalId(0));
+}
+
 pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     let print_fn = FSRFn::from_rust_fn(fsr_fn_print);
     let println_fn = FSRFn::from_rust_fn(fsr_fn_println);
@@ -54,3 +64,4 @@ pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     m.insert("dump", dump_fn);
     m
 }
+

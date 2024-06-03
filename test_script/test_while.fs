@@ -1,19 +1,10 @@
 i = 0
-while i < 3000000 {
-    i = 1 + i
-
-    if i == 50000 {
-        println('i == 500000 continue')
-        i = i + 1
-        continue
-    }
-
-    if i == 392000 {
-        println('i == 392000')
-        break
-    }
-
-    
+b = 1
+c = 10000000
+sum = 0
+while i < c {
+    sum = i + sum
+    i = i + b
 }
 
-println(i)
+println(sum)

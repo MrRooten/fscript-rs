@@ -7,6 +7,10 @@ class Abc {
     fn __str__(self) {
         return 'return string'
     }
+
+    fn test(self) {
+        dump(self)
+    }
 }
 
 a = Abc()
@@ -17,4 +21,5 @@ println(a.abc)
 
 if a.abc > 3 {
     println('a.abc > 3')
+    a.test()
 }
