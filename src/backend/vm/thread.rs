@@ -431,12 +431,13 @@ impl<'a> FSRThreadRuntime<'a> {
         return self.call_stack.get_mut(l - 1).unwrap();
     }
 
+    #[inline(always)]
     fn get_cur_stack(&self) -> &CallState<'a> {
         let l = self.call_stack.len();
         return self.call_stack.get(l - 1).unwrap();
     }
 
-    #[inline]
+    #[inline(always)]
     fn compare(left: u64, right: u64, op: &str, thread: &mut Self) -> bool {
         let res;
 
@@ -490,6 +491,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
+    #[inline(always)]
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -598,6 +600,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn binary_add_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -990,6 +993,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn if_end(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1000,6 +1004,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn else_if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1032,6 +1037,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn else_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1049,6 +1055,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn else_if_match(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1065,6 +1072,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn break_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1077,6 +1085,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    #[inline(always)]
     fn continue_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1089,6 +1098,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    #[inline(always)]
     fn load_for_iter(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1111,6 +1121,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn push_for_next(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1127,6 +1138,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
     fn while_test_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1214,6 +1226,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    #[inline(always)]
     fn compare_test(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
