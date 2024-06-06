@@ -103,7 +103,7 @@ impl FSRList {
         let get_iter = FSRFn::from_rust_fn(iter);
         cls.insert_attr("__iter__", get_iter);
         let get_item = FSRFn::from_rust_fn(get_item);
-        cls.insert_offset_attr(BinaryOffset::GetItem as usize, get_item);
+        cls.insert_offset_attr(BinaryOffset::GetItem, get_item);
         cls
     }
 

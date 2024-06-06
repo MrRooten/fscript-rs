@@ -17,5 +17,5 @@ bytecode_trace = []
 
 
 [profile.release]
-debug = true
 overflow-checks = false
+strip = "debuginfo"

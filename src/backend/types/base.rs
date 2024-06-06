@@ -265,12 +265,12 @@ impl<'a> FSRObject<'a> {
     #[inline]
     pub fn get_cls_offset_attr(&self, offset: BinaryOffset, vm: &FSRVM<'a>) -> Option<u64> {
         if let Some(btype) = vm.get_base_cls(self.cls) {
-            return btype.get_offset_attr(offset.into());
+            return btype.get_offset_attr(offset);
         }
 
         let cls_obj = FSRObject::id_to_obj(self.cls);
         if let FSRValue::Class(cls) = &cls_obj.value {
-            return cls.get_offset_attr(offset.into());
+            return cls.get_offset_attr(offset);
         }
 
         None

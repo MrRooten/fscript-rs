@@ -183,7 +183,7 @@ impl<'a> SValue<'a> {
 
         false
     }
-
+    #[inline(always)]
     pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> Result<u64, FSRError> {
         let state = thread.get_cur_stack();
         let vm = thread.get_vm();

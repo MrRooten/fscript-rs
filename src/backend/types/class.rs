@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::backend::vm::runtime::FSRVM;
+use crate::backend::{compiler::bytecode::BinaryOffset, vm::runtime::FSRVM};
 
 use super::base::{FSRObject, FSRValue};
 use std::fmt::Debug;
@@ -56,9 +56,9 @@ impl<'a> FSRClass<'a> {
         self.attrs.insert(name, obj_id);
     }
 
-    pub fn insert_offset_attr(&mut self, offset: usize, object: FSRObject<'a>) {
+    pub fn insert_offset_attr(&mut self, offset: BinaryOffset, object: FSRObject<'a>) {
         let obj_id = FSRVM::register_object(object);
-        self.offset_attrs[offset] = obj_id;
+        self.offset_attrs[offset as usize] = obj_id;
     }
 
     pub fn insert_attr_id(&mut self, name: &'a str, obj_id: u64) {
@@ -70,8 +70,8 @@ impl<'a> FSRClass<'a> {
     }
 
     #[inline]
-    pub fn get_offset_attr(&self, offset: usize) -> Option<u64> {
-        if let Some(s) = self.offset_attrs.get(offset) {
+    pub fn get_offset_attr(&self, offset: BinaryOffset) -> Option<u64> {
+        if let Some(s) = self.offset_attrs.get(offset as usize) {
             if s == &0 {
                 return None
             }

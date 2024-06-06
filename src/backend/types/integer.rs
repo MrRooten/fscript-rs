@@ -243,27 +243,27 @@ impl<'a> FSRInteger {
         let mut cls = FSRClass::new("Integer");
         let add_fn = FSRFn::from_rust_fn(add);
         //cls.insert_attr("__add__", add_fn);
-        cls.insert_offset_attr(BinaryOffset::Add as usize, add_fn);
+        cls.insert_offset_attr(BinaryOffset::Add, add_fn);
         let sub_fn = FSRFn::from_rust_fn(sub);
         //cls.insert_attr("__sub__", sub_fn);
-        cls.insert_offset_attr(BinaryOffset::Sub as usize, sub_fn);
+        cls.insert_offset_attr(BinaryOffset::Sub, sub_fn);
         let mul_fn = FSRFn::from_rust_fn(mul);
         //cls.insert_attr("__mul__", mul_fn);
-        cls.insert_offset_attr(BinaryOffset::Mul as usize, mul_fn);
+        cls.insert_offset_attr(BinaryOffset::Mul, mul_fn);
         let gt_fn = FSRFn::from_rust_fn(greater);
         //cls.insert_attr("__gt__", gt_fn);
-        cls.insert_offset_attr(BinaryOffset::Greater as usize, gt_fn);
+        cls.insert_offset_attr(BinaryOffset::Greater, gt_fn);
         let gte_fn = FSRFn::from_rust_fn(greater_equal);
         //cls.insert_attr("__gte__", gte_fn);
-        cls.insert_offset_attr(BinaryOffset::GreatEqual as usize, gte_fn);
+        cls.insert_offset_attr(BinaryOffset::GreatEqual, gte_fn);
         let lt_fn = FSRFn::from_rust_fn(less);
         //cls.insert_attr("__lt__", lt_fn);
-        cls.insert_offset_attr(BinaryOffset::Less as usize, lt_fn);
+        cls.insert_offset_attr(BinaryOffset::Less, lt_fn);
         let lte_fn = FSRFn::from_rust_fn(less_equal);
         //cls.insert_attr("__lte__", lte_fn);
-        cls.insert_offset_attr(BinaryOffset::LessEqual as usize, lte_fn);
+        cls.insert_offset_attr(BinaryOffset::LessEqual, lte_fn);
         let eq = FSRFn::from_rust_fn(equal);
-        cls.insert_offset_attr(BinaryOffset::Equal as usize, eq);
+        cls.insert_offset_attr(BinaryOffset::Equal, eq);
         cls
     }
 
