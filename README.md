@@ -29,7 +29,7 @@ target/release/fscript-rs ./test_script/test_while.fs
 test and benchmark self add 3000000
 3000000
 count: 27000012
-522.127195ms
+397.871106ms
 ```
 
 #### Class Test

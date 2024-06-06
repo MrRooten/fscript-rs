@@ -1,10 +1,8 @@
+println('test and benchmark self add 3000000')
+
 i = 0
-b = 1
-c = 10000000
-sum = 0
-while i < c {
-    sum = i + sum
-    i = i + b
+while i < 3000000 {
+    i = i + 1
 }
 
-println(sum)
+println(i)
