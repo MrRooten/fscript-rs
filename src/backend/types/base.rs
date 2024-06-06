@@ -52,6 +52,7 @@ pub enum FSRValue<'a> {
 pub enum FSRRetValue<'a> {
     Value(Box<FSRObject<'a>>),
     GlobalId(u64),
+    GlobalIdTemp(u64)
 }
 
 impl<'a> FSRValue<'a> {
@@ -122,6 +123,15 @@ impl<'a> FSRValue<'a> {
 
                         return None;
                     }
+                    FSRRetValue::GlobalIdTemp(id) => {
+                        let obj = FSRObject::id_to_obj(id);
+                        if let FSRValue::String(s) = &obj.value {
+                            return Some(s.clone());
+                        }
+
+                        FSRObject::drop_object(id);
+                        return None;
+                    },
                 }
             }
             FSRValue::Iterator(_) => None,

@@ -19,3 +19,4 @@ bytecode_trace = []
 [profile.release]
 debug = true
 # opt-level = 0
+overflow-checks = false

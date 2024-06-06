@@ -236,16 +236,19 @@ pub struct ThreadContext<'a> {
 }
 
 impl ThreadContext<'_> {
+    #[inline(always)]
     pub fn false_last_if_test(&mut self) {
         let l = self.last_if_test.len() - 1;
         self.last_if_test[l] = false;
     }
 
+    #[inline(always)]
     pub fn true_last_if_test(&mut self) {
         let l = self.last_if_test.len() - 1;
         self.last_if_test[l] = true;
     }
 
+    #[inline(always)]
     pub fn peek_last_if_test(&self) -> bool {
         if self.last_if_test.is_empty() {
             return false;
@@ -254,10 +257,12 @@ impl ThreadContext<'_> {
         self.last_if_test[self.last_if_test.len() - 1]
     }
 
+    #[inline(always)]
     pub fn push_last_if_test(&mut self, test: bool) {
         self.last_if_test.push(test)
     }
 
+    #[inline(always)]
     pub fn pop_last_if_test(&mut self) {
         self.last_if_test.pop();
     }
@@ -352,6 +357,7 @@ impl<'a> VecMap<'a> {
 #[derive(Default)]
 pub struct FSRThreadRuntime<'a> {
     call_stack: Vec<CallState<'a>>,
+    #[allow(unused)]
     bytecode_map: VecMap<'a>,
     vm_ptr: Option<*mut FSRVM<'a>>,
 }
@@ -634,6 +640,9 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
             }
+            FSRRetValue::GlobalIdTemp(res_id) => {
+                context.exp.push(SValue::Global(res_id));
+            }
         };
 
         Ok(false)
@@ -680,6 +689,9 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
             }
+            FSRRetValue::GlobalIdTemp(res_id) => {
+                context.exp.push(SValue::Global(res_id));
+            },
         };
         Ok(false)
     }
@@ -1004,6 +1016,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
             SValue::Global(id) => id,
+            SValue::Object(obj) => obj.is_true_id(),
             _ => {
                 unimplemented!()
             }
@@ -1423,43 +1436,43 @@ impl<'a> FSRThreadRuntime<'a> {
         #[cfg(feature = "perf")]
         self.bytecode_map.start_time(op);
 
-        let bc_op = self.bytecode_map.get(op).unwrap();
-        let v = bc_op(self, context, bytecode, bc)?;
-        // let v = match op {
-        //     BytecodeOperator::Assign => Self::assign_process(self, context, bytecode, bc),
-        //     BytecodeOperator::BinaryAdd => Self::binary_add_process(self, context, bytecode, bc),
-        //     BytecodeOperator::BinaryDot => Self::binary_dot_process(self, context, bytecode, bc),
-        //     BytecodeOperator::BinaryMul => Self::binary_mul_process(self, context, bytecode, bc),
-        //     BytecodeOperator::Call => Self::call_process(self, context, bytecode, bc),
-        //     BytecodeOperator::IfTest => Self::if_test_process(self, context, bytecode, bc),
-        //     BytecodeOperator::WhileTest => Self::while_test_process(self, context, bytecode, bc),
-        //     BytecodeOperator::DefineFn => Self::define_fn(self, context, bytecode, bc),
-        //     BytecodeOperator::EndDefineFn => Self::end_define_fn(self, context, bytecode, bc),
-        //     BytecodeOperator::CompareTest => Self::compare_test(self, context, bytecode, bc),
-        //     BytecodeOperator::ReturnValue => Self::ret_value(self, context, bytecode, bc),
-        //     BytecodeOperator::WhileBlockEnd => Self::while_block_end(self, context, bytecode, bc),
-        //     BytecodeOperator::AssignArgs => Self::assign_args(self, context, bytecode, bc),
-        //     BytecodeOperator::ClassDef => Self::class_def(self, context, bytecode, bc),
-        //     BytecodeOperator::EndDefineClass => Self::end_class_def(self, context, bytecode, bc),
-        //     BytecodeOperator::LoadList => Self::load_list(self, context, bytecode, bc),
-        //     BytecodeOperator::Else => Self::else_process(self, context, bytecode, bc),
-        //     BytecodeOperator::ElseIf => Self::else_if_match(self, context, bytecode, bc),
-        //     BytecodeOperator::ElseIfTest => Self::else_if_test_process(self, context, bytecode, bc),
-        //     BytecodeOperator::IfBlockEnd => Self::if_end(self, context, bytecode, bc),
-        //     BytecodeOperator::Break => Self::break_process(self, context, bytecode, bc),
-        //     BytecodeOperator::Continue => Self::continue_process(self, context, bytecode, bc),
-        //     BytecodeOperator::LoadForIter => Self::load_for_iter(self, context, bytecode, bc),
-        //     BytecodeOperator::PushForNext => Self::push_for_next(self, context, bytecode, bc),
-        //     BytecodeOperator::ForBlockEnd => Self::for_block_end(self, context, bytecode, bc),
-        //     BytecodeOperator::SpecialLoadFor => Self::special_load_for(self, context, bytecode, bc),
-        //     BytecodeOperator::AndJump => Self::process_logic_and(self, context, bytecode, bc),
-        //     BytecodeOperator::OrJump => Self::process_logic_or(self, context, bytecode, bc),
-        //     BytecodeOperator::Empty => Self::empty_process(self, context, bytecode, bc),
-        //     BytecodeOperator::BinaryRShift => unimplemented!(),
-        //     BytecodeOperator::BinaryLShift => unimplemented!(),
-        //     BytecodeOperator::StoreFast => unimplemented!(),
-        //     BytecodeOperator::Load => unimplemented!(),
-        // }?;
+        // let bc_op = self.bytecode_map.get(op).unwrap();
+        // let v = bc_op(self, context, bytecode, bc)?;
+        let v = match op {
+            BytecodeOperator::Assign => Self::assign_process(self, context, bytecode, bc),
+            BytecodeOperator::BinaryAdd => Self::binary_add_process(self, context, bytecode, bc),
+            BytecodeOperator::BinaryDot => Self::binary_dot_process(self, context, bytecode, bc),
+            BytecodeOperator::BinaryMul => Self::binary_mul_process(self, context, bytecode, bc),
+            BytecodeOperator::Call => Self::call_process(self, context, bytecode, bc),
+            BytecodeOperator::IfTest => Self::if_test_process(self, context, bytecode, bc),
+            BytecodeOperator::WhileTest => Self::while_test_process(self, context, bytecode, bc),
+            BytecodeOperator::DefineFn => Self::define_fn(self, context, bytecode, bc),
+            BytecodeOperator::EndDefineFn => Self::end_define_fn(self, context, bytecode, bc),
+            BytecodeOperator::CompareTest => Self::compare_test(self, context, bytecode, bc),
+            BytecodeOperator::ReturnValue => Self::ret_value(self, context, bytecode, bc),
+            BytecodeOperator::WhileBlockEnd => Self::while_block_end(self, context, bytecode, bc),
+            BytecodeOperator::AssignArgs => Self::assign_args(self, context, bytecode, bc),
+            BytecodeOperator::ClassDef => Self::class_def(self, context, bytecode, bc),
+            BytecodeOperator::EndDefineClass => Self::end_class_def(self, context, bytecode, bc),
+            BytecodeOperator::LoadList => Self::load_list(self, context, bytecode, bc),
+            BytecodeOperator::Else => Self::else_process(self, context, bytecode, bc),
+            BytecodeOperator::ElseIf => Self::else_if_match(self, context, bytecode, bc),
+            BytecodeOperator::ElseIfTest => Self::else_if_test_process(self, context, bytecode, bc),
+            BytecodeOperator::IfBlockEnd => Self::if_end(self, context, bytecode, bc),
+            BytecodeOperator::Break => Self::break_process(self, context, bytecode, bc),
+            BytecodeOperator::Continue => Self::continue_process(self, context, bytecode, bc),
+            BytecodeOperator::LoadForIter => Self::load_for_iter(self, context, bytecode, bc),
+            BytecodeOperator::PushForNext => Self::push_for_next(self, context, bytecode, bc),
+            BytecodeOperator::ForBlockEnd => Self::for_block_end(self, context, bytecode, bc),
+            BytecodeOperator::SpecialLoadFor => Self::special_load_for(self, context, bytecode, bc),
+            BytecodeOperator::AndJump => Self::process_logic_and(self, context, bytecode, bc),
+            BytecodeOperator::OrJump => Self::process_logic_or(self, context, bytecode, bc),
+            BytecodeOperator::Empty => Self::empty_process(self, context, bytecode, bc),
+            BytecodeOperator::BinaryRShift => unimplemented!(),
+            BytecodeOperator::BinaryLShift => unimplemented!(),
+            BytecodeOperator::StoreFast => unimplemented!(),
+            BytecodeOperator::Load => unimplemented!(),
+        }?;
 
         #[cfg(feature = "perf")]
         self.bytecode_map.end_time(op);
@@ -1491,6 +1504,8 @@ impl<'a> FSRThreadRuntime<'a> {
             exp_stack.push(SValue::Object(Box::new(i)));
         } else if let ArgType::Attr(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr((*id, name)));
+        } else {
+            panic!("not recongize load var: {:#?}", arg)
         }
     }
 
@@ -1518,8 +1533,8 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let mut v;
 
-        while context.ip.1 < expr.len() {
-            let arg = &expr[context.ip.1];
+        while let Some(arg) = expr.get(context.ip.1) {
+            // let arg = &expr[context.ip.1];
             #[cfg(feature = "bytecode_trace")]
             {
                 let t = format!("{:?} => {:?}", context.ip, arg);
@@ -1529,12 +1544,11 @@ impl<'a> FSRThreadRuntime<'a> {
             context.ip.1 += 1;
 
             self.set_exp_stack_ret(&mut context.exp);
-            let state = self.get_cur_mut_stack();
 
             if arg.get_operator() == &BytecodeOperator::Load {
                 #[cfg(feature = "perf")]
                 self.bytecode_map.start_time(&BytecodeOperator::Load);
-
+                let state = self.get_cur_mut_stack();
                 Self::load_var(&mut context.exp, arg, context.vm, state);
 
                 #[cfg(feature = "perf")]
