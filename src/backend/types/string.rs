@@ -27,7 +27,7 @@ fn string_len<'a>(
 
     if let FSRValue::String(self_s) = &self_object.value {
         return Ok(FSRRetValue::Value(
-            FSRInteger::new_inst(self_s.len() as i64),
+            Box::new(FSRInteger::new_inst(self_s.len() as i64)),
         ));
     }
 

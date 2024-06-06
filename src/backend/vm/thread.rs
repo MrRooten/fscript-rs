@@ -101,7 +101,7 @@ pub struct CallState<'a> {
     reverse_ip: (usize, usize),
     args: Vec<u64>,
     cur_cls: Option<FSRClass<'a>>,
-    ret_val: Option<u64>,
+    ret_val: Option<SValue<'a>>,
     exp: Option<Vec<SValue<'a>>>,
     #[allow(unused)]
     name: Cow<'a, str>,
@@ -166,7 +166,7 @@ impl<'a> CallState<'a> {
 }
 
 #[derive(Debug, Clone)]
-enum SValue<'a> {
+pub enum SValue<'a> {
     Stack((u64, &'a String)),
     Attr((u64, &'a String)),
     Global(u64),
@@ -627,7 +627,7 @@ impl<'a> FSRThreadRuntime<'a> {
         context.exp.pop();
         match res {
             FSRRetValue::Value(object) => {
-                let res_id = FSRVM::register_object(object);
+                let res_id = FSRVM::leak_object(object);
 
                 context.exp.push(SValue::Global(res_id));
             }
@@ -674,7 +674,7 @@ impl<'a> FSRThreadRuntime<'a> {
         context.exp.pop();
         match res {
             FSRRetValue::Value(object) => {
-                let res_id = FSRVM::register_object(object);
+                let res_id = FSRVM::leak_object(object);
                 context.exp.push(SValue::Global(res_id));
             }
             FSRRetValue::GlobalId(res_id) => {
@@ -850,7 +850,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let v = fn_obj.call(&args, self).unwrap();
 
             if let FSRRetValue::Value(v) = v {
-                let id = FSRVM::register_object(v);
+                let id = FSRVM::leak_object(v);
                 context.exp.push(SValue::Global(id));
             } else if let FSRRetValue::GlobalId(id) = v {
                 context.exp.push(SValue::Global(id));
@@ -926,7 +926,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     let v = fn_obj.call(&args, self).unwrap();
 
                     if let FSRRetValue::Value(v) = v {
-                        let id = FSRVM::register_object(v);
+                        let id = FSRVM::leak_object(v);
                         context.exp.push(SValue::Global(id));
                         let vm = self.get_mut_vm();
                         let mut esp = HashSet::new();
@@ -1234,11 +1234,11 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v = context.exp.pop().unwrap().get_global_id(self)?;
-        let mut esp = HashSet::new();
-        esp.insert(v);
+        let v = context.exp.pop().unwrap();
+        // let mut esp = HashSet::new();
+        // esp.insert(v);
         let vm = self.get_mut_vm();
-        self.pop_stack(vm, Some(esp));
+        self.pop_stack(vm, None);
         let cur = self.get_cur_mut_stack();
         //exp.push(SValue::GlobalId(v));
         cur.ret_val = Some(v);
@@ -1503,7 +1503,8 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         if stack.ret_val.is_some() {
-            exp_stack.push(SValue::Global(stack.ret_val.unwrap()));
+            let v = stack.ret_val.take();
+            exp_stack.push(v.unwrap());
             stack.ret_val = None;
         }
     }
@@ -1529,6 +1530,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             self.set_exp_stack_ret(&mut context.exp);
             let state = self.get_cur_mut_stack();
+
             if arg.get_operator() == &BytecodeOperator::Load {
                 #[cfg(feature = "perf")]
                 self.bytecode_map.start_time(&BytecodeOperator::Load);
@@ -1589,7 +1591,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    pub fn call_fn(&mut self, fn_def: &'a FSRFnInner, args: &Vec<u64>) -> Result<u64, FSRError> {
+    pub fn call_fn(&mut self, fn_def: &'a FSRFnInner, args: &Vec<u64>) -> Result<SValue, FSRError> {
         let mut context = ThreadContext {
             exp: Vec::with_capacity(10),
             ip: fn_def.get_ip(),
@@ -1622,12 +1624,12 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let cur = self.get_cur_mut_stack();
-        let ret_val = cur.ret_val;
+        let ret_val = cur.ret_val.take();
         // let v = FSRObject::id_to_obj(s);
         // println!("{:#?}", v);
         match ret_val {
             Some(s) => Ok(s),
-            None => Ok(0),
+            None => Ok(SValue::Global(0)),
         }
     }
 }

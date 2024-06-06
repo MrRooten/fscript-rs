@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::atomic::AtomicU64};
 
 use crate::{
-    backend::{compiler::bytecode::Bytecode, vm::thread::FSRThreadRuntime},
+    backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}},
     utils::error::FSRError,
 };
 
@@ -109,11 +109,18 @@ impl<'a> FSRFn<'a> {
         &'a self,
         args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, thread);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             let v = FSRThreadRuntime::call_fn(thread, f, args)?;
+            let v = match v {
+                crate::backend::vm::thread::SValue::Global(g) => g,
+                crate::backend::vm::thread::SValue::Object(o) => {
+                    FSRVM::leak_object(o)
+                },
+                _ => unimplemented!()
+            };
             return Ok(FSRRetValue::GlobalId(v));
         }
         unimplemented!()

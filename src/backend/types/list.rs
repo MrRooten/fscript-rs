@@ -20,7 +20,7 @@ fn list_len<'a>(
 
     if let FSRValue::List(self_s) = &self_object.value {
         return Ok(FSRRetValue::Value(
-            FSRInteger::new_inst(self_s.vs.len() as i64),
+            Box::new(FSRInteger::new_inst(self_s.vs.len() as i64)),
         ));
     }
 
@@ -52,7 +52,7 @@ fn list_string<'a>(
 
     s.push(']');
 
-    Ok(FSRRetValue::Value(FSRString::new_inst(Cow::Owned(s))))
+    Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(Cow::Owned(s)))))
 }
 
 fn iter<'a>(
@@ -65,7 +65,7 @@ fn iter<'a>(
         index: 0,
     };
 
-    return Ok(FSRRetValue::Value(FSRInnerIterator::new_inst(iterator)));
+    return Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))));
 }
 
 fn get_item<'a>(

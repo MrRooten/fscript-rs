@@ -50,7 +50,7 @@ pub enum FSRValue<'a> {
 
 #[derive(Debug)]
 pub enum FSRRetValue<'a> {
-    Value(FSRObject<'a>),
+    Value(Box<FSRObject<'a>>),
     GlobalId(u64),
 }
 
@@ -424,7 +424,7 @@ impl<'a> FSRObject<'a> {
         &'a self,
         args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread);
         }

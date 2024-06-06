@@ -27,36 +27,7 @@ mod tests {
     #[test]
     fn test_for_bc() {
         let expr = "
-        class Dc {
-            fn __new__(self) {
-                self.ttc = 123
-                dump(self)
-                return self
-            }
-        }
-
-        class Abc {
-            fn __new__(self, abc) {
-                self.abc = Dc()
-                return self
-            }
-
-            fn __str__(self) {
-                return 'Abc: abc = 123'
-            }
-        }
-        a = 3
-
-        b = [1, 2, 3, 4, 5]
-
-        for a in b {
-            if a > 2 {
-                break
-            } else {
-                println('ok')
-            }
-            println(a)
-        }
+        a = [1, 2, 'abc', 4, 5, test()]
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
