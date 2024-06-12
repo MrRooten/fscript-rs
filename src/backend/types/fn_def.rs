@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::atomic::AtomicU64};
+use std::{borrow::Cow, cell::RefCell, sync::atomic::AtomicU64};
 
 use crate::{
     backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}},
@@ -86,6 +86,7 @@ impl<'a> FSRFn<'a> {
             value: FSRValue::Function(v),
             cls: FSRGlobalObjId::FnCls as u64,
             ref_count: AtomicU64::new(0),
+            delete_flag: RefCell::new(true),
         }
     }
 
@@ -98,6 +99,7 @@ impl<'a> FSRFn<'a> {
             value: FSRValue::Function(v),
             cls: FSRGlobalObjId::FnCls as u64,
             ref_count: AtomicU64::new(0),
+            delete_flag: RefCell::new(true),
         }
     }
 

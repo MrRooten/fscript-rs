@@ -203,7 +203,7 @@ impl FSROpreatorTree<'_> {}
 #[derive(Debug)]
 pub enum FSRBinOpResult<'a> {
     BinOp(FSRExpr<'a>),
-    Constant(FSRConstant),
+    Constant(FSRConstant<'a>),
 }
 
 struct StmtContext<'a> {
@@ -525,7 +525,7 @@ impl<'a> FSRExpr<'a> {
         let i = ps.parse::<i64>().unwrap();
         let mut sub_meta = meta.from_offset(ctx.start);
 
-        let mut c = FSRConstant::from_int(i, sub_meta);
+        let mut c = FSRConstant::from_int(i, sub_meta, ps);
         c.single_op = ctx.single_op;
         ctx.single_op = None;
         ctx.candidates.push(FSRToken::Constant(c));

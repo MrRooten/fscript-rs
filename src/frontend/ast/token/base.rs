@@ -11,7 +11,7 @@ use super::{
 pub enum FSRToken<'a> {
     FunctionDef(FSRFnDef<'a>),
     IfExp(FSRIf<'a>),
-    Constant(FSRConstant),
+    Constant(FSRConstant<'a>),
     Assign(FSRAssign<'a>),
     Break(FSRPosition),
     Continue(FSRPosition),

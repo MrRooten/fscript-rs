@@ -9,7 +9,7 @@ use crate::frontend::ast::token::{
     block::FSRBlock,
     call::FSRCall,
     class::FSRClassFrontEnd,
-    constant::{FSRConstant, FSRConstantType},
+    constant::{FSRConstant, FSRConstantType, FSROrinStr},
     expr::FSRExpr,
     for_statement::FSRFor,
     function_def::FSRFnDef,
@@ -213,6 +213,7 @@ impl BytecodeOperator {
     }
 }
 
+
 #[derive(Debug)]
 pub struct VarMap<'a> {
     var_map: HashMap<&'a str, u64>,
@@ -220,7 +221,7 @@ pub struct VarMap<'a> {
     attr_map: HashMap<&'a str, u64>,
     attr_id: AtomicU64,
     #[allow(unused)]
-    const_map: HashMap<&'a str, FSRConstant>,
+    const_map: HashMap<FSROrinStr<'a>, u64>,
     #[allow(unused)]
     const_id: AtomicU64,
 }
@@ -246,6 +247,22 @@ impl<'a> VarMap<'a> {
         }
         let v = self.var_id.fetch_add(1, Ordering::Acquire);
         self.var_map.insert(var, v);
+    }
+    
+    pub fn has_const(&self, c: &FSROrinStr) -> bool {
+        self.const_map.contains_key(c)
+    }
+
+    pub fn get_const(&self, c: &FSROrinStr) -> Option<u64> {
+        self.const_map.get(c).copied()
+    }
+
+    pub fn insert_const(&mut self, c: &FSROrinStr<'a>) {
+        if self.has_const(c) {
+            return;
+        }
+        let v = self.const_id.fetch_add(1, Ordering::Acquire);
+        self.const_map.insert(*c, v);
     }
 
     pub fn insert_attr(&mut self, attr: &'a str) {
@@ -796,16 +813,20 @@ impl<'a> Bytecode {
         token: &'a FSRConstant,
         var_map: &'a mut VarMap<'a>,
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        let c = token.get_const_str();
+        var_map.insert_const(c);
+        let id = var_map.get_const(c).unwrap();
+
         let mut result_list = Vec::new();
         if let FSRConstantType::Integer(i) = token.get_constant() {
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstInteger(0, *i),
+                arg: ArgType::ConstInteger(id, *i),
             });
         } else if let FSRConstantType::String(s) = token.get_constant() {
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstString(0, String::from_utf8_lossy(s).to_string()),
+                arg: ArgType::ConstString(id, String::from_utf8_lossy(s).to_string()),
             });
         }
 

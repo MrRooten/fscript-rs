@@ -32,10 +32,10 @@ use crate::{
 
 use super::runtime::FSRVM;
 
-#[allow(unused)]
 struct TempHashMap {
     vs: Vec<u64>,
     iters: HashSet<u64>,
+    #[allow(unused)]
     iter: u64,
 }
 
@@ -108,7 +108,7 @@ pub struct CallState<'a> {
 }
 
 impl<'a> CallState<'a> {
-    #[inline]
+    #[inline(always)]
     pub fn get_var(&self, id: &u64) -> Option<&u64> {
         if let Some(s) = self.var_map.get(id) {
             if s == &0 {
@@ -121,6 +121,7 @@ impl<'a> CallState<'a> {
         None
     }
 
+    #[inline(always)]
     pub fn insert_var(&mut self, id: &u64, obj_id: u64) {
         if self.var_map.contains_key(id) {
             let to_be_dec = self.var_map.get(id).unwrap();
@@ -135,16 +136,32 @@ impl<'a> CallState<'a> {
         self.var_map.insert(*id, obj_id);
     }
 
+    #[inline(always)]
     pub fn has_var(&self, id: &u64) -> bool {
         self.var_map.contains_key(id)
     }
 
+    #[inline(always)]
     pub fn has_const(&self, id: &u64) -> bool {
         self.const_map.contains_key(id)
     }
 
-    pub fn insert_const(&mut self, id: &u64, obj_id: u64) {
+    pub fn insert_const(&mut self, id: &u64, obj: FSRObject<'a>) {
+        let obj_id = FSRVM::leak_object(Box::new(obj));
         self.const_map.insert(*id, obj_id);
+    }
+
+    #[inline(always)]
+    pub fn get_const(&self, id: &u64) -> Option<u64> {
+        if let Some(s) = self.const_map.get(id) {
+            if s == &0 {
+                return None;
+            }
+
+            return Some(*s);
+        }
+
+        None
     }
 
     pub fn set_reverse_ip(&mut self, ip: (usize, usize)) {
@@ -1501,20 +1518,32 @@ impl<'a> FSRThreadRuntime<'a> {
         exp_stack: &mut Vec<SValue<'a>>,
         arg: &'a BytecodeArg,
         _vm: &mut FSRVM<'a>,
-        _s: &mut CallState,
+        s: &mut CallState,
     ) {
         //*is_attr = false;
         if let ArgType::Variable(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Stack((*id, name)));
-        } else if let ArgType::ConstInteger(_, i) = arg.get_arg() {
+        } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
             //let int_const = Self::load_integer_const(i, vm);
-            let i = FSRInteger::new_inst(*i);
-            exp_stack.push(SValue::Object(Box::new(i)));
-        } else if let ArgType::ConstString(_, i) = arg.get_arg() {
+            if !s.has_const(c_id) {
+                s.insert_const(c_id, FSRInteger::new_inst(*i));
+            }
+            
+            let id = s.get_const(c_id).unwrap();
+
+            exp_stack.push(SValue::Global(id));
+        } else if let ArgType::ConstString(c_id, i) = arg.get_arg() {
             // let string_const = Self::load_string_const(i.clone(), vm);
             // s.insert_const(id, string_const);
-            let i = FSRString::new_inst(Cow::Borrowed(i));
-            exp_stack.push(SValue::Object(Box::new(i)));
+
+            
+            if !s.has_const(c_id) {
+                let i = FSRString::new_inst(Cow::Owned(i.clone()));
+                s.insert_const(c_id, i);
+            }
+
+            let id = s.get_const(c_id).unwrap();
+            exp_stack.push(SValue::Global(id));
         } else if let ArgType::Attr(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr((*id, name)));
         } else {

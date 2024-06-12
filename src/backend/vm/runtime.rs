@@ -52,6 +52,7 @@ impl<'a> FSRVM<'a> {
                 value: FSRValue::Integer(integer),
                 cls: FSRGlobalObjId::IntegerCls as u64,
                 ref_count: AtomicU64::new(1),
+                delete_flag: RefCell::new(true),
             };
 
             FSRVM::register_object(obj)
@@ -118,6 +119,7 @@ impl<'a> FSRVM<'a> {
             value,
             cls: 0,
             ref_count: AtomicU64::new(0),
+            delete_flag: RefCell::new(true),
         }
     }
 

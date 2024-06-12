@@ -1,8 +1,5 @@
 use std::{
-    borrow::Cow,
-    collections::hash_map::Keys,
-    fmt::Debug,
-    sync::atomic::{AtomicU64, Ordering},
+    borrow::Cow, cell::RefCell, collections::hash_map::Keys, fmt::Debug, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{
@@ -147,6 +144,7 @@ pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
     pub(crate) ref_count: AtomicU64,
     pub(crate) cls: u64,
+    pub(crate) delete_flag: RefCell<bool>
 }
 
 impl Debug for FSRObject<'_> {
@@ -176,6 +174,7 @@ impl Clone for FSRObject<'_> {
             value: self.value.clone(),
             ref_count: AtomicU64::new(0),
             cls: self.cls,
+            delete_flag: RefCell::new(true)
         }
     }
 }
@@ -193,6 +192,7 @@ impl<'a> FSRObject<'a> {
             value: FSRValue::None,
             cls: 0,
             ref_count: AtomicU64::new(0),
+            delete_flag: RefCell::new(true)
         }
     }
 
@@ -297,7 +297,12 @@ impl<'a> FSRObject<'a> {
         if Self::is_sp_object(self.obj_id) {
             return;
         }
+
         self.ref_count.fetch_add(1, Ordering::AcqRel);
+    }
+
+    pub fn set_not_delete(&self) {
+        *self.delete_flag.borrow_mut() = false;
     }
 
     #[inline]
@@ -305,6 +310,7 @@ impl<'a> FSRObject<'a> {
         if Self::is_sp_object(self.obj_id) {
             return;
         }
+
         self.ref_count.fetch_sub(1, Ordering::AcqRel);
 
         if self.count_ref() == 0 {
@@ -314,7 +320,12 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn drop_object(id: u64) {
+        let obj = FSRObject::id_to_obj(id);
+        if !(*obj.delete_flag.borrow()) {
+            return ;
+        }
         let _cleanup = unsafe { Box::from_raw(id as *mut Self) };
+        
     }
 
     #[inline(always)]
