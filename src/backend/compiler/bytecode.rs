@@ -456,7 +456,10 @@ impl<'a> Bytecode {
             op_code.append(&mut second);
             var_map_ref = Some(v.1);
             //call special process
-            return (op_code, var_map_ref.unwrap());
+            if expr.get_op().eq(".") {
+                return (op_code, var_map_ref.unwrap());
+            }
+            
         } else if let FSRToken::Constant(c) = expr.get_right() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap());
             second.append(&mut v.0);

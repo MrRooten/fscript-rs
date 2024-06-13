@@ -1,6 +1,6 @@
-a = 1 + 3 + (3) * 4
-println(a)
+fn abc() {
+    return "abc".len()
+}
 
-c = "abc"
-d = "abc".len()
-println(d)
+a = 1 + abc() + 1
+println(a)

@@ -27,15 +27,11 @@ mod tests {
     #[test]
     fn test_for_bc() {
         let expr = "
-        a = 1
-        b = 1
-        c = 2
-        d = 'abc'
-        e = 'abc'
-
-        fn sim() {
-            a = 'abc'
+        fn abc() {
+            return \"abc\".len()
         }
+        
+        a = 1 + abc()
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
