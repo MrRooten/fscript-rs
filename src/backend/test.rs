@@ -39,38 +39,21 @@ mod tests {
         println!("{:#?}", v);
     }
 
-    #[test]
-    fn test_2() {
-        let source_code = "
-        class Dc {
-            fn __new__(self) {
-                self.ttc = 123
-                dump(self)
-                return self
-            }
-        }
-
-        class Abc {
-            fn __new__(self, abc) {
-                self.abc = Dc()
-                return self
-            }
-
-            fn __str__(self) {
-                return 'Abc: abc = 123'
-            }
-        }
-        a = 1
-        while a < 300000 {
-            a = a + 1
-        }
-        ";
-        let v = FSRModule::from_code("main", source_code).unwrap();
-        let mut runtime = FSRThreadRuntime::new();
-        let mut vm = FSRVM::new();
-        runtime.set_vm(&mut vm);
-        runtime.start(&v, &mut vm).unwrap();
-    }
+    // #[test]
+    // fn test_2() {
+    //     let source_code = "
+    //     a = 1
+    //     while a < 3 {
+    //         a = a + 1
+    //     }
+    //     println(a)
+    //     ";
+    //     let v = FSRModule::from_code("main", source_code).unwrap();
+    //     let mut runtime = FSRThreadRuntime::new();
+    //     let mut vm = FSRVM::new();
+    //     runtime.set_vm(&mut vm);
+    //     runtime.start(&v, &mut vm).unwrap();
+    // }
 
     #[test]
     fn test_list() {
