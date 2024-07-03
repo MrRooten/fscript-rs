@@ -38,6 +38,7 @@ pub enum BinaryOffset {
 }
 
 impl BinaryOffset {
+    #[inline(always)]
     pub fn alias_name(&self) -> &str {
         match self {
             BinaryOffset::Add => "__add__",

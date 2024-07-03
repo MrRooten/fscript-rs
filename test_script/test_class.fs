@@ -23,3 +23,4 @@ if a.abc > 3 {
     println('a.abc > 3')
     a.test()
 }
+

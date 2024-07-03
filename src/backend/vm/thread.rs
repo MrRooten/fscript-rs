@@ -1277,14 +1277,14 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v = context.exp.pop().unwrap();
+        let v = context.exp.pop().unwrap().get_global_id(self)?;
         // let mut esp = HashSet::new();
         // esp.insert(v);
         let vm = self.get_mut_vm();
         self.pop_stack(vm, None);
         let cur = self.get_cur_mut_stack();
         //exp.push(SValue::GlobalId(v));
-        cur.ret_val = Some(v);
+        cur.ret_val = Some(SValue::Global(v));
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1);
 
         Ok(true)
