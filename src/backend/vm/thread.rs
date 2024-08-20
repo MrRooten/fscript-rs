@@ -1550,6 +1550,7 @@ impl<'a> FSRThreadRuntime<'a> {
             
             if !s.has_const(c_id) {
                 let i = FSRString::new_inst(Cow::Owned(i.clone()));
+                i.set_not_delete();
                 s.insert_const(c_id, i);
             }
 
