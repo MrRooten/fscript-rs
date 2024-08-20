@@ -50,7 +50,7 @@ impl<'a> FSRModule<'a> {
         format!("<Module `{}`>", self.name)
     }
 
-    pub fn registerl_object(&mut self, name: &'a str, obj_id: u64) {
+    pub fn register_object(&mut self, name: &'a str, obj_id: u64) {
         self.object_map.borrow_mut().insert(name, obj_id);
     }
 }
