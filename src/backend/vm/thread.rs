@@ -103,11 +103,19 @@ pub struct CallState<'a> {
     cur_cls: Option<FSRClass<'a>>,
     ret_val: Option<SValue<'a>>,
     exp: Option<Vec<SValue<'a>>>,
+    clear_list: Vec<u64>,
     #[allow(unused)]
     name: Cow<'a, str>,
 }
 
 impl<'a> CallState<'a> {
+    pub fn clear_objects(&mut self) {
+        for id in &self.clear_list {
+            FSRObject::drop_object(*id)
+        }
+        self.clear_list.clear()
+    }
+
     #[inline(always)]
     pub fn get_var(&self, id: &u64) -> Option<&u64> {
         if let Some(s) = self.var_map.get(id) {
@@ -127,13 +135,14 @@ impl<'a> CallState<'a> {
             let to_be_dec = self.var_map.get(id).unwrap();
             let origin_obj = FSRObject::id_to_obj(*to_be_dec);
             origin_obj.ref_dec();
-
             if origin_obj.count_ref() == 0 {
                 //println!("Will Drop: {:#?}", origin_obj);
                 FSRObject::drop_object(*to_be_dec);
             }
         }
         self.var_map.insert(*id, obj_id);
+
+
     }
 
     #[inline(always)]
@@ -178,6 +187,7 @@ impl<'a> CallState<'a> {
             ret_val: None,
             exp: None,
             name: name.clone(),
+            clear_list: vec![],
         }
     }
 }
@@ -647,7 +657,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
-
         let res = FSRObject::invoke_offset_method(BinaryOffset::Add, &vec![v1_id, v2_id], self)?;
         context.exp.pop();
         context.exp.pop();
@@ -1526,7 +1535,9 @@ impl<'a> FSRThreadRuntime<'a> {
         } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
             //let int_const = Self::load_integer_const(i, vm);
             if !s.has_const(c_id) {
-                s.insert_const(c_id, FSRInteger::new_inst(*i));
+                let obj = FSRInteger::new_inst(*i);
+                obj.set_not_delete();
+                s.insert_const(c_id, obj);
             }
             
             let id = s.get_const(c_id).unwrap();
@@ -1546,9 +1557,10 @@ impl<'a> FSRThreadRuntime<'a> {
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::Attr(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr((*id, name)));
-        } else {
-            panic!("not recongize load var: {:#?}", arg)
         }
+        // } else {
+        //     panic!("not recongize load var: {:#?}", arg)
+        // }
     }
 
     #[inline(always)]

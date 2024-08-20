@@ -312,11 +312,6 @@ impl<'a> FSRObject<'a> {
         }
 
         self.ref_count.fetch_sub(1, Ordering::AcqRel);
-
-        if self.count_ref() == 0 {
-            // Self::drop_object(self.obj_id)
-            // println!("Drop self: {:?}", self);
-        }
     }
 
     pub fn drop_object(id: u64) {
