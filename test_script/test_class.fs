@@ -1,6 +1,6 @@
 class Abc {
     fn __new__(self) {
-        self.abc = 123
+        self.abc = 0
         return self
     }
 
@@ -9,18 +9,15 @@ class Abc {
     }
 
     fn test(self) {
-        dump(self)
+        return 323
     }
 }
 
 a = Abc()
 println(a)
 
-println("Get a.abc")
-println(a.abc)
-
-if a.abc > 3 {
-    println('a.abc > 3')
-    a.test()
+if a.abc < 300 {
+    a.abc = a.abc + 1 + a.abc + a.test()
 }
 
+println(a.abc)

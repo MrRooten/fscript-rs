@@ -635,7 +635,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let _state = self.get_cur_mut_stack();
-        let v1 = match context.exp.last() {
+        let v1 = match context.exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -644,8 +644,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
+        if let SValue::Attr(_) = &v1 {
+            context.exp.pop();
+            context.is_attr = false;
+        }
 
-        let v2 = match context.exp.get(context.exp.len() - 2) {
+        let v2 = match context.exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -655,11 +659,15 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
+        if let SValue::Attr(_) = &v2 {
+            context.exp.pop();
+            context.is_attr = false;
+        }
+
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
         let res = FSRObject::invoke_offset_method(BinaryOffset::Add, &vec![v1_id, v2_id], self)?;
-        context.exp.pop();
-        context.exp.pop();
+
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = FSRVM::leak_object(object);
@@ -685,7 +693,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let _state = self.get_cur_mut_stack();
-        let v1 = match context.exp.last() {
+        let v1 = match context.exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -695,7 +703,12 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let v2 = match context.exp.get(context.exp.len() - 2) {
+        if let SValue::Attr(_) = &v1 {
+            context.exp.pop();
+            context.is_attr = false;
+        }
+
+        let v2 = match context.exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -704,12 +717,17 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
+
+        if let SValue::Attr(_) = &v2 {
+            context.exp.pop();
+            context.is_attr = false;
+        }
+
+
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
         //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
         let res = FSRObject::invoke_offset_method(BinaryOffset::Mul, &vec![v1_id, v2_id], self)?;
-        context.exp.pop();
-        context.exp.pop();
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = FSRVM::leak_object(object);
@@ -750,6 +768,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if context.is_attr {
             // pop last father
+            context.is_attr = false;
             context.exp.pop();
         }
 
@@ -944,6 +963,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             } else if context.is_attr {
                 let v = Self::process_fn_is_attr(self, context, fn_obj, n)?;
+                context.is_attr = false;
                 if v {
                     return Ok(v);
                 }
