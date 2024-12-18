@@ -2,7 +2,7 @@ fn abc() {
     return 'abc'.len()
 }
 
-a = (1 + 3 + 1 ) * 3 + 4 + abc()
+a = ((1 + 3 + 1 ) * 3 + 4 + abc()) * 4
 println(a)
 
 class Abc {

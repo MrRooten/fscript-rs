@@ -11,6 +11,8 @@ use crate::{
     utils::error::FSRError,
 };
 
+use super::utils::fsr_fn_assert;
+
 pub fn fsr_fn_print<'a>(
     args: &[u64],
     thread: &mut FSRThreadRuntime<'a>
@@ -58,10 +60,12 @@ pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     let print_fn = FSRFn::from_rust_fn(fsr_fn_print);
     let println_fn = FSRFn::from_rust_fn(fsr_fn_println);
     let dump_fn = FSRFn::from_rust_fn(fsr_fn_dump);
+    let assert_fn = FSRFn::from_rust_fn(fsr_fn_assert);
     let mut m = HashMap::new();
     m.insert("print", print_fn);
     m.insert("println", println_fn);
     m.insert("dump", dump_fn);
+    m.insert("assert", assert_fn);
     m
 }
 
