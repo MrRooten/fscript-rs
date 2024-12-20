@@ -318,6 +318,7 @@ impl<'a> FSRObject<'a> {
         if !(*obj.delete_flag.borrow()) {
             return ;
         }
+
         let _cleanup = unsafe { Box::from_raw(id as *mut Self) };
         
     }

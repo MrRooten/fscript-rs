@@ -169,6 +169,8 @@ pub struct CallState<'a> {
     name: Cow<'a, str>,
 }
 
+
+
 impl<'a> CallState<'a> {
     pub fn clear_objects(&mut self) {
         for id in &self.clear_list {
@@ -197,13 +199,10 @@ impl<'a> CallState<'a> {
             let origin_obj = FSRObject::id_to_obj(*to_be_dec);
             origin_obj.ref_dec();
             if origin_obj.count_ref() == 0 {
-                //println!("Will Drop: {:#?}", origin_obj);
                 FSRObject::drop_object(*to_be_dec);
             }
         }
         self.var_map.insert(*id, obj_id);
-
-
     }
 
     #[inline(always)]
