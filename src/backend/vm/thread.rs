@@ -8,7 +8,7 @@ use std::{
     sync::atomic::AtomicU64,
     time::{Duration, Instant},
 };
-use std::collections::hash_set::Iter;
+use std::{collections::hash_set::Iter, vec};
 
 #[cfg(not(feature = "perf"))]
 use std::{borrow::Cow, collections::HashSet};
@@ -32,16 +32,78 @@ use crate::{
 
 use super::runtime::FSRVM;
 
+pub struct Bitmap {
+    data: Vec<u8>,
+    size: usize, // 位图的大小（位数）
+}
+
+impl Bitmap {
+    /// 创建一个新的位图，大小为 size 位。
+    pub fn new(size: usize) -> Self {
+        let byte_size = (size + 7) / 8; // 每字节存储 8 位
+        Bitmap {
+            data: vec![0; byte_size],
+            size,
+        }
+    }
+
+    /// 设置位图中指定的位为 1。
+    pub fn set(&mut self, index: usize) {
+        if index >= self.size {
+            return ;
+        }
+        let byte_index = index / 8;
+        let bit_index = index % 8;
+        self.data[byte_index] |= 1 << bit_index;
+    }
+
+    /// 清除位图中指定的位（设置为 0）。
+    pub fn clear(&mut self, index: usize) {
+        if index >= self.size {
+            return ;
+        }
+        let byte_index = index / 8;
+        let bit_index = index % 8;
+        self.data[byte_index] &= !(1 << bit_index);
+    }
+
+    /// 检查位图中指定的位是否为 1。
+    pub fn get(&self, index: usize) -> bool {
+        if index >= self.size {
+            return false;
+        }
+        let byte_index = index / 8;
+        let bit_index = index % 8;
+        (self.data[byte_index] & (1 << bit_index)) != 0
+    }
+
+    pub fn iter_ones(&self) -> Vec<usize> {
+        let mut result = Vec::new();
+        for (byte_index, &byte) in self.data.iter().enumerate() {
+            for bit_index in 0..8 {
+                let bit_position = byte_index * 8 + bit_index;
+                if bit_position >= self.size {
+                    break; // 超过位图大小时停止
+                }
+                if byte & (1 << bit_index) != 0 {
+                    result.push(bit_position);
+                }
+            }
+        }
+        result
+    }
+}
+
 struct TempHashMap {
     vs: Vec<u64>,
-    iters: HashSet<u64>,
+    iters: Bitmap,
     #[allow(unused)]
     iter: u64,
 }
 
 struct TempIterator<'a> {
     vs: &'a Vec<u64>,
-    iter: Iter<'a, u64>,
+    iter: vec::IntoIter<usize>,
 }
 
 #[allow(unused)]
@@ -53,7 +115,7 @@ impl TempHashMap {
 
     #[inline(always)]
     pub fn insert(&mut self, i: u64, v: u64) {
-        self.iters.insert(i);
+        self.iters.set(i as usize);
         self.vs[i as usize] = v;
     }
 
@@ -69,7 +131,7 @@ impl TempHashMap {
     pub fn new() -> Self {
         Self {
             vs: vec![0; 100],
-            iters: HashSet::new(),
+            iters: Bitmap::new(100),
             iter: 0,
         }
     }
@@ -77,7 +139,7 @@ impl TempHashMap {
     pub fn iter(&self) -> TempIterator {
         TempIterator {
             vs: &self.vs,
-            iter: self.iters.iter(),
+            iter: self.iters.iter_ones().into_iter(),
         }
     }
 }
@@ -87,8 +149,7 @@ impl<'a> Iterator for TempIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(s) = self.iter.next() {
-            let v = *s as usize;
-            Some(*self.vs.get(v).unwrap())
+            Some(*self.vs.get(s).unwrap())
         } else {
             None
         }
