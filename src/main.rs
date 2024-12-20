@@ -26,4 +26,14 @@ fn main() {
     runtime.start(&v, &mut vm).unwrap();
     let end = Instant::now();
     println!("{:?}", end - start);
+
+    use std::io::Read;
+
+// let input: Option<i32> = std::io::stdin()
+//     .bytes() 
+//     .next()
+//     .and_then(|result| result.ok())
+//     .map(|byte| byte as i32);
+
+// println!("{:?}", input);
 }

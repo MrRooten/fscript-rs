@@ -132,6 +132,8 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn leak_object(mut object: Box<FSRObject<'a>>) -> u64 {
+        #[cfg(feature="alloc_trace")]
+        crate::backend::types::base::HEAP_TRACE.add_object();
         let id = Self::get_object_id(&object);
         object.obj_id = id;
 

@@ -11,10 +11,10 @@ edition = "2021"
 # opt-level = 2
 
 [features]
-default = []
+default = ["alloc_trace"]
 perf = []
 bytecode_trace = []
-
+alloc_trace = []
 
 [profile.release]
 overflow-checks = false

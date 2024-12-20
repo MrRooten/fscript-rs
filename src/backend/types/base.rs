@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, cell::RefCell, collections::hash_map::Keys, fmt::Debug, sync::atomic::{AtomicU64, Ordering}
+    borrow::Cow, cell::RefCell, collections::hash_map::Keys, fmt::Debug, sync::atomic::{AtomicI64, AtomicU64, Ordering}
 };
 
 use crate::{
@@ -178,6 +178,34 @@ impl Clone for FSRObject<'_> {
     }
 }
 
+#[cfg(feature="alloc_trace")]
+static mut O: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(feature="alloc_trace")]
+pub struct HeapTrace {
+    total_object: AtomicI64,
+}
+
+#[cfg(feature="alloc_trace")]
+impl HeapTrace {
+    pub fn add_object(&self) {
+        self.total_object.fetch_add(1, Ordering::AcqRel);
+    }
+
+    pub fn dec_object(&self) {
+        self.total_object.fetch_sub(1, Ordering::AcqRel);
+    }
+
+    pub fn object_count(&self) -> i64 {
+        self.total_object.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(feature="alloc_trace")]
+pub(crate) const HEAP_TRACE: HeapTrace = HeapTrace {
+    total_object: AtomicI64::new(0),
+};
+
 impl<'a> Default for FSRObject<'a> {
     fn default() -> Self {
         Self::new()
@@ -319,8 +347,10 @@ impl<'a> FSRObject<'a> {
             return ;
         }
 
-        let _cleanup = unsafe { Box::from_raw(id as *mut Self) };
-        
+        #[cfg(feature="alloc_trace")]
+        HEAP_TRACE.dec_object();
+        //let _cleanup = unsafe { Box::from_raw(id as *mut Self) };
+        std::mem::drop(unsafe { Box::from_raw(id as *mut Self) });
     }
 
     #[inline(always)]

@@ -599,6 +599,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if let SValue::Object(obj) = svalue {
                 let state = self.get_cur_mut_stack();
                 let id = FSRVM::leak_object(obj);
+                
                 let obj = FSRObject::id_to_obj(id);
                 obj.ref_add();
                 // println!("{:#?}", obj);
@@ -734,7 +735,6 @@ impl<'a> FSRThreadRuntime<'a> {
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = FSRVM::leak_object(object);
-
                 context.exp.push(SValue::Global(res_id));
             }
             FSRRetValue::GlobalId(res_id) => {
@@ -1277,8 +1277,24 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
         if let ArgType::WhileTest(n) = bytecode.get_arg() {
-            context.break_line.push(context.ip.0 + *n as usize + 1);
-            context.continue_line.push(context.ip.0);
+
+            // Avoid repeat add break ip and continue ip
+            if let Some(s) = context.break_line.last() {
+                if context.ip.0 + *n as usize + 1 != *s {
+                    context.break_line.push(context.ip.0 + *n as usize + 1);
+                }
+            } else {
+                context.break_line.push(context.ip.0 + *n as usize + 1);
+            }
+            
+            if let Some(s) = context.continue_line.last() {
+                if context.ip.0 != *s {
+                    context.continue_line.push(context.ip.0);
+                }
+            } else {
+                context.continue_line.push(context.ip.0);
+            }
+            
         }
 
         Ok(false)
@@ -1745,6 +1761,9 @@ impl<'a> FSRThreadRuntime<'a> {
         println!("{:#?}", self.bytecode_map.count);
 
         println!("count: {}", bytecode_count);
+
+        #[cfg(feature="alloc_trace")]
+        println!("obj count: {}", crate::backend::types::base::HEAP_TRACE.object_count());
         Ok(())
     }
 
