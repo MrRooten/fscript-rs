@@ -7,7 +7,7 @@ pub struct FSRModule<'a> {
     name: &'a str,
     #[allow(unused)]
     bytecode: Bytecode,
-    object_map  : RefCell<HashMap<&'a str, u64>>
+    object_map  : RefCell<HashMap<String, u64>>
 }
 
 impl Clone for FSRModule<'_> {
@@ -50,7 +50,11 @@ impl<'a> FSRModule<'a> {
         format!("<Module `{}`>", self.name)
     }
 
-    pub fn register_object(&mut self, name: &'a str, obj_id: u64) {
-        self.object_map.borrow_mut().insert(name, obj_id);
+    pub fn register_object(&self, name: &'a str, obj_id: u64) {
+        self.object_map.borrow_mut().insert(name.to_string(), obj_id);
+    }
+
+    pub fn get_object(&self, name: &str) -> Option<u64> {
+        self.object_map.borrow().get(name).copied()
     }
 }

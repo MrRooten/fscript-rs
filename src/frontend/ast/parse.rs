@@ -147,7 +147,7 @@ impl ASTParser {
         offset: usize,
         meta: &FSRPosition,
     ) -> Result<(), SyntaxError> {
-        if Self::check_end_bracket(c, states) {
+        if Self::check_end_bracket(c, states) && !states.peek().0.is_string() {
             let err = SyntaxError::new_with_type(
                 meta,
                 "can not start with right bracket",

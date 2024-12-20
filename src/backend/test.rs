@@ -129,6 +129,7 @@ mod tests {
                 BinaryOffset::Add,
                 &vec![FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
                 &mut runtime,
+                None
             )
             .unwrap();
         }
@@ -163,6 +164,7 @@ mod tests {
                 BinaryOffset::Greater,
                 &vec![FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
                 &mut runtime,
+                None
             )
             .unwrap();
         }

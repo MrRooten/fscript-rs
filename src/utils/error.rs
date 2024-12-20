@@ -71,7 +71,8 @@ pub enum FSRErrCode {
     EmptyExpStack,
     NoSuchMethod,
     NoSuchObject,
-    OutOfRange
+    OutOfRange,
+    NotValidArgs
 }
 
 #[derive(Debug)]

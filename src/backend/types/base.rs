@@ -15,8 +15,7 @@ use crate::{
 };
 
 use super::{
-    class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator,
-    list::FSRList, string::FSRString,
+    class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
 };
 
 pub enum FSRGlobalObjId {
@@ -71,7 +70,7 @@ impl<'a> FSRValue<'a> {
         let v = cls.get_attr("__str__");
         if let Some(obj_id) = v {
             let obj = FSRObject::id_to_obj(obj_id);
-            let ret = obj.call(&vec![self_id], thread);
+            let ret = obj.call(&vec![self_id], thread, None);
             let ret_value = match ret {
                 Ok(o) => o,
                 Err(_) => {
@@ -104,7 +103,7 @@ impl<'a> FSRValue<'a> {
             FSRValue::None => Some(Cow::Borrowed("None")),
             FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::List(_) => {
-                let res = FSRObject::invoke_method("__str__", &vec![self_id], thread).unwrap();
+                let res = FSRObject::invoke_method("__str__", &vec![self_id], thread, None).unwrap();
                 match res {
                     FSRRetValue::Value(v) => {
                         if let FSRValue::String(s) = v.value {
@@ -351,6 +350,7 @@ impl<'a> FSRObject<'a> {
         name: &str,
         args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>,
+        module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         let self_method = match self_object.get_cls_attr(name, thread.get_vm()) {
@@ -363,7 +363,7 @@ impl<'a> FSRObject<'a> {
             }
         };
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, thread)?;
+        let v = method_object.call(args, thread, module)?;
         Ok(v)
     }
 
@@ -372,11 +372,12 @@ impl<'a> FSRObject<'a> {
         offset: BinaryOffset,
         args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>,
+        module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         if let Some(self_method) = self_object.get_cls_offset_attr(offset, thread.get_vm()) {
             let method_object = Self::id_to_obj(self_method);
-            let v = method_object.call(args, thread)?;
+            let v = method_object.call(args, thread, module)?;
             return Ok(v);
         }
 
@@ -390,7 +391,7 @@ impl<'a> FSRObject<'a> {
             }
         };
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, thread)?;
+        let v = method_object.call(args, thread, module)?;
         Ok(v)
     }
 
@@ -440,9 +441,10 @@ impl<'a> FSRObject<'a> {
         &'a self,
         args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>,
+        module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
-            return fn_def.invoke(args, thread);
+            return fn_def.invoke(args, thread, module);
         }
         unimplemented!()
     }

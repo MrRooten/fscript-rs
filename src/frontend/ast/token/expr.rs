@@ -88,6 +88,10 @@ impl ExprStates {
     pub fn eq_peek(&self, state: &ExprState) -> bool {
         return self.peek().eq(state);
     }
+
+    pub fn is_string(&self) -> bool {
+        self.peek().eq(&ExprState::DoubleString) || self.peek().eq(&ExprState::SingleString)
+    }
 }
 
 enum Operator {

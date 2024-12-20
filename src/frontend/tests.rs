@@ -273,4 +273,12 @@ mod frontend_tests {
         let end = Instant::now();
         println!("{:?}", end - start);
     }
+
+    #[test]
+    fn test_bracket_in_string() {
+        let a = "p(\"a(e) \")";
+        let meta = FSRPosition::new();
+        let s = FSRExpr::parse(a.as_bytes(), false, meta).unwrap();
+        println!("{:#?}", s);
+    }
 }

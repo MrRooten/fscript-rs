@@ -7,12 +7,13 @@ use crate::{
 
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
-    class::FSRClass,
+    class::FSRClass, module::FSRModule,
 };
 
 type FSRRustFn = for<'a> fn(
     args: &[u64],
     thread: &mut FSRThreadRuntime<'a>,
+    module: Option<&'a FSRModule<'a>>
 ) -> Result<FSRRetValue<'a>, FSRError>;
 
 #[derive(Debug, Clone)]
@@ -111,11 +112,12 @@ impl<'a> FSRFn<'a> {
         &'a self,
         args: &Vec<u64>,
         thread: &mut FSRThreadRuntime<'a>,
+        module: Option<&'a FSRModule<'a>>,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
-            return f(args, thread);
+            return f(args, thread, module);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            let v = FSRThreadRuntime::call_fn(thread, f, args)?;
+            let v = FSRThreadRuntime::call_fn(thread, f, args, module)?;
             let v = match v {
                 crate::backend::vm::thread::SValue::Global(g) => g,
                 crate::backend::vm::thread::SValue::Object(o) => {

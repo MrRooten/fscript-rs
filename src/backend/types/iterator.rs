@@ -6,7 +6,7 @@ use crate::{
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
     class::FSRClass,
-    fn_def::FSRFn,
+    fn_def::FSRFn, module::FSRModule,
 };
 
 #[derive(Debug, Clone)]
@@ -18,6 +18,7 @@ pub struct FSRInnerIterator {
 fn next_obj<'a>(
     args: &[u64],
     thread: &mut FSRThreadRuntime<'a>,
+    module: Option<&'a FSRModule<'a>>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_obj = args[0];
     let self_obj = FSRObject::id_to_mut_obj(self_obj);
@@ -37,7 +38,7 @@ fn next_obj<'a>(
             let v = cls.get_attr("__index__");
             if let Some(obj_id) = v {
                 let obj = FSRObject::id_to_obj(obj_id);
-                let ret = obj.call(&vec![it.obj], thread);
+                let ret = obj.call(&vec![it.obj], thread, module);
                 result = Some(ret?);
             }
         } else if let FSRValue::List(l) = &from_obj.value {
