@@ -1633,6 +1633,7 @@ impl<'a> FSRThreadRuntime<'a> {
         s: &mut CallState,
     ) {
         //*is_attr = false;
+        
         if let ArgType::Variable(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Stack((*id, name)));
         } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
