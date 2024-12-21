@@ -88,6 +88,27 @@ mod tests {
     }
 
     #[test]
+    fn test_class() {
+        let source_code = "
+        class Abc {
+    fn __new__(self) {
+        self.abc = 0
+        return self
+    }
+}
+
+a = Abc()
+a.abc = 1
+
+dump(a)
+        
+        ";
+        let v = FSRModule::from_code("main", source_code).unwrap();
+
+        println!("{:#?}", v);
+    }
+
+    #[test]
     fn test_new_object() {
         let s = Instant::now();
         let mut i = 0;

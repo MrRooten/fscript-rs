@@ -13,6 +13,23 @@ pub enum FSROrinStr<'a> {
     String(&'a str)
 }
 
+impl FSROrinStr<'_> {
+    pub fn to_2(&self) -> FSROrinStr2 {
+        match self {
+            FSROrinStr::Integer(i) => FSROrinStr2::Integer(i.to_string()),
+            FSROrinStr::Float(f) => FSROrinStr2::Float(f.to_string()),
+            FSROrinStr::String(s) => FSROrinStr2::String(s.to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum FSROrinStr2 {
+    Integer(String),
+    Float(String),
+    String(String)
+}
+
 #[derive(Debug, Clone)]
 pub struct FSRConstant<'a> {
     const_str: FSROrinStr<'a>,

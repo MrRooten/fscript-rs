@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, sync::atomic::AtomicU64};
+use std::{cell::RefCell, collections::HashMap, sync::{atomic::AtomicU64, Mutex}};
 
 use crate::{
     backend::types::{
@@ -7,7 +7,7 @@ use crate::{
     std::io::init_io,
 };
 
-use super::thread::FSRThreadRuntime;
+use super::thread::{FSRThreadRuntime, TempHashMap};
 
 pub struct FSRVM<'a> {
     #[allow(unused)]
@@ -15,6 +15,7 @@ pub struct FSRVM<'a> {
     global: HashMap<String, u64>,
     global_modules  : HashMap<&'a str, FSRModule<'a>>,
     const_integer_global: RefCell<HashMap<i64, u64>>,
+    pub(crate) const_map: Mutex<TempHashMap>
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -29,6 +30,29 @@ impl<'a> Default for FSRVM<'a> {
 
 impl<'a> FSRVM<'a> {
 
+    #[inline(always)]
+    pub fn has_const(&self, id: &u64) -> bool {
+        self.const_map.lock().unwrap().contains_key(id)
+    }
+
+    pub fn insert_const(&mut self, id: &u64, obj: FSRObject<'a>) {
+        let obj_id = FSRVM::leak_object(Box::new(obj));
+        self.const_map.lock().unwrap().insert(*id, obj_id);
+    }
+
+    #[inline(always)]
+    pub fn get_const(&self, id: &u64) -> Option<u64> {
+        if let Some(s) = self.const_map.lock().unwrap().get(id) {
+            if s == &0 {
+                return None;
+            }
+
+            return Some(*s);
+        }
+
+        None
+    }
+
     pub fn new() -> Self {
         Self::init_static_object();
         let main_thread = FSRThreadRuntime::new();
@@ -39,6 +63,7 @@ impl<'a> FSRVM<'a> {
             global: HashMap::new(),
             global_modules: HashMap::new(),
             const_integer_global: RefCell::new(HashMap::new()),
+            const_map: Mutex::new(TempHashMap::new()),
         };
         v.init();
         v

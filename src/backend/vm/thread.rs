@@ -94,16 +94,17 @@ impl Bitmap {
     }
 }
 
-struct TempHashMap {
+#[derive(Debug)]
+pub struct TempHashMap {
     vs: Vec<u64>,
-    iters: Bitmap,
+    iters: HashSet<usize>,
     #[allow(unused)]
     iter: u64,
 }
 
 struct TempIterator<'a> {
     vs: &'a Vec<u64>,
-    iter: vec::IntoIter<usize>,
+    iter: Iter<'a, usize>,
 }
 
 #[allow(unused)]
@@ -115,7 +116,7 @@ impl TempHashMap {
 
     #[inline(always)]
     pub fn insert(&mut self, i: u64, v: u64) {
-        self.iters.set(i as usize);
+        self.iters.insert(i as usize);
         self.vs[i as usize] = v;
     }
 
@@ -131,7 +132,7 @@ impl TempHashMap {
     pub fn new() -> Self {
         Self {
             vs: vec![0; 100],
-            iters: Bitmap::new(100),
+            iters: HashSet::new(),
             iter: 0,
         }
     }
@@ -139,7 +140,7 @@ impl TempHashMap {
     pub fn iter(&self) -> TempIterator {
         TempIterator {
             vs: &self.vs,
-            iter: self.iters.iter_ones().into_iter(),
+            iter: self.iters.iter(),
         }
     }
 }
@@ -149,7 +150,7 @@ impl<'a> Iterator for TempIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(s) = self.iter.next() {
-            Some(*self.vs.get(s).unwrap())
+            Some(*self.vs.get(*s).unwrap())
         } else {
             None
         }
@@ -1629,22 +1630,22 @@ impl<'a> FSRThreadRuntime<'a> {
     fn load_var(
         exp_stack: &mut Vec<SValue<'a>>,
         arg: &'a BytecodeArg,
-        _vm: &mut FSRVM<'a>,
+        vm: &mut FSRVM<'a>,
         s: &mut CallState,
     ) {
         //*is_attr = false;
-        
+
         if let ArgType::Variable(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Stack((*id, name)));
         } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
             //let int_const = Self::load_integer_const(i, vm);
-            if !s.has_const(c_id) {
+            if !vm.has_const(c_id) {
                 let obj = FSRInteger::new_inst(*i);
                 obj.set_not_delete();
-                s.insert_const(c_id, obj);
+                vm.insert_const(c_id, obj);
             }
             
-            let id = s.get_const(c_id).unwrap();
+            let id = vm.get_const(c_id).unwrap();
 
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::ConstString(c_id, i) = arg.get_arg() {
