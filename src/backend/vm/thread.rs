@@ -1653,13 +1653,13 @@ impl<'a> FSRThreadRuntime<'a> {
             // s.insert_const(id, string_const);
 
             
-            if !s.has_const(c_id) {
+            if !vm.has_const(c_id) {
                 let i = FSRString::new_inst(Cow::Owned(i.clone()));
                 i.set_not_delete();
-                s.insert_const(c_id, i);
+                vm.insert_const(c_id, i);
             }
 
-            let id = s.get_const(c_id).unwrap();
+            let id = vm.get_const(c_id).unwrap();
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::Attr(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr((*id, name)));
