@@ -1,5 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, sync::{atomic::AtomicU64, Mutex}};
 
+use ahash::AHashMap;
+
 use crate::{
     backend::types::{
         base::{FSRGlobalObjId, FSRObject, FSRValue}, class::FSRClass, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
@@ -9,13 +11,19 @@ use crate::{
 
 use super::thread::{FSRThreadRuntime, TempHashMap};
 
+#[derive(Hash, Debug, Eq, PartialEq)]
+pub enum ConstType<'a> {
+    String(&'a str),
+    Integer(i64)
+}
+
 pub struct FSRVM<'a> {
     #[allow(unused)]
     threads: HashMap<u64, FSRThreadRuntime<'a>>,
     global: HashMap<String, u64>,
     global_modules  : HashMap<&'a str, FSRModule<'a>>,
     const_integer_global: RefCell<HashMap<i64, u64>>,
-    pub(crate) const_map: Mutex<TempHashMap>
+    pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, u64>>
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -29,20 +37,42 @@ impl<'a> Default for FSRVM<'a> {
 }
 
 impl<'a> FSRVM<'a> {
-
     #[inline(always)]
-    pub fn has_const(&self, id: &u64) -> bool {
-        self.const_map.lock().unwrap().contains_key(id)
+    pub fn has_str_const(&self, id: &str) -> bool {
+        self.const_map.lock().unwrap().contains_key(&ConstType::String(id))
     }
 
-    pub fn insert_const(&mut self, id: &u64, obj: FSRObject<'a>) {
+    pub fn insert_str_const(&mut self, id: &'a str, obj: FSRObject<'a>) {
         let obj_id = FSRVM::leak_object(Box::new(obj));
-        self.const_map.lock().unwrap().insert(*id, obj_id);
+        self.const_map.lock().unwrap().insert(ConstType::String(id), obj_id);
     }
 
     #[inline(always)]
-    pub fn get_const(&self, id: &u64) -> Option<u64> {
-        if let Some(s) = self.const_map.lock().unwrap().get(id) {
+    pub fn get_str_const(&self, id: &'a str) -> Option<u64> {
+        if let Some(s) = self.const_map.lock().unwrap().get(&ConstType::String(id)) {
+            if s == &0 {
+                return None;
+            }
+
+            return Some(*s);
+        }
+
+        None
+    }
+
+    #[inline(always)]
+    pub fn has_int_const(&self, id: &i64) -> bool {
+        self.const_map.lock().unwrap().contains_key(&ConstType::Integer(*id))
+    }
+
+    pub fn insert_int_const(&mut self, id: &i64, obj: FSRObject<'a>) {
+        let obj_id = FSRVM::leak_object(Box::new(obj));
+        self.const_map.lock().unwrap().insert(ConstType::Integer(*id), obj_id);
+    }
+
+    #[inline(always)]
+    pub fn get_int_const(&self, id: &i64) -> Option<u64> {
+        if let Some(s) = self.const_map.lock().unwrap().get(&ConstType::Integer(*id)) {
             if s == &0 {
                 return None;
             }
@@ -63,7 +93,7 @@ impl<'a> FSRVM<'a> {
             global: HashMap::new(),
             global_modules: HashMap::new(),
             const_integer_global: RefCell::new(HashMap::new()),
-            const_map: Mutex::new(TempHashMap::new()),
+            const_map: Mutex::new(AHashMap::new()),
         };
         v.init();
         v

@@ -8,10 +8,12 @@ use std::{
     sync::atomic::AtomicU64,
     time::{Duration, Instant},
 };
-use std::{collections::hash_set::Iter, vec};
+use std::vec;
 
 #[cfg(not(feature = "perf"))]
 use std::{borrow::Cow, collections::HashSet};
+
+use ahash::AHashSet;
 
 use crate::{
     backend::{
@@ -50,7 +52,7 @@ impl Bitmap {
     /// 设置位图中指定的位为 1。
     pub fn set(&mut self, index: usize) {
         if index >= self.size {
-            return ;
+            return;
         }
         let byte_index = index / 8;
         let bit_index = index % 8;
@@ -60,7 +62,7 @@ impl Bitmap {
     /// 清除位图中指定的位（设置为 0）。
     pub fn clear(&mut self, index: usize) {
         if index >= self.size {
-            return ;
+            return;
         }
         let byte_index = index / 8;
         let bit_index = index % 8;
@@ -97,14 +99,12 @@ impl Bitmap {
 #[derive(Debug)]
 pub struct TempHashMap {
     vs: Vec<u64>,
-    iters: HashSet<usize>,
     #[allow(unused)]
     iter: u64,
 }
 
-struct TempIterator<'a> {
-    vs: &'a Vec<u64>,
-    iter: Iter<'a, usize>,
+pub struct TempIterator<'a> {
+    vs: core::slice::Iter<'a, u64>,
 }
 
 #[allow(unused)]
@@ -116,7 +116,6 @@ impl TempHashMap {
 
     #[inline(always)]
     pub fn insert(&mut self, i: u64, v: u64) {
-        self.iters.insert(i as usize);
         self.vs[i as usize] = v;
     }
 
@@ -131,16 +130,14 @@ impl TempHashMap {
 
     pub fn new() -> Self {
         Self {
-            vs: vec![0; 100],
-            iters: HashSet::new(),
+            vs: vec![0; 10],
             iter: 0,
         }
     }
 
     pub fn iter(&self) -> TempIterator {
         TempIterator {
-            vs: &self.vs,
-            iter: self.iters.iter(),
+            vs: self.vs.iter(),
         }
     }
 }
@@ -149,11 +146,13 @@ impl<'a> Iterator for TempIterator<'a> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(s) = self.iter.next() {
-            Some(*self.vs.get(*s).unwrap())
-        } else {
-            None
+        while let Some(s) = self.vs.next() {
+            if s != &0 {
+                return Some(*s)
+            }
         }
+
+        return None
     }
 }
 
@@ -169,8 +168,6 @@ pub struct CallState<'a> {
     #[allow(unused)]
     name: Cow<'a, str>,
 }
-
-
 
 impl<'a> CallState<'a> {
     pub fn clear_objects(&mut self) {
@@ -321,7 +318,7 @@ pub struct ThreadContext<'a> {
     for_iter_obj: Vec<u64>,
     #[allow(unused)]
     module_stack: Vec<u64>,
-    module: Option<&'a FSRModule<'a>>
+    module: Option<&'a FSRModule<'a>>,
 }
 
 impl ThreadContext<'_> {
@@ -531,29 +528,47 @@ impl<'a> FSRThreadRuntime<'a> {
         let res;
 
         if op.eq(">") {
-            res =
-                FSRObject::invoke_offset_method(BinaryOffset::Greater, &vec![left, right], thread, None);
+            res = FSRObject::invoke_offset_method(
+                BinaryOffset::Greater,
+                &vec![left, right],
+                thread,
+                None,
+            );
         } else if op.eq("<") {
-            res = FSRObject::invoke_offset_method(BinaryOffset::Less, &vec![left, right], thread, None);
+            res = FSRObject::invoke_offset_method(
+                BinaryOffset::Less,
+                &vec![left, right],
+                thread,
+                None,
+            );
         } else if op.eq(">=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::GreatEqual,
                 &vec![left, right],
                 thread,
-                None
+                None,
             );
         } else if op.eq("<=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::LessEqual,
                 &vec![left, right],
                 thread,
-                None
+                None,
             );
         } else if op.eq("==") {
-            res = FSRObject::invoke_offset_method(BinaryOffset::Equal, &vec![left, right], thread, None);
+            res = FSRObject::invoke_offset_method(
+                BinaryOffset::Equal,
+                &vec![left, right],
+                thread,
+                None,
+            );
         } else if op.eq("!=") {
-            res =
-                FSRObject::invoke_offset_method(BinaryOffset::NotEqual, &vec![left, right], thread, None);
+            res = FSRObject::invoke_offset_method(
+                BinaryOffset::NotEqual,
+                &vec![left, right],
+                thread,
+                None,
+            );
         } else {
             unimplemented!()
         }
@@ -600,7 +615,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if let SValue::Object(obj) = svalue {
                 let state = self.get_cur_mut_stack();
                 let id = FSRVM::leak_object(obj);
-                
+
                 let obj = FSRObject::id_to_obj(id);
                 obj.ref_add();
                 // println!("{:#?}", obj);
@@ -731,7 +746,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
-        let res = FSRObject::invoke_offset_method(BinaryOffset::Add, &vec![v1_id, v2_id], self, None)?;
+        let res =
+            FSRObject::invoke_offset_method(BinaryOffset::Add, &vec![v1_id, v2_id], self, None)?;
 
         match res {
             FSRRetValue::Value(object) => {
@@ -787,11 +803,11 @@ impl<'a> FSRThreadRuntime<'a> {
             context.is_attr = false;
         }
 
-
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
         //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
-        let res = FSRObject::invoke_offset_method(BinaryOffset::Mul, &vec![v1_id, v2_id], self, None)?;
+        let res =
+            FSRObject::invoke_offset_method(BinaryOffset::Mul, &vec![v1_id, v2_id], self, None)?;
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = FSRVM::leak_object(object);
@@ -802,7 +818,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             FSRRetValue::GlobalIdTemp(res_id) => {
                 context.exp.push(SValue::Global(res_id));
-            },
+            }
         };
         Ok(false)
     }
@@ -1278,7 +1294,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
         if let ArgType::WhileTest(n) = bytecode.get_arg() {
-
             // Avoid repeat add break ip and continue ip
             if let Some(s) = context.break_line.last() {
                 if context.ip.0 + *n as usize + 1 != *s {
@@ -1287,7 +1302,7 @@ impl<'a> FSRThreadRuntime<'a> {
             } else {
                 context.break_line.push(context.ip.0 + *n as usize + 1);
             }
-            
+
             if let Some(s) = context.continue_line.last() {
                 if context.ip.0 != *s {
                     context.continue_line.push(context.ip.0);
@@ -1295,7 +1310,6 @@ impl<'a> FSRThreadRuntime<'a> {
             } else {
                 context.continue_line.push(context.ip.0);
             }
-            
         }
 
         Ok(false)
@@ -1639,27 +1653,26 @@ impl<'a> FSRThreadRuntime<'a> {
             exp_stack.push(SValue::Stack((*id, name)));
         } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
             //let int_const = Self::load_integer_const(i, vm);
-            if !vm.has_const(c_id) {
+            if !vm.has_int_const(i) {
                 let obj = FSRInteger::new_inst(*i);
                 obj.set_not_delete();
-                vm.insert_const(c_id, obj);
+                vm.insert_int_const(i, obj);
             }
-            
-            let id = vm.get_const(c_id).unwrap();
+
+            let id = vm.get_int_const(&i).unwrap();
 
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::ConstString(c_id, i) = arg.get_arg() {
             // let string_const = Self::load_string_const(i.clone(), vm);
             // s.insert_const(id, string_const);
 
-            
-            if !vm.has_const(c_id) {
-                let i = FSRString::new_inst(Cow::Owned(i.clone()));
-                i.set_not_delete();
-                vm.insert_const(c_id, i);
+            if !vm.has_str_const(i.as_str()) {
+                let obj = FSRString::new_inst(Cow::Owned(i.clone()));
+                obj.set_not_delete();
+                vm.insert_str_const(i.as_str(), obj);
             }
 
-            let id = vm.get_const(c_id).unwrap();
+            let id = vm.get_str_const(i.as_str()).unwrap();
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::Attr(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr((*id, name)));
@@ -1764,12 +1777,20 @@ impl<'a> FSRThreadRuntime<'a> {
 
         println!("count: {}", bytecode_count);
 
-        #[cfg(feature="alloc_trace")]
-        println!("obj count: {}", crate::backend::types::base::HEAP_TRACE.object_count());
+        #[cfg(feature = "alloc_trace")]
+        println!(
+            "obj count: {}",
+            crate::backend::types::base::HEAP_TRACE.object_count()
+        );
         Ok(())
     }
 
-    pub fn call_fn(&mut self, fn_def: &'a FSRFnInner, args: &Vec<u64>, module: Option<&'a FSRModule<'a>>) -> Result<SValue, FSRError> {
+    pub fn call_fn(
+        &mut self,
+        fn_def: &'a FSRFnInner,
+        args: &Vec<u64>,
+        module: Option<&'a FSRModule<'a>>,
+    ) -> Result<SValue, FSRError> {
         let mut context = ThreadContext {
             exp: Vec::with_capacity(10),
             ip: fn_def.get_ip(),
@@ -1811,12 +1832,14 @@ impl<'a> FSRThreadRuntime<'a> {
             None => Ok(SValue::Global(0)),
         }
     }
-
 }
 
 #[allow(unused_imports)]
 mod test {
-    use crate::backend::{types::{base::FSRObject, module::FSRModule}, vm::runtime::FSRVM};
+    use crate::backend::{
+        types::{base::FSRObject, module::FSRModule},
+        vm::runtime::FSRVM,
+    };
 
     use super::FSRThreadRuntime;
 
