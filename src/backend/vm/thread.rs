@@ -116,6 +116,9 @@ impl TempHashMap {
 
     #[inline(always)]
     pub fn insert(&mut self, i: u64, v: u64) {
+        if i as usize >= self.vs.len() {
+            self.vs.resize(i as usize + 1, 0);
+        }
         self.vs[i as usize] = v;
     }
 
@@ -130,7 +133,7 @@ impl TempHashMap {
 
     pub fn new() -> Self {
         Self {
-            vs: vec![0; 10],
+            vs: vec![],
             iter: 0,
         }
     }
