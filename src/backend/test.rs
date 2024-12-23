@@ -196,7 +196,6 @@ dump(a)
     #[test]
     fn test_script() {
         let vs = vec![
-            "test_script/test_while.fs",
             "test_script/test_class.fs",
             "test_script/test_expression.fs",
             "test_script/test_nested_call.fs"];

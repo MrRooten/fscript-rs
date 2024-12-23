@@ -3,9 +3,8 @@ Running on bytecode, simple and useless program language, zero dependence script
 
 ## Wait for support
 ### [x] float type
-### [x] async 
+### [x] async support 
 ### [x] import module
-
 
 
 ## Usage
@@ -19,11 +18,11 @@ cargo build --release
 ### Test
 #### While Test
 ```rust
-println('test and benchmark self add 3000000')
-
-i = 0
-while i < 3000000 {
-    i = i + 1
+i = 3
+one = 1
+b = 3000000
+while i < b {
+    i = i + one
 }
 
 println(i)
@@ -34,10 +33,10 @@ target/release/fscript-rs ./test_script/test_while.fs
 ```
 
 ```
-test and benchmark self add 3000000
 3000000
-count: 27000012
-397.871106ms
+count: 26999986
+obj count: 4
+294.098625ms
 ```
 
 #### Class Test
