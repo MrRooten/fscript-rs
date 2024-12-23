@@ -1,5 +1,6 @@
 #![allow(clippy::ptr_arg)]
 
+use std::vec;
 #[cfg(feature = "perf")]
 use std::{
     borrow::Cow,
@@ -8,7 +9,6 @@ use std::{
     sync::atomic::AtomicU64,
     time::{Duration, Instant},
 };
-use std::vec;
 
 #[cfg(not(feature = "perf"))]
 use std::{borrow::Cow, collections::HashSet};
@@ -138,9 +138,7 @@ impl TempHashMap {
     }
 
     pub fn iter(&self) -> TempIterator {
-        TempIterator {
-            vs: self.vs.iter(),
-        }
+        TempIterator { vs: self.vs.iter() }
     }
 }
 
@@ -150,7 +148,7 @@ impl<'a> Iterator for TempIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         for s in self.vs.by_ref() {
             if s != &0 {
-                return Some(*s)
+                return Some(*s);
             }
         }
 
@@ -523,7 +521,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn compare(left: ObjId, right: ObjId, op: &str, thread: &mut Self) -> bool {
+    fn compare(left: ObjId, right: ObjId, op: &str, thread: &mut Self) -> Result<bool, FSRError> {
         let res;
 
         if op.eq(">") {
@@ -532,49 +530,52 @@ impl<'a> FSRThreadRuntime<'a> {
                 &vec![left, right],
                 thread,
                 None,
-            );
+            )?;
         } else if op.eq("<") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::Less,
                 &vec![left, right],
                 thread,
                 None,
-            );
+            )?;
         } else if op.eq(">=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::GreatEqual,
                 &vec![left, right],
                 thread,
                 None,
-            );
+            )?;
         } else if op.eq("<=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::LessEqual,
                 &vec![left, right],
                 thread,
                 None,
-            );
+            )?;
         } else if op.eq("==") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::Equal,
                 &vec![left, right],
                 thread,
                 None,
-            );
+            )?;
         } else if op.eq("!=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::NotEqual,
                 &vec![left, right],
                 thread,
                 None,
-            );
+            )?;
         } else {
-            unimplemented!()
+            return Err(FSRError::new(
+                format!("not support op: `{}`", op),
+                FSRErrCode::NotSupportOperator,
+            ));
         }
-        if let FSRRetValue::GlobalId(id) = &res.unwrap() {
-            return id == &1;
+        if let FSRRetValue::GlobalId(id) = &res {
+            return Ok(id == &1);
         }
-        unimplemented!()
+        return Err(FSRError::new("not a object", FSRErrCode::NotValidArgs));
     }
 
     fn pop_stack(&mut self, _vm: &mut FSRVM, escape: Option<HashSet<ObjId>>) {
@@ -645,25 +646,23 @@ impl<'a> FSRThreadRuntime<'a> {
         let to_assign_obj_id = context.exp.pop().unwrap().get_global_id(&self).unwrap();
 
         match assign_id {
-            SValue::Stack(s) => {
-                    if !FSRObject::is_sp_object(to_assign_obj_id) {
-                        let to_assign_obj = FSRObject::id_to_mut_obj(to_assign_obj_id);
-                        to_assign_obj.ref_add();
-                        let state = self.get_cur_mut_stack();
-                        if let SValue::Stack((var_id, _)) = assign_id {
-                            state.insert_var(&var_id, to_assign_obj_id);
-                        }
-                    } else {
-                        let state = self.get_cur_mut_stack();
-                        if let SValue::Stack((var_id, _)) = assign_id {
-                            state.insert_var(&var_id, to_assign_obj_id);
-                        }
-                    }
-            },
+            SValue::Stack((var_id, _)) => {
+                if !FSRObject::is_sp_object(to_assign_obj_id) {
+                    let to_assign_obj = FSRObject::id_to_mut_obj(to_assign_obj_id);
+                    to_assign_obj.ref_add();
+                    let state = self.get_cur_mut_stack();
+                    state.insert_var(&var_id, to_assign_obj_id);
+                    
+                } else {
+                    let state = self.get_cur_mut_stack();
+                    state.insert_var(&var_id, to_assign_obj_id);
+                    
+                }
+            }
             SValue::Attr(attr) => {
                 let father_obj = FSRObject::id_to_mut_obj(attr.0);
                 father_obj.set_attr(attr.2, to_assign_obj_id);
-            },
+            }
             SValue::Global(_) => todo!(),
             SValue::Object(_) => todo!(),
         }
@@ -781,7 +780,6 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-
     #[inline(always)]
     fn binary_sub_process(
         self: &mut FSRThreadRuntime<'a>,
@@ -852,7 +850,7 @@ impl<'a> FSRThreadRuntime<'a> {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
-                    "error in binary add 1",
+                    "error in binary mul 1",
                     FSRErrCode::EmptyExpStack,
                 ));
             }
@@ -937,7 +935,9 @@ impl<'a> FSRThreadRuntime<'a> {
             context.exp.push(SValue::Attr((dot_father, id, name)));
         } else {
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr((dot_father, attr_id.1, name)));
+            context
+                .exp
+                .push(SValue::Attr((dot_father, attr_id.1, name)));
         }
 
         Ok(false)
@@ -958,7 +958,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 SValue::Global(g) => g,
                 SValue::Object(obj) => FSRVM::leak_object(obj),
                 SValue::Attr(a) => a.1,
-                
             };
             args.push(a_id);
             i += 1;
@@ -968,9 +967,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline]
     fn save_ip_to_callstate(
         &mut self,
-        args_num: usize,
         exp: &mut Vec<SValue<'a>>,
-        args: &mut Vec<ObjId>,
         ip: &mut (usize, usize),
     ) {
         //Self::call_process_set_args(args_num, self, exp, args);
@@ -1097,7 +1094,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // }
 
         //let ptr = vm as *mut FSRVM;
-        let mut object_id = 0;
+        let mut object_id: Option<ObjId> = None;
         let fn_id = match context.exp.pop().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_stack();
@@ -1120,60 +1117,56 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             SValue::Global(id) => id,
             SValue::Attr((o, id, _)) => {
-                object_id = o;
+                object_id = Some(o);
                 id
-            },
+            }
             SValue::Object(_) => todo!(),
         };
 
-        if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
-            let fn_obj = FSRObject::id_to_obj(fn_id);
+        let fn_obj = FSRObject::id_to_obj(fn_id);
 
-            let n = *n;
+        if fn_obj.is_fsr_cls() {
+            let v = Self::process_fsr_cls(self, context, fn_obj, &mut args)?;
+            if v {
+                return Ok(v);
+            }
+        } else if object_id.is_some() {
+            let v = Self::process_fn_is_attr(self, context, object_id.unwrap(), fn_obj, &mut args)?;
+            context.is_attr = false;
+            if v {
+                return Ok(v);
+            }
+        } else {
+            self.save_ip_to_callstate(&mut context.exp, &mut context.ip);
+            self.call_stack.push(CallState::new(&Cow::Borrowed("tmp2")));
+            context.exp.clear();
 
-            if fn_obj.is_fsr_cls() {
-                let v = Self::process_fsr_cls(self, context, fn_obj, &mut args)?;
-                if v {
-                    return Ok(v);
+            if fn_obj.is_fsr_function() {
+                for arg in args.iter().rev() {
+                    let obj = FSRObject::id_to_obj(*arg);
+                    obj.ref_add();
+                    self.get_cur_mut_stack().args.push(*arg);
                 }
-            } else if object_id != 0 {
-                let v = Self::process_fn_is_attr(self, context, object_id, fn_obj, &mut args)?;
-                context.is_attr = false;
-                if v {
-                    return Ok(v);
-                }
+                //let offset = fn_obj.get_fsr_offset();
+                let offset = fn_obj.get_fsr_offset().1;
+                context.ip = (offset.0, 0);
+                return Ok(true);
             } else {
-                self.save_ip_to_callstate(n, &mut context.exp, &mut args, &mut context.ip);
-                self.call_stack.push(CallState::new(&Cow::Borrowed("tmp2")));
-                context.exp.clear();
+                let v = fn_obj.call(&args, self, context.module).unwrap();
 
-                if fn_obj.is_fsr_function() {
-                    for arg in args.iter().rev() {
-                        let obj = FSRObject::id_to_obj(*arg);
-                        obj.ref_add();
-                        self.get_cur_mut_stack().args.push(*arg);
-                    }
-                    //let offset = fn_obj.get_fsr_offset();
-                    let offset = fn_obj.get_fsr_offset().1;
-                    context.ip = (offset.0, 0);
-                    return Ok(true);
-                } else {
-                    let v = fn_obj.call(&args, self, context.module).unwrap();
-
-                    if let FSRRetValue::Value(v) = v {
-                        let id = FSRVM::leak_object(v);
-                        context.exp.push(SValue::Global(id));
-                        let vm = self.get_mut_vm();
-                        let mut esp = HashSet::new();
-                        esp.insert(id);
-                        self.pop_stack(vm, Some(esp));
-                    } else if let FSRRetValue::GlobalId(id) = v {
-                        context.exp.push(SValue::Global(id));
-                        let vm = self.get_mut_vm();
-                        let mut esp = HashSet::new();
-                        esp.insert(id);
-                        self.pop_stack(vm, Some(esp));
-                    }
+                if let FSRRetValue::Value(v) = v {
+                    let id = FSRVM::leak_object(v);
+                    context.exp.push(SValue::Global(id));
+                    let vm = self.get_mut_vm();
+                    let mut esp = HashSet::new();
+                    esp.insert(id);
+                    self.pop_stack(vm, Some(esp));
+                } else if let FSRRetValue::GlobalId(id) = v {
+                    context.exp.push(SValue::Global(id));
+                    let vm = self.get_mut_vm();
+                    let mut esp = HashSet::new();
+                    esp.insert(id);
+                    self.pop_stack(vm, Some(esp));
                 }
             }
         }
@@ -1237,13 +1230,19 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(id) = state.get_var(&s.0) {
                     *id
                 } else {
-                    unimplemented!()
+                    return Err(FSRError::new(
+                        format!("Not found variable `{}`", s.1),
+                        FSRErrCode::NoSuchObject,
+                    ));
                 }
             }
             SValue::Global(id) => id,
             SValue::Object(obj) => obj.is_true_id(),
             _ => {
-                unimplemented!()
+                return Err(FSRError::new(
+                    "Not a valid test object",
+                    FSRErrCode::NotValidArgs,
+                ))
             }
         };
         if test_val == context.vm.get_false_id() || test_val == context.vm.get_none_id() {
@@ -1371,7 +1370,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(id) = state.get_var(&s.0) {
                     *id
                 } else {
-                    unimplemented!()
+                    return Err(FSRError::new(
+                        format!("Not found variable `{}`", s.1),
+                        FSRErrCode::NoSuchObject,
+                    ));
                 }
             }
             SValue::Global(id) => id,
@@ -1478,7 +1480,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .get(context.exp.len() - 2)
                 .unwrap()
                 .get_global_id(self)?;
-            let v = Self::compare(left, right, op, self);
+            let v = Self::compare(left, right, op, self)?;
             context.exp.pop();
             context.exp.pop();
             if v {
@@ -1722,7 +1724,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::BinaryLShift => unimplemented!(),
             BytecodeOperator::StoreFast => unimplemented!(),
             BytecodeOperator::Load => unimplemented!(),
-            BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc)
+            BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc),
         }?;
 
         #[cfg(feature = "perf")]
@@ -1740,7 +1742,7 @@ impl<'a> FSRThreadRuntime<'a> {
         arg: &'a BytecodeArg,
         vm: &mut FSRVM<'a>,
         _s: &mut CallState,
-        module: Option<&FSRModule>
+        module: Option<&FSRModule>,
     ) {
         //*is_attr = false;
 
@@ -1752,7 +1754,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
                     if id != &0 {
                         exp_stack.push(SValue::Global(*id));
-                        return ;
+                        return;
                     }
                 }
             }
@@ -1772,7 +1774,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
                     if id != &0 {
                         exp_stack.push(SValue::Global(*id));
-                        return ;
+                        return;
                     }
                 }
             }
@@ -1827,7 +1829,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 println!("{:?}", context.exp);
                 println!("{}", t);
             }
-            
 
             if arg.get_operator() == &BytecodeOperator::Load {
                 #[cfg(feature = "perf")]

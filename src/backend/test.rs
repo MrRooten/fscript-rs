@@ -10,7 +10,7 @@ mod tests {
             vm::{runtime::FSRVM, thread::FSRThreadRuntime},
         },
         frontend::ast::token::{
-            base::{FSRPosition, FSRToken}, expr::FSRExpr, module::FSRModuleFrontEnd
+            base::{FSRPosition, FSRToken}, module::FSRModuleFrontEnd
         },
     };
 

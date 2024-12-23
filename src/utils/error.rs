@@ -72,7 +72,8 @@ pub enum FSRErrCode {
     NoSuchMethod,
     NoSuchObject,
     OutOfRange,
-    NotValidArgs
+    NotValidArgs,
+    NotSupportOperator
 }
 
 #[derive(Debug)]
@@ -82,13 +83,11 @@ pub struct FSRError {
 }
 
 impl FSRError {
-    pub fn new<S>(msg: S, code: FSRErrCode) -> Self
-    where
-        S: ToString,
+    pub fn new(msg: impl Into<String>, code: FSRErrCode) -> Self
     {
         Self {
             code,
-            msg: msg.to_string(),
+            msg: msg.into(),
         }
     }
 }

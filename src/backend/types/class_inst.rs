@@ -41,12 +41,23 @@ impl<'a> FSRClassInst<'a> {
     }
 
     pub fn set_attr(&mut self, name: &'a str, value: ObjId) {
-        if self.attrs.contains_key(name) {
-            let v = self.attrs.get(name).unwrap();
+        if let Some(v) = self.attrs.get_mut(name) {
             let obj = FSRObject::id_to_obj(*v);
             obj.ref_dec();
+            if obj.count_ref() == 0 {
+                FSRObject::drop_object(*v);
+            }
+            *v = value;
+        } else {
+            self.attrs.insert(name, value);
         }
-        self.attrs.insert(name, value);
+
+        // if self.attrs.contains_key(name) {
+        //     let v = self.attrs.get(name).unwrap();
+        //     let obj = FSRObject::id_to_obj(*v);
+        //     obj.ref_dec();
+        // }
+        // self.attrs.insert(name, value);
     }
 
     pub fn list_attrs(&self) -> Keys<&'a str, ObjId> {
