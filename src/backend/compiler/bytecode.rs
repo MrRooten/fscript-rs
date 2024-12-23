@@ -1,9 +1,8 @@
 use std::{
-    collections::HashMap,
-    sync::atomic::{AtomicU64, Ordering},
+    borrow::Cow, collections::HashMap, sync::atomic::{AtomicU64, Ordering}
 };
 
-use crate::frontend::ast::token::{
+use crate::{backend::{types::{integer::FSRInteger, string::FSRString}, vm::runtime::FSRVM}, frontend::ast::token::{
     assign::FSRAssign,
     base::{FSRPosition, FSRToken},
     block::FSRBlock,
@@ -19,7 +18,7 @@ use crate::frontend::ast::token::{
     return_def::FSRReturn,
     variable::FSRVariable,
     while_statement::FSRWhile,
-};
+}};
 
 #[derive(Debug, Clone, Copy)]
 pub enum BinaryOffset {
@@ -214,6 +213,29 @@ impl BytecodeOperator {
     }
 }
 
+#[derive(Debug)]
+pub struct ConstTable {
+    pub(crate) const_map: HashMap<FSROrinStr2, u64>,
+    pub(crate) table: Vec<u64>
+}
+
+#[allow(clippy::new_without_default)]
+impl ConstTable {
+    pub fn new() -> Self {
+        Self {
+            const_map: HashMap::new(),
+            table: vec![0],
+        }
+    }
+
+    pub fn insert(&mut self, c_id: usize, obj_id: u64) {
+        if c_id + 1 > self.table.len() {
+            self.table.resize(c_id + 1, 0);
+        }
+
+        self.table[c_id] = obj_id;
+    }
+}
 
 #[derive(Debug)]
 pub struct VarMap<'a> {
@@ -295,6 +317,7 @@ impl<'a> VarMap<'a> {
 pub struct Bytecode {
     #[allow(unused)]
     name: String,
+    pub(crate)  const_table: ConstTable,
     bytecode: Vec<Vec<BytecodeArg>>,
 }
 
@@ -311,7 +334,7 @@ impl<'a> Bytecode {
         call: &'a FSRCall<'a>,
         var_map: &'a mut VarMap<'a>,
         is_attr: bool,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result = Vec::new();
         let mut var_map_ref = var_map;
@@ -411,7 +434,7 @@ impl<'a> Bytecode {
     fn load_expr(
         expr: &'a FSRExpr<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut op_code = Vec::new();
         let mut var_map_ref = Some(var_map);
@@ -493,7 +516,7 @@ impl<'a> Bytecode {
     fn load_block(
         block: &'a FSRBlock<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut vs = vec![];
         let mut ref_self = var_map;
@@ -519,7 +542,7 @@ impl<'a> Bytecode {
     fn load_if_def(
         if_def: &'a FSRIf<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut var_ref = var_map;
         let test_exp = if_def.get_test();
@@ -593,7 +616,7 @@ impl<'a> Bytecode {
     fn load_for_def(
         for_def: &'a FSRFor<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut result = vec![];
 
@@ -679,7 +702,7 @@ impl<'a> Bytecode {
     fn load_while_def(
         while_def: &'a FSRWhile<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let test_exp = while_def.get_test();
         let mut vs = vec![];
@@ -724,7 +747,7 @@ impl<'a> Bytecode {
     fn load_token_with_map(
         token: &'a FSRToken<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         if let FSRToken::Expr(expr) = token {
             let v = Self::load_expr(expr, var_map, const_map);
@@ -795,7 +818,7 @@ impl<'a> Bytecode {
     fn load_assign(
         token: &'a FSRAssign<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result_list = Vec::new();
         if let FSRToken::Variable(v) = &**token.get_left() {
@@ -824,26 +847,34 @@ impl<'a> Bytecode {
     fn load_constant(
         token: &'a FSRConstant,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let c = token.get_const_str();
-        if !const_map.contains_key(&c.to_2()) {
-            let r = if const_map.len() == 0 {
+        if !const_map.const_map.contains_key(&c.to_2()) {
+            let r = if const_map.const_map.is_empty() {
                 1
             } else {
-                *const_map.values().max().unwrap() + 1
+                *const_map.const_map.values().max().unwrap() + 1
             };
-            const_map.insert(c.to_2(), r);
+            const_map.const_map.insert(c.to_2(), r);
         }
-        let id = *const_map.get(&c.to_2()).unwrap();
+        let id = *const_map.const_map.get(&c.to_2()).unwrap();
 
         let mut result_list = Vec::new();
         if let FSRConstantType::Integer(i) = token.get_constant() {
+            let obj = FSRInteger::new_inst(*i);
+            obj.set_not_delete();
+            let ptr = FSRVM::leak_object(Box::new(obj));
+            const_map.insert(id as usize, ptr);
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
                 arg: ArgType::ConstInteger(id, *i),
             });
         } else if let FSRConstantType::String(s) = token.get_constant() {
+            let obj = FSRString::new_inst(Cow::Owned(String::from_utf8_lossy(s).to_string()));
+            obj.set_not_delete();
+            let ptr = FSRVM::leak_object(Box::new(obj));
+            const_map.insert(id as usize, ptr);
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
                 arg: ArgType::ConstString(id, String::from_utf8_lossy(s).to_string()),
@@ -856,7 +887,7 @@ impl<'a> Bytecode {
     fn load_list(
         token: &'a FSRListFrontEnd,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result_list = Vec::new();
         let mut self_var = var_map;
@@ -883,7 +914,7 @@ impl<'a> Bytecode {
     fn load_ret(
         ret: &'a FSRReturn,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let v = Self::load_token_with_map(ret.get_return_expr(), var_map, const_map);
         let mut ret_expr = Vec::new();
@@ -902,7 +933,7 @@ impl<'a> Bytecode {
     fn load_function(
         fn_def: &'a FSRFnDef<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut result = vec![];
         let name = fn_def.get_name();
@@ -980,7 +1011,7 @@ impl<'a> Bytecode {
     fn load_class(
         class_def: &'a FSRClassFrontEnd<'a>,
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut HashMap<FSROrinStr2, u64>
+        const_map: &mut ConstTable
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut result = vec![];
         let name = class_def.get_name();
@@ -1016,15 +1047,15 @@ impl<'a> Bytecode {
         (result, var_map)
     }
 
-    fn load_isolate_block(token: &FSRToken<'a>, const_map: &mut HashMap<FSROrinStr2, u64>) -> Vec<Vec<BytecodeArg>> {
+    fn load_isolate_block(token: &FSRToken<'a>, const_map: &mut ConstTable) -> Vec<Vec<BytecodeArg>> {
         let mut var_map = VarMap::new();
         let v = Self::load_token_with_map(token, &mut var_map, const_map);
         v.0
     }
 
     pub fn load_ast(name: &str, token: FSRToken<'a>) -> Bytecode {
-        let mut const_map: HashMap<FSROrinStr2, u64> = HashMap::new();
-        let vs = Self::load_isolate_block(&token, &mut const_map);
+        let mut const_table = ConstTable::new();
+        let vs = Self::load_isolate_block(&token, &mut const_table);
         let mut result = vec![];
         for v in vs {
             let single_line = Vec::from_iter(v);
@@ -1033,6 +1064,7 @@ impl<'a> Bytecode {
         Self {
             bytecode: result,
             name: name.to_string(),
+            const_table,
         }
     }
 

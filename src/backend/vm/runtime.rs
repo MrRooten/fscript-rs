@@ -9,7 +9,7 @@ use crate::{
     std::io::init_io,
 };
 
-use super::thread::{FSRThreadRuntime, TempHashMap};
+use super::thread::FSRThreadRuntime;
 
 #[derive(Hash, Debug, Eq, PartialEq)]
 pub enum ConstType<'a> {

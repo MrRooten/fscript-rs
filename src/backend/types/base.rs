@@ -179,9 +179,6 @@ impl Clone for FSRObject<'_> {
 }
 
 #[cfg(feature="alloc_trace")]
-static mut O: AtomicU64 = AtomicU64::new(0);
-
-#[cfg(feature="alloc_trace")]
 pub struct HeapTrace {
     total_object: AtomicI64,
 }
@@ -202,7 +199,7 @@ impl HeapTrace {
 }
 
 #[cfg(feature="alloc_trace")]
-pub(crate) const HEAP_TRACE: HeapTrace = HeapTrace {
+pub(crate) static  HEAP_TRACE: HeapTrace = HeapTrace {
     total_object: AtomicI64::new(0),
 };
 

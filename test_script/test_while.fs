@@ -1,6 +1,6 @@
 i = 3
 one = 1
-b = 3000000
+b = 3000
 while i < b {
     i = i + one
 }

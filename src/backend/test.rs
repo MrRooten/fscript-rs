@@ -1,11 +1,13 @@
 #[cfg(test)]
 mod tests {
 
-    use std::time::Instant;
+    use std::{io::Read, time::Instant};
 
     use crate::{
         backend::{
-            compiler::bytecode::{BinaryOffset, Bytecode}, types::{base::FSRObject, integer::FSRInteger, module::FSRModule}, vm::{runtime::FSRVM, thread::FSRThreadRuntime}
+            compiler::bytecode::{BinaryOffset, Bytecode},
+            types::{base::FSRObject, integer::FSRInteger, module::FSRModule},
+            vm::{runtime::FSRVM, thread::FSRThreadRuntime},
         },
         frontend::ast::token::{
             base::{FSRPosition, FSRToken},
@@ -138,8 +140,7 @@ dump(a)
         let mut vm = FSRVM::new();
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
-        
-        
+
         runtime.set_vm(&mut vm);
 
         for _ in 0..3000000 {
@@ -150,7 +151,7 @@ dump(a)
                 BinaryOffset::Add,
                 &vec![FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
                 &mut runtime,
-                None
+                None,
             )
             .unwrap();
         }
@@ -173,8 +174,7 @@ dump(a)
         let mut vm = FSRVM::new();
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
-        
-        
+
         runtime.set_vm(&mut vm);
 
         for _ in 0..3000000 {
@@ -185,11 +185,33 @@ dump(a)
                 BinaryOffset::Greater,
                 &vec![FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
                 &mut runtime,
-                None
+                None,
             )
             .unwrap();
         }
         let end = Instant::now();
         println!("{:?}", end - start);
+    }
+
+    #[test]
+    fn test_script() {
+        let vs = vec![
+            "test_script/test_while.fs",
+            "test_script/test_class.fs",
+            "test_script/test_expression.fs",
+            "test_script/test_nested_call.fs"];
+        for i in vs {
+            let file = i;
+            let mut f = std::fs::File::open(file).unwrap();
+            let mut source_code = String::new();
+            f.read_to_string(&mut source_code).unwrap();
+            let v = FSRModule::from_code("main", &source_code).unwrap();
+            let mut runtime = FSRThreadRuntime::new();
+            let mut vm = FSRVM::new();
+            let start = Instant::now();
+            runtime.start(&v, &mut vm).unwrap();
+            let end = Instant::now();
+            println!("{:?}", end - start);
+        }
     }
 }

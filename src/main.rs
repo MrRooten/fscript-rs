@@ -1,6 +1,6 @@
 
 
-use std::{io::Read, time::Instant};
+use std::time::Instant;
 
 use fscript_rs::backend::{
     types::module::FSRModule, vm::{runtime::FSRVM, thread::FSRThreadRuntime}

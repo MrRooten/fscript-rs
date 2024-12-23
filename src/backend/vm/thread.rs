@@ -13,8 +13,6 @@ use std::vec;
 #[cfg(not(feature = "perf"))]
 use std::{borrow::Cow, collections::HashSet};
 
-use ahash::AHashSet;
-
 use crate::{
     backend::{
         compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
@@ -107,6 +105,7 @@ pub struct TempIterator<'a> {
     vs: core::slice::Iter<'a, u64>,
 }
 
+#[allow(clippy::new_without_default)]
 #[allow(unused)]
 impl TempHashMap {
     #[inline(always)]
@@ -149,13 +148,13 @@ impl<'a> Iterator for TempIterator<'a> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(s) = self.vs.next() {
+        for s in self.vs.by_ref() {
             if s != &0 {
                 return Some(*s)
             }
         }
 
-        return None
+        None
     }
 }
 
@@ -1648,7 +1647,8 @@ impl<'a> FSRThreadRuntime<'a> {
         exp_stack: &mut Vec<SValue<'a>>,
         arg: &'a BytecodeArg,
         vm: &mut FSRVM<'a>,
-        s: &mut CallState,
+        _s: &mut CallState,
+        module: Option<&FSRModule>
     ) {
         //*is_attr = false;
 
@@ -1656,19 +1656,34 @@ impl<'a> FSRThreadRuntime<'a> {
             exp_stack.push(SValue::Stack((*id, name)));
         } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
             //let int_const = Self::load_integer_const(i, vm);
+            if let Some(m) = module {
+                if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
+                    if id != &0 {
+                        exp_stack.push(SValue::Global(*id));
+                        return ;
+                    }
+                }
+            }
             if !vm.has_int_const(i) {
                 let obj = FSRInteger::new_inst(*i);
                 obj.set_not_delete();
                 vm.insert_int_const(i, obj);
             }
 
-            let id = vm.get_int_const(&i).unwrap();
+            let id = vm.get_int_const(i).unwrap();
 
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::ConstString(c_id, i) = arg.get_arg() {
             // let string_const = Self::load_string_const(i.clone(), vm);
             // s.insert_const(id, string_const);
-
+            if let Some(m) = module {
+                if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
+                    if id != &0 {
+                        exp_stack.push(SValue::Global(*id));
+                        return ;
+                    }
+                }
+            }
             if !vm.has_str_const(i.as_str()) {
                 let obj = FSRString::new_inst(Cow::Owned(i.clone()));
                 obj.set_not_delete();
@@ -1725,7 +1740,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 #[cfg(feature = "perf")]
                 self.bytecode_map.start_time(&BytecodeOperator::Load);
                 let state = self.get_cur_mut_stack();
-                Self::load_var(&mut context.exp, arg, context.vm, state);
+                Self::load_var(&mut context.exp, arg, context.vm, state, context.module);
 
                 #[cfg(feature = "perf")]
                 self.bytecode_map.end_time(&BytecodeOperator::Load);
