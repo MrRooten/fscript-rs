@@ -1,6 +1,13 @@
+class Ddc {
+    fn __new__(self) {
+        self.ddc = 123
+        return self
+    }
+}
+
 class Abc {
     fn __new__(self) {
-        self.abc = 0
+        self.abc = Ddc()
         return self
     }
 
@@ -16,8 +23,8 @@ class Abc {
 a = Abc()
 println(a)
 
-if a.abc < 300 {
-    a.abc = a.abc + 1 + a.abc + a.test()
+if a.abc.ddc < 323 {
+    a.abc.ddc = a.test() + a.abc.ddc
 }
 
-println(a.abc)
+println(a.abc.ddc)

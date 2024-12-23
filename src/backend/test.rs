@@ -10,8 +10,7 @@ mod tests {
             vm::{runtime::FSRVM, thread::FSRThreadRuntime},
         },
         frontend::ast::token::{
-            base::{FSRPosition, FSRToken},
-            module::FSRModuleFrontEnd,
+            base::{FSRPosition, FSRToken}, expr::FSRExpr, module::FSRModuleFrontEnd
         },
     };
 
@@ -22,6 +21,16 @@ mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_expr_method() {
+        let s = "a.abc(1)\n";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);
     }

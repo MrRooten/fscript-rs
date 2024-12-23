@@ -343,15 +343,7 @@ impl<'a> Bytecode {
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result = Vec::new();
         let mut var_map_ref = var_map;
-        for arg in call.get_args() {
-            let mut v = Self::load_token_with_map(arg, var_map_ref, const_map);
-            var_map_ref = v.1;
-            result.append(&mut v.0[0]);
-            // result.push(BytecodeArg {
-            //     operator: BytecodeOperator::InsertArg,
-            //     arg: ArgType::None,
-            // });
-        }
+        
 
         let name = call.get_name();
         if is_attr {
@@ -378,6 +370,16 @@ impl<'a> Bytecode {
                 operator: BytecodeOperator::Load,
                 arg: ArgType::Variable(*id, name.to_string()),
             });
+        }
+
+        for arg in call.get_args() {
+            let mut v = Self::load_token_with_map(arg, var_map_ref, const_map);
+            var_map_ref = v.1;
+            result.append(&mut v.0[0]);
+            // result.push(BytecodeArg {
+            //     operator: BytecodeOperator::InsertArg,
+            //     arg: ArgType::None,
+            // });
         }
 
         result.push(BytecodeArg {

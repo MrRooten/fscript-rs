@@ -28,6 +28,17 @@ mod frontend_tests {
     }
 
     #[test]
+    fn test_expr_method() {
+        let s = "a.abc(1)\n";
+
+        let meta = FSRPosition::new();
+        let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
+
+        println!("{:#?}", expr);
+    }
+
+
+    #[test]
     fn test_empty_expr() {
         let s = "( )\n";
         let meta = FSRPosition::new();
