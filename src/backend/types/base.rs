@@ -400,7 +400,7 @@ impl<'a> FSRObject<'a> {
     #[inline]
     pub fn invoke_offset_method(
         offset: BinaryOffset,
-        args: &Vec<ObjId>,
+        args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -469,7 +469,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn call(
         &'a self,
-        args: &Vec<ObjId>,
+        args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue, FSRError> {

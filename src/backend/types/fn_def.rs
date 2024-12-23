@@ -110,7 +110,7 @@ impl<'a> FSRFn<'a> {
 
     pub fn invoke(
         &'a self,
-        args: &Vec<ObjId>,
+        args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<&'a FSRModule<'a>>,
     ) -> Result<FSRRetValue, FSRError> {

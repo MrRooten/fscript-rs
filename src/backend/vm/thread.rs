@@ -510,8 +510,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     pub fn get_cur_mut_stack(&mut self) -> &mut CallState<'a> {
-        let l = self.call_stack.len();
-        return self.call_stack.get_mut(l - 1).unwrap();
+        return self.call_stack.last_mut().unwrap();
     }
 
     #[inline(always)]
@@ -527,42 +526,42 @@ impl<'a> FSRThreadRuntime<'a> {
         if op.eq(">") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::Greater,
-                &vec![left, right],
+                &[left, right],
                 thread,
                 None,
             )?;
         } else if op.eq("<") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::Less,
-                &vec![left, right],
+                &[left, right],
                 thread,
                 None,
             )?;
         } else if op.eq(">=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::GreatEqual,
-                &vec![left, right],
+                &[left, right],
                 thread,
                 None,
             )?;
         } else if op.eq("<=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::LessEqual,
-                &vec![left, right],
+                &[left, right],
                 thread,
                 None,
             )?;
         } else if op.eq("==") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::Equal,
-                &vec![left, right],
+                &[left, right],
                 thread,
                 None,
             )?;
         } else if op.eq("!=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::NotEqual,
-                &vec![left, right],
+                &[left, right],
                 thread,
                 None,
             )?;
@@ -1797,16 +1796,21 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     fn set_exp_stack_ret(&mut self, exp_stack: &mut Vec<SValue<'a>>) {
         let stack = self.get_cur_mut_stack();
-        if stack.exp.is_some() {
-            *exp_stack = stack.exp.take().unwrap();
+        if let Some(s) = stack.exp.take() {
+            *exp_stack = s;
             stack.exp = None;
         }
 
-        if stack.ret_val.is_some() {
-            let v = stack.ret_val.take();
-            exp_stack.push(v.unwrap());
+        if let Some(s) = stack.ret_val.take() {
+            exp_stack.push(s);
             stack.ret_val = None;
         }
+
+        // if stack.ret_val.is_some() {
+        //     let v = stack.ret_val.take();
+        //     exp_stack.push(v.unwrap());
+        //     stack.ret_val = None;
+        // }
     }
 
     #[inline(always)]
@@ -1900,7 +1904,7 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn call_fn(
         &mut self,
         fn_def: &'a FSRFnInner,
-        args: &Vec<ObjId>,
+        args: &[ObjId],
         module: Option<&'a FSRModule<'a>>,
     ) -> Result<SValue, FSRError> {
         let mut context = ThreadContext {
