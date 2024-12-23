@@ -1,2 +1,4 @@
 a = 1
-println(a)
+c = a - 3
+
+println(c)

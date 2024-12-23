@@ -380,11 +380,7 @@ pub struct VecMap<'a> {
 }
 
 impl<'a> VecMap<'a> {
-    pub fn insert(&mut self, k: BytecodeOperator, f: BytecodeFn<'a>) {
-        if k as usize != self.inner.len() {
-            panic!()
-        }
-
+    pub fn insert(&mut self, _k: BytecodeOperator, f: BytecodeFn<'a>) {
         self.inner.push(f);
     }
 
@@ -490,6 +486,7 @@ impl<'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::AndJump, Self::process_logic_and);
         map.insert(BytecodeOperator::OrJump, Self::process_logic_or);
         map.insert(BytecodeOperator::Empty, Self::empty_process);
+        map.insert(BytecodeOperator::BinarySub, Self::binary_sub_process);
 
         Self {
             call_stack: vec![CallState::new(&Cow::Borrowed("base"))],
@@ -749,7 +746,66 @@ impl<'a> FSRThreadRuntime<'a> {
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
         let res =
-            FSRObject::invoke_offset_method(BinaryOffset::Add, &vec![v1_id, v2_id], self, None)?;
+            FSRObject::invoke_offset_method(BinaryOffset::Add, &vec![v2_id, v1_id], self, None)?;
+
+        match res {
+            FSRRetValue::Value(object) => {
+                let res_id = FSRVM::leak_object(object);
+                context.exp.push(SValue::Global(res_id));
+            }
+            FSRRetValue::GlobalId(res_id) => {
+                context.exp.push(SValue::Global(res_id));
+            }
+            FSRRetValue::GlobalIdTemp(res_id) => {
+                context.exp.push(SValue::Global(res_id));
+            }
+        };
+
+        Ok(false)
+    }
+
+
+    #[inline(always)]
+    fn binary_sub_process(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        _bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let _state = self.get_cur_mut_stack();
+        let v1 = match context.exp.pop() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary sub 1",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+        if let SValue::Attr(_) = &v1 {
+            context.exp.pop();
+            context.is_attr = false;
+        }
+
+        let v2 = match context.exp.pop() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary sub 2",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+        if let SValue::Attr(_) = &v2 {
+            context.exp.pop();
+            context.is_attr = false;
+        }
+
+        let v1_id = v1.get_global_id(self)?;
+        let v2_id = v2.get_global_id(self)?;
+        let res =
+            FSRObject::invoke_offset_method(BinaryOffset::Sub, &vec![v2_id, v1_id], self, None)?;
 
         match res {
             FSRRetValue::Value(object) => {
@@ -809,7 +865,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v2_id = v2.get_global_id(self)?;
         //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
         let res =
-            FSRObject::invoke_offset_method(BinaryOffset::Mul, &vec![v1_id, v2_id], self, None)?;
+            FSRObject::invoke_offset_method(BinaryOffset::Mul, &vec![v2_id, v1_id], self, None)?;
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = FSRVM::leak_object(object);
@@ -1631,6 +1687,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::BinaryLShift => unimplemented!(),
             BytecodeOperator::StoreFast => unimplemented!(),
             BytecodeOperator::Load => unimplemented!(),
+            BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc)
         }?;
 
         #[cfg(feature = "perf")]

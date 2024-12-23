@@ -96,8 +96,8 @@ pub enum BytecodeOperator {
     // BinarySub,
     BinaryRShift = 29,
     BinaryLShift = 30,
-
     StoreFast = 31,
+    BinarySub = 32,
 
     Load = 1000,
 }
@@ -208,6 +208,11 @@ impl BytecodeOperator {
                 operator: BytecodeOperator::BinaryRShift,
                 arg: ArgType::None,
             });
+        } else if op.eq("-") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::BinarySub,
+                arg: ArgType::None
+            })
         }
         None
     }
