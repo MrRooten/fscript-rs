@@ -18,6 +18,8 @@ use super::{
     class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
 };
 
+pub type ObjId = usize;
+
 pub enum FSRGlobalObjId {
     None = 0,
     True = 1,
@@ -47,14 +49,14 @@ pub enum FSRValue<'a> {
 #[derive(Debug)]
 pub enum FSRRetValue<'a> {
     Value(Box<FSRObject<'a>>),
-    GlobalId(u64),
-    GlobalIdTemp(u64)
+    GlobalId(ObjId),
+    GlobalIdTemp(ObjId)
 }
 
 impl<'a> FSRValue<'a> {
     fn inst_to_string(
         inst: &FSRClassInst,
-        self_id: u64,
+        self_id: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
     ) -> Option<Cow<'a, str>> {
         let vm = thread.get_vm();
@@ -92,7 +94,7 @@ impl<'a> FSRValue<'a> {
         None
     }
 
-    fn to_string(&self, self_id: u64, thread: &mut FSRThreadRuntime<'a>) -> Option<Cow<str>> {
+    fn to_string(&self, self_id: ObjId, thread: &mut FSRThreadRuntime<'a>) -> Option<Cow<str>> {
         let s = match self {
             FSRValue::Integer(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::Float(e) => Some(Cow::Owned(e.to_string())),
@@ -139,10 +141,10 @@ impl<'a> FSRValue<'a> {
 
 
 pub struct FSRObject<'a> {
-    pub(crate) obj_id: u64,
+    pub(crate) obj_id: ObjId,
     pub(crate) value: FSRValue<'a>,
     pub(crate) ref_count: AtomicU64,
-    pub(crate) cls: u64,
+    pub(crate) cls: ObjId,
     pub(crate) delete_flag: RefCell<bool>
 }
 
@@ -220,7 +222,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    pub fn is_true_id(&self) -> u64 {
+    pub fn is_true_id(&self) -> ObjId {
         if let FSRValue::None = self.value {
             return 2
         }
@@ -240,7 +242,7 @@ impl<'a> FSRObject<'a> {
         self.value = value;
     }
 
-    pub fn set_cls(&mut self, cls: u64) {
+    pub fn set_cls(&mut self, cls: ObjId) {
         self.cls = cls
     }
 
@@ -251,7 +253,7 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    pub fn set_attr(&mut self, name: &'a str, obj_id: u64) {
+    pub fn set_attr(&mut self, name: &'a str, obj_id: ObjId) {
         if let FSRValue::ClassInst(inst) = &mut self.value {
             inst.set_attr(name, obj_id);
             return;
@@ -269,11 +271,11 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline]
-    pub fn obj_to_id(obj: &FSRObject<'a>) -> u64 {
-        obj as *const Self as u64
+    pub fn obj_to_id(obj: &FSRObject<'a>) -> ObjId {
+        obj as *const Self as ObjId
     }
 
-    pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
+    pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<ObjId> {
         if let Some(btype) = vm.get_base_cls(self.cls) {
             return btype.get_attr(name);
         }
@@ -287,7 +289,7 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline]
-    pub fn get_cls_offset_attr(&self, offset: BinaryOffset, vm: &FSRVM<'a>) -> Option<u64> {
+    pub fn get_cls_offset_attr(&self, offset: BinaryOffset, vm: &FSRVM<'a>) -> Option<ObjId> {
         if let Some(btype) = vm.get_base_cls(self.cls) {
             return btype.get_offset_attr(offset);
         }
@@ -301,9 +303,9 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
-    fn sp_object(id: u64) -> &'static FSRObject<'static> {
+    fn sp_object(id: ObjId) -> &'static FSRObject<'static> {
         unsafe {
-            if let Some(obj) = OBJECTS.get(id as usize) {
+            if let Some(obj) = OBJECTS.get(id) {
                 return obj;
             }
         }
@@ -312,7 +314,7 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
-    pub fn is_sp_object(id: u64) -> bool {
+    pub fn is_sp_object(id: ObjId) -> bool {
         id < 1000
     }
 
@@ -338,7 +340,7 @@ impl<'a> FSRObject<'a> {
         self.ref_count.fetch_sub(1, Ordering::AcqRel);
     }
 
-    pub fn drop_object(id: u64) {
+    pub fn drop_object(id: ObjId) {
         let obj = FSRObject::id_to_obj(id);
         if !(*obj.delete_flag.borrow()) {
             return ;
@@ -356,7 +358,7 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
-    pub fn id_to_obj(id: u64) -> &'a FSRObject<'a> {
+    pub fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
         if id < 1000 {
             return Self::sp_object(id);
         }
@@ -367,7 +369,7 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
-    pub fn id_to_mut_obj(id: u64) -> &'a mut FSRObject<'a> {
+    pub fn id_to_mut_obj(id: ObjId) -> &'a mut FSRObject<'a> {
         unsafe {
             let ptr = id as *mut FSRObject;
             &mut *ptr
@@ -376,7 +378,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn invoke_method(
         name: &str,
-        args: &Vec<u64>,
+        args: &Vec<ObjId>,
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -398,7 +400,7 @@ impl<'a> FSRObject<'a> {
     #[inline]
     pub fn invoke_offset_method(
         offset: BinaryOffset,
-        args: &Vec<u64>,
+        args: &Vec<ObjId>,
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -424,7 +426,7 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline]
-    pub fn get_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<u64> {
+    pub fn get_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<ObjId> {
         if let Some(s) = self.get_cls_attr(name, vm) {
             return Some(s);
         }
@@ -442,7 +444,7 @@ impl<'a> FSRObject<'a> {
         None
     }
 
-    pub fn list_attrs(&self) -> Keys<&'a str, u64> {
+    pub fn list_attrs(&self) -> Keys<&'a str, ObjId> {
         if let FSRValue::ClassInst(inst) = &self.value {
             return inst.list_attrs();
         }
@@ -452,22 +454,22 @@ impl<'a> FSRObject<'a> {
 
     #[inline(always)]
     pub fn is_true(&self) -> bool {
-        self.obj_id == FSRGlobalObjId::True as u64
+        self.obj_id == FSRGlobalObjId::True as ObjId
     }
 
     #[inline(always)]
     pub fn is_false(&self) -> bool {
-        self.obj_id == FSRGlobalObjId::False as u64
+        self.obj_id == FSRGlobalObjId::False as ObjId
     }
 
     #[inline(always)]
     pub fn is_none(&self) -> bool {
-        self.obj_id == FSRGlobalObjId::None as u64
+        self.obj_id == FSRGlobalObjId::None as ObjId
     }
 
     pub fn call(
         &'a self,
-        args: &Vec<u64>,
+        args: &Vec<ObjId>,
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue, FSRError> {

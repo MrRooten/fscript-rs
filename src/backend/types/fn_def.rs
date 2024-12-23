@@ -6,12 +6,12 @@ use crate::{
 };
 
 use super::{
-    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
+    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass, module::FSRModule,
 };
 
 type FSRRustFn = for<'a> fn(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&'a FSRModule<'a>>
 ) -> Result<FSRRetValue<'a>, FSRError>;
@@ -85,7 +85,7 @@ impl<'a> FSRFn<'a> {
         FSRObject {
             obj_id: 0,
             value: FSRValue::Function(v),
-            cls: FSRGlobalObjId::FnCls as u64,
+            cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU64::new(0),
             delete_flag: RefCell::new(true),
         }
@@ -98,7 +98,7 @@ impl<'a> FSRFn<'a> {
         FSRObject {
             obj_id: 0,
             value: FSRValue::Function(v),
-            cls: FSRGlobalObjId::FnCls as u64,
+            cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU64::new(0),
             delete_flag: RefCell::new(true),
         }
@@ -110,7 +110,7 @@ impl<'a> FSRFn<'a> {
 
     pub fn invoke(
         &'a self,
-        args: &Vec<u64>,
+        args: &Vec<ObjId>,
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<&'a FSRModule<'a>>,
     ) -> Result<FSRRetValue, FSRError> {

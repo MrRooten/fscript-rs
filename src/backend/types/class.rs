@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use crate::backend::{compiler::bytecode::BinaryOffset, vm::runtime::FSRVM};
 
-use super::base::{FSRObject, FSRValue};
+use super::base::{FSRObject, FSRValue, ObjId};
 use std::fmt::Debug;
 
 #[derive(Clone)]
 pub struct FSRClass<'a> {
     pub(crate) name: &'a str,
-    pub(crate) attrs: HashMap<&'a str, u64>,
-    pub(crate) offset_attrs    : Vec<u64>
+    pub(crate) attrs: HashMap<&'a str, ObjId>,
+    pub(crate) offset_attrs    : Vec<ObjId>
 }
 
 #[allow(unused)]
@@ -61,16 +61,16 @@ impl<'a> FSRClass<'a> {
         self.offset_attrs[offset as usize] = obj_id;
     }
 
-    pub fn insert_attr_id(&mut self, name: &'a str, obj_id: u64) {
+    pub fn insert_attr_id(&mut self, name: &'a str, obj_id: ObjId) {
         self.attrs.insert(name, obj_id);
     }
 
-    pub fn get_attr(&self, name: &str) -> Option<u64> {
+    pub fn get_attr(&self, name: &str) -> Option<ObjId> {
         return self.attrs.get(name).copied();
     }
 
     #[inline]
-    pub fn get_offset_attr(&self, offset: BinaryOffset) -> Option<u64> {
+    pub fn get_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
         if let Some(s) = self.offset_attrs.get(offset as usize) {
             if s == &0 {
                 return None

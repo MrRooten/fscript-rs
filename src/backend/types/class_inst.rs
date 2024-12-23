@@ -2,13 +2,13 @@ use std::{
     borrow::Cow, collections::{hash_map::Keys, HashMap}, fmt::Debug
 };
 
-use super::base::{FSRObject, FSRValue};
+use super::base::{FSRObject, FSRValue, ObjId};
 
 #[derive(Clone)]
 pub struct FSRClassInst<'a> {
     #[allow(unused)]
     name: &'a str,
-    attrs: HashMap<&'a str, u64>,
+    attrs: HashMap<&'a str, ObjId>,
 }
 
 impl Debug for FSRClassInst<'_> {
@@ -36,11 +36,11 @@ impl<'a> FSRClassInst<'a> {
         }
     }
 
-    pub fn get_attr(&self, name: &str) -> Option<&u64> {
+    pub fn get_attr(&self, name: &str) -> Option<&ObjId> {
         return self.attrs.get(name);
     }
 
-    pub fn set_attr(&mut self, name: &'a str, value: u64) {
+    pub fn set_attr(&mut self, name: &'a str, value: ObjId) {
         if self.attrs.contains_key(name) {
             let v = self.attrs.get(name).unwrap();
             let obj = FSRObject::id_to_obj(*v);
@@ -49,7 +49,7 @@ impl<'a> FSRClassInst<'a> {
         self.attrs.insert(name, value);
     }
 
-    pub fn list_attrs(&self) -> Keys<&'a str, u64> {
+    pub fn list_attrs(&self) -> Keys<&'a str, ObjId> {
         return self.attrs.keys();
     }
 

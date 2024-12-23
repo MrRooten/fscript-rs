@@ -17,7 +17,7 @@ use crate::{
     backend::{
         compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
         types::{
-            base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
+            base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
             fn_def::{FSRFn, FSRFnInner},
@@ -96,25 +96,25 @@ impl Bitmap {
 
 #[derive(Debug)]
 pub struct TempHashMap {
-    vs: Vec<u64>,
+    vs: Vec<ObjId>,
     #[allow(unused)]
-    iter: u64,
+    iter: ObjId,
 }
 
 pub struct TempIterator<'a> {
-    vs: core::slice::Iter<'a, u64>,
+    vs: core::slice::Iter<'a, ObjId>,
 }
 
 #[allow(clippy::new_without_default)]
 #[allow(unused)]
 impl TempHashMap {
     #[inline(always)]
-    pub fn get(&self, i: &u64) -> Option<&u64> {
+    pub fn get(&self, i: &u64) -> Option<&ObjId> {
         self.vs.get(*i as usize)
     }
 
     #[inline(always)]
-    pub fn insert(&mut self, i: u64, v: u64) {
+    pub fn insert(&mut self, i: u64, v: ObjId) {
         if i as usize >= self.vs.len() {
             self.vs.resize(i as usize + 1, 0);
         }
@@ -145,7 +145,7 @@ impl TempHashMap {
 }
 
 impl<'a> Iterator for TempIterator<'a> {
-    type Item = u64;
+    type Item = ObjId;
 
     fn next(&mut self) -> Option<Self::Item> {
         for s in self.vs.by_ref() {
@@ -162,11 +162,11 @@ pub struct CallState<'a> {
     var_map: TempHashMap,
     const_map: TempHashMap,
     reverse_ip: (usize, usize),
-    args: Vec<u64>,
+    args: Vec<ObjId>,
     cur_cls: Option<FSRClass<'a>>,
     ret_val: Option<SValue<'a>>,
     exp: Option<Vec<SValue<'a>>>,
-    clear_list: Vec<u64>,
+    clear_list: Vec<ObjId>,
     #[allow(unused)]
     name: Cow<'a, str>,
 }
@@ -180,7 +180,7 @@ impl<'a> CallState<'a> {
     }
 
     #[inline(always)]
-    pub fn get_var(&self, id: &u64) -> Option<&u64> {
+    pub fn get_var(&self, id: &u64) -> Option<&ObjId> {
         if let Some(s) = self.var_map.get(id) {
             if s == &0 {
                 return None;
@@ -193,7 +193,7 @@ impl<'a> CallState<'a> {
     }
 
     #[inline(always)]
-    pub fn insert_var(&mut self, id: &u64, obj_id: u64) {
+    pub fn insert_var(&mut self, id: &u64, obj_id: ObjId) {
         if self.var_map.contains_key(id) {
             let to_be_dec = self.var_map.get(id).unwrap();
             let origin_obj = FSRObject::id_to_obj(*to_be_dec);
@@ -221,7 +221,7 @@ impl<'a> CallState<'a> {
     }
 
     #[inline(always)]
-    pub fn get_const(&self, id: &u64) -> Option<u64> {
+    pub fn get_const(&self, id: &u64) -> Option<ObjId> {
         if let Some(s) = self.const_map.get(id) {
             if s == &0 {
                 return None;
@@ -255,8 +255,8 @@ impl<'a> CallState<'a> {
 #[derive(Debug, Clone)]
 pub enum SValue<'a> {
     Stack((u64, &'a String)),
-    Attr((u64, &'a String)),
-    Global(u64),
+    Attr((ObjId, &'a String)),
+    Global(ObjId),
     #[allow(dead_code)]
     Object(Box<FSRObject<'a>>),
 }
@@ -271,7 +271,7 @@ impl<'a> SValue<'a> {
         false
     }
     #[inline(always)]
-    pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> Result<u64, FSRError> {
+    pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> Result<ObjId, FSRError> {
         let state = thread.get_cur_stack();
         let vm = thread.get_vm();
         Ok(match self {
@@ -317,7 +317,7 @@ pub struct ThreadContext<'a> {
     last_if_test: Vec<bool>,
     break_line: Vec<usize>,
     continue_line: Vec<usize>,
-    for_iter_obj: Vec<u64>,
+    for_iter_obj: Vec<ObjId>,
     #[allow(unused)]
     module_stack: Vec<u64>,
     module: Option<&'a FSRModule<'a>>,
@@ -526,7 +526,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn compare(left: u64, right: u64, op: &str, thread: &mut Self) -> bool {
+    fn compare(left: ObjId, right: ObjId, op: &str, thread: &mut Self) -> bool {
         let res;
 
         if op.eq(">") {
@@ -580,7 +580,7 @@ impl<'a> FSRThreadRuntime<'a> {
         unimplemented!()
     }
 
-    fn pop_stack(&mut self, _vm: &mut FSRVM, escape: Option<HashSet<u64>>) {
+    fn pop_stack(&mut self, _vm: &mut FSRVM, escape: Option<HashSet<ObjId>>) {
         let v = self.call_stack.pop().unwrap();
         for kv in v.var_map.iter() {
             let obj = FSRObject::id_to_obj(kv);
@@ -876,7 +876,7 @@ impl<'a> FSRThreadRuntime<'a> {
         args_num: usize,
         thread: &Self,
         exp: &mut Vec<SValue<'a>>,
-        args: &mut Vec<u64>,
+        args: &mut Vec<ObjId>,
     ) {
         let mut i = 0;
         while i < args_num {
@@ -897,7 +897,7 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         args_num: usize,
         exp: &mut Vec<SValue<'a>>,
-        args: &mut Vec<u64>,
+        args: &mut Vec<ObjId>,
         ip: &mut (usize, usize),
     ) {
         Self::call_process_set_args(args_num, self, exp, args);
@@ -1519,7 +1519,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_stack();
         let mut cls_obj = FSRObject::new();
-        cls_obj.set_cls(FSRGlobalObjId::ClassCls as u64);
+        cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
         let obj = state.cur_cls.take().unwrap();
         let name = obj.get_name().to_string();
         cls_obj.set_value(FSRValue::Class(obj));
@@ -1693,7 +1693,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let id = vm.get_str_const(i.as_str()).unwrap();
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::Attr(id, name) = arg.get_arg() {
-            exp_stack.push(SValue::Attr((*id, name)));
+            exp_stack.push(SValue::Attr((*id as usize, name)));
         }
         // } else {
         //     panic!("not recongize load var: {:#?}", arg)
@@ -1806,7 +1806,7 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn call_fn(
         &mut self,
         fn_def: &'a FSRFnInner,
-        args: &Vec<u64>,
+        args: &Vec<ObjId>,
         module: Option<&'a FSRModule<'a>>,
     ) -> Result<SValue, FSRError> {
         let mut context = ThreadContext {

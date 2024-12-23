@@ -1,7 +1,7 @@
 use crate::{
     backend::{
         types::{
-            base::{FSRObject, FSRRetValue, FSRValue}, module::FSRModule}
+            base::{FSRObject, FSRRetValue, FSRValue, ObjId}, module::FSRModule}
         ,
         vm::thread::FSRThreadRuntime,
     },
@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub fn fsr_fn_assert<'a>(
-    args: &[u64],
+    args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -22,7 +22,7 @@ pub fn fsr_fn_assert<'a>(
 
 
 pub fn fsr_fn_export<'a>(
-    args: &[u64],
+    args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {

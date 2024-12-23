@@ -4,19 +4,19 @@ use crate::{
 };
 
 use super::{
-    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
+    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
     fn_def::FSRFn, module::FSRModule,
 };
 
 #[derive(Debug, Clone)]
 pub struct FSRInnerIterator {
-    pub(crate) obj: u64,
+    pub(crate) obj: ObjId,
     pub(crate) index: usize
 }
 
 fn next_obj<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&'a FSRModule<'a>>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -67,7 +67,7 @@ impl FSRInnerIterator {
 
     pub fn new_inst<'a>(iterator: FSRInnerIterator) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls(FSRGlobalObjId::InnerIterator as u64);
+        object.set_cls(FSRGlobalObjId::InnerIterator as ObjId);
         object.set_value(FSRValue::Iterator(iterator));
         object
     }

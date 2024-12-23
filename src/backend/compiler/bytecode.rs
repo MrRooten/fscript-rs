@@ -2,7 +2,7 @@ use std::{
     borrow::Cow, collections::HashMap, sync::atomic::{AtomicU64, Ordering}
 };
 
-use crate::{backend::{types::{integer::FSRInteger, string::FSRString}, vm::runtime::FSRVM}, frontend::ast::token::{
+use crate::{backend::{types::{base::ObjId, integer::FSRInteger, string::FSRString}, vm::runtime::FSRVM}, frontend::ast::token::{
     assign::FSRAssign,
     base::{FSRPosition, FSRToken},
     block::FSRBlock,
@@ -216,7 +216,7 @@ impl BytecodeOperator {
 #[derive(Debug)]
 pub struct ConstTable {
     pub(crate) const_map: HashMap<FSROrinStr2, u64>,
-    pub(crate) table: Vec<u64>
+    pub(crate) table: Vec<ObjId>
 }
 
 #[allow(clippy::new_without_default)]
@@ -228,7 +228,7 @@ impl ConstTable {
         }
     }
 
-    pub fn insert(&mut self, c_id: usize, obj_id: u64) {
+    pub fn insert(&mut self, c_id: usize, obj_id: ObjId) {
         if c_id + 1 > self.table.len() {
             self.table.resize(c_id + 1, 0);
         }

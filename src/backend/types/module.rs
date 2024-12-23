@@ -2,12 +2,14 @@ use std::{cell::RefCell, collections::HashMap, fs, path::Path};
 
 use crate::{backend::compiler::bytecode::{Bytecode, BytecodeArg}, utils::error::FSRError};
 
+use super::base::ObjId;
+
 #[derive(Debug)]
 pub struct FSRModule<'a> {
     name: &'a str,
     #[allow(unused)]
     bytecode: Bytecode,
-    object_map  : RefCell<HashMap<String, u64>>
+    object_map  : RefCell<HashMap<String, ObjId>>
 }
 
 impl Clone for FSRModule<'_> {
@@ -50,11 +52,11 @@ impl<'a> FSRModule<'a> {
         format!("<Module `{}`>", self.name)
     }
 
-    pub fn register_object(&self, name: &'a str, obj_id: u64) {
+    pub fn register_object(&self, name: &'a str, obj_id: ObjId) {
         self.object_map.borrow_mut().insert(name.to_string(), obj_id);
     }
 
-    pub fn get_object(&self, name: &str) -> Option<u64> {
+    pub fn get_object(&self, name: &str) -> Option<ObjId> {
         self.object_map.borrow().get(name).copied()
     }
 }

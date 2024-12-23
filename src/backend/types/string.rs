@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRGlobalObjId, FSRObject, FSRRetValue},
+    base::{FSRGlobalObjId, FSRObject, FSRRetValue, ObjId},
     class::FSRClass,
     fn_def::FSRFn, module::FSRModule,
 };
@@ -17,7 +17,7 @@ use super::{
 pub struct FSRString {}
 
 fn string_len<'a>(
-    args: &[u64],
+    args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -45,7 +45,7 @@ impl FSRString {
 
     pub fn new_inst(s: Cow<'_, str>) -> FSRObject<'_> {
         let mut object = FSRObject::new();
-        object.set_cls(FSRGlobalObjId::StringCls as u64);
+        object.set_cls(FSRGlobalObjId::StringCls as ObjId);
         object.set_value(FSRValue::String(s));
         object
     }

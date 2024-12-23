@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     backend::{
         types::{
-            base::{FSRObject, FSRRetValue, FSRValue},
+            base::{FSRObject, FSRRetValue, FSRValue, ObjId},
             fn_def::FSRFn, module::FSRModule,
         },
         vm::thread::FSRThreadRuntime,
@@ -14,7 +14,7 @@ use crate::{
 use super::utils::{fsr_fn_assert, fsr_fn_export};
 
 pub fn fsr_fn_print<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -27,7 +27,7 @@ pub fn fsr_fn_print<'a>(
 }
 
 pub fn fsr_fn_println<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -40,7 +40,7 @@ pub fn fsr_fn_println<'a>(
 }
 
 pub fn fsr_fn_dump<'a>(
-    args: &[u64],
+    args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -50,7 +50,7 @@ pub fn fsr_fn_dump<'a>(
 }
 
 pub fn fsr_fn_format<'a>(
-    args: &[u64],
+    args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {

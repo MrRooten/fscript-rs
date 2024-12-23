@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue},
+    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
     fn_def::FSRFn, module::FSRModule,
 };
@@ -14,7 +14,7 @@ use super::{
 pub struct FSRInteger {}
 
 fn add<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -35,7 +35,7 @@ fn add<'a>(
 }
 
 fn sub<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -56,7 +56,7 @@ fn sub<'a>(
 }
 
 fn mul<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -77,7 +77,7 @@ fn mul<'a>(
 }
 
 fn div<'a>(
-    _args: &[u64],
+    _args: &[ObjId],
     _stack: &'a mut CallState,
     _thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -97,7 +97,7 @@ fn div<'a>(
 
 
 fn left_shift<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -119,7 +119,7 @@ fn left_shift<'a>(
 
 
 fn right_shift<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -139,7 +139,7 @@ fn right_shift<'a>(
 }
 
 fn greater<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -161,7 +161,7 @@ fn greater<'a>(
 }
 
 fn less<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -183,7 +183,7 @@ fn less<'a>(
 }
 
 fn greater_equal<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -205,7 +205,7 @@ fn greater_equal<'a>(
 }
 
 fn less_equal<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -227,7 +227,7 @@ fn less_equal<'a>(
 }
 
 fn equal<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -279,7 +279,7 @@ impl<'a> FSRInteger {
 
     pub fn new_inst(i: i64) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls(FSRGlobalObjId::IntegerCls as u64);
+        object.set_cls(FSRGlobalObjId::IntegerCls as ObjId);
         object.set_value(FSRValue::Integer(i));
         object
     }

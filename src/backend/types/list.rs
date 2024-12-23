@@ -2,15 +2,15 @@ use std::{borrow::Cow, collections::HashMap};
 
 use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::{FSRErrCode, FSRError}};
 
-use super::{base::{FSRGlobalObjId, FSRRetValue}, class::FSRClass, fn_def::FSRFn, module::FSRModule};
+use super::{base::{FSRGlobalObjId, FSRRetValue, ObjId}, class::FSRClass, fn_def::FSRFn, module::FSRModule};
 
 #[derive(Debug, Clone)]
 pub struct FSRList {
-    vs      : Vec<u64>
+    vs      : Vec<ObjId>
 }
 
 fn list_len<'a>(
-    args: &[u64],
+    args: &[ObjId],
     _: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -29,7 +29,7 @@ fn list_len<'a>(
 }
 
 fn list_string<'a>(
-    args: &[u64],
+    args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -58,7 +58,7 @@ fn list_string<'a>(
 }
 
 fn iter<'a>(
-    args: &[u64],
+    args: &[ObjId],
     _: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError> {
@@ -72,7 +72,7 @@ fn iter<'a>(
 }
 
 fn get_item<'a>(
-    args: &[u64],
+    args: &[ObjId],
     _: &mut FSRThreadRuntime<'a>,
     _module: Option<&FSRModule>
 ) -> Result<FSRRetValue<'a>, FSRError>  {
@@ -115,18 +115,18 @@ impl FSRList {
         unimplemented!()
     }
 
-    pub fn new_object(vs: Vec<u64>) -> FSRObject<'static> {
+    pub fn new_object(vs: Vec<ObjId>) -> FSRObject<'static> {
         let s = Self {
             vs,
         };
 
         let mut object = FSRObject::new();
-        object.set_cls(FSRGlobalObjId::ListCls as u64);
+        object.set_cls(FSRGlobalObjId::ListCls as ObjId);
         object.set_value(FSRValue::List(s));
         object
     }
 
-    pub fn get_items(&self) -> &[u64] {
+    pub fn get_items(&self) -> &[ObjId] {
         &self.vs
     }
 }
