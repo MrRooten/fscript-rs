@@ -108,6 +108,7 @@ impl<'a> FSRFn<'a> {
         FSRClass::new("Fn")
     }
 
+    #[inline(always)]
     pub fn invoke(
         &'a self,
         args: &[ObjId],

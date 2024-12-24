@@ -467,6 +467,7 @@ impl<'a> FSRObject<'a> {
         self.obj_id == FSRGlobalObjId::None as ObjId
     }
 
+    #[inline(always)]
     pub fn call(
         &'a self,
         args: &[ObjId],

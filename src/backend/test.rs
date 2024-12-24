@@ -134,7 +134,7 @@ dump(a)
         println!("{:#?}", e - s);
     }
 
-    #[allow(unused)]
+    #[test]
     fn benchmark_add() {
         // let source_code = "
         // a = 1
