@@ -574,7 +574,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let FSRRetValue::GlobalId(id) = &res {
             return Ok(id == &1);
         }
-        return Err(FSRError::new("not a object", FSRErrCode::NotValidArgs));
+        Err(FSRError::new("not a object", FSRErrCode::NotValidArgs))
     }
 
     fn pop_stack(&mut self, _vm: &mut FSRVM, escape: Option<HashSet<ObjId>>) {
@@ -642,7 +642,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let to_assign_obj_id = context.exp.pop().unwrap().get_global_id(&self).unwrap();
+        let to_assign_obj_id = context.exp.pop().unwrap().get_global_id(self).unwrap();
 
         match assign_id {
             SValue::Stack((var_id, _)) => {
@@ -761,7 +761,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
         let res =
-            FSRObject::invoke_offset_method(BinaryOffset::Add, &vec![v2_id, v1_id], self, None)?;
+            FSRObject::invoke_offset_method(BinaryOffset::Add, &[v2_id, v1_id], self, None)?;
 
         match res {
             FSRRetValue::Value(object) => {
@@ -819,7 +819,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
         let res =
-            FSRObject::invoke_offset_method(BinaryOffset::Sub, &vec![v2_id, v1_id], self, None)?;
+            FSRObject::invoke_offset_method(BinaryOffset::Sub, &[v2_id, v1_id], self, None)?;
 
         match res {
             FSRRetValue::Value(object) => {
@@ -879,7 +879,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v2_id = v2.get_global_id(self)?;
         //let object = obj1.borrow_mut().invoke("__add__", vec![obj2]);
         let res =
-            FSRObject::invoke_offset_method(BinaryOffset::Mul, &vec![v2_id, v1_id], self, None)?;
+            FSRObject::invoke_offset_method(BinaryOffset::Mul, &[v2_id, v1_id], self, None)?;
         match res {
             FSRRetValue::Value(object) => {
                 let res_id = FSRVM::leak_object(object);
@@ -1059,7 +1059,7 @@ impl<'a> FSRThreadRuntime<'a> {
             context.ip = (offset.0, 0);
             return Ok(true);
         } else {
-            let v = fn_obj.call(&args, self, context.module).unwrap();
+            let v = fn_obj.call(args, self, context.module).unwrap();
 
             if let FSRRetValue::Value(v) = v {
                 let id = FSRVM::leak_object(v);

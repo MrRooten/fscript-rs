@@ -134,7 +134,7 @@ dump(a)
         println!("{:#?}", e - s);
     }
 
-    #[test]
+    #[allow(unused)]
     fn benchmark_add() {
         // let source_code = "
         // a = 1
@@ -158,7 +158,7 @@ dump(a)
 
             FSRObject::invoke_offset_method(
                 BinaryOffset::Add,
-                &vec![FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
+                &[FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
                 &mut runtime,
                 None,
             )
@@ -192,7 +192,7 @@ dump(a)
 
             FSRObject::invoke_offset_method(
                 BinaryOffset::Greater,
-                &vec![FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
+                &[FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
                 &mut runtime,
                 None,
             )
