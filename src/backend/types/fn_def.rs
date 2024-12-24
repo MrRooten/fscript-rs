@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::RefCell, sync::atomic::AtomicU64};
+use std::{borrow::Cow, cell::Cell, sync::atomic::AtomicU64};
 
 use crate::{
     backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}},
@@ -84,10 +84,11 @@ impl<'a> FSRFn<'a> {
         };
         FSRObject {
             obj_id: 0,
-            value: FSRValue::Function(v),
+            value: FSRValue::Function(Box::new(v)),
             cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU64::new(0),
-            delete_flag: RefCell::new(true),
+            delete_flag: Cell::new(true),
+            leak: Cell::new(false),
         }
     }
 
@@ -97,10 +98,11 @@ impl<'a> FSRFn<'a> {
         };
         FSRObject {
             obj_id: 0,
-            value: FSRValue::Function(v),
+            value: FSRValue::Function(Box::new(v)),
             cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU64::new(0),
-            delete_flag: RefCell::new(true),
+            delete_flag: Cell::new(true),
+            leak: Cell::new(false),
         }
     }
 
@@ -121,7 +123,7 @@ impl<'a> FSRFn<'a> {
             let v = FSRThreadRuntime::call_fn(thread, f, args, module)?;
             let v = match v {
                 crate::backend::vm::thread::SValue::Global(g) => g,
-                crate::backend::vm::thread::SValue::Object(o) => {
+                crate::backend::vm::thread::SValue::BoxObject(o) => {
                     FSRVM::leak_object(o)
                 },
                 _ => unimplemented!()

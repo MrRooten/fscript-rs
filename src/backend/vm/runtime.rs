@@ -1,11 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, sync::{atomic::AtomicU64, Mutex}};
+use std::{cell::{Cell, RefCell}, collections::HashMap, sync::{atomic::AtomicU64, Mutex}};
 
 use ahash::AHashMap;
 
 use crate::{
-    backend::types::{
+    backend::{memory::size_alloc::SizeAllocator, types::{
         base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
-    },
+    }},
     std::io::init_io,
 };
 
@@ -23,7 +23,8 @@ pub struct FSRVM<'a> {
     global: HashMap<String, ObjId>,
     global_modules  : HashMap<&'a str, FSRModule<'a>>,
     const_integer_global: RefCell<HashMap<i64, ObjId>>,
-    pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, ObjId>>
+    pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, ObjId>>,
+    pub allocator   : SizeAllocator<'a>
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -94,6 +95,7 @@ impl<'a> FSRVM<'a> {
             global_modules: HashMap::new(),
             const_integer_global: RefCell::new(HashMap::new()),
             const_map: Mutex::new(AHashMap::new()),
+            allocator: SizeAllocator::new(),
         };
         v.init();
         v
@@ -107,7 +109,8 @@ impl<'a> FSRVM<'a> {
                 value: FSRValue::Integer(integer),
                 cls: FSRGlobalObjId::IntegerCls as ObjId,
                 ref_count: AtomicU64::new(1),
-                delete_flag: RefCell::new(true),
+                delete_flag: Cell::new(true),
+                leak: Cell::new(false),
             };
 
             FSRVM::register_object(obj)
@@ -137,12 +140,12 @@ impl<'a> FSRVM<'a> {
                 OBJECTS.push(Self::new_stataic_object_with_id(0, FSRValue::None));
                 OBJECTS.push(Self::new_stataic_object_with_id(1, FSRValue::Bool(true)));
                 OBJECTS.push(Self::new_stataic_object_with_id(2, FSRValue::Bool(false)));
-                OBJECTS.push(Self::new_stataic_object_with_id(3, FSRValue::Class(FSRInteger::get_class())));
-                OBJECTS.push(Self::new_stataic_object_with_id(4, FSRValue::Class(FSRFn::get_class())));
-                OBJECTS.push(Self::new_stataic_object_with_id(5, FSRValue::Class(FSRInnerIterator::get_class())));
-                OBJECTS.push(Self::new_stataic_object_with_id(6, FSRValue::Class(FSRList::get_class())));
-                OBJECTS.push(Self::new_stataic_object_with_id(7, FSRValue::Class(FSRString::get_class())));
-                OBJECTS.push(Self::new_stataic_object_with_id(8, FSRValue::Class(FSRClass::new("Class"))));
+                OBJECTS.push(Self::new_stataic_object_with_id(3, FSRValue::Class(Box::new(FSRInteger::get_class()))));
+                OBJECTS.push(Self::new_stataic_object_with_id(4, FSRValue::Class(Box::new(FSRFn::get_class()))));
+                OBJECTS.push(Self::new_stataic_object_with_id(5, FSRValue::Class(Box::new(FSRInnerIterator::get_class()))));
+                OBJECTS.push(Self::new_stataic_object_with_id(6, FSRValue::Class(Box::new(FSRList::get_class()))));
+                OBJECTS.push(Self::new_stataic_object_with_id(7, FSRValue::Class(Box::new(FSRString::get_class()))));
+                OBJECTS.push(Self::new_stataic_object_with_id(8, FSRValue::Class(Box::new(FSRClass::new("Class")))));
             }
         }
     }
@@ -174,7 +177,8 @@ impl<'a> FSRVM<'a> {
             value,
             cls: 0,
             ref_count: AtomicU64::new(0),
-            delete_flag: RefCell::new(true),
+            delete_flag: Cell::new(true),
+            leak: Cell::new(false),
         }
     }
 
@@ -191,7 +195,7 @@ impl<'a> FSRVM<'a> {
         crate::backend::types::base::HEAP_TRACE.add_object();
         let id = Self::get_object_id(&object);
         object.obj_id = id;
-
+        object.leak.set(true);
         //self.obj_map.insert(id, object);
         Box::leak(object);
         id

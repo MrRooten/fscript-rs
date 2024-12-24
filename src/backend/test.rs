@@ -1,12 +1,12 @@
 #[cfg(test)]
-mod tests {
+pub mod tests {
 
-    use std::{io::Read, time::Instant};
+    use std::{borrow::Cow, io::Read, time::Instant};
 
     use crate::{
         backend::{
             compiler::bytecode::{BinaryOffset, Bytecode},
-            types::{base::FSRObject, integer::FSRInteger, module::FSRModule},
+            types::{base::{FSRObject, FSRValue}, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule},
             vm::{runtime::FSRVM, thread::FSRThreadRuntime},
         },
         frontend::ast::token::{
@@ -135,7 +135,7 @@ dump(a)
     }
 
     #[allow(unused)]
-    fn benchmark_add() {
+    pub fn benchmark_add() {
         // let source_code = "
         // a = 1
         // b = 1
@@ -151,18 +151,22 @@ dump(a)
         //runtime.start(&v, &mut vm).unwrap();
 
         runtime.set_vm(&mut vm);
-
+        let obj = FSRInteger::new_inst(3);
+        let obj2 = FSRInteger::new_inst(4);
         for _ in 0..3000000 {
-            let obj = FSRInteger::new_inst(3);
-            let obj2 = FSRInteger::new_inst(4);
-
-            FSRObject::invoke_offset_method(
+            let v = FSRObject::invoke_offset_method(
                 BinaryOffset::Add,
                 &[FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
                 &mut runtime,
                 None,
             )
             .unwrap();
+
+            match v {
+                crate::backend::types::base::FSRRetValue::Value(fsrobject) => vm.allocator.free_object(fsrobject),
+                crate::backend::types::base::FSRRetValue::GlobalId(_) => todo!(),
+                crate::backend::types::base::FSRRetValue::GlobalIdTemp(_) => todo!(),
+            }
         }
         let end = Instant::now();
         println!("{:?}", end - start);
@@ -221,5 +225,31 @@ dump(a)
             let end = Instant::now();
             println!("{:?}", end - start);
         }
+    }
+
+    #[test]
+    fn test_obj_size() {
+        /*
+#[derive(Debug, Clone)]
+pub enum FSRValue<'a> {
+    Integer(i64),
+    Float(f64),
+    String(Cow<'a, str>),
+    Class(Box<FSRClass<'a>>),
+    ClassInst(Box<FSRClassInst<'a>>),
+    Function(FSRFn<'a>),
+    Bool(bool),
+    List(FSRList),
+    Iterator(FSRInnerIterator),
+    None,
+}
+         */
+        println!("FSRObject size: {}", std::mem::size_of::<FSRObject>());
+        println!("FSRValue size: {}", std::mem::size_of::<FSRValue>());
+        println!("Cowstr size: {}", std::mem::size_of::<Cow<str>>());
+        println!("FSRFn size: {}", std::mem::size_of::<FSRFn>());
+        println!("FSRList size: {}", std::mem::size_of::<FSRList>());
+        println!("FSRInnerIterator size: {}", std::mem::size_of::<FSRInnerIterator>());
+        println!("u8 size: {}", std::mem::size_of::<u8>());
     }
 }

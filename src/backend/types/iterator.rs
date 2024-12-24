@@ -38,7 +38,7 @@ fn next_obj<'a>(
             let v = cls.get_attr("__index__");
             if let Some(obj_id) = v {
                 let obj = FSRObject::id_to_obj(obj_id);
-                let ret = obj.call(&vec![it.obj], thread, module);
+                let ret = obj.call(&[it.obj], thread, module);
                 result = Some(ret?);
             }
         } else if let FSRValue::List(l) = &from_obj.value {

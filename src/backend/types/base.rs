@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, cell::RefCell, collections::hash_map::Keys, fmt::Debug, sync::atomic::{AtomicI64, AtomicU64, Ordering}
+    borrow::Cow, cell::Cell, collections::hash_map::Keys, fmt::Debug, sync::atomic::{AtomicI64, AtomicU64, Ordering}
 };
 
 use crate::{
@@ -37,9 +37,9 @@ pub enum FSRValue<'a> {
     Integer(i64),
     Float(f64),
     String(Cow<'a, str>),
-    Class(FSRClass<'a>),
-    ClassInst(FSRClassInst<'a>),
-    Function(FSRFn<'a>),
+    Class(Box<FSRClass<'a>>),
+    ClassInst(Box<FSRClassInst<'a>>),
+    Function(Box<FSRFn<'a>>),
     Bool(bool),
     List(FSRList),
     Iterator(FSRInnerIterator),
@@ -50,7 +50,7 @@ pub enum FSRValue<'a> {
 pub enum FSRRetValue<'a> {
     Value(Box<FSRObject<'a>>),
     GlobalId(ObjId),
-    GlobalIdTemp(ObjId)
+    GlobalIdTemp(ObjId),
 }
 
 impl<'a> FSRValue<'a> {
@@ -72,7 +72,7 @@ impl<'a> FSRValue<'a> {
         let v = cls.get_attr("__str__");
         if let Some(obj_id) = v {
             let obj = FSRObject::id_to_obj(obj_id);
-            let ret = obj.call(&vec![self_id], thread, None);
+            let ret = obj.call(&[self_id], thread, None);
             let ret_value = match ret {
                 Ok(o) => o,
                 Err(_) => {
@@ -105,7 +105,7 @@ impl<'a> FSRValue<'a> {
             FSRValue::None => Some(Cow::Borrowed("None")),
             FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::List(_) => {
-                let res = FSRObject::invoke_method("__str__", &vec![self_id], thread, None).unwrap();
+                let res = FSRObject::invoke_method("__str__", &[self_id], thread, None).unwrap();
                 match res {
                     FSRRetValue::Value(v) => {
                         if let FSRValue::String(s) = v.value {
@@ -145,7 +145,8 @@ pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
     pub(crate) ref_count: AtomicU64,
     pub(crate) cls: ObjId,
-    pub(crate) delete_flag: RefCell<bool>
+    pub(crate) delete_flag: Cell<bool>,
+    pub(crate) leak: Cell<bool>
 }
 
 impl Debug for FSRObject<'_> {
@@ -175,7 +176,8 @@ impl Clone for FSRObject<'_> {
             value: self.value.clone(),
             ref_count: AtomicU64::new(0),
             cls: self.cls,
-            delete_flag: RefCell::new(true)
+            delete_flag: Cell::new(true),
+            leak: Cell::new(false),
         }
     }
 }
@@ -218,7 +220,8 @@ impl<'a> FSRObject<'a> {
             value: FSRValue::None,
             cls: 0,
             ref_count: AtomicU64::new(0),
-            delete_flag: RefCell::new(true)
+            delete_flag: Cell::new(true),
+            leak: Cell::new(false),
         }
     }
 
@@ -238,6 +241,7 @@ impl<'a> FSRObject<'a> {
         1
     }
 
+    #[inline(always)]
     pub fn set_value(&mut self, value: FSRValue<'a>) {
         self.value = value;
     }
@@ -328,7 +332,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn set_not_delete(&self) {
-        *self.delete_flag.borrow_mut() = false;
+        self.delete_flag.set(false);
     }
 
     #[inline]
@@ -340,16 +344,20 @@ impl<'a> FSRObject<'a> {
         self.ref_count.fetch_sub(1, Ordering::AcqRel);
     }
 
+    pub fn into_object(id: ObjId) -> Box<FSRObject<'a>> {
+        unsafe { Box::from_raw(id as *mut Self) }
+    }
+
     pub fn drop_object(id: ObjId) {
         let obj = FSRObject::id_to_obj(id);
-        if !(*obj.delete_flag.borrow()) {
+        if !(obj.delete_flag.get()) {
             return ;
         }
 
         #[cfg(feature="alloc_trace")]
         HEAP_TRACE.dec_object();
         //let _cleanup = unsafe { Box::from_raw(id as *mut Self) };
-        std::mem::drop(unsafe { Box::from_raw(id as *mut Self) });
+        unsafe { let _cleanup = Box::from_raw(id as *mut Self); };
     }
 
     #[inline(always)]
@@ -378,7 +386,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn invoke_method(
         name: &str,
-        args: &Vec<ObjId>,
+        args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<&'a FSRModule<'a>>
     ) -> Result<FSRRetValue<'a>, FSRError> {
