@@ -225,6 +225,13 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    pub fn is_module(&self) -> bool {
+        match &self.value {
+            FSRValue::Module(fsrmodule) => true,
+            _ => false
+        }
+    }
+
     pub fn new() -> FSRObject<'a> {
         FSRObject {
             obj_id: 0,

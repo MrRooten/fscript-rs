@@ -108,13 +108,13 @@ pub enum BytecodeOperator {
     StoreFast = 31,
     BinarySub = 32,
     Import = 33,
-
     Load = 1000,
 }
 
 #[derive(Debug)]
 pub enum ArgType {
     Variable(u64, String),
+    ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
     ConstString(u64, String),
     ConstInteger(u64, i64),
@@ -760,12 +760,19 @@ impl<'a> Bytecode {
         continue_list
     }
 
-    fn load_import(import: &FSRImport, var_map: &'a mut VarMap<'a>) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+    fn load_import(import: &'a FSRImport, var_map: &'a mut VarMap<'a>) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        let name = import.module_name.last().unwrap();
+        if !var_map.has_var(name) {
+            let v = name;
+            var_map.insert_var(name);
+        }
+
+        let id = var_map.get_var(name).unwrap();
         let import_list = vec![
             BytecodeArg {
                 operator: BytecodeOperator::Import,
-                arg: ArgType::Import(import.module_name.iter().map(|x| x.to_string()).collect())
-            }
+                arg: ArgType::ImportModule(*id, import.module_name.iter().map(|x| x.to_string()).collect())
+            },
         ];
 
         (vec![import_list], var_map)
