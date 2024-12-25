@@ -21,7 +21,7 @@ pub struct FSRVM<'a> {
     #[allow(unused)]
     threads: HashMap<u64, FSRThreadRuntime<'a>>,
     global: HashMap<String, ObjId>,
-    global_modules  : HashMap<&'a str, FSRModule<'a>>,
+    global_modules  : HashMap<&'a str, ObjId>,
     const_integer_global: RefCell<HashMap<i64, ObjId>>,
     pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, ObjId>>,
     pub allocator   : FSRObjectAllocator<'a>
@@ -146,6 +146,7 @@ impl<'a> FSRVM<'a> {
                 OBJECTS.push(Self::new_stataic_object_with_id(6, FSRValue::Class(Box::new(FSRList::get_class()))));
                 OBJECTS.push(Self::new_stataic_object_with_id(7, FSRValue::Class(Box::new(FSRString::get_class()))));
                 OBJECTS.push(Self::new_stataic_object_with_id(8, FSRValue::Class(Box::new(FSRClass::new("Class")))));
+                OBJECTS.push(Self::new_stataic_object_with_id(9, FSRValue::Class(Box::new(FSRModule::get_class()))));
             }
         }
     }
@@ -217,11 +218,11 @@ impl<'a> FSRVM<'a> {
         return self.global.get(name);
     }
 
-    pub fn register_module(&mut self, name: &'a str, module: FSRModule<'a>) {
+    pub fn register_module(&mut self, name: &'a str, module: ObjId) {
         self.global_modules.insert(name, module);
     }
 
-    pub fn get_module(&self, name: &str) -> Option<&FSRModule<'a>> {
-        self.global_modules.get(name)
+    pub fn get_module(&self, name: &str) -> Option<ObjId> {
+        self.global_modules.get(name).copied()
     }
 }

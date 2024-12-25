@@ -74,7 +74,7 @@ fn main() {
     let mut runtime = FSRThreadRuntime::new();
     let mut vm = FSRVM::new();
     let start = Instant::now();
-    runtime.start(&v, &mut vm).unwrap();
+    runtime.start(Box::new(v), &mut vm).unwrap();
     let end = Instant::now();
     println!("{:?}", end - start);
 

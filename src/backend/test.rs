@@ -95,11 +95,12 @@ pub mod tests {
         let mut runtime = FSRThreadRuntime::new();
         let mut vm = FSRVM::new();
         runtime.set_vm(&mut vm);
-        runtime.start(&v, &mut vm).unwrap();
+        runtime.start(Box::new(v), &mut vm).unwrap();
     }
 
     #[test]
     fn test_class() {
+        FSRVM::new();
         let source_code = "
         class Abc {
     fn __new__(self) {
@@ -221,7 +222,7 @@ dump(a)
             let mut runtime = FSRThreadRuntime::new();
             let mut vm = FSRVM::new();
             let start = Instant::now();
-            runtime.start(&v, &mut vm).unwrap();
+            runtime.start(Box::new(v), &mut vm).unwrap();
             let end = Instant::now();
             println!("{:?}", end - start);
         }
@@ -253,5 +254,21 @@ pub enum FSRValue<'a> {
         println!("FSRList size: {}", std::mem::size_of::<FSRList>());
         println!("FSRInnerIterator size: {}", std::mem::size_of::<FSRInnerIterator>());
         println!("u8 size: {}", std::mem::size_of::<u8>());
+    }
+
+    #[test]
+    fn test_module() {
+        let module1 = r#"
+        fn abc() {
+            println('abc')
+        }
+
+        abc()
+        "#;
+        let v = FSRModule::from_code("module1", &module1).unwrap();
+        let mut runtime = FSRThreadRuntime::new();
+        let mut vm = FSRVM::new();
+
+        runtime.start(Box::new(v), &mut vm).unwrap();
     }
 }

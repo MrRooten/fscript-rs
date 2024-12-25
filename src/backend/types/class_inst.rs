@@ -89,6 +89,5 @@ impl<'a> FSRClassInst<'a> {
                 }
             }
         }
-        
     }
 }

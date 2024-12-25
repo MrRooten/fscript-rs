@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, fs, path::Path};
 
 use crate::{backend::compiler::bytecode::{Bytecode, BytecodeArg}, utils::error::FSRError};
 
-use super::base::ObjId;
+use super::{base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
 #[derive(Debug)]
 pub struct FSRModule<'a> {
@@ -23,20 +23,29 @@ impl Clone for FSRModule<'_> {
 }
 
 impl<'a> FSRModule<'a> {
+    pub fn get_class() -> FSRClass<'static> {
+        FSRClass::new("FSRModule")
+    }
+
     pub fn from_file<P>(file: P) -> Result<Self, FSRError>
     where P: AsRef<Path> {
         let _ = fs::File::open(file);
         unimplemented!()
     }
 
-    pub fn from_code(name: &'a str, code: &str) -> Result<Self, FSRError> {
+    pub fn from_code(name: &'a str, code: &str) -> Result<FSRObject<'a>, FSRError> {
         let bytecode = Bytecode::compile(name, code);
-        
-        Ok(Self {
+        let module = Self {
             name,
             bytecode,
             object_map: RefCell::new(HashMap::new()),
-        })
+        };
+        let mut object = FSRObject::new();
+        object.delete_flag.set(false);
+        object.value = FSRValue::Module(Box::new(module));
+        object.cls = FSRGlobalObjId::Module as ObjId;
+
+        Ok(object)
     }
 
     #[inline(always)]

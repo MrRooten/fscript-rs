@@ -24,7 +24,7 @@ class Abc {
 fn abc() {
     a = Abc()
 
-    dump(a)
+    a = 3
 }
 
 abc()

@@ -295,7 +295,7 @@ pub struct ThreadContext<'a> {
     for_iter_obj: Vec<ObjId>,
     #[allow(unused)]
     module_stack: Vec<u64>,
-    module: Option<&'a FSRModule<'a>>,
+    module: Option<ObjId>,
 }
 
 impl ThreadContext<'_> {
@@ -1419,7 +1419,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 };
                 args.push(v.1.to_string());
             }
-            let fn_obj = FSRFn::from_fsr_fn("main", (context.ip.0 + 1, 0), args, bc);
+            let fn_obj = FSRFn::from_fsr_fn("main", (context.ip.0 + 1, 0), args, bc, context.module.unwrap());
             fn_obj.ref_add();
             let fn_id = FSRVM::register_object(fn_obj);
             if let Some(cur_cls) = &mut state.cur_cls {
@@ -1591,6 +1591,27 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    fn process_import(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bc: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        if let ArgType::Import(v) = bc.get_arg() {
+            let code = r#"
+            fn out() {
+                println('abc')
+            }
+            "#;
+
+            let module = FSRModule::from_code("test", code)?;
+            let obj_id = FSRVM::leak_object(Box::new(module));
+            context.vm.register_module("test", obj_id);
+            return Ok(true)
+        }
+        unimplemented!()
+    }
+
     fn end_class_def(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1654,6 +1675,8 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    
+
     fn empty_process(
         self: &mut FSRThreadRuntime<'a>,
         _context: &mut ThreadContext<'a>,
@@ -1712,6 +1735,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::StoreFast => unimplemented!(),
             BytecodeOperator::Load => unimplemented!(),
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc),
+            BytecodeOperator::Import => Self::process_import(self, context, bytecode, bc),
         }?;
 
         #[cfg(feature = "perf")]
@@ -1729,15 +1753,17 @@ impl<'a> FSRThreadRuntime<'a> {
         arg: &'a BytecodeArg,
         vm: &mut FSRVM<'a>,
         _s: &mut CallFrame,
-        module: Option<&FSRModule>,
+        module: Option<ObjId>,
     ) {
         //*is_attr = false;
-
+        
         if let ArgType::Variable(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Stack((*id, name)));
         } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
             //let int_const = Self::load_integer_const(i, vm);
             if let Some(m) = module {
+                let obj = FSRObject::id_to_obj(m);
+                let m = obj.as_module();
                 if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
                     if id != &0 {
                         exp_stack.push(SValue::Global(*id));
@@ -1758,6 +1784,7 @@ impl<'a> FSRThreadRuntime<'a> {
             // let string_const = Self::load_string_const(i.clone(), vm);
             // s.insert_const(id, string_const);
             if let Some(m) = module {
+                let m = FSRObject::id_to_obj(m).as_module();
                 if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
                     if id != &0 {
                         exp_stack.push(SValue::Global(*id));
@@ -1851,11 +1878,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
     pub fn start(
         &'a mut self,
-        module: &'a FSRModule<'a>,
+        module: Box<FSRObject<'a>>,
         vm: &'a mut FSRVM<'a>,
     ) -> Result<(), FSRError> {
         let mut bytecode_count = 0;
         self.set_vm(vm);
+        let module = FSRVM::leak_object(module);
         let mut context = ThreadContext {
             exp: Vec::with_capacity(10),
             ip: (0, 0),
@@ -1868,6 +1896,8 @@ impl<'a> FSRThreadRuntime<'a> {
             module_stack: vec![],
             module: Some(module),
         };
+
+        let module = FSRObject::id_to_obj(module).as_module();
         while let Some(expr) = module.get_expr(&context.ip) {
             self.run_expr(expr, &mut context, module.get_bytecode())?;
             bytecode_count += expr.len();
@@ -1893,7 +1923,7 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         fn_def: &'a FSRFnInner,
         args: &[ObjId],
-        module: Option<&'a FSRModule<'a>>,
+        module: Option<ObjId>,
     ) -> Result<SValue, FSRError> {
         let mut context = ThreadContext {
             exp: Vec::with_capacity(10),
@@ -1964,8 +1994,8 @@ mod test {
         let mut runtime = FSRThreadRuntime::new();
         let mut vm = FSRVM::new();
         runtime.set_vm(&mut vm);
-        runtime.start(&v, &mut vm).unwrap();
-
-        println!("{:?}", FSRObject::id_to_obj(v.get_object("abc").unwrap()));
+        runtime.start(Box::new(v), &mut vm).unwrap();
+        
+        // println!("{:?}", FSRObject::id_to_obj(v.get_object("abc").unwrap()));
     }
 }

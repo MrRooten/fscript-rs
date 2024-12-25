@@ -11,7 +11,7 @@ use crate::{
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, ObjId},
     class::FSRClass,
-    fn_def::FSRFn, module::FSRModule,
+    fn_def::FSRFn,
 };
 
 pub struct FSRString {}
@@ -19,7 +19,7 @@ pub struct FSRString {}
 fn string_len<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    _module: Option<&FSRModule>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 

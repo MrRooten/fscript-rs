@@ -7,13 +7,13 @@ use crate::{
 
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
-    class::FSRClass, module::FSRModule,
+    class::FSRClass
 };
 
 type FSRRustFn = for<'a> fn(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<&'a FSRModule<'a>>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError>;
 
 #[derive(Debug, Clone)]
@@ -43,9 +43,11 @@ pub enum FSRnE<'a> {
     FSRFn(FSRFnInner<'a>),
 }
 
+
 #[derive(Debug, Clone)]
 pub struct FSRFn<'a> {
     fn_def: FSRnE<'a>,
+    module: ObjId
 }
 
 impl<'a> FSRFn<'a> {
@@ -72,7 +74,7 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    pub fn from_fsr_fn(module: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode) -> FSRObject<'a> {
+    pub fn from_fsr_fn(module: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode, m_obj: ObjId) -> FSRObject<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(module.to_string()),
             fn_ip: u,
@@ -81,6 +83,7 @@ impl<'a> FSRFn<'a> {
 
         let v = Self {
             fn_def: FSRnE::FSRFn(fn_obj),
+            module: m_obj
         };
         FSRObject {
             obj_id: 0,
@@ -95,6 +98,7 @@ impl<'a> FSRFn<'a> {
     pub fn from_rust_fn(f: FSRRustFn) -> FSRObject<'a> {
         let v = Self {
             fn_def: FSRnE::RustFn(f),
+            module: 0
         };
         FSRObject {
             obj_id: 0,
@@ -115,7 +119,7 @@ impl<'a> FSRFn<'a> {
         &'a self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<&'a FSRModule<'a>>,
+        module: Option<ObjId>,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, thread, module);

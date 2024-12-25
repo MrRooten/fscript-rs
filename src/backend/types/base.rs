@@ -30,6 +30,7 @@ pub enum FSRGlobalObjId {
     ListCls = 6,
     StringCls = 7,
     ClassCls = 8,
+    Module = 9,
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +44,7 @@ pub enum FSRValue<'a> {
     Bool(bool),
     List(FSRList),
     Iterator(FSRInnerIterator),
+    Module(Box<FSRModule<'a>>),
     None,
 }
 
@@ -133,6 +135,7 @@ impl<'a> FSRValue<'a> {
                 }
             }
             FSRValue::Iterator(_) => None,
+            FSRValue::Module(fsrmodule) => Some(Cow::Owned(fsrmodule.as_string())),
         };
 
         s
@@ -214,6 +217,14 @@ impl<'a> Default for FSRObject<'a> {
 }
 
 impl<'a> FSRObject<'a> {
+    pub fn as_module(&self) -> &FSRModule<'a> {
+        match &self.value {
+            FSRValue::Module(fsrmodule) => fsrmodule,
+            _ => unimplemented!()
+
+        }
+    }
+
     pub fn new() -> FSRObject<'a> {
         FSRObject {
             obj_id: 0,
@@ -396,7 +407,7 @@ impl<'a> FSRObject<'a> {
         name: &str,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<&'a FSRModule<'a>>
+        module: Option<ObjId>
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         let self_method = match self_object.get_cls_attr(name, thread.get_vm()) {
@@ -418,7 +429,7 @@ impl<'a> FSRObject<'a> {
         offset: BinaryOffset,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<&'a FSRModule<'a>>
+        module: Option<ObjId>
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         if let Some(self_method) = self_object.get_cls_offset_attr(offset, thread.get_vm()) {
@@ -457,6 +468,10 @@ impl<'a> FSRObject<'a> {
             return Some(*v);
         }
 
+        if let FSRValue::Module(m) = &self.value {
+            return m.get_object(name);
+        }
+
         None
     }
 
@@ -488,7 +503,7 @@ impl<'a> FSRObject<'a> {
         &'a self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<&'a FSRModule<'a>>
+        module: Option<ObjId>
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, module);

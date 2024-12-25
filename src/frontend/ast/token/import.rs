@@ -4,7 +4,7 @@ use super::base::FSRPosition;
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRImport<'a> {
-    _module_name: Vec<&'a str>,
+    pub(crate) module_name: Vec<&'a str>,
     meta: FSRPosition,
 }
 
@@ -32,7 +32,7 @@ impl<'a> FSRImport<'a> {
 
         Ok((
             Self {
-                _module_name: mod_name.split('.').collect::<Vec<&str>>(),
+                module_name: mod_name.split('.').collect::<Vec<&str>>(),
                 meta,
             },
             len,

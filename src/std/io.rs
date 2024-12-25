@@ -16,7 +16,7 @@ use super::utils::{fsr_fn_assert, fsr_fn_export};
 pub fn fsr_fn_print<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    _module: Option<&FSRModule>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     let obj = value.to_string(thread);
@@ -29,7 +29,7 @@ pub fn fsr_fn_print<'a>(
 pub fn fsr_fn_println<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    _module: Option<&FSRModule>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     let obj = value.to_string(thread);
@@ -42,7 +42,7 @@ pub fn fsr_fn_println<'a>(
 pub fn fsr_fn_dump<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    _module: Option<&FSRModule>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
@@ -52,7 +52,7 @@ pub fn fsr_fn_dump<'a>(
 pub fn fsr_fn_format<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    _module: Option<&FSRModule>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     
     let value = FSRObject::id_to_obj(args[0]);

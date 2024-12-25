@@ -18,7 +18,7 @@ pub struct FSRInnerIterator {
 fn next_obj<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<&'a FSRModule<'a>>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_obj = args[0];
     let self_obj = FSRObject::id_to_mut_obj(self_obj);

@@ -61,6 +61,9 @@ impl<'a> FSRObjectAllocator<'a> {
         }
     }
 
+    /*
+    will ignore destructor of type
+     */
     pub fn free_object(&self, obj: Box<FSRObject<'a>>) {
         if let FSRValue::Integer(_) = &obj.value {
             obj.leak.set(false);
@@ -68,5 +71,11 @@ impl<'a> FSRObjectAllocator<'a> {
         }
 
         // will drop here
+    }
+
+    pub fn free_list(&self) {
+        while let Some(s) = self.object_to_clear.borrow_mut().pop() {
+            self.free_object(s);
+        }
     }
 }

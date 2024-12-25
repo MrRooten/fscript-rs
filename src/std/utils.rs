@@ -11,7 +11,7 @@ use crate::{
 pub fn fsr_fn_assert<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    _module: Option<&FSRModule>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     if value.is_false() {
@@ -24,7 +24,7 @@ pub fn fsr_fn_assert<'a>(
 pub fn fsr_fn_export<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    module: Option<&FSRModule>
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let name = match &FSRObject::id_to_obj(args[0]).value {
         FSRValue::String(cow) => cow,
@@ -37,7 +37,8 @@ pub fn fsr_fn_export<'a>(
     let r_obj = FSRObject::id_to_obj(obj);
     r_obj.ref_add();
     if let Some(s) = module {
-        s.register_object(name, obj);
+        let m = FSRObject::id_to_obj(s).as_module();
+        m.register_object(name, obj);
     }
     return Ok(FSRRetValue::GlobalId(0));
 }
