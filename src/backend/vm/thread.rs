@@ -1592,9 +1592,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn process_import(
         self: &mut FSRThreadRuntime<'a>,
-        context: &mut ThreadContext<'a>,
         bc: &BytecodeArg,
-        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if let ArgType::Import(v) = bc.get_arg() {
             let code = r#"
@@ -1604,8 +1602,8 @@ impl<'a> FSRThreadRuntime<'a> {
             "#;
 
             let module = FSRModule::from_code("test", code)?;
-            let obj_id = FSRVM::leak_object(Box::new(module));
-            context.vm.register_module("test", obj_id);
+            let obj_id = self.load(Box::new(module))?;
+
             return Ok(true)
         }
         unimplemented!()
@@ -1734,7 +1732,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::StoreFast => unimplemented!(),
             BytecodeOperator::Load => unimplemented!(),
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc),
-            BytecodeOperator::Import => Self::process_import(self, context, bytecode, bc),
+            BytecodeOperator::Import => Self::process_import(self, bytecode),
         }?;
 
         #[cfg(feature = "perf")]
@@ -1873,6 +1871,34 @@ impl<'a> FSRThreadRuntime<'a> {
         context.exp.clear();
         context.is_attr = false;
         Ok(false)
+    }
+
+    pub fn load(
+        &mut self,
+        module: Box<FSRObject<'a>>,
+    ) -> Result<ObjId, FSRError> {
+        let mut bytecode_count = 0;
+        let module_id = FSRVM::leak_object(module);
+        let mut context = ThreadContext {
+            exp: Vec::with_capacity(10),
+            ip: (0, 0),
+            vm: self.get_mut_vm(),
+            is_attr: false,
+            last_if_test: vec![],
+            break_line: vec![],
+            continue_line: vec![],
+            for_iter_obj: vec![],
+            module_stack: vec![],
+            module: Some(module_id),
+        };
+
+        let module = FSRObject::id_to_obj(module_id).as_module();
+        while let Some(expr) = module.get_expr(&context.ip) {
+            self.run_expr(expr, &mut context, module.get_bytecode())?;
+            bytecode_count += expr.len();
+        }
+
+        Ok(module_id)
     }
 
     pub fn start(
