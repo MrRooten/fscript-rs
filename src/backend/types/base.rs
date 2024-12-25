@@ -328,6 +328,10 @@ impl<'a> FSRObject<'a> {
             return;
         }
 
+        if !self.delete_flag.get() {
+            return ;
+        }
+
         self.ref_count.fetch_add(1, Ordering::AcqRel);
     }
 
@@ -339,6 +343,10 @@ impl<'a> FSRObject<'a> {
     pub fn ref_dec(&self) {
         if Self::is_sp_object(self.obj_id) {
             return;
+        }
+
+        if !self.delete_flag.get() {
+            return ;
         }
 
         self.ref_count.fetch_sub(1, Ordering::AcqRel);

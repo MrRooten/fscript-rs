@@ -8,7 +8,7 @@ class Ddc {
 class Abc {
     fn __new__(self) {
         self.abc = Ddc()
-        dump(self.abc)
+        self.c = 3
         return self
     }
 
@@ -21,8 +21,10 @@ class Abc {
     }
 }
 
-a = Abc()
+fn abc() {
+    a = Abc()
 
-dump(a)
+    dump(a)
+}
 
-dump(a)
+abc()

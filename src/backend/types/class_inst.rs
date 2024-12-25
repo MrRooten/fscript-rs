@@ -73,13 +73,22 @@ impl<'a> FSRClassInst<'a> {
     }
 
     pub fn drop_obj(&self, allocator: &FSRObjectAllocator) {
-        for key_value in &self.attrs {
-            let obj = FSRObject::id_to_obj(*key_value.1);
-            obj.ref_dec();
+        let mut stack = vec![self];
 
-            if obj.count_ref() == 0 {
-                allocator.add_object_to_clear_list(*key_value.1);
+        while let Some(s) = stack.pop() {
+            for key_value in &s.attrs {
+                let obj = FSRObject::id_to_obj(*key_value.1);
+                obj.ref_dec();
+    
+                if obj.count_ref() == 0 {
+                    allocator.add_object_to_clear_list(*key_value.1);
+                }
+
+                if let FSRValue::ClassInst(i) = &obj.value {
+                    stack.push(i);
+                }
             }
         }
+        
     }
 }
