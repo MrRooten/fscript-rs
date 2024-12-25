@@ -47,7 +47,7 @@ pub enum FSRnE<'a> {
 #[derive(Debug, Clone)]
 pub struct FSRFn<'a> {
     fn_def: FSRnE<'a>,
-    module: ObjId
+    pub(crate) module: ObjId
 }
 
 impl<'a> FSRFn<'a> {
@@ -124,7 +124,7 @@ impl<'a> FSRFn<'a> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, thread, module);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            let v = FSRThreadRuntime::call_fn(thread, f, args, module)?;
+            let v = FSRThreadRuntime::call_fn(thread, f, args, Some(self.module))?;
             let v = match v {
                 crate::backend::vm::thread::SValue::Global(g) => g,
                 crate::backend::vm::thread::SValue::BoxObject(o) => {

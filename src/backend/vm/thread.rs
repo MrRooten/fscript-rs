@@ -1127,7 +1127,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if fn_obj.is_fsr_function() {
                 for arg in args.iter().rev() {
- 
                     self.get_cur_mut_stack().args.push(*arg);
                 }
                 //let offset = fn_obj.get_fsr_offset();
