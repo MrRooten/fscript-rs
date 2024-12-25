@@ -2,7 +2,7 @@ use std::{
     borrow::Cow, collections::{hash_map::Keys, HashMap}, fmt::Debug
 };
 
-use crate::backend::{memory::size_alloc::FSRObjectAllocator, vm::runtime::FSRVM};
+use crate::backend::memory::size_alloc::FSRObjectAllocator;
 
 use super::base::{FSRObject, FSRValue, ObjId};
 
