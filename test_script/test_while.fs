@@ -7,3 +7,4 @@ while i < b {
 
 println(i)
 
+dump(i)

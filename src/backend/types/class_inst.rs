@@ -2,6 +2,8 @@ use std::{
     borrow::Cow, collections::{hash_map::Keys, HashMap}, fmt::Debug
 };
 
+use crate::backend::{memory::size_alloc::FSRObjectAllocator, vm::runtime::FSRVM};
+
 use super::base::{FSRObject, FSRValue, ObjId};
 
 #[derive(Clone)]
@@ -49,6 +51,8 @@ impl<'a> FSRClassInst<'a> {
             }
             *v = value;
         } else {
+            let obj = FSRObject::id_to_obj(value);
+            obj.ref_add();
             self.attrs.insert(name, value);
         }
 
@@ -66,5 +70,16 @@ impl<'a> FSRClassInst<'a> {
 
     pub fn get_cls_name(&self) -> &str {
         self.name
+    }
+
+    pub fn drop_obj(&self, allocator: &FSRObjectAllocator) {
+        for key_value in &self.attrs {
+            let obj = FSRObject::id_to_obj(*key_value.1);
+            obj.ref_dec();
+
+            if obj.count_ref() == 0 {
+                allocator.add_object_to_clear_list(*key_value.1);
+            }
+        }
     }
 }

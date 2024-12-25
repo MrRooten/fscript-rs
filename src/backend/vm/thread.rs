@@ -186,7 +186,7 @@ impl<'a> CallFrame<'a> {
     }
 
     #[inline(always)]
-    pub fn insert_var(&mut self, id: &u64, obj_id: ObjId, vm: &FSRVM<'a>) {
+    pub fn insert_var(&mut self, id: &u64, obj_id: ObjId, vm: &FSRVM<'a>, add_ref: bool) {
         if self.var_map.contains_key(id) {
             let to_be_dec = self.var_map.get(id).unwrap();
             let origin_obj = FSRObject::id_to_obj(*to_be_dec);
@@ -196,6 +196,10 @@ impl<'a> CallFrame<'a> {
                 //FSRObject::drop_object(*to_be_dec);
             }
         }
+        if add_ref {
+            FSRObject::id_to_obj(obj_id).ref_add();
+        }
+        
         self.var_map.insert(*id, obj_id);
     }
 
@@ -571,12 +575,14 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = self.call_stack.pop().unwrap();
         for kv in v.var_map.iter() {
             let obj = FSRObject::id_to_obj(kv);
+
+            obj.ref_dec();
             if escape.contains(&kv) {
-                obj.ref_dec();
+                
                 continue;
             }
 
-            obj.ref_dec();
+            
             if obj.count_ref() == 0 {
                 vm.allocator.free(kv);
             }
@@ -603,20 +609,17 @@ impl<'a> FSRThreadRuntime<'a> {
                 let state = self.get_cur_mut_stack();
                 let id = FSRVM::leak_object(obj);
 
-                let obj = FSRObject::id_to_obj(id);
-                obj.ref_add();
                 // println!("{:#?}", obj);
-                state.insert_var(var_id, id, context.vm);
+                state.insert_var(var_id, id, context.vm, true);
                 return Ok(false);
             }
             let obj_id = svalue.get_global_id(self)?;
             let state = self.get_cur_mut_stack();
             if !FSRObject::is_sp_object(obj_id) {
                 let to_assign_obj = FSRObject::id_to_obj(obj_id);
-                to_assign_obj.ref_add();
-                state.insert_var(var_id, obj_id, context.vm);
+                state.insert_var(var_id, obj_id, context.vm, true);
             } else {
-                state.insert_var(var_id, obj_id, context.vm);
+                state.insert_var(var_id, obj_id, context.vm, true);
             }
 
             return Ok(false);
@@ -636,13 +639,12 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Stack((var_id, _)) => {
                 if !FSRObject::is_sp_object(to_assign_obj_id) {
                     let to_assign_obj = FSRObject::id_to_mut_obj(to_assign_obj_id);
-                    to_assign_obj.ref_add();
                     let state = self.get_cur_mut_stack();
-                    state.insert_var(&var_id, to_assign_obj_id, context.vm);
+                    state.insert_var(&var_id, to_assign_obj_id, context.vm, true);
                     
                 } else {
                     let state = self.get_cur_mut_stack();
-                    state.insert_var(&var_id, to_assign_obj_id, context.vm);
+                    state.insert_var(&var_id, to_assign_obj_id, context.vm, true);
                     
                 }
             }
@@ -1004,7 +1006,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let Some(id) = self_new {
             for arg in args.iter().rev() {
                 let obj = FSRObject::id_to_obj(*arg);
-                obj.ref_add();
+                //obj.ref_add();
                 self.get_cur_mut_stack().args.push(*arg);
             }
             let new_obj = FSRObject::id_to_obj(id);
@@ -1040,7 +1042,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             for arg in args.iter().rev() {
                 let obj = FSRObject::id_to_obj(*arg);
-                obj.ref_add();
+                //obj.ref_add();
                 self.get_cur_mut_stack().args.push(*arg);
             }
             let offset = fn_obj.get_fsr_offset().1;
@@ -1131,7 +1133,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if fn_obj.is_fsr_function() {
                 for arg in args.iter().rev() {
                     let obj = FSRObject::id_to_obj(*arg);
-                    obj.ref_add();
+                    
                     self.get_cur_mut_stack().args.push(*arg);
                 }
                 //let offset = fn_obj.get_fsr_offset();
@@ -1139,6 +1141,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 context.ip = (offset.0, 0);
                 return Ok(true);
             } else {
+                // for arg in args.iter().rev() {
+                //     let obj = FSRObject::id_to_obj(*arg);
+                //     obj.ref_add();
+                // }
+                // not going to assign_args
                 let v = fn_obj.call(&args, self, context.module).unwrap();
 
                 if let FSRRetValue::Value(v) = v {
@@ -1427,7 +1434,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(true);
             }
 
-            state.insert_var(&name.0, fn_id, context.vm);
+            state.insert_var(&name.0, fn_id, context.vm, true);
             context.vm.register_global_object(name.1, fn_id);
             context.ip = (context.ip.0 + *n as usize + 2, 0);
             return Ok(true);
@@ -1489,7 +1496,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // let mut esp = HashSet::new();
         // esp.insert(v);
         let vm = self.get_mut_vm();
-        self.pop_stack(vm, &[]);
+        self.pop_stack(vm, &[v]);
         let cur = self.get_cur_mut_stack();
         //exp.push(SValue::GlobalId(v));
         cur.ret_val = Some(SValue::Global(v));
@@ -1535,7 +1542,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_stack();
         let v = state.args.pop().unwrap();
         if let ArgType::Variable(s_id, _) = bytecode.get_arg() {
-            state.insert_var(s_id, v, context.vm);
+            state.insert_var(s_id, v, context.vm, true);
         }
         Ok(false)
     }

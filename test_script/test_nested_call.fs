@@ -11,3 +11,5 @@ fn abc(c) {
 }
 
 println(abc(0))
+
+dump(abc(0))

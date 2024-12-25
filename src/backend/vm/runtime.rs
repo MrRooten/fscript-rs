@@ -3,7 +3,7 @@ use std::{cell::{Cell, RefCell}, collections::HashMap, sync::{atomic::AtomicU64,
 use ahash::AHashMap;
 
 use crate::{
-    backend::{memory::size_alloc::SizeAllocator, types::{
+    backend::{memory::size_alloc::FSRObjectAllocator, types::{
         base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
     }},
     std::io::init_io,
@@ -24,7 +24,7 @@ pub struct FSRVM<'a> {
     global_modules  : HashMap<&'a str, FSRModule<'a>>,
     const_integer_global: RefCell<HashMap<i64, ObjId>>,
     pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, ObjId>>,
-    pub allocator   : SizeAllocator<'a>
+    pub allocator   : FSRObjectAllocator<'a>
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -95,7 +95,7 @@ impl<'a> FSRVM<'a> {
             global_modules: HashMap::new(),
             const_integer_global: RefCell::new(HashMap::new()),
             const_map: Mutex::new(AHashMap::new()),
-            allocator: SizeAllocator::new(),
+            allocator: FSRObjectAllocator::new(),
         };
         v.init();
         v

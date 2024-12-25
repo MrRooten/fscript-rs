@@ -2,16 +2,24 @@ use std::{cell::RefCell, collections::VecDeque};
 
 use crate::backend::types::{base::{FSRObject, FSRValue, ObjId}, integer::FSRInteger};
 
-pub struct SizeAllocator<'a> {
-    integer_bins    : RefCell<VecDeque<Box<FSRObject<'a>>>>
+#[allow(clippy::vec_box)]
+pub struct FSRObjectAllocator<'a> {
+    integer_bins    : RefCell<VecDeque<Box<FSRObject<'a>>>>,
+    object_to_clear : RefCell<Vec<Box<FSRObject<'a>>>>
 }
 
 #[allow(clippy::new_without_default)]
-impl<'a> SizeAllocator<'a> {
+impl<'a> FSRObjectAllocator<'a> {
     pub fn new() -> Self {
         Self {
             integer_bins: RefCell::new(VecDeque::new()),
+            object_to_clear: RefCell::new(vec![]),
         }
+    }
+
+    pub fn add_object_to_clear_list(&self, obj_id: ObjId) {
+        let object = FSRObject::into_object(obj_id);
+        self.object_to_clear.borrow_mut().push(object);
     }
 
     #[inline(always)]
@@ -38,6 +46,14 @@ impl<'a> SizeAllocator<'a> {
             obj.leak.set(false);
             self.integer_bins.borrow_mut().push_front(obj);
             return ;
+        }
+
+        #[allow(clippy::single_match)]
+        match &obj.value {
+            FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.drop_obj(self),
+            _ => {
+                
+            }
         }
 
         if obj.leak.get() {
