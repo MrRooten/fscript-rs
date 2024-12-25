@@ -6,6 +6,7 @@ pub struct SizeAllocator<'a> {
     integer_bins    : RefCell<VecDeque<Box<FSRObject<'a>>>>
 }
 
+#[allow(clippy::new_without_default)]
 impl<'a> SizeAllocator<'a> {
     pub fn new() -> Self {
         Self {

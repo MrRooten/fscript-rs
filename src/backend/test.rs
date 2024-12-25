@@ -7,7 +7,7 @@ pub mod tests {
         backend::{
             compiler::bytecode::{BinaryOffset, Bytecode},
             types::{base::{FSRObject, FSRValue}, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule},
-            vm::{runtime::FSRVM, thread::FSRThreadRuntime},
+            vm::{runtime::FSRVM, thread::{CallFrame, FSRThreadRuntime, SValue}},
         },
         frontend::ast::token::{
             base::{FSRPosition, FSRToken}, module::FSRModuleFrontEnd
@@ -245,6 +245,8 @@ pub enum FSRValue<'a> {
 }
          */
         println!("FSRObject size: {}", std::mem::size_of::<FSRObject>());
+        println!("CallFrame size: {}", std::mem::size_of::<CallFrame>());
+        println!("SValue: {}", std::mem::size_of::<SValue>());
         println!("FSRValue size: {}", std::mem::size_of::<FSRValue>());
         println!("Cowstr size: {}", std::mem::size_of::<Cow<str>>());
         println!("FSRFn size: {}", std::mem::size_of::<FSRFn>());

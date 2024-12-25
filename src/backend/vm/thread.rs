@@ -11,7 +11,7 @@ use std::{
 };
 
 #[cfg(not(feature = "perf"))]
-use std::{borrow::Cow, collections::HashSet};
+use std::borrow::Cow;
 
 use crate::{
     backend::{
@@ -97,8 +97,6 @@ impl Bitmap {
 #[derive(Debug)]
 pub struct TempHashMap {
     vs: Vec<ObjId>,
-    #[allow(unused)]
-    iter: ObjId,
 }
 
 pub struct TempIterator<'a> {
@@ -133,7 +131,6 @@ impl TempHashMap {
     pub fn new() -> Self {
         Self {
             vs: vec![],
-            iter: 0,
         }
     }
 
@@ -156,19 +153,25 @@ impl<'a> Iterator for TempIterator<'a> {
     }
 }
 
-pub struct CallState<'a> {
+pub struct CallFrame<'a> {
     var_map: TempHashMap,
-    const_map: TempHashMap,
     reverse_ip: (usize, usize),
     args: Vec<ObjId>,
-    cur_cls: Option<FSRClass<'a>>,
+    cur_cls: Option<Box<FSRClass<'a>>>,
     ret_val: Option<SValue<'a>>,
     exp: Option<Vec<SValue<'a>>>,
-    #[allow(unused)]
-    name: Cow<'a, str>,
 }
 
-impl<'a> CallState<'a> {
+impl<'a> CallFrame<'a> {
+
+    pub fn clear(&mut self) {
+        self.var_map = TempHashMap::new();
+        self.args.clear();
+        self.cur_cls = None;
+        self.ret_val = None;
+        self.exp = None;
+    }
+
     #[inline(always)]
     pub fn get_var(&self, id: &u64) -> Option<&ObjId> {
         if let Some(s) = self.var_map.get(id) {
@@ -201,43 +204,20 @@ impl<'a> CallState<'a> {
         self.var_map.contains_key(id)
     }
 
-    #[inline(always)]
-    pub fn has_const(&self, id: &u64) -> bool {
-        self.const_map.contains_key(id)
-    }
 
-    pub fn insert_const(&mut self, id: &u64, obj: FSRObject<'a>) {
-        let obj_id = FSRVM::leak_object(Box::new(obj));
-        self.const_map.insert(*id, obj_id);
-    }
-
-    #[inline(always)]
-    pub fn get_const(&self, id: &u64) -> Option<ObjId> {
-        if let Some(s) = self.const_map.get(id) {
-            if s == &0 {
-                return None;
-            }
-
-            return Some(*s);
-        }
-
-        None
-    }
 
     pub fn set_reverse_ip(&mut self, ip: (usize, usize)) {
         self.reverse_ip = ip;
     }
 
-    pub fn new(name: &'a Cow<str>) -> Self {
+    pub fn new(_name: &'a Cow<str>) -> Self {
         Self {
             var_map: TempHashMap::new(),
-            const_map: TempHashMap::new(),
             reverse_ip: (0, 0),
             args: Vec::new(),
             cur_cls: None,
             ret_val: None,
             exp: None,
-            name: name.clone(),
         }
     }
 }
@@ -431,7 +411,9 @@ impl<'a> VecMap<'a> {
 
 #[derive(Default)]
 pub struct FSRThreadRuntime<'a> {
-    call_stack: Vec<CallState<'a>>,
+    call_stack: Vec<CallFrame<'a>>,
+    stack_index: usize,
+
     #[allow(unused)]
     bytecode_map: VecMap<'a>,
     vm_ptr: Option<*mut FSRVM<'a>>,
@@ -480,10 +462,24 @@ impl<'a> FSRThreadRuntime<'a> {
         map.insert(BytecodeOperator::BinarySub, Self::binary_sub_process);
 
         Self {
-            call_stack: vec![CallState::new(&Cow::Borrowed("base"))],
+            call_stack: vec![CallFrame::new(&Cow::Borrowed("base"))],
             bytecode_map: map,
             vm_ptr: None,
+            stack_index: 0,
         }
+    }
+
+    pub fn push_frame(&mut self) {
+        self.stack_index += 1;
+
+        if let Some(s) = self.call_stack.get_mut(self.stack_index) {
+            s.clear();
+        }
+    }
+
+    pub fn pop_frame(&mut self) -> Option<&mut CallFrame<'a>> {
+        self.stack_index -= 1;
+        self.call_stack.get_mut(self.stack_index + 1)
     }
 
     pub fn set_vm(&mut self, vm: &mut FSRVM<'a>) {
@@ -502,14 +498,16 @@ impl<'a> FSRThreadRuntime<'a> {
     // }
 
     #[inline(always)]
-    pub fn get_cur_mut_stack(&mut self) -> &mut CallState<'a> {
+    pub fn get_cur_mut_stack(&mut self) -> &mut CallFrame<'a> {
         return self.call_stack.last_mut().unwrap();
     }
 
     #[inline(always)]
-    fn get_cur_stack(&self) -> &CallState<'a> {
+    fn get_cur_stack(&self) -> &CallFrame<'a> {
         return self.call_stack.last().unwrap();
     }
+
+
 
     #[inline(always)]
     fn compare(left: ObjId, right: ObjId, op: &str, thread: &mut Self) -> Result<bool, FSRError> {
@@ -569,20 +567,18 @@ impl<'a> FSRThreadRuntime<'a> {
         Err(FSRError::new("not a object", FSRErrCode::NotValidArgs))
     }
 
-    fn pop_stack(&mut self, _vm: &mut FSRVM, escape: Option<HashSet<ObjId>>) {
+    fn pop_stack(&mut self, vm: &mut FSRVM, escape: &[ObjId]) {
         let v = self.call_stack.pop().unwrap();
         for kv in v.var_map.iter() {
             let obj = FSRObject::id_to_obj(kv);
-            if let Some(l) = &escape {
-                if l.contains(&kv) {
-                    obj.ref_dec();
-                    continue;
-                }
+            if escape.contains(&kv) {
+                obj.ref_dec();
+                continue;
             }
 
             obj.ref_dec();
             if obj.count_ref() == 0 {
-                // println!("Delete Object: {:#?}", obj);
+                vm.allocator.free(kv);
             }
             //vm.check_delete(kv.1);
         }
@@ -1000,7 +996,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         state.exp = Some(context.exp.clone());
         self.call_stack
-            .push(CallState::new(&Cow::Borrowed("__new__")));
+            .push(CallFrame::new(&Cow::Borrowed("__new__")));
         context.exp.clear();
         let self_obj = FSRObject::id_to_obj(self_id);
         let self_new = self_obj.get_cls_attr("__new__", context.vm);
@@ -1038,7 +1034,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //Save callstate
             state.set_reverse_ip(context.ip);
             state.exp = Some(context.exp.clone());
-            self.call_stack.push(CallState::new(&Cow::Borrowed("tmp")));
+            self.call_stack.push(CallFrame::new(&Cow::Borrowed("tmp")));
             //Clear exp stack
             context.exp.clear();
 
@@ -1129,7 +1125,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         } else {
             self.save_ip_to_callstate(&mut context.exp, &mut context.ip);
-            self.call_stack.push(CallState::new(&Cow::Borrowed("tmp2")));
+            self.call_stack.push(CallFrame::new(&Cow::Borrowed("tmp2")));
             context.exp.clear();
 
             if fn_obj.is_fsr_function() {
@@ -1149,15 +1145,11 @@ impl<'a> FSRThreadRuntime<'a> {
                     let id = FSRVM::leak_object(v);
                     context.exp.push(SValue::Global(id));
                     let vm = self.get_mut_vm();
-                    let mut esp = HashSet::new();
-                    esp.insert(id);
-                    self.pop_stack(vm, Some(esp));
+                    self.pop_stack(vm, &[id]);
                 } else if let FSRRetValue::GlobalId(id) = v {
                     context.exp.push(SValue::Global(id));
                     let vm = self.get_mut_vm();
-                    let mut esp = HashSet::new();
-                    esp.insert(id);
-                    self.pop_stack(vm, Some(esp));
+                    self.pop_stack(vm, &[id]);
                 }
             }
         }
@@ -1450,7 +1442,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let vm = self.get_mut_vm();
-        self.pop_stack(vm, None);
+        self.pop_stack(vm, &[]);
         let cur = self.get_cur_mut_stack();
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
         Ok(true)
@@ -1497,7 +1489,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // let mut esp = HashSet::new();
         // esp.insert(v);
         let vm = self.get_mut_vm();
-        self.pop_stack(vm, None);
+        self.pop_stack(vm, &[]);
         let cur = self.get_cur_mut_stack();
         //exp.push(SValue::GlobalId(v));
         cur.ret_val = Some(SValue::Global(v));
@@ -1593,7 +1585,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         let new_cls = FSRClass::new(id.1);
-        state.cur_cls = Some(new_cls);
+        state.cur_cls = Some(Box::new(new_cls));
 
         Ok(false)
     }
@@ -1609,7 +1601,7 @@ impl<'a> FSRThreadRuntime<'a> {
         cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
         let obj = state.cur_cls.take().unwrap();
         let name = obj.get_name().to_string();
-        cls_obj.set_value(FSRValue::Class(Box::new(obj)));
+        cls_obj.set_value(FSRValue::Class(obj));
         let obj_id = FSRVM::register_object(cls_obj);
         context.vm.register_global_object(&name, obj_id);
         Ok(false)
@@ -1735,7 +1727,7 @@ impl<'a> FSRThreadRuntime<'a> {
         exp_stack: &mut Vec<SValue<'a>>,
         arg: &'a BytecodeArg,
         vm: &mut FSRVM<'a>,
-        _s: &mut CallState,
+        _s: &mut CallFrame,
         module: Option<&FSRModule>,
     ) {
         //*is_attr = false;
@@ -1890,7 +1882,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         #[cfg(feature = "alloc_trace")]
         println!(
-            "obj count: {}",
+            "reused count: {}",
             crate::backend::types::base::HEAP_TRACE.object_count()
         );
         Ok(())
@@ -1916,7 +1908,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
-            self.call_stack.push(CallState::new(fn_def.get_name()));
+            self.call_stack.push(CallFrame::new(fn_def.get_name()));
             context.exp.clear();
 
             for arg in args.iter().rev() {

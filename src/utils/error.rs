@@ -2,7 +2,7 @@
 use std::error::Error;
 use std::fmt::Display;
 
-use crate::backend::vm::thread::CallState;
+use crate::backend::vm::thread::CallFrame;
 use crate::frontend::ast::token::base::FSRPosition;
 
 #[derive(Debug)]

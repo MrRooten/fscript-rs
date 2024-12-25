@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, vm::{runtime::FSRVM, thread::{CallState, FSRThreadRuntime}}},
+    backend::{compiler::bytecode::BinaryOffset, vm::{runtime::FSRVM, thread::{CallFrame, FSRThreadRuntime}}},
     utils::error::FSRError,
 };
 
@@ -76,7 +76,7 @@ fn mul<'a>(
 
 fn div<'a>(
     _args: &[ObjId],
-    _stack: &'a mut CallState,
+    _stack: &'a mut CallFrame,
     _thread: &mut FSRThreadRuntime<'a>
 ) -> Result<FSRRetValue<'a>, FSRError> {
     // let self_id = args[0];

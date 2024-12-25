@@ -51,6 +51,8 @@ impl<'a> FSRClass<'a> {
         }
     }
 
+    
+
     pub fn insert_attr(&mut self, name: &'a str, object: FSRObject<'a>) {
         let obj_id = FSRVM::register_object(object);
         self.attrs.insert(name, obj_id);
