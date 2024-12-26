@@ -11,7 +11,7 @@ ahash = "0.7.8"
 # opt-level = 2
 
 [features]
-default = ["alloc_trace", "bytecode_trace"]
+default = ["alloc_trace"]
 perf = []
 bytecode_trace = []
 alloc_trace = []
