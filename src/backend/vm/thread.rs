@@ -248,23 +248,18 @@ impl<'a> SValue<'a> {
     pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> Result<ObjId, FSRError> {
         let state = thread.get_cur_stack();
         let vm = thread.get_vm();
+        let module = FSRObject::id_to_obj(state.module.unwrap()).as_module();
         Ok(match self {
             SValue::Stack(s) => {
                 if let Some(id) = state.get_var(&s.0) {
                     *id
                 } else {
-                    match vm.get_global_obj_by_name(s.1) {
-                        Some(s) => *s,
-                        None => {
-                            return Err(FSRError::new(
-                                format!(
-                                    "not found variable in callstate and gloabl name `{}`",
-                                    s.1
-                                ),
-                                FSRErrCode::NoSuchObject,
-                            ));
-                        }
-                    }
+                    let v = match module.get_object(s.1) {
+                        Some(s) => s,
+                        None => *vm.get_global_obj_by_name(s.1).unwrap(),
+                    };
+
+                    v
                 }
             }
             SValue::Global(id) => *id,
@@ -619,9 +614,10 @@ impl<'a> FSRThreadRuntime<'a> {
         let to_assign_obj_id = context.exp.pop().unwrap().get_global_id(self).unwrap();
 
         match assign_id {
-            SValue::Stack((var_id, _)) => {
+            SValue::Stack((var_id, name)) => {
                 let state = self.get_cur_mut_stack();
                 state.insert_var(&var_id, to_assign_obj_id, Some(context.vm), true);
+                //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
             }
             SValue::Attr(attr) => {
                 let father_obj = FSRObject::id_to_mut_obj(attr.0);
@@ -958,19 +954,15 @@ impl<'a> FSRThreadRuntime<'a> {
     fn process_fsr_cls(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        fn_obj: &FSRObject,
+        cls_id: ObjId,
         args: &mut Vec<usize>,
     ) -> Result<bool, FSRError> {
         //let mut args = vec![];
         // New a object if fn_obj is fsr_cls
 
         let mut self_obj = FSRObject::new();
-        self_obj.set_cls(
-            *context
-                .vm
-                .get_global_obj_by_name(fn_obj.get_fsr_class_name())
-                .unwrap(),
-        );
+        self_obj.set_cls(cls_id);
+        let fn_obj = FSRObject::id_to_obj(cls_id);
         self_obj.set_value(FSRValue::ClassInst(Box::new(FSRClassInst::new(
             fn_obj.get_fsr_class_name(),
         ))));
@@ -992,8 +984,9 @@ impl<'a> FSRThreadRuntime<'a> {
         if let Some(id) = self_new {
             let new_obj = FSRObject::id_to_obj(id);
             if let FSRValue::Function(f) = &new_obj.value {
+                self.save_ip_to_callstate(&mut context.exp, &mut context.ip, context.module);
                 let mut frame = CallFrame::new(&Cow::Borrowed("__new__"), Some(f.module));
-
+                context.module = Some(f.module);
                 self.call_stack.push(frame);
             } else {
                 unimplemented!()
@@ -1082,23 +1075,16 @@ impl<'a> FSRThreadRuntime<'a> {
 
         //let ptr = vm as *mut FSRVM;
         let mut object_id: Option<ObjId> = None;
+        let module = FSRObject::id_to_obj(context.module.unwrap()).as_module();
         let fn_id = match context.exp.pop().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_stack();
                 if let Some(id) = state.get_var(&s.0) {
                     *id
                 } else {
-                    match context.vm.get_global_obj_by_name(s.1) {
-                        Some(s) => *s,
-                        None => {
-                            return Err(FSRError::new(
-                                format!(
-                                    "not found variable in callstate and gloabl name `{}`",
-                                    s.1
-                                ),
-                                FSRErrCode::NoSuchObject,
-                            ));
-                        }
+                    match module.get_object(s.1) {
+                        Some(s) => s,
+                        None => *context.vm.get_global_obj_by_name(s.1).unwrap(),
                     }
                 }
             }
@@ -1113,7 +1099,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_obj = FSRObject::id_to_obj(fn_id);
 
         if fn_obj.is_fsr_cls() {
-            let v = Self::process_fsr_cls(self, context, fn_obj, &mut args)?;
+            let v = Self::process_fsr_cls(self, context, fn_id, &mut args)?;
             if v {
                 return Ok(v);
             }
@@ -1449,7 +1435,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             state.insert_var(&name.0, fn_id, Some(context.vm), true);
-            context.vm.register_global_object(name.1, fn_id);
+            FSRObject::id_to_obj(context.module.unwrap())
+                .as_module()
+                .register_object(name.1, fn_id);
+
             context.ip = (context.ip.0 + *n as usize + 2, 0);
             return Ok(true);
         }
@@ -1614,6 +1603,13 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn read_code_from_module(module_name: &Vec<String>) -> Result<String, FSRError> {
         let code = r#"
+        class Ddc {
+            fn __new__(self) {
+                self.ddc = 123 + 1
+                return self
+            }
+        }
+
         fn out() {
             println('abc')
         }
@@ -1625,6 +1621,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         export('out', out)
         export('out2', out2)
+        export('Ddc', Ddc)
         "#;
 
         Ok(code.to_string())
@@ -1634,9 +1631,9 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         exp: &mut Vec<SValue<'a>>,
         bc: &BytecodeArg,
+        context: ObjId,
     ) -> Result<bool, FSRError> {
         if let ArgType::ImportModule(v, module_name) = bc.get_arg() {
-
             let code = Self::read_code_from_module(module_name)?;
 
             let module = FSRModule::from_code("test", &code)?;
@@ -1644,6 +1641,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
             let frame = self.get_cur_mut_stack();
             frame.insert_var(v, obj_id, None, true);
+            FSRObject::id_to_obj(context)
+                .as_module()
+                .register_object(module_name.last().unwrap(), obj_id);
             return Ok(false);
         }
         unimplemented!()
@@ -1652,17 +1652,26 @@ impl<'a> FSRThreadRuntime<'a> {
     fn end_class_def(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
-        _: &BytecodeArg,
+        bc: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let state = self.get_cur_mut_stack();
-        let mut cls_obj = FSRObject::new();
-        cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
-        let obj = state.cur_cls.take().unwrap();
-        let name = obj.get_name().to_string();
-        cls_obj.set_value(FSRValue::Class(obj));
-        let obj_id = FSRVM::register_object(cls_obj);
-        context.vm.register_global_object(&name, obj_id);
+        if let ArgType::Variable(id, name) = bc.get_arg() {
+            let state = self.get_cur_mut_stack();
+            let mut cls_obj = FSRObject::new();
+            cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
+            let obj = state.cur_cls.take().unwrap();
+
+            let name = obj.get_name().to_string();
+            cls_obj.set_value(FSRValue::Class(obj));
+            let obj_id = FSRVM::register_object(cls_obj);
+            state.insert_var(id, obj_id, None, true);
+            FSRObject::id_to_obj(context.module.unwrap())
+                .as_module()
+                .register_object(&name, obj_id);
+        } else {
+            unimplemented!()
+        }
+
         Ok(false)
     }
 
@@ -1770,7 +1779,9 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::StoreFast => unimplemented!(),
             BytecodeOperator::Load => unimplemented!(),
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc),
-            BytecodeOperator::Import => Self::process_import(self, &mut context.exp, bytecode),
+            BytecodeOperator::Import => {
+                Self::process_import(self, &mut context.exp, bytecode, context.module.unwrap())
+            }
         }?;
 
         #[cfg(feature = "perf")]
@@ -1927,11 +1938,16 @@ impl<'a> FSRThreadRuntime<'a> {
             module: Some(module_id),
         };
 
+        self.call_stack.push(CallFrame::new(&Cow::Borrowed("load_module"), Some(module_id)));
+
+
         let module = FSRObject::id_to_obj(module_id).as_module();
         while let Some(expr) = module.get_expr(&context.ip) {
             self.run_expr(expr, &mut context, module.get_bytecode())?;
             bytecode_count += expr.len();
         }
+
+        self.call_stack.pop();
 
         Ok(module_id)
     }
@@ -1958,6 +1974,15 @@ impl<'a> FSRThreadRuntime<'a> {
             .as_module()
             .get_expr(&context.ip)
         {
+            #[cfg(feature = "bytecode_trace")]
+            {
+                println!(
+                    "cur_module: {}",
+                    FSRObject::id_to_obj(context.module.unwrap())
+                        .as_module()
+                        .as_string()
+                )
+            }
             self.run_expr(expr, &mut context, module.get_bytecode())?;
             bytecode_count += expr.len();
             module = FSRObject::id_to_obj(context.module.unwrap()).as_module();

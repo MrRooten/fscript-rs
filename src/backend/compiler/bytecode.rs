@@ -1078,7 +1078,7 @@ impl<'a> Bytecode {
         result.extend(v.0);
         let end_of_cls = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineClass,
-            arg: ArgType::None,
+            arg: ArgType::Variable(*arg_id, name.to_string()),
         }];
         result.push(end_of_cls);
         (result, var_map)
