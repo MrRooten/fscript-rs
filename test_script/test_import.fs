@@ -1,13 +1,7 @@
-import abc
+import test
 
-abc.out()
+test.test()
 
-b = abc.out2()
+abc = test.Abc()
 
-println(b)
-
-c = abc.Ddc()
-
-println(c)
-
-println(b)
+dump(test.Abc)

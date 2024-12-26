@@ -1,6 +1,6 @@
 #![allow(clippy::ptr_arg)]
 
-use std::vec;
+use std::{path::{Path, PathBuf}, str::FromStr, vec};
 #[cfg(feature = "perf")]
 use std::{
     borrow::Cow,
@@ -1602,29 +1602,20 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn read_code_from_module(module_name: &Vec<String>) -> Result<String, FSRError> {
-        let code = r#"
-        class Ddc {
-            fn __new__(self) {
-                self.ddc = 123 + 1
-                return self
+        let mut module_path = PathBuf::from_str("fs_modules").unwrap();
+
+        for m in module_name.iter().enumerate() {
+            if m.0 == module_name.len() - 1 {
+                module_path = module_path.join(format!("{}.fs", m.1));
+            } else {
+                module_path = module_path.join(m.1);
             }
+            
         }
 
-        fn out() {
-            println('abc')
-        }
+        let code = std::fs::read_to_string(module_path).unwrap();
 
-        fn out2() {
-            println('out2')
-            return 3
-        }
-
-        export('out', out)
-        export('out2', out2)
-        export('Ddc', Ddc)
-        "#;
-
-        Ok(code.to_string())
+        Ok(code)
     }
 
     fn process_import(
