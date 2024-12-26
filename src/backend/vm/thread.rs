@@ -1612,27 +1612,34 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    fn read_code_from_module(module_name: &Vec<String>) -> Result<String, FSRError> {
+        let code = r#"
+        fn out() {
+            println('abc')
+        }
+
+        fn out2() {
+            println('out2')
+            return 3
+        }
+
+        export('out', out)
+        export('out2', out2)
+        "#;
+
+        Ok(code.to_string())
+    }
+
     fn process_import(
         self: &mut FSRThreadRuntime<'a>,
         exp: &mut Vec<SValue<'a>>,
         bc: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::ImportModule(v, module_name) = bc.get_arg() {
-            let code = r#"
-            fn out() {
-                println('abc')
-            }
 
-            fn out2() {
-                println('out2')
-                return 3
-            }
+            let code = Self::read_code_from_module(module_name)?;
 
-            export('out', out)
-            export('out2', out2)
-            "#;
-
-            let module = FSRModule::from_code("test", code)?;
+            let module = FSRModule::from_code("test", &code)?;
             let obj_id = { self.load(Box::new(module))? };
 
             let frame = self.get_cur_mut_stack();
