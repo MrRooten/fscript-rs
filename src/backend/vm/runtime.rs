@@ -18,8 +18,6 @@ pub enum ConstType<'a> {
 }
 
 pub struct FSRVM<'a> {
-    #[allow(unused)]
-    threads: HashMap<u64, FSRThreadRuntime<'a>>,
     global: HashMap<String, ObjId>,
     global_modules  : HashMap<&'a str, ObjId>,
     const_integer_global: RefCell<HashMap<i64, ObjId>>,
@@ -86,11 +84,7 @@ impl<'a> FSRVM<'a> {
 
     pub fn new() -> Self {
         Self::init_static_object();
-        let main_thread = FSRThreadRuntime::new();
-        let mut maps = HashMap::new();
-        maps.insert(0, main_thread);
         let mut v = Self {
-            threads: maps,
             global: HashMap::new(),
             global_modules: HashMap::new(),
             const_integer_global: RefCell::new(HashMap::new()),
