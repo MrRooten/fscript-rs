@@ -304,17 +304,13 @@ mod frontend_tests {
     #[test]
     fn test_comment() {
         let s = 
-        "fn abc(test) { #this is function abc
-            while a + b { # this is a while test
-                abc
-            } # while test end
-            if abc == 123 {
-                print(abc)
-            }
-            return abc #abc
-        }";
+        "
+while i < b { # while test
+    i = i + one
+} # test
+";
         let meta = FSRPosition::new();
-        let i = FSRFnDef::parse(s.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
         assert_eq!(s.len(), i.get_len())
     }

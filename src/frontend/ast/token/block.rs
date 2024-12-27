@@ -222,8 +222,8 @@ mod test {
     #[test]
     fn test_block_comment() {
         let s = "{
-    {}
-        }
+        
+        } #absdfsdf
         ";
         let meta = FSRPosition::new();
         let b = FSRBlock::parse(s.as_bytes(), meta).unwrap();

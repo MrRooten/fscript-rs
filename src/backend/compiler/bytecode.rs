@@ -847,6 +847,8 @@ impl<'a> Bytecode {
         } else if let FSRToken::Import(import) = token {
             let v = Self::load_import(import, var_map);
             return (v.0, v.1);
+        } else if let FSRToken::EmptyExpr = token {
+            return (vec![vec![BytecodeArg { operator: BytecodeOperator::Empty, arg: ArgType::None }]], var_map)
         }
 
         unimplemented!()
