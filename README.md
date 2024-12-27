@@ -4,7 +4,7 @@ Running on bytecode, simple and useless program language, zero dependence script
 ## Wait for support
 ### [x] float type
 ### [x] async support 
-### [x] import module
+### [√] import module
 
 
 ## Usage
@@ -89,4 +89,48 @@ for i in a {
 5
 count: 79
 41.709µs
+```
+
+#### For Import
+import library is in fs_modules/
+
+```python
+import test
+
+test.test()
+
+abc = test.Abc()
+
+dump(test.Abc)
+```
+
+output
+```
+this is test
+FSRObject {
+    obj_id: 5014326912,
+    value: Class(
+        FSRClass {
+            name: "Abc",
+            attrs: {
+                "test": String(
+                    "fn `test`",
+                ),
+                "__new__": String(
+                    "fn `__new__`",
+                ),
+            },
+            offset_attrs: "",
+        },
+    ),
+    ref_count: 2,
+    cls: FSRClass {
+        name: "Class",
+        attrs: {},
+        offset_attrs: "",
+    },
+}
+count: 36
+reused count: 6
+157.459µs
 ```
