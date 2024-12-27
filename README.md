@@ -1,5 +1,5 @@
 ## Introduce
-Running on bytecode, simple and useless program language, zero dependence script language.
+Running on bytecode, simple and useless program language, \[temporary not but will\]zero dependence script language.
 
 ## Wait for support
 ### [x] float type
