@@ -92,6 +92,14 @@ impl<'a> FSRBlock<'a> {
             }
 
             let mut c = source[start + length] as char;
+
+            if c == '#' {
+                while source[start + length] as char != '\n' {
+                    start += 1;
+                }
+
+                continue;
+            }
             if (states.peek() == &BlockState::Start || states.peek() == &BlockState::Block)
                 && ASTParser::is_blank_char_with_new_line(c as u8)
             {
@@ -99,8 +107,10 @@ impl<'a> FSRBlock<'a> {
                 continue;
             }
 
+
             if c == '}' && states.peek() == &BlockState::Start && !is_start {
-                break;
+                return Err(SyntaxError::new_with_type(&meta.from_offset(start), "error", crate::utils::error::SyntaxErrType::None))
+                
             }
 
             if c == '{' && states.peek() == &BlockState::Start {
@@ -203,5 +213,20 @@ impl<'a> FSRBlock<'a> {
         }
         block.len = start + length;
         Ok(block)
+    }
+}
+
+mod test {
+    use crate::frontend::ast::token::{base::FSRPosition, block::FSRBlock};
+
+    #[test]
+    fn test_block_comment() {
+        let s = "{
+    {}
+        }
+        ";
+        let meta = FSRPosition::new();
+        let b = FSRBlock::parse(s.as_bytes(), meta).unwrap();
+        println!("{:#?}", b);
     }
 }

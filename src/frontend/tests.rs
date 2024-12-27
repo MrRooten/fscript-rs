@@ -292,4 +292,30 @@ mod frontend_tests {
         let s = FSRExpr::parse(a.as_bytes(), false, meta).unwrap();
         println!("{:#?}", s);
     }
+
+    #[test]
+    fn test_chars() {
+        let c = "你好";
+        for i in c.as_bytes() {
+            println!("{}", i)
+        }
+    }
+
+    #[test]
+    fn test_comment() {
+        let s = 
+        "fn abc(test) { #this is function abc
+            while a + b { # this is a while test
+                abc
+            } # while test end
+            if abc == 123 {
+                print(abc)
+            }
+            return abc #abc
+        }";
+        let meta = FSRPosition::new();
+        let i = FSRFnDef::parse(s.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+        assert_eq!(s.len(), i.get_len())
+    }
 }
