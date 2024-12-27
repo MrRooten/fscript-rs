@@ -57,6 +57,7 @@ enum ExprState {
     Bracket,
     Square,
     WaitToken,
+    Comment
 }
 
 struct ExprStates {
@@ -559,6 +560,19 @@ impl<'a> FSRExpr<'a> {
             let t_i = source[ctx.start + ctx.length];
             let t_c = t_i as char;
 
+            if ((t_c == '#' && !(ctx.states.eq_peek(&ExprState::SingleString) || ctx.states.eq_peek(&ExprState::DoubleString)))) {
+                if ctx.length != 0 {
+                    let sub_meta = meta.from_offset(meta.offset);
+                    return Err(SyntaxError::new_with_type(&FSRPosition::from_offset(&sub_meta, ctx.start + ctx.length), "error # place", SyntaxErrType::CommentError))
+                }
+
+                while ctx.start + ctx.length < source.len() && source[ctx.start + ctx.length] != '\n' as u8 {
+                    ctx.start += 1;
+                }
+
+                continue;
+            }
+
             if ((t_c == '\n' && !ignore_nline) || t_c == ';' || t_c == '}')
                 && !ctx.states.eq_peek(&ExprState::EscapeNewline)
             {
@@ -832,5 +846,18 @@ impl<'a> FSRExpr<'a> {
 
     pub fn get_op(&self) -> &str {
         self.op.unwrap()
+    }
+}
+
+mod test {
+    use crate::frontend::ast::token::base::FSRPosition;
+
+    use super::FSRExpr;
+
+    #[test]
+    fn test_commend() {
+        let v = "v = 1 + '好'";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
     }
 }

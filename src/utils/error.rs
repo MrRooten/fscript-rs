@@ -10,6 +10,7 @@ pub enum SyntaxErrType {
     BracketNotMatch,
     OperatorError,
     QuoteNotClose,
+    CommentError,
     None,
 }
 
