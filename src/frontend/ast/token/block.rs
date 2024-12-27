@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use super::base::{FSRPosition, FSRToken};
+use super::r#else::FSRElse;
 use super::for_statement::FSRFor;
 use super::function_def::FSRFnDef;
 use super::if_statement::FSRIf;
@@ -191,6 +192,8 @@ impl<'a> FSRBlock<'a> {
                     start += length;
                     length = 0;
                 } else if t == &NodeType::Else {
+                    let mut sub_meta = meta.from_offset(start);
+                    let else_expr = FSRElse::parse(&source[start..], sub_meta)?;
                     
                 } else if t == &NodeType::Break {
                     let mut sub_meta = meta.from_offset(start);

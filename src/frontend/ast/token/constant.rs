@@ -8,7 +8,7 @@ pub enum FSRConstantType {
 }
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum FSROrinStr<'a> {
-    Integer(&'a str),
+    Integer(&'a str, Option<&'a str>),
     Float(&'a str),
     String(&'a str)
 }
@@ -16,7 +16,7 @@ pub enum FSROrinStr<'a> {
 impl FSROrinStr<'_> {
     pub fn to_2(&self) -> FSROrinStr2 {
         match self {
-            FSROrinStr::Integer(i) => FSROrinStr2::Integer(i.to_string()),
+            FSROrinStr::Integer(i, op) => FSROrinStr2::Integer(i.to_string(), op.map(|x| x.to_string())),
             FSROrinStr::Float(f) => FSROrinStr2::Float(f.to_string()),
             FSROrinStr::String(s) => FSROrinStr2::String(s.to_string()),
         }
@@ -25,7 +25,7 @@ impl FSROrinStr<'_> {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum FSROrinStr2 {
-    Integer(String),
+    Integer(String, Option<String>),
     Float(String),
     String(String)
 }
@@ -72,13 +72,13 @@ impl<'a> FSRConstant<'a> {
         }
     }
 
-    pub fn from_int(i: i64, meta: FSRPosition, s: &'a str) -> Self {
+    pub fn from_int(i: i64, meta: FSRPosition, s: &'a str, op: Option<&'a str>) -> Self {
         FSRConstant {
             constant: FSRConstantType::Integer(i),
             len: 0,
             single_op: None,
             meta,
-            const_str: FSROrinStr::Integer(s)
+            const_str: FSROrinStr::Integer(s, op)
         }
     }
 

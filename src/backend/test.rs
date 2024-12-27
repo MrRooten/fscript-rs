@@ -50,6 +50,23 @@ pub mod tests {
         println!("{:#?}", v);
     }
 
+    #[test]
+    fn test_if_else() {
+        let expr = "
+        if abc {
+            println('if')
+        } else if ddc {
+            println('else if')
+        } else {
+            println('else')
+        }
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
     // #[test]
     // fn test_2() {
     //     let source_code = "

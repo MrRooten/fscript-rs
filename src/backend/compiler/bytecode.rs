@@ -901,13 +901,19 @@ impl<'a> Bytecode {
 
         let mut result_list = Vec::new();
         if let FSRConstantType::Integer(i) = token.get_constant() {
-            let obj = FSRInteger::new_inst(*i);
+            let i = if token.single_op.is_some() && token.single_op.unwrap().eq("-") {
+                -1 * *i
+            } else {
+                *i
+            };
+            let obj = FSRInteger::new_inst(i);
             obj.set_not_delete();
             let ptr = FSRVM::leak_object(Box::new(obj));
             const_map.insert(id as usize, ptr);
+            
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstInteger(id, *i),
+                arg: ArgType::ConstInteger(id, i),
             });
         } else if let FSRConstantType::String(s) = token.get_constant() {
             let obj = FSRString::new_inst(Cow::Owned(String::from_utf8_lossy(s).to_string()));

@@ -224,11 +224,9 @@ mod frontend_tests {
     fn test_if_else() {
         let s = "
         if abc == 123 {
-
-        } else if 123 {
-
-        } else if 123 {
             
+        } else {
+            abc = 1
         }
         ";
         let meta = FSRPosition::new();
@@ -313,5 +311,14 @@ while i < b { # while test
         let i = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
         assert_eq!(s.len(), i.get_len())
+    }
+
+    #[test]
+    fn test_neg_number() {
+        let s = "a = -1";
+        let meta = FSRPosition::new();
+        let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
+
+        println!("{:#?}", expr);
     }
 }
