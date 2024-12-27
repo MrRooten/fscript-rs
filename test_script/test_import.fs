@@ -1,3 +1,7 @@
-import abc
+import test
 
-abc.out()
+test.test()
+
+abc = test.Abc()
+
+dump(test.Abc)

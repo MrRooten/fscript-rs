@@ -92,10 +92,11 @@ pub mod tests {
         
         ";
         let v = FSRModule::from_code("main", source_code).unwrap();
-        let mut runtime = FSRThreadRuntime::new();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut runtime = FSRThreadRuntime::new(base_module);
         let mut vm = FSRVM::new();
         runtime.set_vm(&mut vm);
-        runtime.start(Box::new(v), &mut vm).unwrap();
+        runtime.start(base_module, &mut vm).unwrap();
     }
 
     #[test]
@@ -146,7 +147,7 @@ dump(a)
 
         // ";
         // let v = FSRModule::from_code("main", source_code).unwrap();
-        let mut runtime = FSRThreadRuntime::new();
+        let mut runtime = FSRThreadRuntime::new(0);
         let mut vm = FSRVM::new();
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
@@ -184,7 +185,7 @@ dump(a)
 
         // ";
         // let v = FSRModule::from_code("main", source_code).unwrap();
-        let mut runtime = FSRThreadRuntime::new();
+        let mut runtime = FSRThreadRuntime::new(0);
         let mut vm = FSRVM::new();
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
@@ -219,10 +220,11 @@ dump(a)
             let mut source_code = String::new();
             f.read_to_string(&mut source_code).unwrap();
             let v = FSRModule::from_code("main", &source_code).unwrap();
-            let mut runtime = FSRThreadRuntime::new();
+            let base_module = FSRVM::leak_object(Box::new(v));
+            let mut runtime = FSRThreadRuntime::new(base_module);
             let mut vm = FSRVM::new();
             let start = Instant::now();
-            runtime.start(Box::new(v), &mut vm).unwrap();
+            runtime.start(base_module, &mut vm).unwrap();
             let end = Instant::now();
             println!("{:?}", end - start);
         }
@@ -265,10 +267,11 @@ pub enum FSRValue<'a> {
 
         abc()
         "#;
-        let v = FSRModule::from_code("module1", &module1).unwrap();
-        let mut runtime = FSRThreadRuntime::new();
+        let v = FSRModule::from_code("module1", module1).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut runtime = FSRThreadRuntime::new(base_module);
         let mut vm = FSRVM::new();
 
-        runtime.start(Box::new(v), &mut vm).unwrap();
+        runtime.start(base_module, &mut vm).unwrap();
     }
 }
