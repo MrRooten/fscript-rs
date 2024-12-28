@@ -1110,15 +1110,14 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(v);
             }
         } else {
-            self.save_ip_to_callstate(&mut context.exp, &mut context.ip, context.module);
-            if let FSRValue::Function(f) = &fn_obj.value {
-                self.call_stack
-                    .push(CallFrame::new(&Cow::Borrowed("tmp2"), Some(f.module)));
-            }
-
-            context.exp.clear();
-
             if fn_obj.is_fsr_function() {
+                self.save_ip_to_callstate(&mut context.exp, &mut context.ip, context.module);
+                if let FSRValue::Function(f) = &fn_obj.value {
+                    self.call_stack
+                        .push(CallFrame::new(&Cow::Borrowed("tmp2"), Some(f.module)));
+                }
+    
+                context.exp.clear();
                 for arg in args.iter().rev() {
                     self.get_cur_mut_stack().args.push(*arg);
                 }
@@ -1142,13 +1141,15 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 if let FSRRetValue::Value(v) = v {
                     let id = FSRVM::leak_object(v);
+                    //self.get_cur_mut_stack().ret_val = Some(SValue::Global(id));
                     context.exp.push(SValue::Global(id));
                     let vm = self.get_mut_vm();
-                    self.pop_stack(vm, &[id]);
+                    //self.pop_stack(vm, &[id]);
                 } else if let FSRRetValue::GlobalId(id) = v {
                     context.exp.push(SValue::Global(id));
+                    //self.get_cur_mut_stack().ret_val = Some(SValue::Global(id));
                     let vm = self.get_mut_vm();
-                    self.pop_stack(vm, &[id]);
+                    //self.pop_stack(vm, &[id]);
                 }
             }
         }

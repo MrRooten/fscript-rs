@@ -5,6 +5,8 @@ Running on bytecode, simple and useless program language, \[temporary not but wi
 ### [x] float type
 ### [x] async support 
 ### [√] import module
+### [x] type hint system
+### [x] Turing Completeness
 
 
 ## Usage

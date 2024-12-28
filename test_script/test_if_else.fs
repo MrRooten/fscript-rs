@@ -7,3 +7,7 @@ if abc > 1 {
 } else {
     println('else')
 }
+
+c = -1
+
+println(c)

@@ -6,7 +6,7 @@ use crate::{
     backend::{memory::size_alloc::FSRObjectAllocator, types::{
         base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
     }},
-    std::io::init_io,
+    std::{io::init_io, utils::init_utils},
 };
 
 use super::thread::FSRThreadRuntime;
@@ -147,6 +147,13 @@ impl<'a> FSRVM<'a> {
 
     pub fn init(&mut self) {
         let objs = init_io();
+        for obj in objs {
+            let id = FSRVM::register_object(obj.1);
+            self.global.insert(obj.0.to_string(), id);
+        }
+
+        let objs = init_utils();
+
         for obj in objs {
             let id = FSRVM::register_object(obj.1);
             self.global.insert(obj.0.to_string(), id);
