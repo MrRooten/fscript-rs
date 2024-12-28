@@ -1,6 +1,5 @@
 #![allow(clippy::ptr_arg)]
 
-use std::{path::{Path, PathBuf}, str::FromStr, vec};
 #[cfg(feature = "perf")]
 use std::{
     borrow::Cow,
@@ -8,6 +7,11 @@ use std::{
     ops::AddAssign,
     sync::atomic::AtomicU64,
     time::{Duration, Instant},
+};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+    vec,
 };
 
 #[cfg(not(feature = "perf"))]
@@ -915,18 +919,48 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
+    fn chain_get_variable(var: (u64, &String), thread: &Self, module: ObjId) -> Option<ObjId> {
+        // 尝试从当前栈获取变量
+        if let Some(value) = thread.get_cur_stack().get_var(&var.0) {
+            Some(*value)
+        } else if let Some(value) =
+            FSRObject::id_to_obj(module).as_module().get_object(var.1)
+        {
+            Some(value)
+        }
+        // 尝试从全局对象中获取变量
+        else if let Some(value) = thread.get_vm().get_global_obj_by_name(var.1) {
+            Some(*value)
+        } else {
+            None
+        }
+
+    }
+
     #[inline]
     fn call_process_set_args(
         args_num: usize,
         thread: &Self,
+        module: ObjId,
         exp: &mut Vec<SValue<'a>>,
         args: &mut Vec<ObjId>,
-    ) {
+    ) -> Result<(), FSRError> {
         let mut i = 0;
         while i < args_num {
             let arg = exp.pop().unwrap();
             let a_id = match arg {
-                SValue::Stack(s) => *thread.get_cur_stack().get_var(&s.0).unwrap(),
+                SValue::Stack(s) => {
+                    match Self::chain_get_variable(s, thread, module) {
+                        Some(s) => s,
+                        None => {
+                            return Err(FSRError::new(
+                                format!("not found variable: `{}`", s.1),
+                                FSRErrCode::NoSuchObject,
+                            ))
+                        }
+                    }
+                }
                 SValue::Global(g) => g,
                 SValue::BoxObject(obj) => FSRVM::leak_object(obj),
                 SValue::Attr(a) => a.1,
@@ -934,6 +968,8 @@ impl<'a> FSRThreadRuntime<'a> {
             args.push(a_id);
             i += 1;
         }
+
+        Ok(())
     }
 
     #[inline]
@@ -1061,7 +1097,13 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut args = vec![];
         if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
             let args_num = *n;
-            Self::call_process_set_args(args_num, self, &mut context.exp, &mut args);
+            Self::call_process_set_args(
+                args_num,
+                self,
+                context.module.unwrap(),
+                &mut context.exp,
+                &mut args,
+            )?;
             args.reverse();
             // for i in &args {
             //     println!("{:#?}", FSRObject::id_to_obj(*i));
@@ -1116,7 +1158,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     self.call_stack
                         .push(CallFrame::new(&Cow::Borrowed("tmp2"), Some(f.module)));
                 }
-    
+
                 context.exp.clear();
                 for arg in args.iter().rev() {
                     self.get_cur_mut_stack().args.push(*arg);
@@ -1611,7 +1653,6 @@ impl<'a> FSRThreadRuntime<'a> {
             } else {
                 module_path = module_path.join(m.1);
             }
-            
         }
 
         let code = std::fs::read_to_string(module_path).unwrap();
@@ -1930,8 +1971,10 @@ impl<'a> FSRThreadRuntime<'a> {
             module: Some(module_id),
         };
 
-        self.call_stack.push(CallFrame::new(&Cow::Borrowed("load_module"), Some(module_id)));
-
+        self.call_stack.push(CallFrame::new(
+            &Cow::Borrowed("load_module"),
+            Some(module_id),
+        ));
 
         let module = FSRObject::id_to_obj(module_id).as_module();
         while let Some(expr) = module.get_expr(&context.ip) {
