@@ -416,8 +416,6 @@ pub struct FSRThreadRuntime<'a> {
     call_stack: Vec<CallFrame<'a>>,
     stack_index: usize,
 
-    #[allow(unused)]
-    bytecode_map: VecMap<'a>,
     vm_ptr: Option<*mut FSRVM<'a>>,
 }
 
@@ -431,41 +429,8 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn new(base_module: ObjId) -> FSRThreadRuntime<'a> {
-        let mut map = VecMap::default();
-        map.insert(BytecodeOperator::Assign, Self::assign_process);
-        map.insert(BytecodeOperator::BinaryAdd, Self::binary_add_process);
-        map.insert(BytecodeOperator::BinaryDot, Self::binary_dot_process);
-        map.insert(BytecodeOperator::BinaryMul, Self::binary_mul_process);
-        map.insert(BytecodeOperator::Call, Self::call_process);
-        map.insert(BytecodeOperator::IfTest, Self::if_test_process);
-        map.insert(BytecodeOperator::WhileTest, Self::while_test_process);
-        map.insert(BytecodeOperator::DefineFn, Self::define_fn);
-        map.insert(BytecodeOperator::EndDefineFn, Self::end_define_fn);
-        map.insert(BytecodeOperator::CompareTest, Self::compare_test);
-        map.insert(BytecodeOperator::ReturnValue, Self::ret_value);
-        map.insert(BytecodeOperator::WhileBlockEnd, Self::while_block_end);
-        map.insert(BytecodeOperator::AssignArgs, Self::assign_args);
-        map.insert(BytecodeOperator::ClassDef, Self::class_def);
-        map.insert(BytecodeOperator::EndDefineClass, Self::end_class_def);
-        map.insert(BytecodeOperator::LoadList, Self::load_list);
-        map.insert(BytecodeOperator::Else, Self::else_process);
-        map.insert(BytecodeOperator::ElseIf, Self::else_if_match);
-        map.insert(BytecodeOperator::ElseIfTest, Self::else_if_test_process);
-        map.insert(BytecodeOperator::IfBlockEnd, Self::if_end);
-        map.insert(BytecodeOperator::Break, Self::break_process);
-        map.insert(BytecodeOperator::Continue, Self::continue_process);
-        map.insert(BytecodeOperator::LoadForIter, Self::load_for_iter);
-        map.insert(BytecodeOperator::ForBlockEnd, Self::for_block_end);
-        map.insert(BytecodeOperator::PushForNext, Self::push_for_next);
-        map.insert(BytecodeOperator::SpecialLoadFor, Self::special_load_for);
-        map.insert(BytecodeOperator::AndJump, Self::process_logic_and);
-        map.insert(BytecodeOperator::OrJump, Self::process_logic_or);
-        map.insert(BytecodeOperator::Empty, Self::empty_process);
-        map.insert(BytecodeOperator::BinarySub, Self::binary_sub_process);
-
         Self {
             call_stack: vec![CallFrame::new(&Cow::Borrowed("base"), Some(base_module))],
-            bytecode_map: map,
             vm_ptr: None,
             stack_index: 0,
         }
