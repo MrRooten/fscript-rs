@@ -406,6 +406,8 @@ impl ASTParser {
             return "or"
         } else if op.eq("not") {
             return "not"
+        } else if op.eq("!") {
+            return "!"
         }
 
         unimplemented!()

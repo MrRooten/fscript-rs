@@ -548,7 +548,7 @@ impl<'a> Bytecode {
         }
 
         if let Some(single_op) = expr.get_single_op() {
-            if single_op.eq("not") {
+            if single_op.eq("not") || single_op.eq("!") {
                 op_code.push(BytecodeArg {
                     operator: BytecodeOperator::NotOperator,
                     arg: ArgType::None,
