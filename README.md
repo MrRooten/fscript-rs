@@ -7,7 +7,7 @@ Running on bytecode, simple and useless program language, \[temporary not but wi
 ### [√] import module
 ### [x] type hint system
 ### [x] Turing Completeness
-
+### [x] better AST error handle(display or tips)
 
 ## Usage
 
@@ -42,7 +42,7 @@ obj count: 4
 ```
 
 #### Class Test
-```rust
+```python
 class Abc {
     fn __new__(self) {
         self.abc = 123

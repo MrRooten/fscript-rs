@@ -108,6 +108,7 @@ pub enum BytecodeOperator {
     StoreFast = 31,
     BinarySub = 32,
     Import = 33,
+    NotOperator = 34,
     Load = 1000,
 }
 
@@ -225,6 +226,17 @@ impl BytecodeOperator {
                 arg: ArgType::None,
             });
         }
+        // } else if op.eq("&&") || op.eq("and") {
+        //     return Some(BytecodeArg {
+        //         operator: BytecodeOperator::LoadAnd,
+        //         arg: ArgType::None
+        //     })
+        // } else if op.eq("||") || op.eq("or") {
+        //     return Some(BytecodeArg {
+        //         operator: BytecodeOperator::LoadOr,
+        //         arg: ArgType::None
+        //     })
+        // }
         None
     }
 }
@@ -421,8 +433,13 @@ impl<'a> Bytecode {
                 arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
             },
         };
-
-        let ans = vec![op_arg];
+        let mut ans = vec![op_arg];
+        if let Some(single_op) = var.single_op {
+            ans.push(BytecodeArg {
+                operator: BytecodeOperator::NotOperator,
+                arg: ArgType::None,
+            });
+        }
 
         (ans, var_map)
     }
@@ -507,16 +524,20 @@ impl<'a> Bytecode {
             second.append(&mut v.0);
             var_map_ref = Some(v.1);
         }
-        if expr.get_op().eq("&&") {
+        if expr.get_op().eq("&&") || expr.get_op().eq("and") {
             op_code.push(BytecodeArg {
                 operator: BytecodeOperator::AndJump,
                 arg: ArgType::AddOffset(second.len()),
             });
-        } else if expr.get_op().eq("||") {
+            op_code.append(&mut second);
+            return (op_code, var_map_ref.unwrap());
+        } else if expr.get_op().eq("||") || expr.get_op().eq("or") {
             op_code.push(BytecodeArg {
                 operator: BytecodeOperator::OrJump,
                 arg: ArgType::AddOffset(second.len()),
             });
+            op_code.append(&mut second);
+            return (op_code, var_map_ref.unwrap());
         }
 
         op_code.append(&mut second);
@@ -526,6 +547,14 @@ impl<'a> Bytecode {
             unimplemented!()
         }
 
+        if let Some(single_op) = expr.get_single_op() {
+            if single_op.eq("not") {
+                op_code.push(BytecodeArg {
+                    operator: BytecodeOperator::NotOperator,
+                    arg: ArgType::None,
+                });
+            }
+        }
         (op_code, var_map_ref.unwrap())
     }
 
@@ -760,7 +789,10 @@ impl<'a> Bytecode {
         continue_list
     }
 
-    fn load_import(import: &'a FSRImport, var_map: &'a mut VarMap<'a>) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+    fn load_import(
+        import: &'a FSRImport,
+        var_map: &'a mut VarMap<'a>,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let name = import.module_name.last().unwrap();
         if !var_map.has_var(name) {
             let v = name;
@@ -768,12 +800,13 @@ impl<'a> Bytecode {
         }
 
         let id = var_map.get_var(name).unwrap();
-        let import_list = vec![
-            BytecodeArg {
-                operator: BytecodeOperator::Import,
-                arg: ArgType::ImportModule(*id, import.module_name.iter().map(|x| x.to_string()).collect())
-            },
-        ];
+        let import_list = vec![BytecodeArg {
+            operator: BytecodeOperator::Import,
+            arg: ArgType::ImportModule(
+                *id,
+                import.module_name.iter().map(|x| x.to_string()).collect(),
+            ),
+        }];
 
         (vec![import_list], var_map)
     }
@@ -848,7 +881,13 @@ impl<'a> Bytecode {
             let v = Self::load_import(import, var_map);
             return (v.0, v.1);
         } else if let FSRToken::EmptyExpr = token {
-            return (vec![vec![BytecodeArg { operator: BytecodeOperator::Empty, arg: ArgType::None }]], var_map)
+            return (
+                vec![vec![BytecodeArg {
+                    operator: BytecodeOperator::Empty,
+                    arg: ArgType::None,
+                }]],
+                var_map,
+            );
         }
 
         unimplemented!()
@@ -910,7 +949,7 @@ impl<'a> Bytecode {
             obj.set_not_delete();
             let ptr = FSRVM::leak_object(Box::new(obj));
             const_map.insert(id as usize, ptr);
-            
+
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
                 arg: ArgType::ConstInteger(id, i),

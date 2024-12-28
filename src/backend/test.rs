@@ -38,6 +38,17 @@ pub mod tests {
     }
 
     #[test]
+    fn test_3() {
+        let expr = "
+        not b
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
     fn test_expr_method() {
         let s = "a.abc(1)\n";
 

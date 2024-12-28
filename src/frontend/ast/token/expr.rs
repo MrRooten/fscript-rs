@@ -179,6 +179,10 @@ impl<'a> Node<'a> {
             return -2;
         }
 
+        if op.eq("and") || op.eq("or") {
+            return -2
+        }
+
         if op.eq("=") {
             return -3;
         }
@@ -240,6 +244,10 @@ impl<'a> StmtContext<'a> {
 }
 
 impl<'a> FSRExpr<'a> {
+    pub fn get_single_op(&self) -> Option<&'a str> {
+        self.single_op
+    }
+
     pub fn get_len(&self) -> usize {
         self.len
     }
@@ -250,6 +258,10 @@ impl<'a> FSRExpr<'a> {
         }
 
         if ps.eq("-") {
+            return true;
+        }
+
+        if ps.eq("not") {
             return true;
         }
 
@@ -416,7 +428,12 @@ impl<'a> FSRExpr<'a> {
         }
 
         if Self::is_single_op(op) && !op.eq("-") {
-            ctx.single_op = Some(op);
+            if ctx.single_op.is_some() && (ctx.single_op.unwrap().eq("not") || ctx.single_op.unwrap().eq("!")) {
+                ctx.single_op = None;
+            } else {
+                ctx.single_op = Some(op);
+            }
+            
             ctx.states.pop_state();
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -493,6 +510,11 @@ impl<'a> FSRExpr<'a> {
                 && source[ctx.start + ctx.length] != b'[')
         {
             let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            if name.eq("and") || name.eq("or") || name.eq("not") {
+                Self::end_of_char(source, ignore_nline, meta, ctx)?;
+                return Ok(())
+                //ctx.states.pop_state();
+            }
             let mut sub_meta = meta.from_offset(ctx.start);
             let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
             variable.single_op = ctx.single_op;
@@ -706,6 +728,12 @@ impl<'a> FSRExpr<'a> {
                 || ctx.last_loop
             {
                 let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+
+                if name.eq("and") || name.eq("or") || name.eq("not") {
+                    Self::end_of_char(source, ignore_nline, meta, ctx)?;
+                    continue;
+                }
+
                 let mut sub_meta = meta.from_offset(ctx.start);
                 let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
                 variable.single_op = ctx.single_op;
@@ -793,6 +821,7 @@ impl<'a> FSRExpr<'a> {
                 return Err(err);
             }
             let c = ctx.candidates.remove(0);
+
             return Ok((c, ctx.start + ctx.length));
         }
 
@@ -855,8 +884,15 @@ mod test {
     use super::FSRExpr;
 
     #[test]
-    fn test_commend() {
-        let v = "v = 1 + '好'";
+    fn test_binary_str() {
+        let v = "v and c";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_binary_str2() {
+        let v = "not c";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }

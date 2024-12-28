@@ -889,9 +889,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // 尝试从当前栈获取变量
         if let Some(value) = thread.get_cur_stack().get_var(&var.0) {
             Some(*value)
-        } else if let Some(value) =
-            FSRObject::id_to_obj(module).as_module().get_object(var.1)
-        {
+        } else if let Some(value) = FSRObject::id_to_obj(module).as_module().get_object(var.1) {
             Some(value)
         }
         // 尝试从全局对象中获取变量
@@ -900,7 +898,6 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             None
         }
-
     }
 
     #[inline]
@@ -915,17 +912,15 @@ impl<'a> FSRThreadRuntime<'a> {
         while i < args_num {
             let arg = exp.pop().unwrap();
             let a_id = match arg {
-                SValue::Stack(s) => {
-                    match Self::chain_get_variable(s, thread, module) {
-                        Some(s) => s,
-                        None => {
-                            return Err(FSRError::new(
-                                format!("not found variable: `{}`", s.1),
-                                FSRErrCode::NoSuchObject,
-                            ))
-                        }
+                SValue::Stack(s) => match Self::chain_get_variable(s, thread, module) {
+                    Some(s) => s,
+                    None => {
+                        return Err(FSRError::new(
+                            format!("not found variable: `{}`", s.1),
+                            FSRErrCode::NoSuchObject,
+                        ))
                     }
-                }
+                },
                 SValue::Global(g) => g,
                 SValue::BoxObject(obj) => FSRVM::leak_object(obj),
                 SValue::Attr(a) => a.1,
@@ -1719,6 +1714,88 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    fn not_process(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bc: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let _state = self.get_cur_mut_stack();
+        let v1 = match context.exp.last() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary add 1",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+
+        let v1_id = v1.get_global_id(self)?;
+        let mut target = false;
+        if (context.vm.get_none_id() == v1_id || context.vm.get_false_id() == v1_id)
+        {
+            target = true;
+        } else {
+            target = false;
+        }
+
+        context.exp.pop();
+
+        if target {
+            context.exp.push(SValue::Global(context.vm.get_true_id()));
+        } else {
+            context.exp.push(SValue::Global(context.vm.get_false_id()));
+        }
+
+        Ok(false)
+    }
+
+    fn process_logic_or_load(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bc: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let _state = self.get_cur_mut_stack();
+        let v1 = match context.exp.last() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary add 1",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+        let v2 = match context.exp.get(context.exp.len() - 2) {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary add 2",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+        let v1_id = v1.get_global_id(self)?;
+        let v2_id = v2.get_global_id(self)?;
+
+        if (context.vm.get_none_id() != v1_id || context.vm.get_false_id() != v1_id)
+            || (context.vm.get_none_id() != v2_id || context.vm.get_false_id() != v2_id)
+        {
+            context.exp.push(SValue::Global(context.vm.get_true_id()));
+        } else {
+            context.exp.push(SValue::Global(context.vm.get_false_id()));
+        }
+
+        context.exp.pop();
+        context.exp.pop();
+
+        Ok(false)
+    }
+
     fn empty_process(
         self: &mut FSRThreadRuntime<'a>,
         _context: &mut ThreadContext<'a>,
@@ -1780,6 +1857,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Import => {
                 Self::process_import(self, &mut context.exp, bytecode, context.module.unwrap())
             }
+            BytecodeOperator::NotOperator => Self::not_process(self, context, bytecode, bc),
         }?;
 
         #[cfg(feature = "perf")]

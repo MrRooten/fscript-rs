@@ -50,7 +50,6 @@ impl<'a> FSRClass<'a> {
             offset_attrs: vec![0;30],
         }
     }
-
     
 
     pub fn insert_attr(&mut self, name: &'a str, object: FSRObject<'a>) {

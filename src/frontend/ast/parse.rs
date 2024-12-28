@@ -400,6 +400,12 @@ impl ASTParser {
             return "&&"
         } else if op.eq("||") {
             return "||"
+        } else if op.eq("and") {
+            return "and"
+        } else if op.eq("or") {
+            return "or"
+        } else if op.eq("not") {
+            return "not"
         }
 
         unimplemented!()
