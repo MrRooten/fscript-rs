@@ -939,4 +939,12 @@ mod test {
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }
+
+
+    #[test]
+    fn test_binary_str4() {
+        let v = "(not 1 == 1) or 1 == 1";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
 }
