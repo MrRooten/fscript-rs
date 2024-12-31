@@ -935,7 +935,7 @@ mod test {
 
     #[test]
     fn test_binary_str3() {
-        let v = "not 1 != 1";
+        let v = "not false";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }

@@ -151,6 +151,6 @@ mod test {
         let mut t = FSTrie::new();
         t.init();
 
-        println!("{:#?}", t.match_token("fn_abc".as_bytes()));
+        assert!(t.match_token("fn_abc".as_bytes()).eq(&None));
     }
 }

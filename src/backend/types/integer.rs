@@ -258,7 +258,7 @@ fn not_equal<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            if self_int == other_int {
+            if self_int != other_int {
                 return Ok(FSRRetValue::GlobalId(1));
             } else {
                 return Ok(FSRRetValue::GlobalId(2));
