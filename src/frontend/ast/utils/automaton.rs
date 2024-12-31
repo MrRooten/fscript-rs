@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::frontend::ast::parse::ASTParser;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum NodeType {
     Root,
@@ -83,7 +85,13 @@ impl FSTrie {
         let mut cur = &mut self.root;
         for c in token {
             let c = *c;
+            let t_c = c as char;
+
+            
             if !(c as char).is_ascii_alphabetic() {
+                if ASTParser::is_name_letter(c) {
+                    return None;
+                }
                 break;
             }
             let node = cur.get_node(&(c as char));
@@ -131,5 +139,18 @@ impl FSTrie {
         if let Some(s) = cur { 
             s.end_type = n_type.clone() 
         }
+    }
+}
+
+
+mod test {
+    use super::FSTrie;
+
+    #[test]
+    fn test_mod() {
+        let mut t = FSTrie::new();
+        t.init();
+
+        println!("{:#?}", t.match_token("fn_abc".as_bytes()));
     }
 }
