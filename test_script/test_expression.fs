@@ -14,3 +14,15 @@ class Abc {
 
 abc = Abc()
 println(abc)
+
+true = 1 == 1
+
+if true {
+    println("true")
+}
+
+false = 1 != 1
+
+if not false {
+    println("not false")
+}

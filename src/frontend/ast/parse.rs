@@ -408,6 +408,8 @@ impl ASTParser {
             return "not"
         } else if op.eq("!") {
             return "!"
+        } else if op.eq("!=") {
+            return "!="
         }
 
         unimplemented!()
