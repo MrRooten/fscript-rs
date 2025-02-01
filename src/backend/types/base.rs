@@ -1,5 +1,9 @@
 use std::{
-    borrow::Cow, cell::Cell, collections::hash_map::Keys, fmt::Debug, sync::atomic::{AtomicI64, AtomicU64, Ordering}
+    borrow::Cow,
+    cell::Cell,
+    collections::hash_map::Keys,
+    fmt::Debug,
+    sync::atomic::{AtomicI64, AtomicU64, Ordering},
 };
 
 use crate::{
@@ -15,7 +19,8 @@ use crate::{
 };
 
 use super::{
-    class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
+    class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator,
+    list::FSRList, module::FSRModule, string::FSRString,
 };
 
 pub type ObjId = usize;
@@ -131,7 +136,7 @@ impl<'a> FSRValue<'a> {
 
                         FSRObject::drop_object(id);
                         return None;
-                    },
+                    }
                 }
             }
             FSRValue::Iterator(_) => None,
@@ -142,14 +147,13 @@ impl<'a> FSRValue<'a> {
     }
 }
 
-
 pub struct FSRObject<'a> {
     pub(crate) obj_id: ObjId,
     pub(crate) value: FSRValue<'a>,
     pub(crate) ref_count: AtomicU64,
     pub(crate) cls: ObjId,
     pub(crate) delete_flag: Cell<bool>,
-    pub(crate) leak: Cell<bool>
+    pub(crate) leak: Cell<bool>,
 }
 
 impl Debug for FSRObject<'_> {
@@ -158,8 +162,24 @@ impl Debug for FSRObject<'_> {
         let obj = FSRObject::id_to_obj(cls);
         let cls = match &obj.value {
             FSRValue::Class(c) => c,
-            _ => {
-                unimplemented!()
+            FSRValue::Integer(_) => todo!(),
+            FSRValue::Float(_) => todo!(),
+            FSRValue::String(cow) => todo!(),
+            FSRValue::ClassInst(fsrclass_inst) => todo!(),
+            FSRValue::Function(fsrfn) => todo!(),
+            FSRValue::Bool(_) => todo!(),
+            FSRValue::List(fsrlist) => todo!(),
+            FSRValue::Iterator(fsrinner_iterator) => todo!(),
+            FSRValue::Module(fsrmodule) => todo!(),
+            FSRValue::None => {
+                let s = "internal_object".to_string();
+                return f
+                    .debug_struct("FSRObject")
+                    .field("obj_id", &self.obj_id)
+                    .field("value", &self.value)
+                    .field("ref_count", &self.ref_count)
+                    .field("cls", &s)
+                    .finish();
             }
         };
         f.debug_struct("FSRObject")
@@ -185,12 +205,12 @@ impl Clone for FSRObject<'_> {
     }
 }
 
-#[cfg(feature="alloc_trace")]
+#[cfg(feature = "alloc_trace")]
 pub struct HeapTrace {
     total_object: AtomicI64,
 }
 
-#[cfg(feature="alloc_trace")]
+#[cfg(feature = "alloc_trace")]
 impl HeapTrace {
     pub fn add_object(&self) {
         self.total_object.fetch_add(1, Ordering::AcqRel);
@@ -205,8 +225,8 @@ impl HeapTrace {
     }
 }
 
-#[cfg(feature="alloc_trace")]
-pub(crate) static  HEAP_TRACE: HeapTrace = HeapTrace {
+#[cfg(feature = "alloc_trace")]
+pub(crate) static HEAP_TRACE: HeapTrace = HeapTrace {
     total_object: AtomicI64::new(0),
 };
 
@@ -220,8 +240,7 @@ impl<'a> FSRObject<'a> {
     pub fn as_module(&self) -> &FSRModule<'a> {
         match &self.value {
             FSRValue::Module(fsrmodule) => fsrmodule,
-            _ => unimplemented!()
-
+            _ => unimplemented!(),
         }
     }
 
@@ -242,14 +261,14 @@ impl<'a> FSRObject<'a> {
 
     pub fn is_true_id(&self) -> ObjId {
         if let FSRValue::None = self.value {
-            return 2
+            return 2;
         }
 
         if let FSRValue::Bool(b) = self.value {
             if b {
-                return 1
+                return 1;
             } else {
-                return 2
+                return 2;
             }
         }
 
@@ -344,7 +363,7 @@ impl<'a> FSRObject<'a> {
         }
 
         if !self.delete_flag.get() {
-            return ;
+            return;
         }
 
         self.ref_count.fetch_add(1, Ordering::AcqRel);
@@ -361,7 +380,7 @@ impl<'a> FSRObject<'a> {
         }
 
         if !self.delete_flag.get() {
-            return ;
+            return;
         }
 
         self.ref_count.fetch_sub(1, Ordering::AcqRel);
@@ -374,13 +393,15 @@ impl<'a> FSRObject<'a> {
     pub fn drop_object(id: ObjId) {
         let obj = FSRObject::id_to_obj(id);
         if !(obj.delete_flag.get()) {
-            return ;
+            return;
         }
 
-        #[cfg(feature="alloc_trace")]
+        #[cfg(feature = "alloc_trace")]
         HEAP_TRACE.dec_object();
         //let _cleanup = unsafe { Box::from_raw(id as *mut Self) };
-        unsafe { let _cleanup = Box::from_raw(id as *mut Self); };
+        unsafe {
+            let _cleanup = Box::from_raw(id as *mut Self);
+        };
     }
 
     #[inline(always)]
@@ -411,7 +432,7 @@ impl<'a> FSRObject<'a> {
         name: &str,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<ObjId>
+        module: Option<ObjId>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         let self_method = match self_object.get_cls_attr(name, thread.get_vm()) {
@@ -433,7 +454,7 @@ impl<'a> FSRObject<'a> {
         offset: BinaryOffset,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<ObjId>
+        module: Option<ObjId>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         if let Some(self_method) = self_object.get_cls_offset_attr(offset, thread.get_vm()) {
@@ -507,7 +528,7 @@ impl<'a> FSRObject<'a> {
         &'a self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<ObjId>
+        module: Option<ObjId>,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, module);

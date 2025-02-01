@@ -91,6 +91,13 @@ impl<'a> FSRFor<'a> {
             start += 1;
         }
 
+        if !ASTParser::is_blank_char(source[start + 2]) {
+            let mut sub_meta = meta.from_offset(start);
+            sub_meta.offset = meta.offset;
+            let err = SyntaxError::new(&sub_meta, "in after variable in for statement");
+            return Err(err);
+        }
+
         let s = std::str::from_utf8(&source[start..start+2]).unwrap();
         if !s.eq("in") {
             let mut sub_meta = meta.from_offset(start);

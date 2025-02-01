@@ -12,7 +12,7 @@ impl<'a> FSRVariable<'a> {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
-    pub fn parse(name: &'a str, meta: FSRPosition) -> Result<FSRVariable, &str> {
+    pub fn parse(name: &'a str, meta: FSRPosition) -> Result<FSRVariable<'a>, &'a str> {
         Ok(Self {
             name,
             single_op: None,

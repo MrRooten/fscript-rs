@@ -58,7 +58,7 @@ impl<'a> FSRWhile<'a> {
         let mut state = State::Continue;
         let mut pre_state = State::Continue;
         let mut len = 0;
-        for c in &source[5..] {
+        for c in &source["while".len()..] {
             let c = *c as char;
             len += 1;
             if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {

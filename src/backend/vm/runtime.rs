@@ -1,3 +1,5 @@
+
+
 use std::{cell::{Cell, RefCell}, collections::HashMap, sync::{atomic::AtomicU64, Mutex}};
 
 use ahash::AHashMap;
@@ -145,6 +147,15 @@ impl<'a> FSRVM<'a> {
         }
     }
 
+    /*
+    init object like true false
+    */
+
+    fn init_global_object(&mut self) {
+        self.global.insert("true".to_string(), self.get_true_id());
+        self.global.insert("false".to_owned(), self.get_false_id());
+    }
+
     pub fn init(&mut self) {
         let objs = init_io();
         for obj in objs {
@@ -158,6 +169,8 @@ impl<'a> FSRVM<'a> {
             let id = FSRVM::register_object(obj.1);
             self.global.insert(obj.0.to_string(), id);
         }
+
+        self.init_global_object();
     }
 
     pub fn get_base_cls(&self, cls_id: ObjId) -> Option<&FSRClass<'a>> {

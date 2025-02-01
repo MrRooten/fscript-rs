@@ -146,13 +146,6 @@ impl<'a> Node<'a> {
         }
     }
 
-    pub fn add_higher_priority(&mut self, node: Node) {
-        unimplemented!()
-    }
-
-    pub fn add_lower_priority(&mut self, node: Node) {
-        unimplemented!()
-    }
 
     pub fn get_op_level(op: &str) -> i32 {
         if op.eq("-") || op.eq("+") {
@@ -928,7 +921,7 @@ mod test {
 
     #[test]
     fn test_binary_str2() {
-        let v = "not c";
+        let v = "not c and d";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }

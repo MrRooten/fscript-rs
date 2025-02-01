@@ -1086,7 +1086,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 } else {
                     match module.get_object(s.1) {
                         Some(s) => s,
-                        None => *context.vm.get_global_obj_by_name(s.1).unwrap(),
+                        None => {
+                            // Cache global object in call frame
+                            let v = *context.vm.get_global_obj_by_name(s.1).unwrap();
+                            state.insert_var(&s.0, v, None, false);
+                            v
+                        }
                     }
                 }
             }
@@ -1166,18 +1171,41 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_stack();
-        let test_val = match &context.exp.pop().unwrap() {
+        let v = context.exp.pop().unwrap();
+        let mut name = "";
+        let test_val = match &v {
             SValue::Stack(s) => {
+                name = s.1;
                 if let Some(id) = state.get_var(&s.0) {
-                    *id
+                    Some(*id)
                 } else {
-                    unimplemented!()
+                    let v = match context.vm.get_global_obj_by_name(s.1) {
+                        Some(o) => *o,
+                        None => {
+                            return Err(FSRError::new(
+                                format!("not found object in test: {}", name),
+                                FSRErrCode::NoSuchObject,
+                            ))
+                        }
+                    };
+                    state.insert_var(&s.0, v, None, false);
+                    Some(v)
                 }
             }
-            SValue::Global(id) => *id,
-            SValue::BoxObject(obj) => obj.is_true_id(),
+            SValue::Global(id) => Some(*id),
+            SValue::BoxObject(obj) => Some(obj.is_true_id()),
             _ => {
                 unimplemented!()
+            }
+        };
+
+        let test_val = match test_val {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    format!("not found object in test: {}", name),
+                    FSRErrCode::NoSuchObject,
+                ))
             }
         };
         if test_val == context.vm.get_false_id() || test_val == context.vm.get_none_id() {
@@ -1731,11 +1759,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-
         let v1_id = v1.get_global_id(self)?;
         let mut target = false;
-        if (context.vm.get_none_id() == v1_id || context.vm.get_false_id() == v1_id)
-        {
+        if (context.vm.get_none_id() == v1_id || context.vm.get_false_id() == v1_id) {
             target = true;
         } else {
             target = false;
