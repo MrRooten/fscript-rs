@@ -529,7 +529,7 @@ impl<'a> FSRObject<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<ObjId>,
-    ) -> Result<FSRRetValue, FSRError> {
+    ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, module);
         }

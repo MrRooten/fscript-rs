@@ -120,7 +120,7 @@ impl<'a> FSRFn<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: Option<ObjId>,
-    ) -> Result<FSRRetValue, FSRError> {
+    ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f(args, thread, module);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
