@@ -43,7 +43,7 @@ impl<'a> FSRModule<'a> {
         let mut object = FSRObject::new();
         object.delete_flag.set(false);
         object.value = FSRValue::Module(Box::new(module));
-        object.cls = FSRGlobalObjId::Module as ObjId;
+        object.cls = FSRGlobalObjId::ModuleCls as ObjId;
 
         Ok(object)
     }

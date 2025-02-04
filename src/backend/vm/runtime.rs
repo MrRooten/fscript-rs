@@ -1,13 +1,27 @@
-
-
-use std::{cell::{Cell, RefCell}, collections::HashMap, sync::{atomic::AtomicU64, Mutex}};
+use std::{
+    alloc::GlobalAlloc,
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    sync::{atomic::AtomicU64, Mutex},
+};
 
 use ahash::AHashMap;
 
 use crate::{
-    backend::{memory::size_alloc::FSRObjectAllocator, types::{
-        base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
-    }},
+    backend::{
+        memory::size_alloc::FSRObjectAllocator,
+        types::{
+            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
+            bool::FSRBool,
+            class::FSRClass,
+            fn_def::FSRFn,
+            integer::FSRInteger,
+            iterator::FSRInnerIterator,
+            list::FSRList,
+            module::FSRModule,
+            string::FSRString,
+        },
+    },
     std::{io::init_io, utils::init_utils},
 };
 
@@ -16,15 +30,15 @@ use super::thread::FSRThreadRuntime;
 #[derive(Hash, Debug, Eq, PartialEq)]
 pub enum ConstType<'a> {
     String(&'a str),
-    Integer(i64)
+    Integer(i64),
 }
 
 pub struct FSRVM<'a> {
     global: HashMap<String, ObjId>,
-    global_modules  : HashMap<&'a str, ObjId>,
+    global_modules: HashMap<&'a str, ObjId>,
     const_integer_global: RefCell<HashMap<i64, ObjId>>,
     pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, ObjId>>,
-    pub allocator   : FSRObjectAllocator<'a>
+    pub allocator: FSRObjectAllocator<'a>,
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -40,12 +54,18 @@ impl<'a> Default for FSRVM<'a> {
 impl<'a> FSRVM<'a> {
     #[inline(always)]
     pub fn has_str_const(&self, id: &str) -> bool {
-        self.const_map.lock().unwrap().contains_key(&ConstType::String(id))
+        self.const_map
+            .lock()
+            .unwrap()
+            .contains_key(&ConstType::String(id))
     }
 
     pub fn insert_str_const(&mut self, id: &'a str, obj: FSRObject<'a>) {
         let obj_id = FSRVM::leak_object(Box::new(obj));
-        self.const_map.lock().unwrap().insert(ConstType::String(id), obj_id);
+        self.const_map
+            .lock()
+            .unwrap()
+            .insert(ConstType::String(id), obj_id);
     }
 
     #[inline(always)]
@@ -63,12 +83,18 @@ impl<'a> FSRVM<'a> {
 
     #[inline(always)]
     pub fn has_int_const(&self, id: &i64) -> bool {
-        self.const_map.lock().unwrap().contains_key(&ConstType::Integer(*id))
+        self.const_map
+            .lock()
+            .unwrap()
+            .contains_key(&ConstType::Integer(*id))
     }
 
     pub fn insert_int_const(&mut self, id: &i64, obj: FSRObject<'a>) {
         let obj_id = FSRVM::leak_object(Box::new(obj));
-        self.const_map.lock().unwrap().insert(ConstType::Integer(*id), obj_id);
+        self.const_map
+            .lock()
+            .unwrap()
+            .insert(ConstType::Integer(*id), obj_id);
     }
 
     #[inline(always)]
@@ -133,16 +159,50 @@ impl<'a> FSRVM<'a> {
     pub fn init_static_object() {
         unsafe {
             if OBJECTS.is_empty() {
-                OBJECTS.push(Self::new_stataic_object_with_id(0, FSRValue::None));
-                OBJECTS.push(Self::new_stataic_object_with_id(1, FSRValue::Bool(true)));
-                OBJECTS.push(Self::new_stataic_object_with_id(2, FSRValue::Bool(false)));
-                OBJECTS.push(Self::new_stataic_object_with_id(3, FSRValue::Class(Box::new(FSRInteger::get_class()))));
-                OBJECTS.push(Self::new_stataic_object_with_id(4, FSRValue::Class(Box::new(FSRFn::get_class()))));
-                OBJECTS.push(Self::new_stataic_object_with_id(5, FSRValue::Class(Box::new(FSRInnerIterator::get_class()))));
-                OBJECTS.push(Self::new_stataic_object_with_id(6, FSRValue::Class(Box::new(FSRList::get_class()))));
-                OBJECTS.push(Self::new_stataic_object_with_id(7, FSRValue::Class(Box::new(FSRString::get_class()))));
-                OBJECTS.push(Self::new_stataic_object_with_id(8, FSRValue::Class(Box::new(FSRClass::new("Class")))));
-                OBJECTS.push(Self::new_stataic_object_with_id(9, FSRValue::Class(Box::new(FSRModule::get_class()))));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::None as ObjId,
+                    FSRValue::None,
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::True as ObjId,
+                    FSRValue::Bool(true),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::False as ObjId,
+                    FSRValue::Bool(false),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::IntegerCls as ObjId,
+                    FSRValue::Class(Box::new(FSRInteger::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::FnCls as ObjId,
+                    FSRValue::Class(Box::new(FSRFn::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::InnerIterator as ObjId,
+                    FSRValue::Class(Box::new(FSRInnerIterator::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::ListCls as ObjId,
+                    FSRValue::Class(Box::new(FSRList::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::StringCls as ObjId,
+                    FSRValue::Class(Box::new(FSRString::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::ClassCls as ObjId,
+                    FSRValue::Class(Box::new(FSRClass::new("Class"))),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::ModuleCls as ObjId,
+                    FSRValue::Class(Box::new(FSRModule::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::BoolCls as ObjId,
+                    FSRValue::Class(Box::new(FSRBool::get_class())),
+                ));
             }
         }
     }
@@ -179,7 +239,7 @@ impl<'a> FSRVM<'a> {
                 if let FSRValue::Class(c) = &s.value {
                     return Some(c);
                 } else {
-                    return None
+                    return None;
                 }
             }
         }
@@ -206,7 +266,7 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn leak_object(mut object: Box<FSRObject<'a>>) -> ObjId {
-        #[cfg(feature="alloc_trace")]
+        #[cfg(feature = "alloc_trace")]
         crate::backend::types::base::HEAP_TRACE.add_object();
         let id = Self::get_object_id(&object);
         object.obj_id = id;
@@ -225,8 +285,6 @@ impl<'a> FSRVM<'a> {
         Box::leak(object);
         id
     }
-
-
 
     pub fn get_global_obj_by_name(&self, name: &str) -> Option<&ObjId> {
         return self.global.get(name);

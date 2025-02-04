@@ -7,3 +7,4 @@ pub mod string;
 pub mod list;
 pub mod module;
 pub mod iterator;
+pub mod bool;
