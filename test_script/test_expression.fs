@@ -1,3 +1,5 @@
+c = "abc" + "def"
+println(c)
 fn abc() {
     return 'abc'.len()
 }

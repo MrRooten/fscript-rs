@@ -10,7 +10,7 @@ class Abc {
 a = Abc()
 println(type(a))
 
-
+print("ref_count:")
 println(ref_count(a))
 
 println(println)

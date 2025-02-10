@@ -1,6 +1,6 @@
-use std::{cell::RefCell, collections::VecDeque};
+use std::{borrow::Cow, cell::RefCell, collections::VecDeque};
 
-use crate::backend::types::{base::{FSRObject, FSRValue, ObjId}, integer::FSRInteger};
+use crate::backend::types::{base::{FSRObject, FSRValue, ObjId}, integer::FSRInteger, string::FSRString};
 
 #[allow(clippy::vec_box)]
 pub struct FSRObjectAllocator<'a> {
@@ -32,6 +32,10 @@ impl<'a> FSRObjectAllocator<'a> {
         }
         
         Box::new(FSRInteger::new_inst(i))
+    }
+
+    pub fn new_string(&self, s: Cow<'a, str>) -> Box<FSRObject<'a>> {
+        Box::new(FSRString::new_inst(s))
     }
 
     #[inline(always)]

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, fs, path::Path};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, fs, path::Path};
 
 use crate::{backend::compiler::bytecode::{Bytecode, BytecodeArg}, utils::error::FSRError};
 
@@ -6,7 +6,7 @@ use super::{base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass}
 
 #[derive(Debug)]
 pub struct FSRModule<'a> {
-    name: &'a str,
+    name: Cow<'a, str>,
     #[allow(unused)]
     bytecode: Bytecode,
     object_map  : RefCell<HashMap<String, ObjId>>
@@ -33,10 +33,10 @@ impl<'a> FSRModule<'a> {
         unimplemented!()
     }
 
-    pub fn from_code(name: &'a str, code: &str) -> Result<FSRObject<'a>, FSRError> {
+    pub fn from_code(name: &str, code: &str) -> Result<FSRObject<'a>, FSRError> {
         let bytecode = Bytecode::compile(name, code);
         let module = Self {
-            name,
+            name: Cow::Owned(name.to_string()),
             bytecode,
             object_map: RefCell::new(HashMap::new()),
         };

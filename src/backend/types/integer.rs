@@ -44,9 +44,7 @@ fn sub<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
-                self_int - other_int,
-            ))));
+            return Ok(FSRRetValue::Value(thread.get_vm().allocator.new_integer(self_int - other_int)));
         }
     }
 
@@ -65,9 +63,7 @@ fn mul<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
-                self_int * other_int,
-            ))));
+            return Ok(FSRRetValue::Value(thread.get_vm().allocator.new_integer(self_int * other_int)));
         }
     }
 
@@ -106,9 +102,7 @@ fn left_shift<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
-                self_int << other_int,
-            ))));
+            return Ok(FSRRetValue::Value(thread.get_vm().allocator.new_integer(self_int << other_int)));
         }
     }
 

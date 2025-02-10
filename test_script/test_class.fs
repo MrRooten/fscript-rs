@@ -21,10 +21,12 @@ class Abc {
 }
 
 a = Abc()
-println(a)
+println(a.__str__()) # will prin 'return string'
 
 if a.abc.ddc < 323 {
     a.abc.ddc = a.test() + a.abc.ddc
 }
+
+assert(a.abc.ddc == 447)
 
 println(a.abc.ddc)

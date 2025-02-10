@@ -1657,7 +1657,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::ImportModule(v, module_name) = bc.get_arg() {
             let code = Self::read_code_from_module(module_name)?;
 
-            let module = FSRModule::from_code("test", &code)?;
+            let module = FSRModule::from_code(&module_name.join("."), &code)?;
             let obj_id = { self.load(Box::new(module))? };
 
             let frame = self.get_cur_mut_stack();
@@ -1875,8 +1875,8 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::AndJump => Self::process_logic_and(self, context, bytecode, bc),
             BytecodeOperator::OrJump => Self::process_logic_or(self, context, bytecode, bc),
             BytecodeOperator::Empty => Self::empty_process(self, context, bytecode, bc),
-            BytecodeOperator::BinaryRShift => unimplemented!(),
-            BytecodeOperator::BinaryLShift => unimplemented!(),
+            BytecodeOperator::BinaryRShift => panic!("no implement for BinaryRShift"),
+            BytecodeOperator::BinaryLShift => panic!("no implement for BinaryLShift"),
             BytecodeOperator::StoreFast => unimplemented!(),
             BytecodeOperator::Load => unimplemented!(),
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc),
