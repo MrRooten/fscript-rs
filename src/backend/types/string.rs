@@ -83,9 +83,9 @@ fn eq<'a>(
     if let FSRValue::String(self_str) = &self_object.value {
         if let FSRValue::String(other_str) = &other_object.value {
             if self_str.eq(other_str) {
-                return Ok(FSRRetValue::GlobalId(1));
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             } else {
-                return Ok(FSRRetValue::GlobalId(2));
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
         } else {
             return Err(FSRError::new(

@@ -1875,15 +1875,14 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::AndJump => Self::process_logic_and(self, context, bytecode, bc),
             BytecodeOperator::OrJump => Self::process_logic_or(self, context, bytecode, bc),
             BytecodeOperator::Empty => Self::empty_process(self, context, bytecode, bc),
-            BytecodeOperator::BinaryRShift => panic!("no implement for BinaryRShift"),
-            BytecodeOperator::BinaryLShift => panic!("no implement for BinaryLShift"),
-            BytecodeOperator::StoreFast => unimplemented!(),
-            BytecodeOperator::Load => unimplemented!(),
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc),
             BytecodeOperator::Import => {
                 Self::process_import(self, &mut context.exp, bytecode, context.module.unwrap())
             }
             BytecodeOperator::NotOperator => Self::not_process(self, context, bytecode, bc),
+            _ => {
+                panic!("not implement for {:#?}", op);
+            }
         }?;
 
         #[cfg(feature = "perf")]
@@ -1940,13 +1939,15 @@ impl<'a> FSRThreadRuntime<'a> {
                     }
                 }
             }
-            if !vm.has_str_const(i.as_str()) {
+
+            let str_const = vm.get_str_const(i.as_str());
+            if str_const.is_none() {
                 let obj = FSRString::new_inst(Cow::Owned(i.clone()));
                 obj.set_not_delete();
                 vm.insert_str_const(i.as_str(), obj);
             }
 
-            let id = vm.get_str_const(i.as_str()).unwrap();
+            let id = str_const.unwrap();
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::Attr(_, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr((0, 0, name)));

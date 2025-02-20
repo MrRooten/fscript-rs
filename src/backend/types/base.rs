@@ -604,4 +604,14 @@ impl<'a> FSRObject<'a> {
 
         unimplemented!()
     }
+
+    #[inline(always)]
+    pub fn true_id() -> ObjId {
+        1
+    }
+
+    #[inline(always)]
+    pub fn false_id() -> ObjId {
+        2
+    }
 }

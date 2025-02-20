@@ -9,11 +9,16 @@ struct ObjectRef {
 }
 
 #[allow(unused)]
-pub struct GarbageCollect<'a> {
-    objects: RefCell<LinkedList<Box<FSRObject<'a>>>>
+pub struct GarbageCollect {
+    
 }
 
-impl<'a> GarbageCollect<'a> {
+impl GarbageCollect {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+
     pub fn new_object(&self) -> ObjId {
         unimplemented!()
     }

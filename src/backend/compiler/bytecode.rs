@@ -1158,6 +1158,6 @@ impl<'a> Bytecode {
     pub fn compile(name: &str, code: &str) -> Bytecode {
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
-        return Self::load_ast(name, FSRToken::Module(token));
+        Self::load_ast(name, FSRToken::Module(token))
     }
 }
