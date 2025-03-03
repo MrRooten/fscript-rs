@@ -2218,4 +2218,29 @@ mod test {
         runtime.set_vm(&mut vm);
         runtime.start(base_module, &mut vm).unwrap();
     }
+
+
+    #[test]
+    fn test_print_str() {
+        let source_code = r#"
+        class Test {
+            fn __new__(self) {
+                self.abc = 123
+                return self
+            }
+
+            fn __str__(self) {
+                return 'abc'
+            }
+        }
+        t = Test()
+        println(t)
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut runtime = FSRThreadRuntime::new(base_module);
+        let mut vm = FSRVM::new();
+        runtime.set_vm(&mut vm);
+        runtime.start(base_module, &mut vm).unwrap();
+    }
 }

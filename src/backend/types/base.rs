@@ -69,13 +69,9 @@ impl<'a> FSRValue<'a> {
         thread: &mut FSRThreadRuntime<'a>,
     ) -> Option<Cow<'a, str>> {
         let vm = thread.get_vm();
-        let cls = match vm.get_global_obj_by_name(inst.get_cls_name()) {
-            Some(s) => s,
-            None => {
-                return None;
-            }
-        };
-        let cls = FSRObject::id_to_obj(*cls);
+
+        let cls = FSRObject::id_to_obj(self_id).cls;
+        let cls = FSRObject::id_to_obj(cls);
         let cls = cls.as_class();
 
         let v = cls.get_attr("__str__");
