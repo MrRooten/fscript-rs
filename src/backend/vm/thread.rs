@@ -21,14 +21,7 @@ use crate::{
     backend::{
         compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
         types::{
-            base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
-            class::FSRClass,
-            class_inst::FSRClassInst,
-            fn_def::{FSRFn, FSRFnInner},
-            integer::FSRInteger,
-            list::FSRList,
-            module::FSRModule,
-            string::FSRString,
+            base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, float::FSRFloat, fn_def::{FSRFn, FSRFnInner}, integer::FSRInteger, list::FSRList, module::FSRModule, string::FSRString
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -1927,6 +1920,26 @@ impl<'a> FSRThreadRuntime<'a> {
             let id = vm.get_int_const(i).unwrap();
 
             exp_stack.push(SValue::Global(id));
+        } else if let ArgType::ConstFloat(c_id, f) = arg.get_arg() {
+            //let float_const = Self::load_float_const(f, vm);
+            if let Some(m) = module {
+                let m = FSRObject::id_to_obj(m).as_module();
+                if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
+                    if id != &0 {
+                        exp_stack.push(SValue::Global(*id));
+                        return;
+                    }
+                }
+            }
+
+            if !vm.has_float_const(f) {
+                let obj = FSRFloat::new_inst(*f);
+                obj.set_not_delete();
+                vm.insert_float_const(f, obj);
+            }
+
+            let id = vm.get_float_const(f).unwrap();
+            exp_stack.push(SValue::Global(id));
         } else if let ArgType::ConstString(c_id, i) = arg.get_arg() {
             // let string_const = Self::load_string_const(i.clone(), vm);
             // s.insert_const(id, string_const);
@@ -1940,11 +1953,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
 
-            let str_const = vm.get_str_const(i.as_str());
+            let mut str_const = vm.get_str_const(i.as_str());
             if str_const.is_none() {
                 let obj = FSRString::new_inst(Cow::Owned(i.clone()));
                 obj.set_not_delete();
-                vm.insert_str_const(i.as_str(), obj);
+                str_const = Some(vm.insert_str_const(i.as_str(), obj));
             }
 
             let id = str_const.unwrap();
@@ -2189,5 +2202,20 @@ mod test {
         runtime.start(base_module, &mut vm).unwrap();
 
         // println!("{:?}", FSRObject::id_to_obj(v.get_object("abc").unwrap()));
+    }
+
+    #[test]
+    fn test_float() {
+        let source_code = r#"
+        i = 1.1
+        b = 1.2
+        dump(i + b)
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut runtime = FSRThreadRuntime::new(base_module);
+        let mut vm = FSRVM::new();
+        runtime.set_vm(&mut vm);
+        runtime.start(base_module, &mut vm).unwrap();
     }
 }

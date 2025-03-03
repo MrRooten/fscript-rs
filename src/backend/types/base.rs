@@ -36,7 +36,8 @@ pub enum FSRGlobalObjId {
     StringCls = 7,
     ClassCls = 8,
     ModuleCls = 9,
-    BoolCls = 10
+    BoolCls = 10,
+    FloatCls = 11,
 }
 
 #[derive(Debug, Clone)]

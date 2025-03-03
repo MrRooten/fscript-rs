@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     backend::{
-        types::{base::ObjId, integer::FSRInteger, string::FSRString},
+        types::{base::ObjId, float::FSRFloat, integer::FSRInteger, string::FSRString},
         vm::runtime::FSRVM,
     },
     frontend::ast::token::{
@@ -119,6 +119,7 @@ pub enum ArgType {
     VariableList(Vec<(u64, String)>),
     ConstString(u64, String),
     ConstInteger(u64, i64),
+    ConstFloat(u64, f64),
     Attr(u64, String),
     BinaryOperator(BinaryOffset),
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
@@ -962,6 +963,15 @@ impl<'a> Bytecode {
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
                 arg: ArgType::ConstString(id, String::from_utf8_lossy(s).to_string()),
+            });
+        } else if let FSRConstantType::Float(f) = token.get_constant() {
+            let obj = FSRFloat::new_inst(*f);
+            obj.set_not_delete();
+            let ptr = FSRVM::leak_object(Box::new(obj));
+            const_map.insert(id as usize, ptr);
+            result_list.push(BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::ConstFloat(id, *f),
             });
         }
 

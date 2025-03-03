@@ -11,15 +11,7 @@ use crate::{
     backend::{
         memory::size_alloc::FSRObjectAllocator,
         types::{
-            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
-            bool::FSRBool,
-            class::FSRClass,
-            fn_def::FSRFn,
-            integer::FSRInteger,
-            iterator::FSRInnerIterator,
-            list::FSRList,
-            module::FSRModule,
-            string::FSRString,
+            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
         },
     },
     std::{io::init_io, utils::init_utils},
@@ -60,12 +52,13 @@ impl<'a> FSRVM<'a> {
             .contains_key(&ConstType::String(id))
     }
 
-    pub fn insert_str_const(&mut self, id: &'a str, obj: FSRObject<'a>) {
+    pub fn insert_str_const(&mut self, id: &'a str, obj: FSRObject<'a>) -> ObjId {
         let obj_id = FSRVM::leak_object(Box::new(obj));
         self.const_map
             .lock()
             .unwrap()
             .insert(ConstType::String(id), obj_id);
+        obj_id
     }
 
     #[inline(always)]
@@ -89,6 +82,13 @@ impl<'a> FSRVM<'a> {
             .contains_key(&ConstType::Integer(*id))
     }
 
+    pub fn has_float_const(&self, id: &f64) -> bool {
+        self.const_map
+            .lock()
+            .unwrap()
+            .contains_key(&ConstType::Integer(*id as i64))
+    }
+
     pub fn insert_int_const(&mut self, id: &i64, obj: FSRObject<'a>) {
         let obj_id = FSRVM::leak_object(Box::new(obj));
         self.const_map
@@ -97,9 +97,30 @@ impl<'a> FSRVM<'a> {
             .insert(ConstType::Integer(*id), obj_id);
     }
 
+    pub fn insert_float_const(&mut self, id: &f64, obj: FSRObject<'a>) {
+        let obj_id = FSRVM::leak_object(Box::new(obj));
+        self.const_map
+            .lock()
+            .unwrap()
+            .insert(ConstType::Integer(*id as i64), obj_id);
+    }
+
     #[inline(always)]
     pub fn get_int_const(&self, id: &i64) -> Option<ObjId> {
         if let Some(s) = self.const_map.lock().unwrap().get(&ConstType::Integer(*id)) {
+            if s == &0 {
+                return None;
+            }
+
+            return Some(*s);
+        }
+
+        None
+    }
+
+
+    pub fn get_float_const(&self, id: &f64) -> Option<ObjId> {
+        if let Some(s) = self.const_map.lock().unwrap().get(&ConstType::Integer(*id as i64)) {
             if s == &0 {
                 return None;
             }
@@ -202,6 +223,10 @@ impl<'a> FSRVM<'a> {
                 OBJECTS.push(Self::new_stataic_object_with_id(
                     FSRGlobalObjId::BoolCls as ObjId,
                     FSRValue::Class(Box::new(FSRBool::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::FloatCls as ObjId,
+                    FSRValue::Class(Box::new(FSRFloat::get_class())),
                 ));
             }
         }

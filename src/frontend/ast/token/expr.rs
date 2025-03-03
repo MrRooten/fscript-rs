@@ -529,29 +529,43 @@ impl<'a> FSRExpr<'a> {
     }
 
     #[inline]
-    fn digit_process(
+    fn number_process(
         source: &'a [u8],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext<'a>,
     ) -> Result<(), SyntaxError> {
+
+        let mut is_float = false;
         loop {
             if ctx.start + ctx.length >= source.len() {
                 break;
             }
             let c = source[ctx.start + ctx.length] as char;
+
+            if c.eq(&'.') {
+                is_float = true;
+                ctx.length += 1;
+                continue;
+            }
+
             if !c.is_ascii_digit() {
                 break;
             }
 
             ctx.length += 1;
         }
-
         let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
-        let i = ps.parse::<i64>().unwrap();
         let mut sub_meta = meta.from_offset(ctx.start);
+        let c = if is_float {
+            let f = ps.parse::<f64>().unwrap();
+            FSRConstant::from_float(f as f64, sub_meta, ps)
+        } else {
+            let i = ps.parse::<i64>().unwrap();
+            FSRConstant::from_int(i, sub_meta, ps, ctx.single_op)
+        };
 
-        let mut c = FSRConstant::from_int(i, sub_meta, ps, ctx.single_op);
+        
         //c.single_op = ctx.single_op;
         ctx.single_op = None;
         ctx.candidates.push(FSRToken::Constant(c));
@@ -696,7 +710,7 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c.is_ascii_digit() {
-                Self::digit_process(source, ignore_nline, meta, ctx)?;
+                Self::number_process(source, ignore_nline, meta, ctx)?;
                 continue;
             }
 
@@ -937,6 +951,13 @@ mod test {
     #[test]
     fn test_binary_str4() {
         let v = "(not 1 == 1) or 1 == 1";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_float() {
+        let v = "1.0 + 1.0";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }
