@@ -303,7 +303,7 @@ impl<'a> FSRObject<'a> {
             return cls;
         }
 
-        unimplemented!()
+        panic!("Not a Cls object")
     }
 
     #[inline]
