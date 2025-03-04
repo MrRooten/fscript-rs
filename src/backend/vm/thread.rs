@@ -1,20 +1,11 @@
 #![allow(clippy::ptr_arg)]
 
-#[cfg(feature = "perf")]
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    ops::AddAssign,
-    sync::atomic::AtomicU64,
-    time::{Duration, Instant},
-};
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
     vec,
 };
 
-#[cfg(not(feature = "perf"))]
 use std::borrow::Cow;
 
 use crate::{
@@ -336,12 +327,6 @@ type BytecodeFn<'a> = fn(
 #[derive(Default, Debug)]
 pub struct VecMap<'a> {
     inner: Vec<BytecodeFn<'a>>,
-    #[cfg(feature = "perf")]
-    start: HashMap<BytecodeOperator, Instant>,
-    #[cfg(feature = "perf")]
-    acumulate: HashMap<BytecodeOperator, Duration>,
-    #[cfg(feature = "perf")]
-    count: HashMap<BytecodeOperator, u64>,
 }
 
 impl<'a> VecMap<'a> {
@@ -354,54 +339,8 @@ impl<'a> VecMap<'a> {
         self.inner.get(*k as usize)
     }
 
-    #[cfg(feature = "perf")]
-    pub fn start_time(&mut self, k: &BytecodeOperator) {
-        self.start.insert(*k, Instant::now());
-        if !self.count.contains_key(k) {
-            self.count.insert(*k, 0);
-        }
-
-        if let Some(s) = self.count.get_mut(k) {
-            s.add_assign(1);
-        }
-    }
-
-    #[cfg(feature = "perf")]
-    pub fn end_time(&mut self, k: &BytecodeOperator) {
-        let v = self.start.get(k).unwrap();
-        let now = Instant::now();
-        let diff = now - *v;
-        if !self.acumulate.contains_key(k) {
-            self.acumulate.insert(*k, Duration::new(0, 0));
-        }
-
-        if let Some(s) = self.acumulate.get_mut(k) {
-            s.add_assign(diff);
-        }
-    }
 }
 
-// pub struct ExpStack<'a> {
-//     values      : Vec<Rc<SValue<'a>>>,
-//     pos         : i64
-// }
-
-// impl<'a> ExpStack<'a> {
-//     pub fn push(&mut self, value: Rc<SValue<'a>>) {
-//         self.pos += 1;
-//         if (self.pos as usize) < self.values.len() {
-//             self.values[self.pos as usize] = value;
-//         } else {
-//             self.values.push(value);
-//         }
-//     }
-
-//     pub fn pop(&mut self) -> Rc<SValue<'a>> {
-//         let v = self.values[self.pos as usize].clone();
-//         self.pos -= 1;
-//         v
-//     }
-// }
 
 #[derive(Default)]
 pub struct FSRThreadRuntime<'a> {
@@ -444,17 +383,6 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn set_vm(&mut self, vm: &mut FSRVM<'a>) {
         self.vm_ptr = Some(vm as *mut FSRVM<'a>);
     }
-
-    // fn load_string_const(s: String, _vm: &mut FSRVM<'a>) -> u64 {
-    //     let obj = FSRObject {
-    //         obj_id: 0,
-    //         value: FSRValue::String(Cow::Owned(s)),
-    //         cls: FSRGlobalObjId::StringCls as u64,
-    //         ref_count: AtomicU64::new(0),
-    //     };
-
-    //     FSRVM::register_object(obj)
-    // }
 
     #[inline(always)]
     pub fn get_cur_mut_stack(&mut self) -> &mut CallFrame<'a> {
@@ -588,66 +516,6 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::BoxObject(_) => todo!(),
         }
 
-        //To Assign obj or Dot Father object
-
-        // let obj_id = match context.exp.pop() {
-        //     Some(s) => s,
-        //     None => {
-        //         return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
-        //     }
-        // };
-        // if context.is_attr {
-        //     let to_assign_obj = match context.exp.pop() {
-        //         Some(s) => s,
-        //         None => {
-        //             return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
-        //         }
-        //     };
-
-        //     let to_assign_obj_id = to_assign_obj.get_global_id(self)?;
-        //     if !FSRObject::is_sp_object(to_assign_obj_id) {
-        //         let father = obj_id.get_global_id(self)?;
-        //         let father = FSRObject::id_to_mut_obj(father);
-        //         if let SValue::Attr((_, _, attr_name)) = assign_id {
-        //             if to_assign_obj.is_object() {
-        //                 if let SValue::Object(obj) = to_assign_obj {
-        //                     let id = FSRVM::leak_object(obj);
-        //                     let tmp_to_assign_obj = FSRObject::id_to_obj(id);
-        //                     tmp_to_assign_obj.ref_add();
-        //                     father.set_attr(attr_name, id);
-        //                 } else {
-        //                     unimplemented!()
-        //                 }
-        //             } else {
-        //                 father.set_attr(attr_name, to_assign_obj_id);
-        //             }
-        //         }
-        //         context.is_attr = false;
-        //     } else {
-        //         let father = obj_id.get_global_id(self)?;
-        //         let father = FSRObject::id_to_mut_obj(father);
-        //         if let SValue::Attr((_, _, attr_name)) = assign_id {
-        //             father.set_attr(attr_name, to_assign_obj_id);
-        //         }
-        //         context.is_attr = false;
-        //     }
-        //     context.exp.pop();
-        // } else {
-        //     let obj_id = obj_id.get_global_id(self)?;
-        //     if !FSRObject::is_sp_object(obj_id) {
-        //         let to_assign_obj = FSRObject::id_to_mut_obj(obj_id);
-        //         to_assign_obj.ref_add();
-        //         let state = self.get_cur_mut_stack();
-        //         if let SValue::Stack((var_id, _)) = assign_id {
-        //             state.insert_var(&var_id, obj_id);
-        //         }
-        //     } else {
-        //         let state = self.get_cur_mut_stack();
-        //         if let SValue::Stack((var_id, _)) = assign_id {
-        //             state.insert_var(&var_id, obj_id);
-        //         }
-        //     }
-        // }
 
         Ok(false)
     }
@@ -1141,8 +1009,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         args.insert(0, obj_id);
         context.is_attr = false;
-        //Self::call_process_set_args(n, self, &mut context.exp, &mut args);
-        //println!("{:#?}", fn_obj);
+
         if fn_obj.is_fsr_function() {
             let state = self.get_cur_mut_stack();
             //Save callstate
@@ -1979,9 +1846,6 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let op = bytecode.get_operator();
 
-        #[cfg(feature = "perf")]
-        self.bytecode_map.start_time(op);
-
         // let bc_op = self.bytecode_map.get(op).unwrap();
         // let v = bc_op(self, context, bytecode, bc)?;
         let v = match op {
@@ -2026,8 +1890,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }?;
 
-        #[cfg(feature = "perf")]
-        self.bytecode_map.end_time(op);
         if v {
             return Ok(v);
         }
@@ -2160,13 +2022,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             if arg.get_operator() == &BytecodeOperator::Load {
-                #[cfg(feature = "perf")]
-                self.bytecode_map.start_time(&BytecodeOperator::Load);
                 let state = self.get_cur_mut_stack();
                 Self::load_var(&mut context.exp, arg, context.vm, state, context.module);
-
-                #[cfg(feature = "perf")]
-                self.bytecode_map.end_time(&BytecodeOperator::Load);
             } else {
                 v = self.process(context, arg, bc)?;
                 if self.get_cur_stack().ret_val.is_some() {
@@ -2253,12 +2110,6 @@ impl<'a> FSRThreadRuntime<'a> {
             bytecode_count += expr.len();
             module = FSRObject::id_to_obj(context.module.unwrap()).as_module();
         }
-
-        #[cfg(feature = "perf")]
-        println!("{:#?}", self.bytecode_map.acumulate);
-
-        #[cfg(feature = "perf")]
-        println!("{:#?}", self.bytecode_map.count);
 
         println!("count: {}", bytecode_count);
 
