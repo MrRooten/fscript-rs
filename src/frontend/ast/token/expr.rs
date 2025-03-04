@@ -160,7 +160,7 @@ impl<'a> Node<'a> {
             return 2;
         }
 
-        if op.eq(".") {
+        if op.eq(".") || op.eq("::") {
             return 3;
         }
 
@@ -183,6 +183,7 @@ impl<'a> Node<'a> {
         if op.eq(",") {
             return -4;
         }
+
         -1
     }
 
@@ -284,6 +285,7 @@ impl<'a> FSRExpr<'a> {
             || op == '|'
             || op == '!'
             || op == '/'
+            || op == ':'
         {
             return true;
         }
@@ -603,7 +605,7 @@ impl<'a> FSRExpr<'a> {
                     return Err(SyntaxError::new_with_type(&FSRPosition::from_offset(&sub_meta, ctx.start + ctx.length), "error # place", SyntaxErrType::CommentError))
                 }
 
-                while ctx.start + ctx.length < source.len() && source[ctx.start + ctx.length] != '\n' as u8 {
+                while ctx.start + ctx.length < source.len() && source[ctx.start + ctx.length] != b'\n' {
                     ctx.start += 1;
                 }
 
@@ -967,6 +969,13 @@ mod test {
     #[test]
     fn test_float_div() {
         let v = "1.0 / 1.0";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_clss() {
+        let v = "Abc::test";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }

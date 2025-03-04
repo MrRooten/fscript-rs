@@ -112,6 +112,7 @@ pub enum BytecodeOperator {
     Import = 33,
     NotOperator = 34,
     BinaryDiv = 35,
+    BinaryClassGetter = 36,
     Load = 1000,
 }
 
@@ -177,6 +178,8 @@ impl BytecodeOperator {
             return ".";
         } else if op.eq("!=") {
             return "!=";
+        } else if op.eq("::") {
+            return "::"
         }
 
         unimplemented!()
@@ -196,6 +199,11 @@ impl BytecodeOperator {
         } else if op.eq(".") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryDot,
+                arg: ArgType::None,
+            });
+        } else if op.eq("::") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::BinaryClassGetter,
                 arg: ArgType::None,
             });
         } else if op.eq("=") {
@@ -371,6 +379,7 @@ impl<'a> Bytecode {
         call: &'a FSRCall<'a>,
         var_map: &'a mut VarMap<'a>,
         is_attr: bool,
+        is_method_call: bool,
         const_map: &mut ConstTable,
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result = Vec::new();
@@ -387,10 +396,19 @@ impl<'a> Bytecode {
                 operator: BytecodeOperator::Load,
                 arg: ArgType::Attr(*id, name.to_string()),
             });
-            result.push(BytecodeArg {
-                operator: BytecodeOperator::BinaryDot,
-                arg: ArgType::None,
-            });
+
+            if is_method_call {
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::BinaryDot,
+                    arg: ArgType::None,
+                });
+            } else {
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::BinaryClassGetter,
+                    arg: ArgType::None,
+                });
+            }
+            
         } else {
             if !var_map_ref.has_var(name) {
                 let v = name;
@@ -490,7 +508,7 @@ impl<'a> Bytecode {
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else if let FSRToken::Call(c) = expr.get_left() {
-            let mut v = Self::load_call(c, var_map_ref.unwrap(), false, const_map);
+            let mut v = Self::load_call(c, var_map_ref.unwrap(), false, false, const_map);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else if let FSRToken::Constant(c) = expr.get_left() {
@@ -509,7 +527,7 @@ impl<'a> Bytecode {
             var_map_ref = Some(v.1);
         } else if let FSRToken::Variable(v) = expr.get_right() {
             let mut is_attr = false;
-            if expr.get_op().eq(".") {
+            if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 is_attr = true;
             }
             let mut v = Self::load_variable(v, var_map_ref.unwrap(), is_attr);
@@ -517,15 +535,22 @@ impl<'a> Bytecode {
             var_map_ref = Some(v.1);
         } else if let FSRToken::Call(c) = expr.get_right() {
             let mut is_attr = false;
-            if expr.get_op().eq(".") {
+            let mut is_method_call = true;
+            if expr.get_op().eq(".") || expr.get_op().eq("::"){
                 is_attr = true;
             }
-            let mut v = Self::load_call(c, var_map_ref.unwrap(), is_attr, const_map);
+
+            if expr.get_op().eq("::") {
+                is_method_call = false;
+            }
+
+            
+            let mut v = Self::load_call(c, var_map_ref.unwrap(), is_attr, is_method_call, const_map);
             second.append(&mut v.0);
             op_code.append(&mut second);
             var_map_ref = Some(v.1);
             //call special process
-            if expr.get_op().eq(".") {
+            if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 return (op_code, var_map_ref.unwrap());
             }
         } else if let FSRToken::Constant(c) = expr.get_right() {
@@ -860,7 +885,7 @@ impl<'a> Bytecode {
             let v = Self::load_block(block, var_map, const_map);
             return (v.0, v.1);
         } else if let FSRToken::Call(call) = token {
-            let v = Self::load_call(call, var_map, false, const_map);
+            let v = Self::load_call(call, var_map, false, false, const_map);
             return (vec![v.0], v.1);
         } else if let FSRToken::Constant(c) = token {
             let v = Self::load_constant(c, var_map, const_map);

@@ -23,8 +23,7 @@ use crate::{
         types::{
             base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, float::FSRFloat, fn_def::{FSRFn, FSRFnInner}, integer::FSRInteger, list::FSRList, module::FSRModule, string::FSRString
         },
-    },
-    utils::error::{FSRErrCode, FSRError},
+    }, frontend::ast::token::call, utils::error::{FSRErrCode, FSRError}
 };
 
 use super::runtime::FSRVM;
@@ -226,7 +225,7 @@ impl<'a> CallFrame<'a> {
 #[derive(Debug, Clone)]
 pub enum SValue<'a> {
     Stack((u64, &'a String)),
-    Attr((ObjId, ObjId, &'a String)),
+    Attr((ObjId, ObjId, &'a String, bool)),
     Global(ObjId),
     #[allow(dead_code)]
     BoxObject(Box<FSRObject<'a>>),
@@ -260,7 +259,7 @@ impl<'a> SValue<'a> {
                 }
             }
             SValue::Global(id) => *id,
-            SValue::Attr((_, id, _)) => *id,
+            SValue::Attr((_, id, _, call_method)) => *id,
             SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
         })
     }
@@ -924,12 +923,75 @@ impl<'a> FSRThreadRuntime<'a> {
             // let obj = FSRObject::id_to_obj(id);
             // println!("{:#?}", obj);
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr((dot_father, id, name)));
+            context.exp.push(SValue::Attr((dot_father, id, name, true)));
         } else {
             //context.exp.push(SValue::Global(dot_father));
             context
                 .exp
-                .push(SValue::Attr((dot_father, attr_id.1, name)));
+                .push(SValue::Attr((dot_father, attr_id.1, name, true)));
+        }
+
+        Ok(false)
+    }
+
+
+    fn binary_get_cls_attr_process(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        _bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let _state = self.get_cur_mut_stack();
+        let attr_id = match context.exp.pop().unwrap() {
+            SValue::Stack(_) => unimplemented!(),
+            SValue::Global(_) => unimplemented!(),
+            SValue::Attr(id) => id,
+            SValue::BoxObject(_) => todo!(),
+        };
+        let dot_father = match context.exp.pop() {
+            Some(s) => s.get_global_id(self)?,
+            None => {
+                return Err(FSRError::new(
+                    "error in dot operator",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+        // if context.is_attr {
+        //     // pop last father
+        //     context.is_attr = false;
+        //     context.exp.pop();
+        // }
+
+        let dot_father_obj = FSRObject::id_to_obj(dot_father);
+
+        let name = attr_id.2;
+        let id = dot_father_obj.get_attr(name, context.vm);
+
+        if dot_father_obj.is_module() {
+            let id = match id {
+                Some(s) => s,
+                None => {
+                    return Err(FSRError::new(
+                        format!("not have this attr: `{}`", name),
+                        FSRErrCode::NoSuchObject,
+                    ))
+                }
+            };
+            context.exp.push(SValue::Global(id));
+            return Ok(false);
+        }
+        if let Some(id) = id {
+            // let obj = FSRObject::id_to_obj(id);
+            // println!("{:#?}", obj);
+            //context.exp.push(SValue::Global(dot_father));
+            context.exp.push(SValue::Attr((dot_father, id, name, false)));
+        } else {
+            //context.exp.push(SValue::Global(dot_father));
+            context
+                .exp
+                .push(SValue::Attr((dot_father, attr_id.1, name, false)));
         }
 
         Ok(false)
@@ -1006,6 +1068,21 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         //let mut args = vec![];
         // New a object if fn_obj is fsr_cls
+        let cls = FSRObject::id_to_obj(cls_id);
+        if let FSRValue::Class(c) = &cls.value {
+            if c.get_attr("__new__").is_none() {
+                let mut self_obj = FSRObject::new();
+                self_obj.set_cls(cls_id);
+                self_obj.set_value(FSRValue::ClassInst(Box::new(FSRClassInst::new(
+                    c.get_name()
+                ))));
+
+                let self_id = FSRVM::register_object(self_obj);
+                context.exp.push(SValue::Global(self_id));
+
+                return Ok(false)
+            }
+        }
 
         let mut self_obj = FSRObject::new();
         self_obj.set_cls(cls_id);
@@ -1049,7 +1126,7 @@ impl<'a> FSRThreadRuntime<'a> {
             context.ip = (offset.0, 0);
             Ok(true)
         } else {
-            panic!("not existed method ")
+            unimplemented!()
         }
     }
 
@@ -1129,6 +1206,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //let ptr = vm as *mut FSRVM;
         let mut object_id: Option<ObjId> = None;
         let module = FSRObject::id_to_obj(context.module.unwrap()).as_module();
+        let mut call_method = false;
         let fn_id = match context.exp.pop().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_stack();
@@ -1147,9 +1225,18 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
             SValue::Global(id) => id,
-            SValue::Attr((o, id, _)) => {
-                object_id = Some(o);
-                id
+            SValue::Attr((o, id, name, _call_method)) => {
+                
+                call_method = _call_method;
+
+                if call_method == false {
+                    let cls_obj = FSRObject::id_to_obj(o).as_class();
+                    cls_obj.get_attr(name).unwrap()
+                } else {
+                    object_id = Some(o);
+                    id
+                }
+                
             }
             SValue::BoxObject(_) => todo!(),
         };
@@ -1161,7 +1248,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if v {
                 return Ok(v);
             }
-        } else if object_id.is_some() {
+        } else if object_id.is_some() && call_method {
             let v = Self::process_fn_is_attr(self, context, object_id.unwrap(), fn_obj, &mut args)?;
             context.is_attr = false;
             if v {
@@ -1195,6 +1282,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 // }
                 // not going to assign_args
                 //println!("{:#?}", fn_obj);
+                
                 let v = fn_obj.call(&args, self, context.module).unwrap();
 
                 if let FSRRetValue::Value(v) = v {
@@ -1932,6 +2020,7 @@ impl<'a> FSRThreadRuntime<'a> {
             },
             BytecodeOperator::BinaryDiv => Self::binary_div_process(self, context, bytecode, bc),
             BytecodeOperator::NotOperator => Self::not_process(self, context, bytecode, bc),
+            BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr_process(self, context, bytecode, bc),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -2022,7 +2111,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let id = str_const.unwrap();
             exp_stack.push(SValue::Global(id));
         } else if let ArgType::Attr(_, name) = arg.get_arg() {
-            exp_stack.push(SValue::Attr((0, 0, name)));
+            exp_stack.push(SValue::Attr((0, 0, name, true)));
         }
         // } else {
         //     panic!("not recongize load var: {:#?}", arg)
@@ -2308,6 +2397,24 @@ mod test {
         let source_code = r#"
         a = 1.0 / 2.0
         println(a)
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut runtime = FSRThreadRuntime::new(base_module);
+        let mut vm = FSRVM::new();
+        runtime.set_vm(&mut vm);
+        runtime.start(base_module, &mut vm).unwrap();
+    }
+
+    #[test]
+    fn test_class_without_new() {
+        let source_code = r#"
+        class Test {
+            fn abc() {
+                println("abc")
+            }
+        }
+        Test::abc()
         "#;
         let v = FSRModule::from_code("main", source_code).unwrap();
         let base_module = FSRVM::leak_object(Box::new(v));

@@ -1,7 +1,4 @@
-import test
+import math
 
-test.test()
-
-abc = test.Abc()
-
-dump(test.Abc)
+d = math.Div(123, 456)
+dump(d)

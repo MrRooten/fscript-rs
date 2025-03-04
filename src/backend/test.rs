@@ -101,6 +101,23 @@ pub mod tests {
         println!("{:#?}", v);
     }
 
+    #[test]
+    fn test_class_getter() {
+        let expr = "
+        class Abc {
+            fn test() {
+                println('123')
+            }
+        }
+
+        Abc::test()
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
     // #[test]
     // fn test_2() {
     //     let source_code = "
@@ -325,4 +342,5 @@ pub enum FSRValue<'a> {
 
         runtime.start(base_module, &mut vm).unwrap();
     }
+
 }

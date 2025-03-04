@@ -102,7 +102,7 @@ impl ASTParser {
             || (c as char).is_uppercase()
             || (c as char).is_ascii_digit()
             || (c as char) == '_'
-            || (c as char) == ':'
+            // || (c as char) == ':'
     }
 
     pub fn is_token_letter(c: u8) -> bool {
@@ -412,6 +412,8 @@ impl ASTParser {
             return "!="
         } else if op.eq("/") {
             return "/"
+        } else if op.eq("::") {
+            return "::"
         }
 
         unimplemented!()

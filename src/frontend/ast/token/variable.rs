@@ -4,6 +4,7 @@ use super::base::FSRPosition;
 pub struct FSRVariable<'a> {
     pub(crate) name: &'a str,
     pub(crate) single_op: Option<&'a str>,
+    pub(crate) type_hint: Option<&'a str>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
 }
@@ -13,11 +14,13 @@ impl<'a> FSRVariable<'a> {
         &self.meta
     }
     pub fn parse(name: &'a str, meta: FSRPosition) -> Result<FSRVariable<'a>, &'a str> {
+        
         Ok(Self {
             name,
             single_op: None,
             len: 0,
             meta,
+            type_hint: None,
         })
     }
 
