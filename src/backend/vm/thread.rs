@@ -815,6 +815,64 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+
+    #[inline(always)]
+    fn binary_div_process(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        _bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let _state = self.get_cur_mut_stack();
+        let v1 = match context.exp.pop() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary mul 1",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+        if let SValue::Attr(_) = &v1 {
+            context.exp.pop();
+            context.is_attr = false;
+        }
+
+        let v2 = match context.exp.pop() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary mul 2",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+        if let SValue::Attr(_) = &v2 {
+            context.exp.pop();
+            context.is_attr = false;
+        }
+
+        let v1_id = v1.get_global_id(self)?;
+        let v2_id = v2.get_global_id(self)?;
+
+        let res = FSRObject::invoke_offset_method(BinaryOffset::Div, &[v2_id, v1_id], self, None)?;
+        match res {
+            FSRRetValue::Value(object) => {
+                let res_id = FSRVM::leak_object(object);
+                context.exp.push(SValue::Global(res_id));
+            }
+            FSRRetValue::GlobalId(res_id) => {
+                context.exp.push(SValue::Global(res_id));
+            }
+            FSRRetValue::GlobalIdTemp(res_id) => {
+                context.exp.push(SValue::Global(res_id));
+            }
+        };
+        Ok(false)
+    }
+
     fn binary_dot_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1871,7 +1929,8 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc),
             BytecodeOperator::Import => {
                 Self::process_import(self, &mut context.exp, bytecode, context.module.unwrap())
-            }
+            },
+            BytecodeOperator::BinaryDiv => Self::binary_div_process(self, context, bytecode, bc),
             BytecodeOperator::NotOperator => Self::not_process(self, context, bytecode, bc),
             _ => {
                 panic!("not implement for {:#?}", op);
@@ -2235,6 +2294,20 @@ mod test {
         }
         t = Test()
         println(t)
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut runtime = FSRThreadRuntime::new(base_module);
+        let mut vm = FSRVM::new();
+        runtime.set_vm(&mut vm);
+        runtime.start(base_module, &mut vm).unwrap();
+    }
+
+    #[test]
+    fn test_binary_div() {
+        let source_code = r#"
+        a = 1.0 / 2.0
+        println(a)
         "#;
         let v = FSRModule::from_code("main", source_code).unwrap();
         let base_module = FSRVM::leak_object(Box::new(v));

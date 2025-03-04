@@ -2,7 +2,7 @@
 Running on bytecode, simple and useless program language, \[temporary not but will\]zero dependence script language.
 
 ## Wait for support
-### [x] float type
+### [√] float type
 ### [x] async support 
 ### [√] import module
 ### [x] type hint system

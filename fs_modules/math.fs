@@ -5,3 +5,14 @@ class Number {
     }
 }
 
+class Div {
+    fn __new__(self, numerator, denominator) {
+        self.numerator = numerator
+        self.denominator = denominator
+        return self
+    }   
+}
+
+
+v = Div(123, 345)
+dump(v)

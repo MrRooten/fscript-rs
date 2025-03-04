@@ -283,6 +283,7 @@ impl<'a> FSRExpr<'a> {
             || op == '&'
             || op == '|'
             || op == '!'
+            || op == '/'
         {
             return true;
         }
@@ -958,6 +959,14 @@ mod test {
     #[test]
     fn test_float() {
         let v = "1.0 + 1.0";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+
+    #[test]
+    fn test_float_div() {
+        let v = "1.0 / 1.0";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }

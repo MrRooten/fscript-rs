@@ -43,6 +43,7 @@ pub enum BinaryOffset {
     NextObject,
     GetItem,
     SetItem,
+    Div
 }
 
 impl BinaryOffset {
@@ -61,6 +62,7 @@ impl BinaryOffset {
             BinaryOffset::NextObject => "__next__",
             BinaryOffset::GetItem => "__get__",
             BinaryOffset::SetItem => "__set__",
+            BinaryOffset::Div => "__div__",
         }
     }
 }
@@ -109,6 +111,7 @@ pub enum BytecodeOperator {
     BinarySub = 32,
     Import = 33,
     NotOperator = 34,
+    BinaryDiv = 35,
     Load = 1000,
 }
 
@@ -224,6 +227,11 @@ impl BytecodeOperator {
         } else if op.eq("-") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::BinarySub,
+                arg: ArgType::None,
+            });
+        } else if op.eq("/") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::BinaryDiv,
                 arg: ArgType::None,
             });
         }

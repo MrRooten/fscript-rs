@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, vm::{runtime::FSRVM, thread::{CallFrame, FSRThreadRuntime}}},
+    backend::{compiler::bytecode::BinaryOffset, types::float::FSRFloat, vm::{runtime::FSRVM, thread::{CallFrame, FSRThreadRuntime}}},
     utils::error::FSRError,
 };
 
@@ -71,20 +71,20 @@ fn mul<'a>(
 }
 
 fn div<'a>(
-    _args: &[ObjId],
-    _stack: &'a mut CallFrame,
-    _thread: &mut FSRThreadRuntime<'a>
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    // let self_id = args[0];
-    // let other_id = args[1];
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
-    // if let FSRValue::Integer(self_int) = self_object.value {
-    //     if let FSRValue::Integer(other_int) = other_object.value {
-    //         return Ok(FSRInteger::new_inst(self_int * other_int));
-    //     }
-    // }
+    if let FSRValue::Integer(self_int) = self_object.value {
+        if let FSRValue::Integer(other_int) = other_object.value {
+            return Ok(FSRRetValue::Value(Box::new(FSRFloat::new_inst(self_int as f64 / other_int as f64))));
+        }
+    }
 
     unimplemented!()
 }
@@ -271,7 +271,13 @@ impl<'a> FSRInteger {
         let sub_fn = FSRFn::from_rust_fn(sub);
         //cls.insert_attr("__sub__", sub_fn);
         cls.insert_offset_attr(BinaryOffset::Sub, sub_fn);
+        
+        let div_fn = FSRFn::from_rust_fn(div);
+        cls.insert_offset_attr(BinaryOffset::Div, div_fn);
+
         let mul_fn = FSRFn::from_rust_fn(mul);
+        
+        
         //cls.insert_attr("__mul__", mul_fn);
         cls.insert_offset_attr(BinaryOffset::Mul, mul_fn);
         let gt_fn = FSRFn::from_rust_fn(greater);
