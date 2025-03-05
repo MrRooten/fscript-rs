@@ -55,13 +55,6 @@ impl<'a> FSRClassInst<'a> {
             obj.ref_add();
             self.attrs.insert(name, value);
         }
-
-        // if self.attrs.contains_key(name) {
-        //     let v = self.attrs.get(name).unwrap();
-        //     let obj = FSRObject::id_to_obj(*v);
-        //     obj.ref_dec();
-        // }
-        // self.attrs.insert(name, value);
     }
 
     pub fn list_attrs(&self) -> Keys<&'a str, ObjId> {
