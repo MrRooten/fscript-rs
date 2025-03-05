@@ -14,7 +14,7 @@ mod test {
     };
 
     pub fn bench() {
-
+        
         let mut runtime = FSRThreadRuntime::new(0);
         let mut vm = FSRVM::new();
         let start = Instant::now();

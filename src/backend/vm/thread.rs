@@ -461,6 +461,58 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
+    fn getter_process(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let obj_id = match context.exp.last().unwrap() {
+            SValue::Stack(s) => {
+                let state = self.get_cur_mut_stack();
+                state.get_var(&s.0).cloned().unwrap()
+            },
+            SValue::Global(id) => *id,
+            SValue::Attr((_, id, _, _)) => *id,
+            SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
+        };
+
+        let list_obj = match context.exp.get(context.exp.len() - 2).unwrap() {
+            SValue::Stack(s) => {
+                let state = self.get_cur_mut_stack();
+                state.get_var(&s.0).cloned().unwrap()
+            },
+            SValue::Global(id) => *id,
+            SValue::Attr((_, id, _, _)) => *id,
+            SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
+        };
+
+        let res = FSRObject::invoke_offset_method(BinaryOffset::GetItem, &[list_obj, obj_id], self, None)?;
+
+        // pop after finish invoke
+        context.exp.pop();
+
+        context.exp.pop();
+
+        match res {
+            FSRRetValue::Value(object) => {
+                let res_id = FSRVM::leak_object(object);
+                context.exp.push(SValue::Global(res_id));
+            }
+            FSRRetValue::GlobalId(res_id) => {
+                context.exp.push(SValue::Global(res_id));
+            }
+            FSRRetValue::GlobalIdTemp(res_id) => {
+                context.exp.push(SValue::Global(res_id));
+            }
+        };
+
+        
+
+
+        Ok(false)
+    } 
+
     #[inline(always)]
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
@@ -599,7 +651,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
-
+        // if is binary dot operator, pop last father
         if let SValue::Attr(_) = &v2 {
             context.exp.pop();
             context.is_attr = false;
@@ -1588,6 +1640,8 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    // this is a special function for load list
+    // will load the list to the stack
     fn load_list(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1731,6 +1785,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    // process logic or operator in bytecode
     fn process_logic_or(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1885,6 +1940,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::BinaryDiv => Self::binary_div_process(self, context, bytecode, bc),
             BytecodeOperator::NotOperator => Self::not_process(self, context, bytecode, bc),
             BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr_process(self, context, bytecode, bc),
+            BytecodeOperator::Getter => Self::getter_process(self, context, bytecode, bc),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -2008,6 +2064,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let mut v;
+        
 
         while let Some(arg) = expr.get(context.ip.1) {
             context.ip.1 += 1;
@@ -2266,6 +2323,22 @@ mod test {
             }
         }
         Test::abc()
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut runtime = FSRThreadRuntime::new(base_module);
+        let mut vm = FSRVM::new();
+        runtime.set_vm(&mut vm);
+        runtime.start(base_module, &mut vm).unwrap();
+    }
+
+    #[test]
+    fn get_list_item() {
+        let source_code = r#"
+        a = [1, 2, 3]
+        println(a[0])
+        println(a[1])
+        println(a[2])
         "#;
         let v = FSRModule::from_code("main", source_code).unwrap();
         let base_module = FSRVM::leak_object(Box::new(v));

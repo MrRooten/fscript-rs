@@ -455,6 +455,7 @@ impl<'a> FSRObject<'a> {
         module: Option<ObjId>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
+
         if let Some(self_method) = self_object.get_cls_offset_attr(offset, thread.get_vm()) {
             let method_object = Self::id_to_obj(self_method);
             let v = method_object.call(args, thread, module)?;
@@ -465,7 +466,7 @@ impl<'a> FSRObject<'a> {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
-                    format!("no such a method `{:?}`", offset),
+                    format!("no such a method `{}`", offset.alias_name()),
                     FSRErrCode::NoSuchMethod,
                 ))
             }

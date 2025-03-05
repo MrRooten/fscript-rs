@@ -6,7 +6,7 @@ use std::{cmp::Ordering, fmt::Display};
 use crate::frontend::ast::token;
 use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::token::list::FSRListFrontEnd;
-use crate::frontend::ast::token::slice::FSRSlice;
+use crate::frontend::ast::token::slice::FSRGetter;
 use crate::frontend::ast::{parse::ASTParser, token::constant::FSRConstant};
 use crate::utils::error::{SyntaxErrType, SyntaxError};
 use std::str;
@@ -16,12 +16,12 @@ use super::{base::FSRToken, call::FSRCall, variable::FSRVariable};
 
 #[derive(Debug, Clone)]
 pub struct FSRExpr<'a> {
-    pub(crate)single_op: Option<&'a str>,
-    pub(crate)left: Box<FSRToken<'a>>,
-    pub(crate)right: Box<FSRToken<'a>>,
-    pub(crate)op: Option<&'a str>,
-    pub(crate)len: usize,
-    pub(crate)meta: FSRPosition,
+    pub(crate) single_op: Option<&'a str>,
+    pub(crate) left: Box<FSRToken<'a>>,
+    pub(crate) right: Box<FSRToken<'a>>,
+    pub(crate) op: Option<&'a str>,
+    pub(crate) len: usize,
+    pub(crate) meta: FSRPosition,
 }
 
 impl<'a> FSRExpr<'a> {
@@ -57,7 +57,8 @@ enum ExprState {
     Bracket,
     Square,
     WaitToken,
-    Comment
+    SquareBracket,
+    Comment,
 }
 
 struct ExprStates {
@@ -146,7 +147,6 @@ impl<'a> Node<'a> {
         }
     }
 
-
     pub fn get_op_level(op: &str) -> i32 {
         if op.eq("-") || op.eq("+") {
             return 1;
@@ -173,7 +173,7 @@ impl<'a> Node<'a> {
         }
 
         if op.eq("and") || op.eq("or") {
-            return -2
+            return -2;
         }
 
         if op.eq("=") {
@@ -218,7 +218,7 @@ struct StmtContext<'a> {
     operators: Vec<(&'static str, usize)>,
     single_op: Option<&'static str>,
     last_loop: bool,
-    is_high_prio_single_op: bool
+    is_high_prio_single_op: bool,
 }
 
 impl<'a> StmtContext<'a> {
@@ -427,12 +427,14 @@ impl<'a> FSRExpr<'a> {
         }
 
         if Self::is_single_op(op) && !op.eq("-") {
-            if ctx.single_op.is_some() && (ctx.single_op.unwrap().eq("not") || ctx.single_op.unwrap().eq("!")) {
+            if ctx.single_op.is_some()
+                && (ctx.single_op.unwrap().eq("not") || ctx.single_op.unwrap().eq("!"))
+            {
                 ctx.single_op = None;
             } else {
                 ctx.single_op = Some(op);
             }
-            
+
             ctx.states.pop_state();
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -480,7 +482,46 @@ impl<'a> FSRExpr<'a> {
             ctx.single_op = None;
             ctx.start += 1;
             ctx.candidates.push(sub_expr);
-                }
+        }
+        Ok(())
+    }
+
+
+    fn end_of_square_bracket(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        ctx.states.pop_state();
+        ctx.bracket_count -= 1;
+
+        if ctx.bracket_count > 0 {
+            ctx.length += 1;
+            return Ok(());
+        } else {
+            let _ps = &source[ctx.start..ctx.start + ctx.length];
+            let ps = str::from_utf8(_ps).unwrap();
+
+            ctx.start += ctx.length;
+            ctx.length = 0;
+            let sub_meta = meta.from_offset(0);
+            let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta)?.0;
+            if let FSRToken::Expr(e) = &mut sub_expr {
+                e.single_op = ctx.single_op;
+            }
+            if let FSRToken::Call(c) = &mut sub_expr {
+                c.single_op = ctx.single_op;
+            }
+
+            if let FSRToken::Variable(v) = &mut sub_expr {
+                v.single_op = ctx.single_op;
+            }
+
+            ctx.single_op = None;
+            ctx.start += 1;
+            ctx.candidates.push(sub_expr);
+        }
         Ok(())
     }
 
@@ -505,8 +546,7 @@ impl<'a> FSRExpr<'a> {
         }
 
         if ctx.start + ctx.length >= source.len()
-            || (source[ctx.start + ctx.length] != b'('
-                && source[ctx.start + ctx.length] != b'[')
+            || (source[ctx.start + ctx.length] != b'(' && source[ctx.start + ctx.length] != b'[')
         {
             let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
             if name.eq("and") || name.eq("or") || name.eq("not") {
@@ -514,7 +554,7 @@ impl<'a> FSRExpr<'a> {
                     ctx.is_high_prio_single_op = true;
                 }
                 Self::end_of_char(source, ignore_nline, meta, ctx)?;
-                return Ok(())
+                return Ok(());
                 //ctx.states.pop_state();
             }
             let mut sub_meta = meta.from_offset(ctx.start);
@@ -538,7 +578,6 @@ impl<'a> FSRExpr<'a> {
         meta: &FSRPosition,
         ctx: &mut StmtContext<'a>,
     ) -> Result<(), SyntaxError> {
-
         let mut is_float = false;
         loop {
             if ctx.start + ctx.length >= source.len() {
@@ -568,7 +607,6 @@ impl<'a> FSRExpr<'a> {
             FSRConstant::from_int(i, sub_meta, ps, ctx.single_op)
         };
 
-        
         //c.single_op = ctx.single_op;
         ctx.single_op = None;
         ctx.candidates.push(FSRToken::Constant(c));
@@ -585,7 +623,6 @@ impl<'a> FSRExpr<'a> {
         meta: &FSRPosition,
         ctx: &mut StmtContext<'a>,
     ) -> Result<(), SyntaxError> {
-
         loop {
             if ctx.last_loop {
                 break;
@@ -599,13 +636,22 @@ impl<'a> FSRExpr<'a> {
             let t_i = source[ctx.start + ctx.length];
             let t_c = t_i as char;
 
-            if ((t_c == '#' && !(ctx.states.eq_peek(&ExprState::SingleString) || ctx.states.eq_peek(&ExprState::DoubleString)))) {
+            if (t_c == '#'
+                && !(ctx.states.eq_peek(&ExprState::SingleString)
+                    || ctx.states.eq_peek(&ExprState::DoubleString)))
+            {
                 if ctx.length != 0 {
                     let sub_meta = meta.from_offset(meta.offset);
-                    return Err(SyntaxError::new_with_type(&FSRPosition::from_offset(&sub_meta, ctx.start + ctx.length), "error # place", SyntaxErrType::CommentError))
+                    return Err(SyntaxError::new_with_type(
+                        &FSRPosition::from_offset(&sub_meta, ctx.start + ctx.length),
+                        "error # place",
+                        SyntaxErrType::CommentError,
+                    ));
                 }
 
-                while ctx.start + ctx.length < source.len() && source[ctx.start + ctx.length] != b'\n' {
+                while ctx.start + ctx.length < source.len()
+                    && source[ctx.start + ctx.length] != b'\n'
+                {
                     ctx.start += 1;
                 }
 
@@ -636,9 +682,9 @@ impl<'a> FSRExpr<'a> {
                 continue;
             }
 
-
             if ctx.is_high_prio_single_op && ctx.states.eq_peek(&ExprState::WaitToken) {
-                let mut sub_expr = FSRExpr::parse(&source[ctx.start..], false, meta.from_offset(ctx.start))?;
+                let mut sub_expr =
+                    FSRExpr::parse(&source[ctx.start..], false, meta.from_offset(ctx.start))?;
                 ctx.start += sub_expr.1;
                 if let FSRToken::Expr(e) = &mut sub_expr.0 {
                     e.single_op = ctx.single_op;
@@ -646,7 +692,7 @@ impl<'a> FSRExpr<'a> {
                 if let FSRToken::Call(c) = &mut sub_expr.0 {
                     c.single_op = ctx.single_op;
                 }
-    
+
                 if let FSRToken::Variable(v) = &mut sub_expr.0 {
                     v.single_op = ctx.single_op;
                 }
@@ -694,6 +740,35 @@ impl<'a> FSRExpr<'a> {
                 Self::end_of_bracket(source, ignore_nline, meta, ctx)?;
                 continue;
             }
+
+            // if t_i == b'['
+            //     && (ctx.states.eq_peek(&ExprState::Bracket)
+            //         || ctx.states.eq_peek(&ExprState::WaitToken))
+            // {
+            //     ctx.start += 1;
+            //     ctx.states.push_state(ExprState::SquareBracket);
+            //     ctx.bracket_count += 1;
+            //     continue;
+            // }
+
+            // if t_i != b']'
+            //     && (!ctx.states.eq_peek(&ExprState::SingleString)
+            //         && !ctx.states.eq_peek(&ExprState::DoubleString))
+            //     && ctx.states.eq_peek(&ExprState::SquareBracket)
+            // {
+            //     ctx.length += 1;
+            //     continue;
+            // }
+
+            // if t_i == b']'
+            //     && (!ctx.states.eq_peek(&ExprState::SingleString)
+            //         && !ctx.states.eq_peek(&ExprState::DoubleString))
+            //     && ctx.states.eq_peek(&ExprState::SquareBracket)
+            //     || ctx.last_loop
+            // {
+            //     Self::end_of_square_bracket(source, ignore_nline, meta, ctx)?;
+            //     continue;
+            // }
 
             if ctx.states.eq_peek(&ExprState::WaitToken)
                 && ASTParser::is_blank_char_with_new_line(ord)
@@ -757,10 +832,13 @@ impl<'a> FSRExpr<'a> {
                 let len =
                     ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta)?;
                 ctx.length += len;
-                let slice =
-                    FSRSlice::parse(&source[ctx.start..ctx.start + ctx.length + 1]).unwrap();
+                let mut sub_meta = meta.from_offset(ctx.start);
+                let getter =
+                    FSRGetter::parse(&source[ctx.start..ctx.start + ctx.length], sub_meta).unwrap();
+                ctx.candidates.push(FSRToken::Getter(getter));
                 ctx.start += ctx.length;
                 ctx.length = 0;
+                ctx.states.pop_state();
                 continue;
             }
 
@@ -788,7 +866,7 @@ impl<'a> FSRExpr<'a> {
                 continue;
             }
 
-            if ctx.states.eq_peek(&ExprState::Slice) && !FSRSlice::is_valid_char(t_c as u8) {
+            if ctx.states.eq_peek(&ExprState::Slice) && !FSRGetter::is_valid_char(t_c as u8) {
                 unimplemented!()
             }
         }
@@ -878,7 +956,12 @@ impl<'a> FSRExpr<'a> {
         let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta)?.0;
 
         let mut sub_meta = meta.from_offset(0);
-        let right = FSRExpr::parse(&source[split_offset + operator.0.len()..], false, sub_meta.clone())?.0;
+        let right = FSRExpr::parse(
+            &source[split_offset + operator.0.len()..],
+            false,
+            sub_meta.clone(),
+        )?
+        .0;
         let n_left = left.clone();
 
         if operator.0.eq("=") {
@@ -950,7 +1033,6 @@ mod test {
         println!("{:#?}", p.0);
     }
 
-
     #[test]
     fn test_binary_str4() {
         let v = "(not 1 == 1) or 1 == 1";
@@ -965,7 +1047,6 @@ mod test {
         println!("{:#?}", p.0);
     }
 
-
     #[test]
     fn test_float_div() {
         let v = "1.0 / 1.0";
@@ -974,8 +1055,15 @@ mod test {
     }
 
     #[test]
-    fn test_clss() {
+    fn test_class() {
         let v = "Abc::test";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_square_bracket() {
+        let v = "a[1]";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }

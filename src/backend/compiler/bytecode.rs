@@ -24,6 +24,7 @@ use crate::{
         list::FSRListFrontEnd,
         module::FSRModuleFrontEnd,
         return_def::FSRReturn,
+        slice::FSRGetter,
         variable::FSRVariable,
         while_statement::FSRWhile,
     },
@@ -43,7 +44,7 @@ pub enum BinaryOffset {
     NextObject,
     GetItem,
     SetItem,
-    Div
+    Div,
 }
 
 impl BinaryOffset {
@@ -113,6 +114,7 @@ pub enum BytecodeOperator {
     NotOperator = 34,
     BinaryDiv = 35,
     BinaryClassGetter = 36,
+    Getter = 37,
     Load = 1000,
 }
 
@@ -179,7 +181,7 @@ impl BytecodeOperator {
         } else if op.eq("!=") {
             return "!=";
         } else if op.eq("::") {
-            return "::"
+            return "::";
         }
 
         unimplemented!()
@@ -375,6 +377,40 @@ impl<'a> Bytecode {
         None
     }
 
+    fn load_list_getter(
+        getter: &'a FSRGetter<'a>,
+        var_map: &'a mut VarMap<'a>,
+        is_attr: bool,
+        is_method_call: bool,
+        const_map: &mut ConstTable,
+    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        let mut result = Vec::new();
+        let mut var_map_ref = var_map;
+
+        let name = getter.get_name();
+
+        if !var_map_ref.has_var(name) {
+            let v = name;
+            var_map_ref.insert_var(v);
+        }
+        let id = var_map_ref.get_var(name).unwrap();
+        result.push(BytecodeArg {
+            operator: BytecodeOperator::Load,
+            arg: ArgType::Variable(*id, name.to_string()),
+        });
+
+        let mut v = Self::load_token_with_map(getter.get_getter(), var_map_ref, const_map);
+        var_map_ref = v.1;
+        result.append(&mut v.0[0]);
+
+        result.push(BytecodeArg {
+            operator: BytecodeOperator::Getter,
+            arg: ArgType::None,
+        });
+
+        (result, var_map_ref)
+    }
+
     fn load_call(
         call: &'a FSRCall<'a>,
         var_map: &'a mut VarMap<'a>,
@@ -408,7 +444,6 @@ impl<'a> Bytecode {
                     arg: ArgType::None,
                 });
             }
-            
         } else {
             if !var_map_ref.has_var(name) {
                 let v = name;
@@ -511,6 +546,10 @@ impl<'a> Bytecode {
             let mut v = Self::load_call(c, var_map_ref.unwrap(), false, false, const_map);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
+        } else if let FSRToken::Getter(s) = expr.get_left() {
+            let mut v = Self::load_list_getter(s, var_map_ref.unwrap(), false, false, const_map);
+            op_code.append(&mut v.0);
+            var_map_ref = Some(v.1);
         } else if let FSRToken::Constant(c) = expr.get_left() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap(), const_map);
             op_code.append(&mut v.0);
@@ -536,7 +575,7 @@ impl<'a> Bytecode {
         } else if let FSRToken::Call(c) = expr.get_right() {
             let mut is_attr = false;
             let mut is_method_call = true;
-            if expr.get_op().eq(".") || expr.get_op().eq("::"){
+            if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 is_attr = true;
             }
 
@@ -544,8 +583,8 @@ impl<'a> Bytecode {
                 is_method_call = false;
             }
 
-            
-            let mut v = Self::load_call(c, var_map_ref.unwrap(), is_attr, is_method_call, const_map);
+            let mut v =
+                Self::load_call(c, var_map_ref.unwrap(), is_attr, is_method_call, const_map);
             second.append(&mut v.0);
             op_code.append(&mut second);
             var_map_ref = Some(v.1);
@@ -553,6 +592,10 @@ impl<'a> Bytecode {
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 return (op_code, var_map_ref.unwrap());
             }
+        } else if let FSRToken::Getter(s) = expr.get_right() {
+            let mut v = Self::load_list_getter(s, var_map_ref.unwrap(), false, false, const_map);
+            second.append(&mut v.0);
+            var_map_ref = Some(v.1);
         } else if let FSRToken::Constant(c) = expr.get_right() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap(), const_map);
             second.append(&mut v.0);
@@ -887,6 +930,9 @@ impl<'a> Bytecode {
         } else if let FSRToken::Call(call) = token {
             let v = Self::load_call(call, var_map, false, false, const_map);
             return (vec![v.0], v.1);
+        } else if let FSRToken::Getter(getter) = token {
+            let v = Self::load_list_getter(getter, var_map, false, false, const_map);
+            return (vec![v.0], v.1);
         } else if let FSRToken::Constant(c) = token {
             let v = Self::load_constant(c, var_map, const_map);
             return (vec![v.0], v.1);
@@ -1202,5 +1248,21 @@ impl<'a> Bytecode {
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
         Self::load_ast(name, FSRToken::Module(token))
+    }
+}
+
+
+mod test {
+    use crate::{backend::compiler::bytecode::Bytecode, frontend::ast::token::{base::{FSRPosition, FSRToken}, module::FSRModuleFrontEnd}};
+
+    #[test]
+    fn test_1() {
+        let expr = "
+        b[abc()]
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
     }
 }

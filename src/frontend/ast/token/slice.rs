@@ -1,14 +1,82 @@
+use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
+
+use super::{base::{FSRPosition, FSRToken}, expr::FSRExpr};
+
+#[derive(PartialEq)]
+enum GetterState {
+    Name,
+    Start,
+    _Args,
+    _WaitToken,
+}
+
 #[derive(Debug, Clone)]
-pub struct FSRSlice<'a> {
-    _name: &'a str,
-    _start: usize,
-    _end: usize,
+pub struct FSRGetter<'a> {
+    name: &'a str,
+    getter: Box<FSRToken<'a>>,
+    len: usize,
+    single_op: Option<&'a str>,
+    meta: FSRPosition,
 }
 
 
-impl FSRSlice<'_> {
-    pub fn parse(_source: &[u8]) -> Result<Self, &str> {
-        unimplemented!()
+impl<'a> FSRGetter<'a> {
+    pub fn get_name(&self) -> &str {
+        self.name
+    }
+
+    pub fn get_meta(&self) -> &FSRPosition {
+        &self.meta
+    }
+
+    pub fn get_getter(&self) -> &FSRToken<'a> {
+        &self.getter
+    }
+
+    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
+        let mut state = GetterState::Start;
+        let mut start = 0;
+        let mut length = 0;
+        let name ;
+        loop {
+            let i = source[start];
+            let t_i = source[start + length];
+            if state == GetterState::Start && ASTParser::is_blank_char_with_new_line(i) {
+                start += 1;
+                continue;
+            }
+
+            if ASTParser::is_name_letter(i) && state == GetterState::Start {
+                state = GetterState::Name;
+                continue;
+            }
+
+            if state == GetterState::Name && ASTParser::is_name_letter(t_i) {
+                length += 1;
+                continue;
+            }
+
+            if state == GetterState::Name && t_i as char == '[' {
+                name = std::str::from_utf8(&source[start..start + length]).unwrap();
+                start += length;
+                start += 1;
+                break;
+            }
+        }
+
+        let s = std::str::from_utf8(source).unwrap();
+        let first = s.find('[').unwrap();
+        let last = s.rfind(']').unwrap();
+        let args = &source[first + 1..last];
+        let sub_meta = meta.from_offset(start);
+        let getter = FSRExpr::parse(args, true,sub_meta)?;
+        Ok(Self {
+            name,
+            len: 0,
+            single_op: None,
+            meta,
+            getter: Box::new(getter.0),
+        })
     }
 
     pub fn is_valid_char(c: u8) -> bool {
