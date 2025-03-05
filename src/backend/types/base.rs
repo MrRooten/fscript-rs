@@ -176,7 +176,7 @@ impl Debug for FSRObject<'_> {
                     .field("obj_id", &self.obj_id)
                     .field("value", &self.value)
                     .field("ref_count", &self.ref_count)
-                    .field("cls", &s)
+                    .field("cls", &"None".to_string())
                     .finish();
             }
         };
@@ -184,7 +184,7 @@ impl Debug for FSRObject<'_> {
             .field("obj_id", &self.obj_id)
             .field("value", &self.value)
             .field("ref_count", &self.ref_count)
-            .field("cls", cls)
+            .field("cls", &cls.name.to_string())
             .finish()
     }
 }
@@ -611,5 +611,14 @@ impl<'a> FSRObject<'a> {
     #[inline(always)]
     pub fn false_id() -> ObjId {
         2
+    }
+
+    pub fn iter_object(&self) -> impl Iterator<Item = &ObjId> {
+        match &self.value {
+            FSRValue::ClassInst(inst) => {
+                inst.iter_values()
+            },
+            _ => unimplemented!()
+        }
     }
 }
