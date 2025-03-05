@@ -30,6 +30,10 @@ impl<'a> GarbageCollector<'a> {
         self.objects.push_back(obj);
         id
     }
+
+    pub fn iter_from_obj(&self, obj: ObjId, store: &mut Vec<ObjId>) {
+        unimplemented!()
+    }
 }
 
 mod test {

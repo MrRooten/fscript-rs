@@ -61,6 +61,10 @@ impl<'a> FSRClassInst<'a> {
         return self.attrs.keys();
     }
 
+    pub fn iter_values(&self) -> impl Iterator<Item = &ObjId> {
+        self.attrs.values()
+    }
+
     pub fn get_cls_name(&self) -> &str {
         self.name
     }
