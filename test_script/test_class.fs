@@ -18,6 +18,11 @@ class Abc {
     fn test(self) {
         return 323
     }
+
+    fn not_self() {
+        println("not self")
+        return 1
+    }
 }
 
 a = Abc()
@@ -30,3 +35,7 @@ if a.abc.ddc < 323 {
 assert(a.abc.ddc == 447)
 
 println(a.abc.ddc)
+
+Abc::not_self()
+
+println(Abc::__str__(a))
