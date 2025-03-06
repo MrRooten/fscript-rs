@@ -1,45 +1,47 @@
-use std::collections::LinkedList;
+use std::{collections::LinkedList, sync::Mutex};
 
 use crate::backend::types::base::{FSRObject, ObjId};
 
 use super::size_alloc::FSRObjectAllocator;
 
+
+
 pub struct ObjectGeneration {}
 
-type GarbageId = usize;
+type GarbageId = u32;
 
 pub struct GarbageCollector<'a> {
-    allocator: FSRObjectAllocator<'a>,
     objects: Vec<Option<&'a FSRObject<'a>>>,
     object_map: Vec<bool>,
+    locker: Mutex<()>,
     last_index: usize,
 }
 
 impl<'a> GarbageCollector<'a> {
-    pub fn new(allocator: FSRObjectAllocator<'a>) -> Self {
+    pub fn new() -> Self {
         Self {
-            allocator,
             objects: vec![],
             last_index: 0,
             object_map: vec![],
+            locker: Mutex::new(()),
         }
     }
 
-    fn try_insert<T>(list: &mut Vec<T>, index: usize, value: T) -> usize {
+    fn try_insert<T>(list: &mut Vec<T>, index: usize, value: T) -> GarbageId {
         if index < list.len() {
             list[index] = value;
-            index
+            index as GarbageId
         } else {
             list.push(value);
-            list.len() - 1
+            list.len() as GarbageId - 1
         }
     }
 
-    pub fn new_object(&mut self, obj: &'a FSRObject) -> GarbageId {
+    pub fn new_object(&mut self, obj: &'a FSRObject) {
         let id = FSRObject::obj_to_id(obj);
         let garbage_id = Self::try_insert(&mut self.objects, self.last_index, Some(obj));
+        obj.set_garbage_id(garbage_id as GarbageId);
         self.last_index += 1;
-        garbage_id
     }
 
     pub fn sort(&mut self) {

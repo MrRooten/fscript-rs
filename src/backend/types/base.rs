@@ -233,6 +233,17 @@ impl<'a> Default for FSRObject<'a> {
 }
 
 impl<'a> FSRObject<'a> {
+    pub fn new_inst(value: FSRValue<'a>, cls: ObjId) -> FSRObject<'a> {
+        FSRObject {
+            value,
+            cls: cls,
+            ref_count: AtomicU32::new(0),
+            delete_flag: Cell::new(true),
+            leak: Cell::new(false),
+            garbage_id: Cell::new(0),
+        }
+    }
+
     pub fn as_module(&self) -> &FSRModule<'a> {
         match &self.value {
             FSRValue::Module(fsrmodule) => fsrmodule,

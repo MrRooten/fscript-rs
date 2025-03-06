@@ -22,6 +22,11 @@ impl<'a> FSRObjectAllocator<'a> {
         self.object_to_clear.borrow_mut().push(object);
     }
 
+    pub fn new_object(&self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
+        let obj = FSRObject::new_inst(value, cls);
+        Box::new(obj)
+    }
+
     #[inline(always)]
     pub fn new_integer(&self, i: i64) -> Box<FSRObject<'a>> {
         if let Some(mut s) = self.integer_bins.borrow_mut().pop_front() {

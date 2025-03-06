@@ -12,9 +12,19 @@ use crate::{
     backend::{
         compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
         types::{
-            base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, float::FSRFloat, fn_def::{FSRFn, FSRFnInner}, integer::FSRInteger, list::FSRList, module::FSRModule, string::FSRString
+            base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            class::FSRClass,
+            class_inst::FSRClassInst,
+            float::FSRFloat,
+            fn_def::{FSRFn, FSRFnInner},
+            integer::FSRInteger,
+            list::FSRList,
+            module::FSRModule,
+            string::FSRString,
         },
-    }, frontend::ast::token::call, utils::error::{FSRErrCode, FSRError}
+    },
+    frontend::ast::token::call,
+    utils::error::{FSRErrCode, FSRError},
 };
 
 use super::runtime::FSRVM;
@@ -338,9 +348,7 @@ impl<'a> VecMap<'a> {
     pub fn get(&self, k: &BytecodeOperator) -> Option<&BytecodeFn<'a>> {
         self.inner.get(*k as usize)
     }
-
 }
-
 
 #[derive(Default)]
 pub struct FSRThreadRuntime<'a> {
@@ -471,7 +479,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_stack();
                 state.get_var(&s.0).cloned().unwrap()
-            },
+            }
             SValue::Global(id) => *id,
             SValue::Attr((_, id, _, _)) => *id,
             SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
@@ -481,13 +489,18 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_stack();
                 state.get_var(&s.0).cloned().unwrap()
-            },
+            }
             SValue::Global(id) => *id,
             SValue::Attr((_, id, _, _)) => *id,
             SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
         };
 
-        let res = FSRObject::invoke_offset_method(BinaryOffset::GetItem, &[list_obj, obj_id], self, None)?;
+        let res = FSRObject::invoke_offset_method(
+            BinaryOffset::GetItem,
+            &[list_obj, obj_id],
+            self,
+            None,
+        )?;
 
         // pop after finish invoke
         context.exp.pop();
@@ -507,11 +520,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        
-
-
         Ok(false)
-    } 
+    }
 
     #[inline(always)]
     fn assign_process(
@@ -567,7 +577,6 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Global(_) => todo!(),
             SValue::BoxObject(_) => todo!(),
         }
-
 
         Ok(false)
     }
@@ -734,7 +743,6 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-
     #[inline(always)]
     fn binary_div_process(
         self: &mut FSRThreadRuntime<'a>,
@@ -854,7 +862,6 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-
     fn binary_get_cls_attr_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -906,7 +913,9 @@ impl<'a> FSRThreadRuntime<'a> {
             // let obj = FSRObject::id_to_obj(id);
             // println!("{:#?}", obj);
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr((dot_father, id, name, false)));
+            context
+                .exp
+                .push(SValue::Attr((dot_father, id, name, false)));
         } else {
             //context.exp.push(SValue::Global(dot_father));
             context
@@ -994,13 +1003,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 let mut self_obj = FSRObject::new();
                 self_obj.set_cls(cls_id);
                 self_obj.set_value(FSRValue::ClassInst(Box::new(FSRClassInst::new(
-                    c.get_name()
+                    c.get_name(),
                 ))));
 
                 let self_id = FSRVM::register_object(self_obj);
                 context.exp.push(SValue::Global(self_id));
 
-                return Ok(false)
+                return Ok(false);
             }
         }
 
@@ -1145,7 +1154,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             SValue::Global(id) => id,
             SValue::Attr((o, id, name, _call_method)) => {
-                
                 call_method = _call_method;
 
                 if call_method == false {
@@ -1155,7 +1163,6 @@ impl<'a> FSRThreadRuntime<'a> {
                     object_id = Some(o);
                     id
                 }
-                
             }
             SValue::BoxObject(_) => todo!(),
         };
@@ -1201,7 +1208,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 // }
                 // not going to assign_args
                 //println!("{:#?}", fn_obj);
-                
+
                 let v = fn_obj.call(&args, self, context.module).unwrap();
 
                 if let FSRRetValue::Value(v) = v {
@@ -1936,10 +1943,12 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, context, bytecode, bc),
             BytecodeOperator::Import => {
                 Self::process_import(self, &mut context.exp, bytecode, context.module.unwrap())
-            },
+            }
             BytecodeOperator::BinaryDiv => Self::binary_div_process(self, context, bytecode, bc),
             BytecodeOperator::NotOperator => Self::not_process(self, context, bytecode, bc),
-            BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr_process(self, context, bytecode, bc),
+            BytecodeOperator::BinaryClassGetter => {
+                Self::binary_get_cls_attr_process(self, context, bytecode, bc)
+            }
             BytecodeOperator::Getter => Self::getter_process(self, context, bytecode, bc),
             _ => {
                 panic!("not implement for {:#?}", op);
@@ -2064,7 +2073,6 @@ impl<'a> FSRThreadRuntime<'a> {
         bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let mut v;
-        
 
         while let Some(arg) = expr.get(context.ip.1) {
             context.ip.1 += 1;
@@ -2274,7 +2282,6 @@ mod test {
         runtime.set_vm(&mut vm);
         runtime.start(base_module, &mut vm).unwrap();
     }
-
 
     #[test]
     fn test_print_str() {
