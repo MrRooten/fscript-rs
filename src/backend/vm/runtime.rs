@@ -2,7 +2,7 @@ use std::{
     alloc::GlobalAlloc,
     cell::{Cell, RefCell},
     collections::HashMap,
-    sync::{atomic::AtomicU64, Mutex},
+    sync::{atomic::{AtomicU32, AtomicU64}, Mutex},
 };
 
 use ahash::AHashMap;
@@ -144,24 +144,6 @@ impl<'a> FSRVM<'a> {
         v
     }
 
-    pub fn get_integer(&self, integer: i64) -> ObjId {
-        let mut const_obj = self.const_integer_global.borrow_mut();
-        const_obj.entry(integer).or_insert_with(|| {
-            let obj = FSRObject {
-                obj_id: 0,
-                value: FSRValue::Integer(integer),
-                cls: FSRGlobalObjId::IntegerCls as ObjId,
-                ref_count: AtomicU64::new(1),
-                delete_flag: Cell::new(true),
-                leak: Cell::new(false),
-            };
-
-            FSRVM::register_object(obj)
-        });
-
-        *const_obj.get(&integer).unwrap()
-    }
-
     #[inline(always)]
     pub fn get_true_id(&self) -> ObjId {
         1
@@ -273,12 +255,12 @@ impl<'a> FSRVM<'a> {
 
     fn new_stataic_object_with_id(id: ObjId, value: FSRValue<'static>) -> FSRObject<'static> {
         FSRObject {
-            obj_id: id,
             value,
             cls: 0,
-            ref_count: AtomicU64::new(0),
+            ref_count: AtomicU32::new(0),
             delete_flag: Cell::new(true),
             leak: Cell::new(false),
+            garbage_id: Cell::new(0),
         }
     }
 
@@ -294,7 +276,7 @@ impl<'a> FSRVM<'a> {
         #[cfg(feature = "alloc_trace")]
         crate::backend::types::base::HEAP_TRACE.add_object();
         let id = Self::get_object_id(&object);
-        object.obj_id = id;
+
         object.leak.set(true);
         //self.obj_map.insert(id, object);
         Box::leak(object);
@@ -303,9 +285,7 @@ impl<'a> FSRVM<'a> {
 
     pub fn register_object(object: FSRObject<'a>) -> ObjId {
         let mut object = Box::new(object);
-        let id = Self::get_object_id(&object);
-        object.obj_id = id;
-
+        let id = FSRObject::obj_to_id(&object);
         //self.obj_map.insert(id, object);
         Box::leak(object);
         id

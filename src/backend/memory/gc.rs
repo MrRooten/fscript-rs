@@ -4,35 +4,83 @@ use crate::backend::types::base::{FSRObject, ObjId};
 
 use super::size_alloc::FSRObjectAllocator;
 
-pub struct ObjectGeneration {
-    
-}
+pub struct ObjectGeneration {}
+
+type GarbageId = usize;
 
 pub struct GarbageCollector<'a> {
     allocator: FSRObjectAllocator<'a>,
-    objects: LinkedList<Box<FSRObject<'a>>>,
+    objects: Vec<Option<&'a FSRObject<'a>>>,
     object_map: Vec<bool>,
-    clear_list: Vec<ObjId>,
+    last_index: usize,
 }
 
 impl<'a> GarbageCollector<'a> {
     pub fn new(allocator: FSRObjectAllocator<'a>) -> Self {
         Self {
             allocator,
-            objects: LinkedList::new(),
-            clear_list: Vec::new(),
+            objects: vec![],
+            last_index: 0,
             object_map: vec![],
         }
     }
 
-    pub fn new_object(&mut self, obj: Box<FSRObject<'a>>) -> ObjId {
-        let id = FSRObject::obj_to_id(&obj);
-        self.objects.push_back(obj);
-        id
+    fn try_insert<T>(list: &mut Vec<T>, index: usize, value: T) -> usize {
+        if index < list.len() {
+            list[index] = value;
+            index
+        } else {
+            list.push(value);
+            list.len() - 1
+        }
     }
 
-    pub fn iter_from_obj(&self, obj: ObjId, store: &mut Vec<ObjId>) {
-        unimplemented!()
+    pub fn new_object(&mut self, obj: &'a FSRObject) -> GarbageId {
+        let id = FSRObject::obj_to_id(obj);
+        let garbage_id = Self::try_insert(&mut self.objects, self.last_index, Some(obj));
+        self.last_index += 1;
+        garbage_id
+    }
+
+    pub fn sort(&mut self) {
+        let mut first = 0;
+        let mut last = self.objects.len() - 1;
+
+        while first < last {
+            while self.objects[first].is_some() {
+                first += 1;
+            }
+            while self.objects[last].is_none() {
+                last -= 1;
+            }
+            if first < last {
+                self.objects.swap(first, last);
+            }
+        }
+    }
+
+    pub fn iter_from_obj(&mut self, obj: ObjId) {
+        let obj = FSRObject::id_to_obj(obj);
+        let mut sk = vec![];
+        sk.push(obj);
+        while !sk.is_empty() {
+            let cur = sk.pop().unwrap();
+            let id = FSRObject::obj_to_id(cur);
+            if self.object_map[id] {
+                // if the object is already visited
+                continue;
+            }
+            self.object_map[id] = true; // mark the object as visited
+            for &id in cur.iter_object() {
+                self.object_map[id] = true;
+                let obj = FSRObject::id_to_obj(id);
+                sk.push(obj);
+            }
+        }
+    }
+
+    pub fn clear_map(&mut self) {
+        self.object_map.fill(false);
     }
 }
 

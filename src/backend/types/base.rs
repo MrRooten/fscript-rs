@@ -3,7 +3,7 @@ use std::{
     cell::Cell,
     collections::hash_map::Keys,
     fmt::Debug,
-    sync::atomic::{AtomicI64, AtomicU64, Ordering},
+    sync::atomic::{AtomicI64, AtomicU32, AtomicU64, Ordering},
 };
 
 use crate::{
@@ -146,12 +146,12 @@ impl<'a> FSRValue<'a> {
 }
 
 pub struct FSRObject<'a> {
-    pub(crate) obj_id: ObjId,
     pub(crate) value: FSRValue<'a>,
-    pub(crate) ref_count: AtomicU64,
+    pub(crate) ref_count: AtomicU32,
     pub(crate) cls: ObjId,
     pub(crate) delete_flag: Cell<bool>,
     pub(crate) leak: Cell<bool>,
+    pub(crate) garbage_id: Cell<u32>,
 }
 
 impl Debug for FSRObject<'_> {
@@ -173,7 +173,6 @@ impl Debug for FSRObject<'_> {
                 let s = "internal_object".to_string();
                 return f
                     .debug_struct("FSRObject")
-                    .field("obj_id", &self.obj_id)
                     .field("value", &self.value)
                     .field("ref_count", &self.ref_count)
                     .field("cls", &"None".to_string())
@@ -181,7 +180,6 @@ impl Debug for FSRObject<'_> {
             }
         };
         f.debug_struct("FSRObject")
-            .field("obj_id", &self.obj_id)
             .field("value", &self.value)
             .field("ref_count", &self.ref_count)
             .field("cls", &cls.name.to_string())
@@ -193,12 +191,12 @@ impl Clone for FSRObject<'_> {
     fn clone(&self) -> Self {
         // Only use for SValue like tempory value
         Self {
-            obj_id: 0,
             value: self.value.clone(),
-            ref_count: AtomicU64::new(0),
+            ref_count: AtomicU32::new(0),
             cls: self.cls,
             delete_flag: Cell::new(true),
             leak: Cell::new(false),
+            garbage_id: Cell::new(0),
         }
     }
 }
@@ -248,12 +246,12 @@ impl<'a> FSRObject<'a> {
 
     pub fn new() -> FSRObject<'a> {
         FSRObject {
-            obj_id: 0,
             value: FSRValue::None,
             cls: 0,
-            ref_count: AtomicU64::new(0),
+            ref_count: AtomicU32::new(0),
             delete_flag: Cell::new(true),
             leak: Cell::new(false),
+            garbage_id: Cell::new(0),
         }
     }
 
@@ -338,6 +336,14 @@ impl<'a> FSRObject<'a> {
         None
     }
 
+    pub fn is_false(&self) -> bool {
+        if let FSRValue::Bool(b) = &self.value {
+            return !b;
+        }
+
+        false
+    }
+
     #[inline(always)]
     fn sp_object(id: ObjId) -> &'static FSRObject<'static> {
         unsafe {
@@ -356,9 +362,9 @@ impl<'a> FSRObject<'a> {
 
     #[inline]
     pub fn ref_add(&self) {
-        if Self::is_sp_object(self.obj_id) {
-            return;
-        }
+        // if Self::is_sp_object(self.obj_id) {
+        //     return;
+        // }
 
         if !self.delete_flag.get() {
             return;
@@ -373,9 +379,9 @@ impl<'a> FSRObject<'a> {
 
     #[inline]
     pub fn ref_dec(&self) {
-        if Self::is_sp_object(self.obj_id) {
-            return;
-        }
+        // if Self::is_sp_object(self.obj_id) {
+        //     return;
+        // }
 
         if !self.delete_flag.get() {
             return;
@@ -403,7 +409,7 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
-    pub fn count_ref(&self) -> u64 {
+    pub fn count_ref(&self) -> u32 {
         unsafe { *self.ref_count.as_ptr() }
     }
 
@@ -508,21 +514,6 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
-    pub fn is_true(&self) -> bool {
-        self.obj_id == FSRGlobalObjId::True as ObjId
-    }
-
-    #[inline(always)]
-    pub fn is_false(&self) -> bool {
-        self.obj_id == FSRGlobalObjId::False as ObjId
-    }
-
-    #[inline(always)]
-    pub fn is_none(&self) -> bool {
-        self.obj_id == FSRGlobalObjId::None as ObjId
-    }
-
-    #[inline(always)]
     pub fn call(
         &'a self,
         args: &[ObjId],
@@ -540,7 +531,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>) -> FSRObject<'a> {
-        let s = self.value.to_string(self.obj_id, thread);
+        let s = self.value.to_string(FSRObject::obj_to_id(self), thread);
         if let Some(s) = s {
             return FSRString::new_inst(s);
         }
@@ -620,5 +611,21 @@ impl<'a> FSRObject<'a> {
             },
             _ => unimplemented!()
         }
+    }
+
+    pub fn set_garbage_id(&self, id: u32) {
+        self.garbage_id.set(id);
+    }
+}
+
+
+mod test {
+    use crate::backend::types::base::FSRValue;
+
+    #[test]
+    fn test_size_of_object() {
+        use std::mem::size_of;
+        use crate::backend::types::base::FSRObject;
+        println!("Size of FSRObject: {}", size_of::<FSRObject>());
     }
 }
