@@ -14,15 +14,17 @@ pub struct GarbageCollector {
     objects: Vec<Option<ObjId>>,
     object_map: Vec<bool>,
     locker: Mutex<()>,
-    last_index: usize,
+    len: usize,
 }
 
 impl GarbageCollector {
     pub fn new() -> Self {
         Self {
-            objects: vec![],
-            last_index: 0,
-            object_map: vec![],
+            // keep the first element as None, because the garbage id starts from 1, 0 means the object is not in the garbage collector
+            objects: vec![None],
+            len: 0,
+            // keep the first element as true, because the garbage id starts from 1, 0 means the object is not in the garbage collector
+            object_map: vec![true],
             locker: Mutex::new(()),
         }
     }
@@ -37,21 +39,34 @@ impl GarbageCollector {
         }
     }
 
-    pub fn add_object(&mut self, obj: ObjId) {
-        let garbage_id = Self::try_insert(&mut self.objects, self.last_index, Some(obj));
-        let obj = FSRObject::id_to_obj(obj);
+    pub fn add_object(&mut self, obj_id: ObjId) {
+        let obj = FSRObject::id_to_obj(obj_id);
+
+        if obj.get_garbage_id() > 0 {
+            // if the object is already in the garbage collector
+            return;
+        }
+
+        let garbage_id = Self::try_insert(&mut self.objects, self.len, Some(obj_id));
+        
         obj.set_garbage_id(garbage_id as GarbageId);
-        self.last_index += 1;
+        self.len += 1;
     }
 
-    pub fn remove_object(&mut self, obj: ObjId) {
+    fn remove_object(&mut self, obj: ObjId) {
         let obj = FSRObject::id_to_obj(obj);
+
+        if obj.get_garbage_id() == 0 {
+            // if the object is not in the garbage collector
+            return;
+        }
+
         let garbage_id = obj.get_garbage_id();
         self.objects[garbage_id as usize] = None;
     }
 
     pub fn sort(&mut self) {
-        let mut first = 0;
+        let mut first = 1;
         let mut last = self.objects.len() - 1;
 
         while first < last {
@@ -63,6 +78,7 @@ impl GarbageCollector {
             }
             if first < last {
                 self.objects.swap(first, last);
+                self.object_map.swap(first, last);
             }
         }
     }
@@ -90,70 +106,56 @@ impl GarbageCollector {
         }
     }
 
+    pub fn iter(&mut self) -> ObjIterator {
+        ObjIterator {
+            gc: self,
+            index: 1,
+        }
+    }
+
     pub fn clear_map(&mut self) {
         self.object_map.fill(false);
     }
 }
 
+pub struct ObjIterator<'a> {
+    gc: &'a mut GarbageCollector,
+    index: usize,
+}
+
+impl Iterator for ObjIterator<'_> {
+    type Item = ObjId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index < self.gc.objects.len() {
+            let is_ref = self.gc.object_map[self.index];
+            self.index += 1;
+            if !is_ref && self.gc.objects[self.index - 1].is_some() {
+                let out = self.gc.objects[self.index - 1].take();
+                self.gc.object_map[self.index - 1] = false;
+                self.gc.len -= 1;
+                return out;
+            }
+        }
+        None
+    }
+}
+
 mod test {
-    // use std::collections::{HashMap, LinkedList};
-    // use std::hint::black_box;
-    // use std::time::Instant;
+    use crate::backend::types::{base::{FSRObject, FSRValue}, integer::FSRInteger};
 
-    // #[test]
-    // #[ignore]
-    // fn bench_hashmap_vs_vec_vs_linkedlist() {
-    //     let mut tmp_vec = vec![];
-    //     for i in 0..1_000_000 {
-    //         tmp_vec.push(i);
-    //     }
+    use super::GarbageCollector;
 
-    //     let mut tmp_list = LinkedList::new();
-    //     for i in 0..1_000_000 {
-    //         tmp_list.push_back(i);
-    //     }
+    #[test]
+    fn test_garbege_collector() {
+        let mut gc = GarbageCollector::new();
 
-    //     let mut tmp_map = HashMap::new();
-    //     for i in 0..1_000_000 {
-    //         tmp_map.insert(i, i);
-    //     }
+        let value = Box::new(FSRInteger::new_inst(1));
 
-    //     // 测试 Vec 遍历性能
-    //     let st = Instant::now();
-    //     let mut sum = 0;
-    //     for _ in 0..1000 {
-    //         for &x in &tmp_vec {
-    //             sum += black_box(x);
-    //         }
-    //     }
-    //     let et = Instant::now();
-    //     println!("Vec traversal time: {:?}", et - st);
+        let obj_id = FSRObject::obj_to_id(&value);
 
-    //     // 测试 LinkedList 遍历性能
-    //     let st3 = Instant::now();
-    //     let mut sum3 = 0;
-    //     for _ in 0..1000 {
-    //         for &x in &tmp_list {
-    //             sum3 += black_box(x);
-    //         }
-    //     }
-    //     let et3 = Instant::now();
-    //     println!("LinkedList traversal time: {:?}", et3 - st3);
+        gc.add_object(obj_id);
 
-    //     // 测试 HashMap 遍历性能
-    //     let st2 = Instant::now();
-    //     let mut sum2 = 0;
-    //     for _ in 0..1000 {
-    //         for &x in tmp_map.values() {
-    //             sum2 += black_box(x);
-    //         }
-    //     }
-    //     let et2 = Instant::now();
-    //     println!("HashMap traversal time: {:?}", et2 - st2);
-
-    //     // 防止编译器优化
-    //     black_box(sum);
-    //     black_box(sum2);
-    //     black_box(sum3);
-    // }
+        println!("{:?}", gc.objects);
+    }
 }
