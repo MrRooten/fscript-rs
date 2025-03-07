@@ -1,11 +1,18 @@
-use std::time::Instant;
+use std::{
+    sync::{Arc, Mutex},
+    thread::{self, Thread},
+    time::Instant,
+};
 
 use fscript_rs::backend::{
     types::module::FSRModule,
     vm::{runtime::FSRVM, thread::FSRThreadRuntime},
 };
 mod test {
-    use std::time::Instant;
+    use std::{
+        sync::{Arc, Mutex},
+        time::Instant,
+    };
 
     use fscript_rs::backend::{
         compiler::bytecode::BinaryOffset,
@@ -15,12 +22,11 @@ mod test {
 
     pub fn bench() {
         
-        let mut runtime = FSRThreadRuntime::new(0);
-        let mut vm = FSRVM::new();
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(0, vm.clone());
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
 
-        runtime.set_vm(&mut vm);
         let obj = FSRInteger::new_inst(3);
         let obj2 = FSRInteger::new_inst(4);
         for _ in 0..3000000 {
@@ -34,7 +40,7 @@ mod test {
 
             match v {
                 fscript_rs::backend::types::base::FSRRetValue::Value(fsrobject) => {
-                    vm.allocator.free_object(fsrobject)
+                    vm.lock().unwrap().allocator.free_object(fsrobject)
                 }
                 fscript_rs::backend::types::base::FSRRetValue::GlobalId(_) => todo!(),
                 fscript_rs::backend::types::base::FSRRetValue::GlobalIdTemp(_) => todo!(),
@@ -65,12 +71,23 @@ fn main() {
     f.read_to_string(&mut source_code).unwrap();
     let v = FSRModule::from_code("main", &source_code).unwrap();
     let base_module = FSRVM::leak_object(Box::new(v));
-    let mut runtime = FSRThreadRuntime::new(base_module);
-    let mut vm = FSRVM::new();
+
+    let vm = Arc::new(Mutex::new(FSRVM::new()));
+    let mut rt = FSRThreadRuntime::new(base_module, vm);
+    // let runtime = Arc::new(rt);
+
+    let base_module = base_module.clone();
     let start = Instant::now();
-    runtime.start(base_module, &mut vm).unwrap();
+    let th = thread::spawn(move || {
+        rt.start(base_module).unwrap();
+    });
+    let _ = th.join();
     let end = Instant::now();
     println!("{:?}", end - start);
+
+    
+    // runtime.start(base_module, &mut vm).unwrap();
+    // let end = Instant::now();
 
     use std::io::Read;
 

@@ -27,13 +27,13 @@ fn next_obj<'a>(
         let from_obj = FSRObject::id_to_obj(it.obj);
         if let FSRValue::ClassInst(inst) = &from_obj.value {
             let vm = thread.get_vm();
-            let cls = match vm.get_global_obj_by_name(inst.get_cls_name()) {
-                Some(s) => s,
+            let cls = match vm.lock().unwrap().get_global_obj_by_name(inst.get_cls_name()) {
+                Some(s) => *s,
                 None => {
                     return Err(FSRError::new("Not such a cls", FSRErrCode::NoSuchObject));
                 }
             };
-            let cls = FSRObject::id_to_obj(*cls);
+            let cls = FSRObject::id_to_obj(cls);
             let cls = cls.as_class();
             let v = cls.get_attr("__index__");
             if let Some(obj_id) = v {

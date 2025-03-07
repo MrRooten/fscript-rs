@@ -50,7 +50,7 @@ fn add<'a>(
         if let FSRValue::String(other_str) = &other_object.value {
             return Ok(FSRRetValue::Value(
                 thread
-                    .get_vm()
+                    .get_vm().lock().unwrap()
                     .allocator
                     .new_string(Cow::Owned(format!("{}{}", self_str, other_str))),
             ));

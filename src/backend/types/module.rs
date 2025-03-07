@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, fs, path::Path};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, fs, path::Path, sync::Mutex};
 
 use crate::{backend::compiler::bytecode::{Bytecode, BytecodeArg}, utils::error::FSRError};
 
@@ -9,7 +9,7 @@ pub struct FSRModule<'a> {
     name: Cow<'a, str>,
     #[allow(unused)]
     bytecode: Bytecode,
-    object_map  : RefCell<HashMap<String, ObjId>>
+    object_map  : Mutex<HashMap<String, ObjId>>
 }
 
 impl Clone for FSRModule<'_> {
@@ -38,10 +38,10 @@ impl<'a> FSRModule<'a> {
         let module = Self {
             name: Cow::Owned(name.to_string()),
             bytecode,
-            object_map: RefCell::new(HashMap::new()),
+            object_map: Mutex::new(HashMap::new()),
         };
         let mut object = FSRObject::new();
-        object.delete_flag.set(false);
+        object.delete_flag.store(false, std::sync::atomic::Ordering::Relaxed);
         object.value = FSRValue::Module(Box::new(module));
         object.cls = FSRGlobalObjId::ModuleCls as ObjId;
 
@@ -62,10 +62,10 @@ impl<'a> FSRModule<'a> {
     }
 
     pub fn register_object(&self, name: &'a str, obj_id: ObjId) {
-        self.object_map.borrow_mut().insert(name.to_string(), obj_id);
+        self.object_map.lock().unwrap().insert(name.to_string(), obj_id);
     }
 
     pub fn get_object(&self, name: &str) -> Option<ObjId> {
-        self.object_map.borrow().get(name).copied()
+        self.object_map.lock().unwrap().get(name).copied()
     }
 }

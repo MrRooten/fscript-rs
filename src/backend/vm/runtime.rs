@@ -2,7 +2,7 @@ use std::{
     alloc::GlobalAlloc,
     cell::{Cell, RefCell},
     collections::HashMap,
-    sync::{atomic::{AtomicU32, AtomicU64}, Mutex},
+    sync::{atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering}, Mutex},
 };
 
 use ahash::AHashMap;
@@ -242,7 +242,7 @@ impl<'a> FSRVM<'a> {
         self.init_global_object();
     }
 
-    pub fn get_base_cls(&self, cls_id: ObjId) -> Option<&FSRClass<'a>> {
+    pub fn get_base_cls(cls_id: ObjId) -> Option<&'static FSRClass<'a>> {
         unsafe {
             if let Some(s) = OBJECTS.get(cls_id) {
                 if let FSRValue::Class(c) = &s.value {
@@ -260,9 +260,9 @@ impl<'a> FSRVM<'a> {
             value,
             cls: 0,
             ref_count: AtomicU32::new(0),
-            delete_flag: Cell::new(true),
-            leak: Cell::new(false),
-            garbage_id: Cell::new(0),
+            delete_flag: AtomicBool::new(true),
+            leak: AtomicBool::new(false),
+            garbage_id: AtomicU32::new(0),
         }
     }
 
@@ -279,7 +279,7 @@ impl<'a> FSRVM<'a> {
         crate::backend::types::base::HEAP_TRACE.add_object();
         let id = Self::get_object_id(&object);
 
-        object.leak.set(true);
+        object.leak.store(true, Ordering::Relaxed);
         //self.obj_map.insert(id, object);
         Box::leak(object);
         id

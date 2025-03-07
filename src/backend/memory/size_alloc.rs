@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::RefCell, collections::VecDeque};
+use std::{borrow::Cow, cell::RefCell, collections::VecDeque, sync::atomic::Ordering};
 
 use crate::backend::types::{base::{FSRObject, FSRValue, ObjId}, integer::FSRInteger, string::FSRString};
 
@@ -48,13 +48,13 @@ impl<'a> FSRObjectAllocator<'a> {
     #[inline(always)]
     pub fn free(&self, obj_id: ObjId) {
         let obj = FSRObject::id_to_obj(obj_id);
-        if !obj.delete_flag.get() {
+        if !obj.delete_flag.load(Ordering::Relaxed) {
             return ;
         }
 
         if let FSRValue::Integer(_) = &obj.value {
             let obj = FSRObject::into_object(obj_id);
-            obj.leak.set(false);
+            obj.leak.store(false, Ordering::Relaxed);
             self.integer_bins.borrow_mut().push_front(obj);
             return ;
         }
@@ -67,7 +67,7 @@ impl<'a> FSRObjectAllocator<'a> {
             }
         }
 
-        if obj.leak.get() {
+        if obj.leak.load(Ordering::Relaxed) {
             FSRObject::drop_object(obj_id);
         }
     }
@@ -77,7 +77,7 @@ impl<'a> FSRObjectAllocator<'a> {
      */
     pub fn free_object(&self, obj: Box<FSRObject<'a>>) {
         if let FSRValue::Integer(_) = &obj.value {
-            obj.leak.set(false);
+            obj.leak.store(false, Ordering::Relaxed);
             self.integer_bins.borrow_mut().push_front(obj);
         }
 

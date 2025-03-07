@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::Cell, sync::atomic::{AtomicU32, AtomicU64}};
+use std::{borrow::Cow, cell::Cell, sync::atomic::{AtomicBool, AtomicU32, AtomicU64}};
 
 use crate::{
     backend::{compiler::bytecode::Bytecode, vm::{runtime::FSRVM, thread::FSRThreadRuntime}},
@@ -89,9 +89,9 @@ impl<'a> FSRFn<'a> {
             value: FSRValue::Function(Box::new(v)),
             cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU32::new(0),
-            delete_flag: Cell::new(true),
-            leak: Cell::new(false),
-            garbage_id: Cell::new(0),
+            delete_flag: AtomicBool::new(true),
+            leak: AtomicBool::new(false),
+            garbage_id: AtomicU32::new(0),
         }
     }
 
@@ -104,9 +104,9 @@ impl<'a> FSRFn<'a> {
             value: FSRValue::Function(Box::new(v)),
             cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU32::new(0),
-            delete_flag: Cell::new(true),
-            leak: Cell::new(false),
-            garbage_id: Cell::new(0),
+            delete_flag: AtomicBool::new(true),
+            leak: AtomicBool::new(false),
+            garbage_id: AtomicU32::new(0),
         }
     }
 

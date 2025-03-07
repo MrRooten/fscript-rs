@@ -3,7 +3,7 @@ use std::{
     cell::Cell,
     collections::hash_map::Keys,
     fmt::Debug,
-    sync::atomic::{AtomicI64, AtomicU32, AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering},
 };
 
 use crate::{
@@ -149,9 +149,9 @@ pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
     pub(crate) ref_count: AtomicU32,
     pub(crate) cls: ObjId,
-    pub(crate) delete_flag: Cell<bool>,
-    pub(crate) leak: Cell<bool>,
-    pub(crate) garbage_id: Cell<u32>,
+    pub(crate) delete_flag: AtomicBool,
+    pub(crate) leak: AtomicBool,
+    pub(crate) garbage_id: AtomicU32,
 }
 
 impl Debug for FSRObject<'_> {
@@ -194,9 +194,9 @@ impl Clone for FSRObject<'_> {
             value: self.value.clone(),
             ref_count: AtomicU32::new(0),
             cls: self.cls,
-            delete_flag: Cell::new(true),
-            leak: Cell::new(false),
-            garbage_id: Cell::new(0),
+            delete_flag: AtomicBool::new(true),
+            leak: AtomicBool::new(false),
+            garbage_id: AtomicU32::new(0),
         }
     }
 }
@@ -238,9 +238,9 @@ impl<'a> FSRObject<'a> {
             value,
             cls: cls,
             ref_count: AtomicU32::new(0),
-            delete_flag: Cell::new(true),
-            leak: Cell::new(false),
-            garbage_id: Cell::new(0),
+            delete_flag: AtomicBool::new(true),
+            leak: AtomicBool::new(false),
+            garbage_id: AtomicU32::new(0),
         }
     }
 
@@ -256,7 +256,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn get_garbage_id(&self) -> u32 {
-        self.garbage_id.get()
+        self.garbage_id.load(Ordering::Relaxed)
     }
 
     pub fn new() -> FSRObject<'a> {
@@ -264,9 +264,9 @@ impl<'a> FSRObject<'a> {
             value: FSRValue::None,
             cls: 0,
             ref_count: AtomicU32::new(0),
-            delete_flag: Cell::new(true),
-            leak: Cell::new(false),
-            garbage_id: Cell::new(0),
+            delete_flag: AtomicBool::new(true),
+            leak: AtomicBool::new(false),
+            garbage_id: AtomicU32::new(0),
         }
     }
 
@@ -324,8 +324,8 @@ impl<'a> FSRObject<'a> {
         obj as *const Self as ObjId
     }
 
-    pub fn get_cls_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<ObjId> {
-        if let Some(btype) = vm.get_base_cls(self.cls) {
+    pub fn get_cls_attr(&self, name: &str) -> Option<ObjId> {
+        if let Some(btype) = FSRVM::get_base_cls(self.cls) {
             return btype.get_attr(name);
         }
 
@@ -338,8 +338,8 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline]
-    pub fn get_cls_offset_attr(&self, offset: BinaryOffset, vm: &FSRVM<'a>) -> Option<ObjId> {
-        if let Some(btype) = vm.get_base_cls(self.cls) {
+    pub fn get_cls_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
+        if let Some(btype) = FSRVM::get_base_cls(self.cls) {
             return btype.get_offset_attr(offset);
         }
 
@@ -381,7 +381,7 @@ impl<'a> FSRObject<'a> {
         //     return;
         // }
 
-        if !self.delete_flag.get() {
+        if !self.delete_flag.load(Ordering::Relaxed) {
             return;
         }
 
@@ -389,7 +389,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn set_not_delete(&self) {
-        self.delete_flag.set(false);
+        self.delete_flag.store(false, Ordering::Relaxed);
     }
 
     #[inline]
@@ -398,7 +398,7 @@ impl<'a> FSRObject<'a> {
         //     return;
         // }
 
-        if !self.delete_flag.get() {
+        if !self.delete_flag.load(Ordering::Relaxed) {
             return;
         }
 
@@ -411,7 +411,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn drop_object(id: ObjId) {
         let obj = FSRObject::id_to_obj(id);
-        if !(obj.delete_flag.get()) {
+        if !(obj.delete_flag.load(Ordering::Relaxed)) {
             return;
         }
 
@@ -454,7 +454,7 @@ impl<'a> FSRObject<'a> {
         module: Option<ObjId>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
-        let self_method = match self_object.get_cls_attr(name, thread.get_vm()) {
+        let self_method = match self_object.get_cls_attr(name) {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -477,13 +477,13 @@ impl<'a> FSRObject<'a> {
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
 
-        if let Some(self_method) = self_object.get_cls_offset_attr(offset, thread.get_vm()) {
+        if let Some(self_method) = self_object.get_cls_offset_attr(offset) {
             let method_object = Self::id_to_obj(self_method);
             let v = method_object.call(args, thread, module)?;
             return Ok(v);
         }
 
-        let self_method = match self_object.get_cls_attr(offset.alias_name(), thread.get_vm()) {
+        let self_method = match self_object.get_cls_attr(offset.alias_name()) {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -498,8 +498,8 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline]
-    pub fn get_attr(&self, name: &str, vm: &FSRVM<'a>) -> Option<ObjId> {
-        if let Some(s) = self.get_cls_attr(name, vm) {
+    pub fn get_attr(&self, name: &str) -> Option<ObjId> {
+        if let Some(s) = self.get_cls_attr(name) {
             return Some(s);
         }
 
@@ -610,6 +610,11 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
+    pub fn none_id() -> ObjId {
+        0
+    }
+
+    #[inline(always)]
     pub fn true_id() -> ObjId {
         1
     }
@@ -629,7 +634,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn set_garbage_id(&self, id: u32) {
-        self.garbage_id.set(id);
+        self.garbage_id.store(id, Ordering::Relaxed);
     }
 }
 
