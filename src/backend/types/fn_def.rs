@@ -18,7 +18,7 @@ type FSRRustFn = for<'a> fn(
 
 #[derive(Debug, Clone)]
 pub struct FSRFnInner<'a> {
-    name    : Cow<'a, str>,
+    name: Cow<'a, str>,
     fn_ip   : (usize, usize),
     bytecode    : &'a Bytecode
 }
@@ -39,7 +39,7 @@ impl<'a> FSRFnInner<'a> {
 
 #[derive(Debug, Clone)]
 pub enum FSRnE<'a> {
-    RustFn(FSRRustFn),
+    RustFn((Cow<'a, str>, FSRRustFn)),
     FSRFn(FSRFnInner<'a>),
 }
 
@@ -52,7 +52,7 @@ pub struct FSRFn<'a> {
 
 impl<'a> FSRFn<'a> {
     pub fn as_str(&self) -> String {
-        if let FSRnE::RustFn(r) = self.fn_def {
+        if let FSRnE::RustFn(r) = &self.fn_def {
             return format!("<fn {:?}>", r)
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             return format!("<fn {:?}>", f.name)
@@ -60,6 +60,15 @@ impl<'a> FSRFn<'a> {
 
         unimplemented!()
         
+    }
+
+    pub fn get_name(&self) -> &Cow<str> {
+        if let FSRnE::FSRFn(f) = &self.fn_def {
+            return f.get_name()
+        } else if let FSRnE::RustFn(f) = &self.fn_def {
+            return &Cow::Borrowed("RustFn")
+        }
+        unimplemented!()
     }
 
     pub fn is_fsr_function(&self) -> bool {
@@ -74,9 +83,9 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    pub fn from_fsr_fn(module: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode, m_obj: ObjId) -> FSRObject<'a> {
+    pub fn from_fsr_fn(fn_name: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode, m_obj: ObjId) -> FSRObject<'a> {
         let fn_obj = FSRFnInner {
-            name: Cow::Owned(module.to_string()),
+            name: Cow::Owned(fn_name.to_string()),
             fn_ip: u,
             bytecode
         };
@@ -95,9 +104,9 @@ impl<'a> FSRFn<'a> {
         }
     }
 
-    pub fn from_rust_fn(f: FSRRustFn) -> FSRObject<'a> {
+    pub fn from_rust_fn(f: FSRRustFn, name: &'a str) -> FSRObject<'a> {
         let v = Self {
-            fn_def: FSRnE::RustFn(f),
+            fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
             module: 0
         };
         FSRObject {
@@ -122,7 +131,7 @@ impl<'a> FSRFn<'a> {
         module: Option<ObjId>,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
-            return f(args, thread, module);
+            return f.1(args, thread, module);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             let v = FSRThreadRuntime::call_fn(thread, f, args, Some(self.module))?;
             let v = match v {

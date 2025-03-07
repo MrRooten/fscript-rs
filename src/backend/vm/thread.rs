@@ -1071,7 +1071,7 @@ impl<'a> FSRThreadRuntime<'a> {
             state.set_reverse_ip(context.ip);
             state.exp = Some(context.exp.clone());
             if let FSRValue::Function(f) = &fn_obj.value {
-                let mut frame = CallFrame::new(&Cow::Borrowed("tmp"), Some(f.module));
+                let mut frame = CallFrame::new(f.get_name(), Some(f.module));
                 frame.module = Some(f.module);
                 self.call_stack.push(frame);
             }
@@ -1115,15 +1115,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 &mut args,
             )?;
             args.reverse();
-            // for i in &args {
-            //     println!("{:#?}", FSRObject::id_to_obj(*i));
-            // }
         }
-
-        // if context.is_attr {
-        //     context.is_attr = false;
-        //     context.exp.pop();
-        // }
 
         //let ptr = vm as *mut FSRVM;
         let mut object_id: Option<ObjId> = None;
@@ -1196,13 +1188,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 context.ip = (offset.0, 0);
                 return Ok(true);
             } else {
-                // for arg in args.iter().rev() {
-                //     let obj = FSRObject::id_to_obj(*arg);
-                //     obj.ref_add();
-                // }
-                // not going to assign_args
-                //println!("{:#?}", fn_obj);
-
                 let v = fn_obj.call(&args, self, context.module).unwrap();
 
                 if let FSRRetValue::Value(v) = v {
@@ -1510,7 +1495,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             //println!("define_fn: {}", FSRObject::id_to_obj(context.module.unwrap()).as_module().as_string());
             let fn_obj = FSRFn::from_fsr_fn(
-                "main",
+                &name.1,
                 (context.ip.0 + 1, 0),
                 args,
                 bc,
@@ -1587,11 +1572,9 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let v = context.exp.pop().unwrap().get_global_id(self)?;
-        // let mut esp = HashSet::new();
-        // esp.insert(v);
+
         self.pop_stack(&[v]);
         let cur = self.get_cur_mut_stack();
-        //exp.push(SValue::GlobalId(v));
         cur.ret_val = Some(SValue::Global(v));
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1);
         context.module = cur.module;

@@ -106,13 +106,13 @@ fn eq<'a>(
 impl FSRString {
     pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass::new("String");
-        let len_m = FSRFn::from_rust_fn(string_len);
+        let len_m = FSRFn::from_rust_fn(string_len, "string_len");
         cls.insert_attr("len", len_m);
-        let add_fn = FSRFn::from_rust_fn(add);
+        let add_fn = FSRFn::from_rust_fn(add, "string_add");
         //cls.insert_attr("__add__", add_fn);
         cls.insert_offset_attr(BinaryOffset::Add, add_fn);
 
-        let eq_fn = FSRFn::from_rust_fn(eq);
+        let eq_fn = FSRFn::from_rust_fn(eq, "string_eq");
         //cls.insert_attr("__add__", add_fn);
         cls.insert_offset_attr(BinaryOffset::Equal, eq_fn);
         cls

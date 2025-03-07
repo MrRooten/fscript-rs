@@ -100,13 +100,13 @@ impl FSRList {
             attrs: HashMap::new(),
             offset_attrs: vec![0;30],
         };
-        let len_m = FSRFn::from_rust_fn(list_len);
+        let len_m = FSRFn::from_rust_fn(list_len, "list_len");
         cls.insert_attr("len", len_m);
-        let to_string = FSRFn::from_rust_fn(list_string);
+        let to_string = FSRFn::from_rust_fn(list_string, "list_string");
         cls.insert_attr("__str__", to_string);
-        let get_iter = FSRFn::from_rust_fn(iter);
+        let get_iter = FSRFn::from_rust_fn(iter, "list_iter");
         cls.insert_attr("__iter__", get_iter);
-        let get_item = FSRFn::from_rust_fn(get_item);
+        let get_item = FSRFn::from_rust_fn(get_item, "list_get_item");
         cls.insert_offset_attr(BinaryOffset::GetItem, get_item);
         cls
     }

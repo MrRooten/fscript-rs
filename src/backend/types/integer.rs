@@ -265,37 +265,37 @@ fn not_equal<'a>(
 impl<'a> FSRInteger {
     pub fn get_class() -> FSRClass<'a> {
         let mut cls = FSRClass::new("Integer");
-        let add_fn = FSRFn::from_rust_fn(add);
+        let add_fn = FSRFn::from_rust_fn(add, "integer_add");
         //cls.insert_attr("__add__", add_fn);
         cls.insert_offset_attr(BinaryOffset::Add, add_fn);
-        let sub_fn = FSRFn::from_rust_fn(sub);
+        let sub_fn = FSRFn::from_rust_fn(sub, "integer_sub");
         //cls.insert_attr("__sub__", sub_fn);
         cls.insert_offset_attr(BinaryOffset::Sub, sub_fn);
         
-        let div_fn = FSRFn::from_rust_fn(div);
+        let div_fn = FSRFn::from_rust_fn(div, "integer_div");
         cls.insert_offset_attr(BinaryOffset::Div, div_fn);
 
-        let mul_fn = FSRFn::from_rust_fn(mul);
+        let mul_fn = FSRFn::from_rust_fn(mul, "integer_mul");
         
         
         //cls.insert_attr("__mul__", mul_fn);
         cls.insert_offset_attr(BinaryOffset::Mul, mul_fn);
-        let gt_fn = FSRFn::from_rust_fn(greater);
+        let gt_fn = FSRFn::from_rust_fn(greater, "integer_gt");
         //cls.insert_attr("__gt__", gt_fn);
         cls.insert_offset_attr(BinaryOffset::Greater, gt_fn);
-        let gte_fn = FSRFn::from_rust_fn(greater_equal);
+        let gte_fn = FSRFn::from_rust_fn(greater_equal, "integer_gte");
         //cls.insert_attr("__gte__", gte_fn);
         cls.insert_offset_attr(BinaryOffset::GreatEqual, gte_fn);
-        let lt_fn = FSRFn::from_rust_fn(less);
+        let lt_fn = FSRFn::from_rust_fn(less, "integer_lt");
         //cls.insert_attr("__lt__", lt_fn);
         cls.insert_offset_attr(BinaryOffset::Less, lt_fn);
-        let lte_fn = FSRFn::from_rust_fn(less_equal);
+        let lte_fn = FSRFn::from_rust_fn(less_equal, "integer_lte");
         //cls.insert_attr("__lte__", lte_fn);
         cls.insert_offset_attr(BinaryOffset::LessEqual, lte_fn);
-        let eq = FSRFn::from_rust_fn(equal);
+        let eq = FSRFn::from_rust_fn(equal, "integer_eq");
         cls.insert_offset_attr(BinaryOffset::Equal, eq);
 
-        let not_eq = FSRFn::from_rust_fn(not_equal);
+        let not_eq = FSRFn::from_rust_fn(not_equal, "integer_not_eq");
         cls.insert_offset_attr(BinaryOffset::NotEqual, not_eq);
         cls
     }

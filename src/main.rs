@@ -1,6 +1,6 @@
 use std::{
     sync::{Arc, Mutex},
-    thread::{self, Thread},
+    thread::{self},
     time::Instant,
 };
 
@@ -22,7 +22,7 @@ mod test {
 
     pub fn bench() {
         
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let vm = Arc::new(Mutex::new(FSRVM::new()));
         let mut runtime = FSRThreadRuntime::new(0, vm.clone());
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();

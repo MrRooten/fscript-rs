@@ -61,9 +61,9 @@ pub fn fsr_fn_format<'a>(
 }
 
 pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
-    let print_fn = FSRFn::from_rust_fn(fsr_fn_print);
-    let println_fn = FSRFn::from_rust_fn(fsr_fn_println);
-    let dump_fn = FSRFn::from_rust_fn(fsr_fn_dump);
+    let print_fn = FSRFn::from_rust_fn(fsr_fn_print, "print");
+    let println_fn = FSRFn::from_rust_fn(fsr_fn_println, "println");
+    let dump_fn = FSRFn::from_rust_fn(fsr_fn_dump, "dump");
     let mut m = HashMap::new();
     m.insert("print", print_fn);
     m.insert("println", println_fn);
