@@ -2,7 +2,7 @@ use std::{collections::LinkedList, sync::Mutex};
 
 use crate::backend::types::base::{FSRObject, ObjId};
 
-use super::size_alloc::FSRObjectAllocator;
+use super::{size_alloc::FSRObjectAllocator, FSRAllocator};
 
 
 
@@ -10,14 +10,14 @@ pub struct ObjectGeneration {}
 
 type GarbageId = u32;
 
-pub struct GarbageCollector<'a> {
-    objects: Vec<Option<&'a FSRObject<'a>>>,
+pub struct GarbageCollector {
+    objects: Vec<Option<ObjId>>,
     object_map: Vec<bool>,
     locker: Mutex<()>,
     last_index: usize,
 }
 
-impl<'a> GarbageCollector<'a> {
+impl GarbageCollector {
     pub fn new() -> Self {
         Self {
             objects: vec![],
@@ -37,11 +37,17 @@ impl<'a> GarbageCollector<'a> {
         }
     }
 
-    pub fn new_object(&mut self, obj: &'a FSRObject) {
-        let id = FSRObject::obj_to_id(obj);
+    pub fn add_object(&mut self, obj: ObjId) {
         let garbage_id = Self::try_insert(&mut self.objects, self.last_index, Some(obj));
+        let obj = FSRObject::id_to_obj(obj);
         obj.set_garbage_id(garbage_id as GarbageId);
         self.last_index += 1;
+    }
+
+    pub fn remove_object(&mut self, obj: ObjId) {
+        let obj = FSRObject::id_to_obj(obj);
+        let garbage_id = obj.get_garbage_id();
+        self.objects[garbage_id as usize] = None;
     }
 
     pub fn sort(&mut self) {
@@ -67,7 +73,10 @@ impl<'a> GarbageCollector<'a> {
         sk.push(obj);
         while !sk.is_empty() {
             let cur = sk.pop().unwrap();
-            let id = FSRObject::obj_to_id(cur);
+            let id = cur.get_garbage_id() as usize;
+            if id == 0 {
+                continue;
+            }
             if self.object_map[id] {
                 // if the object is already visited
                 continue;

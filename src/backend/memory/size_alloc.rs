@@ -2,6 +2,8 @@ use std::{borrow::Cow, cell::RefCell, collections::VecDeque};
 
 use crate::backend::types::{base::{FSRObject, FSRValue, ObjId}, integer::FSRInteger, string::FSRString};
 
+use super::FSRAllocator;
+
 #[allow(clippy::vec_box)]
 pub struct FSRObjectAllocator<'a> {
     integer_bins    : RefCell<VecDeque<Box<FSRObject<'a>>>>,
@@ -87,4 +89,21 @@ impl<'a> FSRObjectAllocator<'a> {
             self.free_object(s);
         }
     }
+}
+
+impl<'a> FSRAllocator<'a> for FSRObjectAllocator<'a> {
+    fn new() -> Self {
+        Self::new()
+    }
+    
+    fn allocate(&mut self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
+        let obj = FSRObject::new_inst(value, cls);
+        let b = Box::new(obj);
+        b
+    }
+    
+    fn free(&mut self, ptr: Box<FSRObject>) {
+        
+    }
+
 }

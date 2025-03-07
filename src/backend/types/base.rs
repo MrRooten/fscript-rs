@@ -255,6 +255,10 @@ impl<'a> FSRObject<'a> {
         matches!(&self.value, FSRValue::Module(fsrmodule))
     }
 
+    pub fn get_garbage_id(&self) -> u32 {
+        self.garbage_id.get()
+    }
+
     pub fn new() -> FSRObject<'a> {
         FSRObject {
             value: FSRValue::None,

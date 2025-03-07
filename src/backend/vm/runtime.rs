@@ -31,7 +31,7 @@ pub struct FSRVM<'a> {
     const_integer_global: RefCell<HashMap<i64, ObjId>>,
     pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, ObjId>>,
     pub allocator: FSRObjectAllocator<'a>,
-    pub garbage_collector: GarbageCollector<'a>,
+    pub garbage_collector: GarbageCollector,
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;

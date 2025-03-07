@@ -1,9 +1,10 @@
-use super::types::base::{FSRObject, ObjId};
+use super::types::base::{FSRObject, FSRValue, ObjId};
 
 pub mod size_alloc;
 pub mod gc;
 
-pub trait FSRObjectAllocator<T> {
-    fn allocate(&mut self, size: T) -> ObjId;
-    fn free(&mut self, ptr: ObjId);
+pub trait FSRAllocator<'a> {
+    fn new() -> Self;
+    fn allocate(&mut self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>>;
+    fn free(&mut self, ptr: Box<FSRObject>);
 }
