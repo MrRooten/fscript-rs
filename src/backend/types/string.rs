@@ -50,7 +50,9 @@ fn add<'a>(
         if let FSRValue::String(other_str) = &other_object.value {
             return Ok(FSRRetValue::Value(
                 thread
-                    .get_vm().lock().unwrap()
+                    .get_vm()
+                    .lock()
+                    .unwrap()
                     .allocator
                     .new_string(Cow::Owned(format!("{}{}", self_str, other_str))),
             ));
@@ -103,6 +105,50 @@ fn eq<'a>(
     unimplemented!()
 }
 
+fn get_sub_char<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: Option<ObjId>,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let index = FSRObject::id_to_obj(args[1]);
+    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
+    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
+
+    if let FSRValue::String(self_str) = &self_object.value {
+        if let FSRValue::Integer(index) = &index.value {
+            let index = *index as usize;
+            if index < self_str.len() {
+                return Ok(FSRRetValue::Value(
+                    thread
+                        .get_vm()
+                        .lock()
+                        .unwrap()
+                        .allocator
+                        .new_string(Cow::Owned(self_str[index..index + 1].to_string())),
+                ));
+            } else {
+                return Err(FSRError::new(
+                    "index out of range",
+                    crate::utils::error::FSRErrCode::IndexOutOfRange,
+                ));
+            }
+        } else {
+            return Err(FSRError::new(
+                "index is not an integer",
+                crate::utils::error::FSRErrCode::NotValidArgs,
+            ));
+        }
+    } else {
+        return Err(FSRError::new(
+            "left value is not a string",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
+    }
+
+    unimplemented!()
+}
+
 impl FSRString {
     pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass::new("String");
@@ -115,6 +161,11 @@ impl FSRString {
         let eq_fn = FSRFn::from_rust_fn(eq, "string_eq");
         //cls.insert_attr("__add__", add_fn);
         cls.insert_offset_attr(BinaryOffset::Equal, eq_fn);
+
+        cls.insert_offset_attr(
+            BinaryOffset::GetItem,
+            FSRFn::from_rust_fn(get_sub_char, "string_get_sub_char"),
+        );
         cls
     }
 

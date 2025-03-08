@@ -124,7 +124,7 @@ impl TempHashMap {
     }
 
     pub fn new() -> Self {
-        Self { vs: vec![] }
+        Self { vs: vec![0;5] }
     }
 
     pub fn iter(&self) -> TempIterator {
@@ -221,10 +221,17 @@ impl<'a> CallFrame<'a> {
     }
 }
 
+struct AttrArgs {
+    father: ObjId,
+    attr: ObjId,
+    name: &'static str,
+    call_method: bool,
+}
+
 #[derive(Debug, Clone)]
 pub enum SValue<'a> {
     Stack((u64, &'a String)),
-    Attr((ObjId, ObjId, &'a String, bool)),
+    Attr((ObjId, ObjId, &'a String, bool)), // father, attr, name, call_method
     Global(ObjId),
     #[allow(dead_code)]
     BoxObject(Box<FSRObject<'a>>),
@@ -239,6 +246,7 @@ impl<'a> SValue<'a> {
 
         false
     }
+
     #[inline(always)]
     pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> Result<ObjId, FSRError> {
         let state = thread.get_cur_stack();
@@ -2026,6 +2034,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let stack = self.get_cur_mut_stack();
         if let Some(s) = stack.exp.take() {
             *exp_stack = s;
+            //std::mem::replace(exp_stack, s);
             stack.exp = None;
         }
 
@@ -2033,12 +2042,6 @@ impl<'a> FSRThreadRuntime<'a> {
             exp_stack.push(s);
             stack.ret_val = None;
         }
-
-        // if stack.ret_val.is_some() {
-        //     let v = stack.ret_val.take();
-        //     exp_stack.push(v.unwrap());
-        //     stack.ret_val = None;
-        // }
     }
 
     #[inline(always)]
@@ -2326,5 +2329,10 @@ mod test {
         let mut vm = Arc::new(Mutex::new(FSRVM::new()));
         let mut runtime = FSRThreadRuntime::new(base_module, vm);
         runtime.start(base_module).unwrap();
+    }
+
+    #[test]
+    fn test_svalue_size() {
+        println!("svalue size: {}", std::mem::size_of::<super::SValue>());
     }
 }

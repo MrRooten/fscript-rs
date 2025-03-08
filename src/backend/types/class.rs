@@ -9,14 +9,14 @@ use std::fmt::Debug;
 pub struct FSRClass<'a> {
     pub(crate) name: &'a str,
     pub(crate) attrs: HashMap<&'a str, ObjId>,
-    pub(crate) offset_attrs    : Vec<ObjId>
+    pub(crate) offset_attrs: Vec<ObjId>,
 }
 
 #[allow(unused)]
 #[derive(Debug)]
 enum TmpObject<'a> {
     Object(&'a FSRObject<'a>),
-    String(String)
+    String(String),
 }
 
 impl Debug for FSRClass<'_> {
@@ -30,15 +30,16 @@ impl Debug for FSRClass<'_> {
                 } else {
                     new_hash.insert(kv.0, TmpObject::String(f.as_str()));
                 }
-                
+
                 continue;
             }
             new_hash.insert(kv.0, TmpObject::Object(obj));
         }
         f.debug_struct("FSRClass")
-        .field("name", &self.name)
-        .field("attrs", &new_hash)
-        .field("offset_attrs", &"").finish()
+            .field("name", &self.name)
+            .field("attrs", &new_hash)
+            .field("offset_attrs", &"")
+            .finish()
     }
 }
 
@@ -47,10 +48,9 @@ impl<'a> FSRClass<'a> {
         FSRClass {
             name,
             attrs: HashMap::new(),
-            offset_attrs: vec![0;30],
+            offset_attrs: vec![0; 30],
         }
     }
-    
 
     pub fn insert_attr(&mut self, name: &'a str, object: FSRObject<'a>) {
         let obj_id = FSRVM::register_object(object);
@@ -74,7 +74,7 @@ impl<'a> FSRClass<'a> {
     pub fn get_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
         if let Some(s) = self.offset_attrs.get(offset as usize) {
             if s == &0 {
-                return None
+                return None;
             }
 
             return Some(*s);

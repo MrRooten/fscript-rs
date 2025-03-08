@@ -74,7 +74,8 @@ pub enum FSRErrCode {
     NoSuchObject,
     OutOfRange,
     NotValidArgs,
-    NotSupportOperator
+    NotSupportOperator,
+    IndexOutOfRange
 }
 
 #[derive(Debug)]
