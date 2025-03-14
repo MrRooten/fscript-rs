@@ -30,7 +30,7 @@ mod test {
 
         let obj = FSRInteger::new_inst(3);
         let obj2 = FSRInteger::new_inst(4);
-        for _ in 0..3000000 {
+        for _ in 0..30000000 {
             let v = FSRObject::invoke_offset_method(
                 BinaryOffset::Add,
                 &[FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],

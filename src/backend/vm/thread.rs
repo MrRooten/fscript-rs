@@ -127,7 +127,7 @@ impl IndexMap {
     }
 
     pub fn new() -> Self {
-        Self { vs: vec![0; 5] }
+        Self { vs: vec![0; 4] }
     }
 
     pub fn iter(&self) -> IndexIterator {
