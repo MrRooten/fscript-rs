@@ -18,3 +18,6 @@ alloc_trace = []
 [profile.release]
 overflow-checks = false
 debug = true
+codegen-units = 1
+opt-level = 3
+target-cpu = "native"

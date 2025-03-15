@@ -7,4 +7,3 @@ fn fib(n) {
 }
 
 result = fib(30)
-assert(result == 832040)

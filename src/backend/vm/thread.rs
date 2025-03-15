@@ -528,7 +528,28 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let to_assign_obj_id = context.exp.pop().unwrap().get_global_id(self).unwrap();
+        let to_assign_obj_id = match context.exp.pop().unwrap() {
+            SValue::Stack(s) => {
+                let state = self.get_cur_frame();
+                if let Some(id) = state.get_var(&s.0) {
+                    *id
+                } else {
+                    let module = FSRObject::id_to_obj(state.module.unwrap()).as_module();
+                    let vm = self.get_vm();
+                    let v = match module.get_object(s.1) {
+                        Some(s) => s,
+                        None => *vm.lock().unwrap().get_global_obj_by_name(s.1).unwrap(),
+                    };
+
+                    v
+                }
+            }
+            SValue::Global(id) => id,
+            SValue::Attr(args) => args.attr,
+            SValue::BoxObject(fsrobject) => {
+                FSRVM::leak_object(fsrobject)
+            },
+        };
 
         match assign_id {
             SValue::Stack((var_id, name)) => {
@@ -541,7 +562,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 father_obj.set_attr(attr.name, to_assign_obj_id);
             }
             SValue::Global(_) => todo!(),
-            SValue::BoxObject(_) => todo!(),
+            SValue::BoxObject(b) => todo!(),
         }
 
         Ok(false)
@@ -580,8 +601,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match res {
             FSRRetValue::Value(object) => {
-                let res_id = FSRVM::leak_object(object);
-                context.exp.push(SValue::Global(res_id));
+                context.exp.push(SValue::BoxObject(object));
             }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
@@ -636,8 +656,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match res {
             FSRRetValue::Value(object) => {
-                let res_id = FSRVM::leak_object(object);
-                context.exp.push(SValue::Global(res_id));
+                context.exp.push(SValue::BoxObject(object));
             }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
@@ -693,8 +712,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let res = FSRObject::invoke_offset_method(BinaryOffset::Mul, &[v2_id, v1_id], self, None)?;
         match res {
             FSRRetValue::Value(object) => {
-                let res_id = FSRVM::leak_object(object);
-                context.exp.push(SValue::Global(res_id));
+                context.exp.push(SValue::BoxObject(object));
             }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
@@ -749,8 +767,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let res = FSRObject::invoke_offset_method(BinaryOffset::Div, &[v2_id, v1_id], self, None)?;
         match res {
             FSRRetValue::Value(object) => {
-                let res_id = FSRVM::leak_object(object);
-                context.exp.push(SValue::Global(res_id));
+                context.exp.push(SValue::BoxObject(object));
             }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
@@ -1552,7 +1569,26 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v = context.exp.pop().unwrap().get_global_id(self)?;
+        let v = match context.exp.pop().unwrap() {
+            SValue::Stack(s) => {
+                let state = self.get_cur_frame();
+                if let Some(id) = state.get_var(&s.0) {
+                    *id
+                } else {
+                    let module = FSRObject::id_to_obj(state.module.unwrap()).as_module();
+                    let vm = self.get_vm();
+                    let v = match module.get_object(s.1) {
+                        Some(s) => s,
+                        None => *vm.lock().unwrap().get_global_obj_by_name(s.1).unwrap(),
+                    };
+
+                    v
+                }
+            }
+            SValue::Global(id) => id,
+            SValue::Attr(args) => args.attr,
+            SValue::BoxObject(obj) => FSRVM::leak_object(obj),
+        };
 
         self.pop_stack(&[v]);
         let cur = self.get_cur_mut_frame();
