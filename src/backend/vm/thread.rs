@@ -2135,6 +2135,9 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let cur = self.get_cur_mut_frame();
+        if cur.ret_val.is_none() {
+            return Ok(SValue::Global(0));
+        }
         let ret_val = cur.ret_val.take();
         // let v = FSRObject::id_to_obj(s);
         // println!("{:#?}", v);
