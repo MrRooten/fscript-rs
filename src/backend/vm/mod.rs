@@ -1,3 +1,3 @@
-pub mod runtime;
+pub mod virtual_machine;
 pub mod thread;
 pub mod free_list;

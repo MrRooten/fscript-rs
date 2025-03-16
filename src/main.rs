@@ -8,7 +8,7 @@ use std::io::Read;
 
 use fscript_rs::backend::{
     types::module::FSRModule,
-    vm::{runtime::FSRVM, thread::FSRThreadRuntime},
+    vm::{virtual_machine::FSRVM, thread::FSRThreadRuntime},
 };
 mod test {
     use std::{
@@ -19,7 +19,7 @@ mod test {
     use fscript_rs::backend::{
         compiler::bytecode::BinaryOffset,
         types::{base::FSRObject, integer::FSRInteger},
-        vm::{runtime::FSRVM, thread::FSRThreadRuntime},
+        vm::{virtual_machine::FSRVM, thread::FSRThreadRuntime},
     };
 
     pub fn bench() {

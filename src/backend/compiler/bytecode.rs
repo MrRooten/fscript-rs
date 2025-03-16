@@ -7,7 +7,7 @@ use std::{
 use crate::{
     backend::{
         types::{base::ObjId, float::FSRFloat, integer::FSRInteger, string::FSRString},
-        vm::runtime::FSRVM,
+        vm::virtual_machine::FSRVM,
     },
     frontend::ast::token::{
         assign::FSRAssign,

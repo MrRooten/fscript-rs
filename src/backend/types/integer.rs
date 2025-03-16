@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, types::float::FSRFloat, vm::{runtime::FSRVM, thread::{CallFrame, FSRThreadRuntime}}},
+    backend::{compiler::bytecode::BinaryOffset, types::float::FSRFloat, vm::{virtual_machine::FSRVM, thread::{CallFrame, FSRThreadRuntime}}},
     utils::error::FSRError,
 };
 
@@ -25,7 +25,7 @@ fn add<'a>(
     
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(thread.thread_allocator.borrow_mut().new_object(FSRValue::Integer(self_int + other_int), self_object.cls)));
+            return Ok(FSRRetValue::Value(thread.thread_allocator.new_object(FSRValue::Integer(self_int + other_int), self_object.cls)));
         }
     }
 
@@ -44,7 +44,7 @@ fn sub<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(thread.thread_allocator.borrow_mut().new_object(FSRValue::Integer(self_int - other_int), self_object.cls)));
+            return Ok(FSRRetValue::Value(thread.thread_allocator.new_object(FSRValue::Integer(self_int - other_int), self_object.cls)));
         }
     }
 
@@ -63,7 +63,7 @@ fn mul<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(thread.thread_allocator.borrow_mut().new_object(FSRValue::Integer(self_int * other_int), self_object.cls)));
+            return Ok(FSRRetValue::Value(thread.thread_allocator.new_object(FSRValue::Integer(self_int * other_int), self_object.cls)));
         }
     }
 

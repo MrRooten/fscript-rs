@@ -1,9 +1,8 @@
 use std::{
     borrow::Cow,
-    cell::Cell,
     collections::hash_map::Keys,
     fmt::Debug,
-    sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, Ordering},
 };
 
 use crate::{
@@ -11,7 +10,7 @@ use crate::{
         compiler::bytecode::BinaryOffset,
         types::fn_def::FSRnE,
         vm::{
-            runtime::{FSRVM, OBJECTS},
+            virtual_machine::{FSRVM, OBJECTS},
             thread::FSRThreadRuntime,
         },
     },
@@ -68,6 +67,7 @@ impl<'a> FSRValue<'a> {
         self_id: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
     ) -> Option<Cow<'a, str>> {
+        let _ = inst;
         let vm = thread.get_vm();
 
         let cls = FSRObject::id_to_obj(self_id).cls;
@@ -162,15 +162,14 @@ impl Debug for FSRObject<'_> {
             FSRValue::Class(c) => c,
             FSRValue::Integer(_) => todo!(),
             FSRValue::Float(_) => todo!(),
-            FSRValue::String(cow) => todo!(),
-            FSRValue::ClassInst(fsrclass_inst) => todo!(),
-            FSRValue::Function(fsrfn) => todo!(),
+            FSRValue::String(_) => todo!(),
+            FSRValue::ClassInst(_) => todo!(),
+            FSRValue::Function(_) => todo!(),
             FSRValue::Bool(_) => todo!(),
-            FSRValue::List(fsrlist) => todo!(),
-            FSRValue::Iterator(fsrinner_iterator) => todo!(),
-            FSRValue::Module(fsrmodule) => todo!(),
+            FSRValue::List(_) => todo!(),
+            FSRValue::Iterator(_) => todo!(),
+            FSRValue::Module(_) => todo!(),
             FSRValue::None => {
-                let s = "internal_object".to_string();
                 return f
                     .debug_struct("FSRObject")
                     .field("value", &self.value)
@@ -252,7 +251,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn is_module(&self) -> bool {
-        matches!(&self.value, FSRValue::Module(fsrmodule))
+        matches!(&self.value, FSRValue::Module(_fsrmodule))
     }
 
     pub fn get_garbage_id(&self) -> u32 {

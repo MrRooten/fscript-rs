@@ -8,6 +8,7 @@ Running on bytecode, simple and useless program language, \[temporary not but wi
 ### [x] type hint system
 ### [x] Turing Completeness
 ### [x] better AST error handle(display or tips)
+### [x] jit compiler
 
 ## Usage
 

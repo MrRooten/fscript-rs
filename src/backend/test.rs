@@ -20,7 +20,7 @@ pub mod tests {
                 module::FSRModule,
             },
             vm::{
-                runtime::FSRVM,
+                virtual_machine::FSRVM,
                 thread::{CallFrame, FSRThreadRuntime, SValue},
             },
         },

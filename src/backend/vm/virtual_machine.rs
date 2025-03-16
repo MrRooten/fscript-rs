@@ -1,8 +1,7 @@
 use std::{
-    alloc::GlobalAlloc,
-    cell::{Cell, RefCell},
+    cell::RefCell,
     collections::HashMap,
-    sync::{atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering}, Mutex},
+    sync::{atomic::{AtomicBool, AtomicU32, Ordering}, Mutex},
 };
 
 use ahash::AHashMap;
@@ -17,7 +16,6 @@ use crate::{
     std::{io::init_io, utils::init_utils},
 };
 
-use super::thread::FSRThreadRuntime;
 
 #[derive(Hash, Debug, Eq, PartialEq)]
 pub enum ConstType<'a> {
@@ -45,93 +43,6 @@ impl<'a> Default for FSRVM<'a> {
 }
 
 impl<'a> FSRVM<'a> {
-    #[inline(always)]
-    pub fn has_str_const(&self, id: &str) -> bool {
-        self.const_map
-            .lock()
-            .unwrap()
-            .contains_key(&ConstType::String(id))
-    }
-
-    pub fn insert_str_const(&mut self, id: &'a str, obj: FSRObject<'a>) -> ObjId {
-        let obj_id = FSRVM::leak_object(Box::new(obj));
-        self.const_map
-            .lock()
-            .unwrap()
-            .insert(ConstType::String(id), obj_id);
-        obj_id
-    }
-
-    #[inline(always)]
-    pub fn get_str_const(&self, id: &'a str) -> Option<ObjId> {
-        if let Some(s) = self.const_map.lock().unwrap().get(&ConstType::String(id)) {
-            if s == &0 {
-                return None;
-            }
-
-            return Some(*s);
-        }
-
-        None
-    }
-
-    #[inline(always)]
-    pub fn has_int_const(&self, id: &i64) -> bool {
-        self.const_map
-            .lock()
-            .unwrap()
-            .contains_key(&ConstType::Integer(*id))
-    }
-
-    pub fn has_float_const(&self, id: &f64) -> bool {
-        self.const_map
-            .lock()
-            .unwrap()
-            .contains_key(&ConstType::Integer(*id as i64))
-    }
-
-    pub fn insert_int_const(&mut self, id: &i64, obj: FSRObject<'a>) {
-        let obj_id = FSRVM::leak_object(Box::new(obj));
-        self.const_map
-            .lock()
-            .unwrap()
-            .insert(ConstType::Integer(*id), obj_id);
-    }
-
-    pub fn insert_float_const(&mut self, id: &f64, obj: FSRObject<'a>) {
-        let obj_id = FSRVM::leak_object(Box::new(obj));
-        self.const_map
-            .lock()
-            .unwrap()
-            .insert(ConstType::Integer(*id as i64), obj_id);
-    }
-
-    #[inline(always)]
-    pub fn get_int_const(&self, id: &i64) -> Option<ObjId> {
-        if let Some(s) = self.const_map.lock().unwrap().get(&ConstType::Integer(*id)) {
-            if s == &0 {
-                return None;
-            }
-
-            return Some(*s);
-        }
-
-        None
-    }
-
-
-    pub fn get_float_const(&self, id: &f64) -> Option<ObjId> {
-        if let Some(s) = self.const_map.lock().unwrap().get(&ConstType::Integer(*id as i64)) {
-            if s == &0 {
-                return None;
-            }
-
-            return Some(*s);
-        }
-
-        None
-    }
-
     pub fn new() -> Self {
         Self::init_static_object();
         let mut v = Self {

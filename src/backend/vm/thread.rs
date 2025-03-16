@@ -1,14 +1,20 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    cell::RefCell, path::{Path, PathBuf}, str::FromStr, sync::{Arc, Mutex}, thread, vec
+    cell::RefCell,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::{Arc, Mutex},
+    thread, vec,
 };
 
 use std::borrow::Cow;
 
 use crate::{
     backend::{
-        compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator}, memory::size_alloc::FSRObjectAllocator, types::{
+        compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
+        memory::size_alloc::FSRObjectAllocator,
+        types::{
             base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
@@ -18,13 +24,13 @@ use crate::{
             list::FSRList,
             module::FSRModule,
             string::FSRString,
-        }
+        },
     },
     frontend::ast::token::call,
     utils::error::{FSRErrCode, FSRError},
 };
 
-use super::{free_list::FrameFreeList, runtime::FSRVM};
+use super::{free_list::FrameFreeList, virtual_machine::FSRVM};
 
 #[derive(Debug)]
 pub struct IndexMap {
@@ -124,7 +130,7 @@ impl<'a> CallFrame<'a> {
         &mut self,
         id: &u64,
         obj_id: ObjId,
-        allocator: Option<&mut FSRObjectAllocator<'a>>,
+        allocator: Option<&FSRObjectAllocator<'a>>,
         add_ref: bool,
     ) {
         if self.var_map.contains_key(id) {
@@ -230,14 +236,12 @@ impl<'a> SValue<'a> {
         })
     }
 
-    pub fn drop_box(self, allocator: &mut FSRObjectAllocator<'a>) {
+    pub fn drop_box(self, allocator: &FSRObjectAllocator<'a>) {
         match self {
             Self::BoxObject(obj) => {
                 allocator.free_object(obj);
-            },
-            _ => {
-
             }
+            _ => {}
         }
     }
 
@@ -331,7 +335,7 @@ pub struct FSRThreadRuntime<'a> {
     frame_index: usize,
     frame_free_list: FrameFreeList<'a>,
     vm: Arc<Mutex<FSRVM<'a>>>,
-    pub(crate) thread_allocator: RefCell<FSRObjectAllocator<'a>>
+    pub(crate) thread_allocator: FSRObjectAllocator<'a>,
 }
 
 impl<'a> FSRThreadRuntime<'a> {
@@ -349,7 +353,7 @@ impl<'a> FSRThreadRuntime<'a> {
             vm: vm,
             frame_index: 0,
             frame_free_list: FrameFreeList::new(),
-            thread_allocator: RefCell::new(FSRObjectAllocator::new()),
+            thread_allocator: FSRObjectAllocator::new(),
         }
     }
 
@@ -437,7 +441,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             if obj.count_ref() == 0 {
-                self.thread_allocator.borrow_mut().free(kv);
+                self.thread_allocator.free(kv);
             }
             //vm.check_delete(kv.1);
         }
@@ -519,13 +523,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 let id = FSRVM::leak_object(obj);
 
                 // println!("{:#?}", obj);
-                state.insert_var(var_id, id, Some(&mut self.thread_allocator.borrow_mut()), true);
+                state.insert_var(var_id, id, Some(&self.thread_allocator), true);
                 return Ok(false);
             }
             let obj_id = svalue.get_global_id(self)?;
             let state = self.call_frames.last_mut().unwrap();
 
-            state.insert_var(var_id, obj_id, Some(&mut self.thread_allocator.borrow_mut()), true);
+            state.insert_var(var_id, obj_id, Some(&self.thread_allocator), true);
 
             return Ok(false);
         }
@@ -556,15 +560,18 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             SValue::Global(id) => id,
             SValue::Attr(args) => args.attr,
-            SValue::BoxObject(fsrobject) => {
-                FSRVM::leak_object(fsrobject)
-            },
+            SValue::BoxObject(fsrobject) => FSRVM::leak_object(fsrobject),
         };
 
         match assign_id {
-            SValue::Stack((var_id, name)) => {
+            SValue::Stack((var_id, _)) => {
                 let state = self.call_frames.last_mut().unwrap();
-                state.insert_var(&var_id, to_assign_obj_id, Some(&mut self.thread_allocator.borrow_mut()), true);
+                state.insert_var(
+                    &var_id,
+                    to_assign_obj_id,
+                    Some(&self.thread_allocator),
+                    true,
+                );
                 //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
             }
             SValue::Attr(attr) => {
@@ -609,8 +616,8 @@ impl<'a> FSRThreadRuntime<'a> {
         let v2_id = v2.get_global_id(self)?;
         let res = FSRObject::invoke_offset_method(BinaryOffset::Add, &[v2_id, v1_id], self, None)?;
 
-        v1.drop_box(&mut self.thread_allocator.borrow_mut());
-        v2.drop_box(&mut self.thread_allocator.borrow_mut());
+        v1.drop_box(&self.thread_allocator);
+        v2.drop_box(&self.thread_allocator);
         match res {
             FSRRetValue::Value(object) => {
                 context.exp.push(SValue::BoxObject(object));
@@ -665,8 +672,8 @@ impl<'a> FSRThreadRuntime<'a> {
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
         let res = FSRObject::invoke_offset_method(BinaryOffset::Sub, &[v2_id, v1_id], self, None)?;
-        v1.drop_box(&mut self.thread_allocator.borrow_mut());
-        v2.drop_box(&mut self.thread_allocator.borrow_mut());
+        v1.drop_box(&self.thread_allocator);
+        v2.drop_box(&self.thread_allocator);
         match res {
             FSRRetValue::Value(object) => {
                 context.exp.push(SValue::BoxObject(object));
@@ -724,8 +731,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let res = FSRObject::invoke_offset_method(BinaryOffset::Mul, &[v2_id, v1_id], self, None)?;
 
-        v1.drop_box(&mut self.thread_allocator.borrow_mut());
-        v2.drop_box(&mut self.thread_allocator.borrow_mut());
+        v1.drop_box(&self.thread_allocator);
+        v2.drop_box(&self.thread_allocator);
 
         match res {
             FSRRetValue::Value(object) => {
@@ -1490,7 +1497,6 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        
         let name = match context.exp.pop().unwrap() {
             SValue::Stack(id) => id,
             SValue::Attr(_) => panic!(),
@@ -1528,7 +1534,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(true);
             }
 
-            state.insert_var(&name.0, fn_id, Some(&mut self.thread_allocator.borrow_mut()), true);
+            state.insert_var(&name.0, fn_id, Some(&self.thread_allocator), true);
             FSRObject::id_to_obj(context.module.unwrap())
                 .as_module()
                 .register_object(name.1, fn_id);
@@ -1654,7 +1660,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.call_frames.last_mut().unwrap();
         let v = state.args.pop().unwrap();
         if let ArgType::Variable(s_id, _) = bytecode.get_arg() {
-            state.insert_var(s_id, v, Some(&mut self.thread_allocator.borrow_mut()), true);
+            state.insert_var(s_id, v, Some(&self.thread_allocator), true);
         }
         Ok(false)
     }
@@ -1948,17 +1954,10 @@ impl<'a> FSRThreadRuntime<'a> {
                         exp_stack.push(SValue::Global(*id));
                         return;
                     }
+                } else {
+                    panic!("not found integer const")
                 }
             }
-            if !vm.lock().unwrap().has_int_const(i) {
-                let obj = FSRInteger::new_inst(*i);
-                obj.set_not_delete();
-                vm.lock().unwrap().insert_int_const(i, obj);
-            }
-
-            let id = vm.lock().unwrap().get_int_const(i).unwrap();
-
-            exp_stack.push(SValue::Global(id));
         } else if let ArgType::ConstFloat(c_id, f) = arg.get_arg() {
             //let float_const = Self::load_float_const(f, vm);
             if let Some(m) = module {
@@ -1968,17 +1967,10 @@ impl<'a> FSRThreadRuntime<'a> {
                         exp_stack.push(SValue::Global(*id));
                         return;
                     }
+                } else {
+                    panic!("not found float const")
                 }
             }
-
-            if !vm.lock().unwrap().has_float_const(f) {
-                let obj = FSRFloat::new_inst(*f);
-                obj.set_not_delete();
-                vm.lock().unwrap().insert_float_const(f, obj);
-            }
-
-            let id = vm.lock().unwrap().get_float_const(f).unwrap();
-            exp_stack.push(SValue::Global(id));
         } else if let ArgType::ConstString(c_id, i) = arg.get_arg() {
             // let string_const = Self::load_string_const(i.clone(), vm);
             // s.insert_const(id, string_const);
@@ -1989,24 +1981,13 @@ impl<'a> FSRThreadRuntime<'a> {
                         exp_stack.push(SValue::Global(*id));
                         return;
                     }
+                } else {
+                    panic!("not found str const")
                 }
             }
-
-            let mut str_const = vm.lock().unwrap().get_str_const(i.as_str());
-            if str_const.is_none() {
-                let obj = FSRString::new_inst(Cow::Owned(i.clone()));
-                obj.set_not_delete();
-                str_const = Some(vm.lock().unwrap().insert_str_const(i.as_str(), obj));
-            }
-
-            let id = str_const.unwrap();
-            exp_stack.push(SValue::Global(id));
         } else if let ArgType::Attr(_, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr(Box::new(AttrArgs::new(0, 0, name, true))));
         }
-        // } else {
-        //     panic!("not recongize load var: {:#?}", arg)
-        // }
     }
 
     #[inline(always)]
@@ -2209,7 +2190,7 @@ mod test {
 
     use crate::backend::{
         types::{base::FSRObject, module::FSRModule},
-        vm::runtime::FSRVM,
+        vm::virtual_machine::FSRVM,
     };
 
     use super::FSRThreadRuntime;

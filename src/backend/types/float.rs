@@ -1,12 +1,12 @@
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, vm::{runtime::FSRVM, thread::{CallFrame, FSRThreadRuntime}}},
+    backend::{compiler::bytecode::BinaryOffset, vm::thread::FSRThreadRuntime},
     utils::error::FSRError,
 };
 
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
-    fn_def::FSRFn, module::FSRModule,
+    fn_def::FSRFn,
 };
 
 pub struct FSRFloat {
@@ -18,6 +18,8 @@ fn add<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    let _ = thread;
+    let _ = module;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -37,6 +39,8 @@ fn sub<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    let _ = module;
+    let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -53,9 +57,10 @@ fn sub<'a>(
 
 fn mul<'a>(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    _thread: &mut FSRThreadRuntime<'a>,
     module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    let _ = module;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -75,6 +80,8 @@ fn div<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    let _ = module;
+    let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -96,6 +103,8 @@ fn greater<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    let _ = thread;
+    let _ = module;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -118,6 +127,8 @@ fn less<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    let _ = module;
+    let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -140,6 +151,8 @@ fn greater_equal<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: Option<ObjId>
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    let _ = module;
+    let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();

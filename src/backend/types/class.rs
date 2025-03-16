@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::backend::{compiler::bytecode::BinaryOffset, vm::runtime::FSRVM};
+use crate::backend::{compiler::bytecode::BinaryOffset, vm::virtual_machine::FSRVM};
 
 use super::base::{FSRObject, FSRValue, ObjId};
 use std::fmt::Debug;
