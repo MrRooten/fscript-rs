@@ -6,7 +6,7 @@ use super::FSRAllocator;
 
 #[allow(clippy::vec_box)]
 pub struct FSRObjectAllocator<'a> {
-    integer_bins    : RefCell<VecDeque<Box<FSRObject<'a>>>>,
+    object_bins    : RefCell<VecDeque<Box<FSRObject<'a>>>>,
     object_to_clear : RefCell<Vec<Box<FSRObject<'a>>>>
 }
 
@@ -14,7 +14,7 @@ pub struct FSRObjectAllocator<'a> {
 impl<'a> FSRObjectAllocator<'a> {
     pub fn new() -> Self {
         Self {
-            integer_bins: RefCell::new(VecDeque::new()),
+            object_bins: RefCell::new(VecDeque::new()),
             object_to_clear: RefCell::new(vec![]),
         }
     }
@@ -25,24 +25,13 @@ impl<'a> FSRObjectAllocator<'a> {
     }
 
     pub fn new_object(&self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
-        let obj = FSRObject::new_inst(value, cls);
-        Box::new(obj)
-    }
-
-    #[inline(always)]
-    pub fn new_integer(&self, i: i64) -> Box<FSRObject<'a>> {
-        if let Some(mut s) = self.integer_bins.borrow_mut().pop_front() {
-            if let FSRValue::Integer(save) = &mut s.value {
-                *save = i;
-            }
+        if let Some(mut s) = self.object_bins.borrow_mut().pop_front() {
+            s.cls = cls;
+            s.value = value;
             return s;
         }
-        
-        Box::new(FSRInteger::new_inst(i))
-    }
-
-    pub fn new_string(&self, s: Cow<'a, str>) -> Box<FSRObject<'a>> {
-        Box::new(FSRString::new_inst(s))
+        let obj = FSRObject::new_inst(value, cls);
+        Box::new(obj)
     }
 
     #[inline(always)]
@@ -52,36 +41,44 @@ impl<'a> FSRObjectAllocator<'a> {
             return ;
         }
 
-        if let FSRValue::Integer(_) = &obj.value {
-            let obj = FSRObject::into_object(obj_id);
-            obj.leak.store(false, Ordering::Relaxed);
-            self.integer_bins.borrow_mut().push_front(obj);
-            return ;
-        }
+        
+        let obj = FSRObject::into_object(obj_id);
+        obj.leak.store(false, Ordering::Relaxed);
+        self.object_bins.borrow_mut().push_front(obj);
+        return ;
+        
 
-        #[allow(clippy::single_match)]
-        match &obj.value {
-            FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.drop_obj(self),
-            _ => {
+        // #[allow(clippy::single_match)]
+        // match &obj.value {
+        //     FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.drop_obj(self),
+        //     _ => {
                 
-            }
-        }
+        //     }
+        // }
 
-        if obj.leak.load(Ordering::Relaxed) {
-            FSRObject::drop_object(obj_id);
-        }
+        // if obj.leak.load(Ordering::Relaxed) {
+        //     FSRObject::drop_object(obj_id);
+        // }
     }
 
-    /*
-    will ignore destructor of type
-     */
+    #[inline(always)]
     pub fn free_object(&self, obj: Box<FSRObject<'a>>) {
-        if let FSRValue::Integer(_) = &obj.value {
-            obj.leak.store(false, Ordering::Relaxed);
-            self.integer_bins.borrow_mut().push_front(obj);
-        }
+        obj.leak.store(false, Ordering::Relaxed);
+        self.object_bins.borrow_mut().push_front(obj);
+        return ;
+        
 
-        // will drop here
+        // #[allow(clippy::single_match)]
+        // match &obj.value {
+        //     FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.drop_obj(self),
+        //     _ => {
+                
+        //     }
+        // }
+
+        // if obj.leak.load(Ordering::Relaxed) {
+        //     FSRObject::drop_object(obj_id);
+        // }
     }
 
     pub fn free_list(&self) {

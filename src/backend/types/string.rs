@@ -49,12 +49,10 @@ fn add<'a>(
     if let FSRValue::String(self_str) = &self_object.value {
         if let FSRValue::String(other_str) = &other_object.value {
             return Ok(FSRRetValue::Value(
-                thread
-                    .get_vm()
-                    .lock()
-                    .unwrap()
-                    .allocator
-                    .new_string(Cow::Owned(format!("{}{}", self_str, other_str))),
+                thread.get_vm().lock().unwrap().allocator.new_object(
+                    FSRValue::String(Cow::Owned(format!("{}{}", self_str, other_str))),
+                    self_object.cls,
+                ),
             ));
         } else {
             return Err(FSRError::new(
@@ -120,12 +118,10 @@ fn get_sub_char<'a>(
             let index = *index as usize;
             if index < self_str.len() {
                 return Ok(FSRRetValue::Value(
-                    thread
-                        .get_vm()
-                        .lock()
-                        .unwrap()
-                        .allocator
-                        .new_string(Cow::Owned(self_str[index..index + 1].to_string())),
+                    thread.get_vm().lock().unwrap().allocator.new_object(
+                        FSRValue::String(Cow::Owned(self_str[index..index + 1].to_string())),
+                        self_object.cls,
+                    ),
                 ));
             } else {
                 return Err(FSRError::new(
