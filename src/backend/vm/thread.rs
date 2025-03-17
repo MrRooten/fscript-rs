@@ -1,7 +1,13 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    cell::RefCell, path::{Path, PathBuf}, str::FromStr, sync::{Arc, Mutex}, thread, time::Instant, vec
+    cell::RefCell,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::{Arc, Mutex},
+    thread,
+    time::Instant,
+    vec,
 };
 
 use std::borrow::Cow;
@@ -255,16 +261,13 @@ pub struct ThreadContext<'a> {
     call_end: bool,
     exp: Vec<SValue<'a>>,
     ip: (usize, usize),
-    vm: Arc<Mutex<FSRVM<'a>>>,
     is_attr: bool,
     last_if_test: Vec<bool>,
     break_line: Vec<usize>,
     continue_line: Vec<usize>,
     for_iter_obj: Vec<ObjId>,
     #[allow(unused)]
-    module_stack: Vec<u64>,
     module: Option<ObjId>,
-
 }
 
 impl<'a> ThreadContext<'a> {
@@ -272,15 +275,13 @@ impl<'a> ThreadContext<'a> {
         ThreadContext {
             exp: Vec::with_capacity(10),
             ip: (0, 0),
-            vm,
             is_attr: false,
             last_if_test: vec![],
             break_line: vec![],
             continue_line: vec![],
             for_iter_obj: vec![],
-            module_stack: vec![],
             module: Some(module_id),
-            call_end: false
+            call_end: false,
         }
     }
 
@@ -1113,23 +1114,26 @@ impl<'a> FSRThreadRuntime<'a> {
         module: &FSRModule,
         context: &mut ThreadContext<'a>,
     ) -> Option<ObjId> {
-        let state = self.get_cur_mut_frame();
-        if let Some(id) = state.get_var(&c_id) {
-            Some(*id)
-        } else {
-            match module.get_object(name) {
-                Some(s) => Some(s),
-                None => {
-                    // Cache global object in call frame
-                    let v = context
-                        .vm
-                        .lock()
-                        .unwrap()
-                        .get_global_obj_by_name(name)
-                        .cloned()?;
-                    state.insert_var(&c_id, v, None, true);
-                    Some(v)
-                }
+        {
+            let state = self.get_cur_mut_frame();
+            if let Some(id) = state.get_var(&c_id) {
+                return Some(*id);
+            }
+        }
+
+        match module.get_object(name) {
+            Some(s) => Some(s),
+            None => {
+                // Cache global object in call frame
+                let v = self
+                    .get_vm()
+                    .lock()
+                    .unwrap()
+                    .get_global_obj_by_name(name)
+                    .cloned()?;
+                let state = self.get_cur_mut_frame();
+                state.insert_var(&c_id, v, None, true);
+                Some(v)
             }
         }
     }
@@ -1236,15 +1240,14 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(id) = state.get_var(&s.0) {
                     Some(*id)
                 } else {
-                    let v = match context.vm.lock().unwrap().get_global_obj_by_name(s.1) {
-                        Some(o) => *o,
-                        None => {
-                            return Err(FSRError::new(
-                                format!("not found object in test: {}", name),
-                                FSRErrCode::NoSuchObject,
-                            ))
-                        }
-                    };
+                    let v = self
+                        .get_vm()
+                        .lock()
+                        .unwrap()
+                        .get_global_obj_by_name(name)
+                        .cloned()
+                        .unwrap();
+                    let state = self.get_cur_mut_frame();
                     state.insert_var(&s.0, v, None, true);
                     Some(v)
                 }
@@ -2020,7 +2023,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             match arg.get_operator() {
                 BytecodeOperator::Load => {
-                    Self::load_var(&mut context.exp, arg, &context.vm, context.module);
+                    Self::load_var(&mut context.exp, arg, &self.get_vm(), context.module);
                 }
                 _ => {
                     v = self.process(context, arg, bc)?;
@@ -2048,15 +2051,13 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut context = ThreadContext {
             exp: Vec::with_capacity(10),
             ip: (0, 0),
-            vm: self.get_vm(),
             is_attr: false,
             last_if_test: vec![],
             break_line: vec![],
             continue_line: vec![],
             for_iter_obj: vec![],
-            module_stack: vec![],
             module: Some(module_id),
-            call_end: false
+            call_end: false,
         };
 
         self.call_frames.push(
@@ -2081,15 +2082,13 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut context = ThreadContext {
             exp: Vec::with_capacity(10),
             ip: (0, 0),
-            vm: self.get_vm(),
             is_attr: false,
             last_if_test: vec![],
             break_line: vec![],
             continue_line: vec![],
             for_iter_obj: vec![],
-            module_stack: vec![],
             module: Some(module_id),
-            call_end: false
+            call_end: false,
         };
 
         let mut module = FSRObject::id_to_obj(module_id).as_module();
@@ -2160,17 +2159,15 @@ impl<'a> FSRThreadRuntime<'a> {
         module: Option<ObjId>,
     ) -> Result<SValue, FSRError> {
         let mut context = ThreadContext {
-            exp: Vec::with_capacity(10),
+            exp: vec![],
             ip: fn_def.get_ip(),
             is_attr: false,
-            vm: self.get_vm(),
             last_if_test: vec![],
             break_line: vec![],
             continue_line: vec![],
             for_iter_obj: vec![],
-            module_stack: vec![],
             module,
-            call_end: false
+            call_end: false,
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
@@ -2208,8 +2205,6 @@ impl<'a> FSRThreadRuntime<'a> {
             None => Ok(SValue::Global(0)),
         }
     }
-
-    
 }
 
 #[allow(unused_imports)]
@@ -2335,6 +2330,4 @@ mod test {
     fn test_svalue_size() {
         println!("svalue size: {}", std::mem::size_of::<super::SValue>());
     }
-
-
 }
