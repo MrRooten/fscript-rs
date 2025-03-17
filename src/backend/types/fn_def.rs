@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::Cell, sync::atomic::{AtomicBool, AtomicU32, AtomicU64}};
+use std::{borrow::Cow, cell::Cell, fmt::{Debug, Formatter}, sync::atomic::{AtomicBool, AtomicU32, AtomicU64}};
 
 use crate::{
     backend::{compiler::bytecode::Bytecode, vm::{virtual_machine::FSRVM, thread::FSRThreadRuntime}},
@@ -44,11 +44,18 @@ pub enum FSRnE<'a> {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FSRFn<'a> {
     fn_def: FSRnE<'a>,
     pub(crate) module: ObjId
 }
+
+impl Debug for FSRFn<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<fn {:?}>", self.as_str())
+    }
+}
+
 
 impl<'a> FSRFn<'a> {
     pub fn as_str(&self) -> String {
@@ -97,7 +104,7 @@ impl<'a> FSRFn<'a> {
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
             cls: FSRGlobalObjId::FnCls as ObjId,
-            ref_count: AtomicU32::new(0),
+            ref_count: AtomicU32::new(1),
             delete_flag: AtomicBool::new(true),
             leak: AtomicBool::new(false),
             garbage_id: AtomicU32::new(0),
@@ -112,7 +119,7 @@ impl<'a> FSRFn<'a> {
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
             cls: FSRGlobalObjId::FnCls as ObjId,
-            ref_count: AtomicU32::new(0),
+            ref_count: AtomicU32::new(1),
             delete_flag: AtomicBool::new(true),
             leak: AtomicBool::new(false),
             garbage_id: AtomicU32::new(0),

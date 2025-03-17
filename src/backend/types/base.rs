@@ -48,7 +48,7 @@ pub enum FSRValue<'a> {
     ClassInst(Box<FSRClassInst<'a>>),
     Function(Box<FSRFn<'a>>),
     Bool(bool),
-    List(FSRList),
+    List(Box<FSRList>),
     Iterator(FSRInnerIterator),
     Module(Box<FSRModule<'a>>),
     None,
@@ -338,9 +338,9 @@ impl<'a> FSRObject<'a> {
 
     #[inline]
     pub fn get_cls_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
-        if let Some(btype) = FSRVM::get_base_cls(self.cls) {
-            return btype.get_offset_attr(offset);
-        }
+        // if let Some(btype) = FSRVM::get_base_cls(self.cls) {
+        //     return btype.get_offset_attr(offset);
+        // }
 
         let cls_obj = FSRObject::id_to_obj(self.cls);
         if let FSRValue::Class(cls) = &cls_obj.value {
@@ -380,9 +380,9 @@ impl<'a> FSRObject<'a> {
         //     return;
         // }
 
-        if !self.delete_flag.load(Ordering::Relaxed) {
-            return;
-        }
+        // if !self.delete_flag.load(Ordering::Relaxed) {
+        //     return;
+        // }
 
         self.ref_count.fetch_add(1, Ordering::AcqRel);
     }
@@ -397,9 +397,9 @@ impl<'a> FSRObject<'a> {
         //     return;
         // }
 
-        if !self.delete_flag.load(Ordering::Relaxed) {
-            return;
-        }
+        // if !self.delete_flag.load(Ordering::Relaxed) {
+        //     return;
+        // }
 
         self.ref_count.fetch_sub(1, Ordering::AcqRel);
     }
@@ -646,5 +646,11 @@ mod test {
         use std::mem::size_of;
         use crate::backend::types::base::FSRObject;
         println!("Size of FSRObject: {}", size_of::<FSRObject>());
+
+        println!("Size of FSRValue: {}", size_of::<FSRValue>());
+
+        println!("Size of FSRInnerIterator: {}", size_of::<crate::backend::types::iterator::FSRInnerIterator>());
+
+        println!("Size of FSRList: {}", size_of::<crate::backend::types::list::FSRList>());
     }
 }

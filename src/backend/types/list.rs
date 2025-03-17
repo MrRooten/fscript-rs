@@ -122,7 +122,7 @@ impl FSRList {
 
         let mut object = FSRObject::new();
         object.set_cls(FSRGlobalObjId::ListCls as ObjId);
-        object.set_value(FSRValue::List(s));
+        object.set_value(FSRValue::List(Box::new(s)));
         object
     }
 

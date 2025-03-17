@@ -21,7 +21,7 @@ impl Debug for FSRClassInst<'_> {
             if let FSRValue::Function(_) = &obj.value {
                 continue;
             }
-            new_hash.insert(kv.0, Cow::Borrowed(obj));
+            new_hash.insert(kv.0, obj);
         }
         f.debug_struct("FSRClassInst")
             .field("name", &self.name)

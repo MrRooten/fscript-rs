@@ -37,9 +37,9 @@ impl<'a> FSRObjectAllocator<'a> {
     #[inline(always)]
     pub fn free(&self, obj_id: ObjId) {
         let obj = FSRObject::id_to_obj(obj_id);
-        if !obj.delete_flag.load(Ordering::Relaxed) {
-            return ;
-        }
+        // if !obj.delete_flag.load(Ordering::Relaxed) {
+        //     return ;
+        // }
 
         
         let obj = FSRObject::into_object(obj_id);

@@ -256,6 +256,7 @@ impl<'a> SValue<'a> {
 }
 
 pub struct ThreadContext<'a> {
+    exp_index: isize,
     exp: Vec<SValue<'a>>,
     ip: (usize, usize),
     vm: Arc<Mutex<FSRVM<'a>>>,
@@ -269,7 +270,7 @@ pub struct ThreadContext<'a> {
     module: Option<ObjId>,
 }
 
-impl ThreadContext<'_> {
+impl<'a> ThreadContext<'a> {
     #[inline(always)]
     pub fn false_last_if_test(&mut self) {
         let l = self.last_if_test.len() - 1;
@@ -299,34 +300,6 @@ impl ThreadContext<'_> {
     #[inline(always)]
     pub fn pop_last_if_test(&mut self) {
         self.last_if_test.pop();
-    }
-}
-
-type BytecodeFn<'a> = fn(
-    &mut FSRThreadRuntime<'a>,
-    // exp: &mut Vec<SValue<'a>>,
-
-    // ip: &mut (usize, usize),
-    // vm: &mut FSRVM<'a>,
-    // is_attr: &mut bool,
-    context: &mut ThreadContext<'a>,
-    bytecode: &BytecodeArg,
-    bc: &'a Bytecode,
-) -> Result<bool, FSRError>;
-
-#[derive(Default, Debug)]
-pub struct VecMap<'a> {
-    inner: Vec<BytecodeFn<'a>>,
-}
-
-impl<'a> VecMap<'a> {
-    pub fn insert(&mut self, _k: BytecodeOperator, f: BytecodeFn<'a>) {
-        self.inner.push(f);
-    }
-
-    #[inline(always)]
-    pub fn get(&self, k: &BytecodeOperator) -> Option<&BytecodeFn<'a>> {
-        self.inner.get(*k as usize)
     }
 }
 
@@ -618,6 +591,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         v1.drop_box(&self.thread_allocator);
         v2.drop_box(&self.thread_allocator);
+        
         match res {
             FSRRetValue::Value(object) => {
                 context.exp.push(SValue::BoxObject(object));
@@ -1138,7 +1112,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         .unwrap()
                         .get_global_obj_by_name(name)
                         .cloned()?;
-                    state.insert_var(&c_id, v, None, false);
+                    state.insert_var(&c_id, v, None, true);
                     Some(v)
                 }
             }
@@ -1256,7 +1230,7 @@ impl<'a> FSRThreadRuntime<'a> {
                             ))
                         }
                     };
-                    state.insert_var(&s.0, v, None, false);
+                    state.insert_var(&s.0, v, None, true);
                     Some(v)
                 }
             }
@@ -1509,9 +1483,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for _ in 0..*arg_len {
                 let v = match context.exp.pop().unwrap() {
                     SValue::Stack(id) => id,
-                    SValue::Attr(_) => panic!(),
-                    SValue::Global(_) => panic!(),
-                    SValue::BoxObject(_) => todo!(),
+                    _ => panic!("not support args value")
                 };
                 args.push(v.1.to_string());
             }
@@ -2068,6 +2040,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for_iter_obj: vec![],
             module_stack: vec![],
             module: Some(module_id),
+            exp_index: -1,
         };
 
         self.call_frames.push(
@@ -2100,6 +2073,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for_iter_obj: vec![],
             module_stack: vec![],
             module: Some(module_id),
+            exp_index: -1,
         };
 
         let mut module = FSRObject::id_to_obj(module_id).as_module();
@@ -2148,6 +2122,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for_iter_obj: vec![],
             module_stack: vec![],
             module,
+            exp_index: -1,
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);

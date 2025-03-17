@@ -43,7 +43,8 @@ impl<'a> FSRModule<'a> {
             object_map: Mutex::new(AHashMap::new()),
         };
         let mut object = FSRObject::new();
-        object.delete_flag.store(false, std::sync::atomic::Ordering::Relaxed);
+        // object.delete_flag.store(false, std::sync::atomic::Ordering::Relaxed);
+        object.ref_count.store(1, std::sync::atomic::Ordering::Relaxed);
         object.value = FSRValue::Module(Box::new(module));
         object.cls = FSRGlobalObjId::ModuleCls as ObjId;
 

@@ -1026,6 +1026,7 @@ impl<'a> Bytecode {
                 *i
             };
             let obj = FSRInteger::new_inst(i);
+            obj.ref_add();
             obj.set_not_delete();
             let ptr = FSRVM::leak_object(Box::new(obj));
             const_map.insert(id as usize, ptr);
@@ -1036,6 +1037,7 @@ impl<'a> Bytecode {
             });
         } else if let FSRConstantType::String(s) = token.get_constant() {
             let obj = FSRString::new_inst(Cow::Owned(String::from_utf8_lossy(s).to_string()));
+            obj.ref_add();
             obj.set_not_delete();
             let ptr = FSRVM::leak_object(Box::new(obj));
             const_map.insert(id as usize, ptr);
@@ -1045,6 +1047,7 @@ impl<'a> Bytecode {
             });
         } else if let FSRConstantType::Float(f) = token.get_constant() {
             let obj = FSRFloat::new_inst(*f);
+            obj.ref_add();
             obj.set_not_delete();
             let ptr = FSRVM::leak_object(Box::new(obj));
             const_map.insert(id as usize, ptr);
