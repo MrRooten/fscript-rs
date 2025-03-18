@@ -159,11 +159,11 @@ pub fn fsr_timeit<'a>(
 
 
 pub fn init_utils<'a>() -> HashMap<&'static str, FSRObject<'a>> {
-    let assert_fn = FSRFn::from_rust_fn(fsr_fn_assert, "assert");
-    let export_fn = FSRFn::from_rust_fn(fsr_fn_export, "export");
-    let ref_count = FSRFn::from_rust_fn(fsr_fn_ref_count, "ref_count");
-    let type_fn = FSRFn::from_rust_fn(fsr_fn_type, "type");
-    let time_it = FSRFn::from_rust_fn(fsr_timeit, "timeit");
+    let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
+    let export_fn = FSRFn::from_rust_fn_static(fsr_fn_export, "export");
+    let ref_count = FSRFn::from_rust_fn_static(fsr_fn_ref_count, "ref_count");
+    let type_fn = FSRFn::from_rust_fn_static(fsr_fn_type, "type");
+    let time_it = FSRFn::from_rust_fn_static(fsr_timeit, "timeit");
     let mut m = HashMap::new();
     m.insert("assert", assert_fn);
     m.insert("export", export_fn);

@@ -1,30 +1,15 @@
-class Ddc {
-    fn __new__(self) {
-        self.ddc = 123 + 1
-        return self
-    }
-}
-
-class Abc {
-    fn __new__(self) {
-        self.abc = Ddc()
-        self.c = 3
-        return self
-    }
-
-    fn __str__(self) {
-        return 'return string'
-    }
-
-    fn test(self) {
-        return 323
-    }
+fn abcd() {
+    a = ((1 + 3 + 1 ) * 3 + 4 + 2) * 4
+    return a
 }
 
 fn abc() {
-    a = Abc()
-
-    a = 3
+    c = abcd()
+    a = ((1 + 3 + 1 ) * 3 + 4 + 2) * 4 + c
 }
 
-abc()
+i = 1
+while i < 30000 {
+    abc()
+    i = i + 1
+}

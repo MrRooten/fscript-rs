@@ -90,7 +90,7 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    pub fn from_fsr_fn(fn_name: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode, m_obj: ObjId) -> FSRObject<'a> {
+    pub fn from_fsr_fn(fn_name: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode, m_obj: ObjId) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
             fn_ip: u,
@@ -101,17 +101,10 @@ impl<'a> FSRFn<'a> {
             fn_def: FSRnE::FSRFn(fn_obj),
             module: m_obj
         };
-        FSRObject {
-            value: FSRValue::Function(Box::new(v)),
-            cls: FSRGlobalObjId::FnCls as ObjId,
-            ref_count: AtomicU32::new(1),
-            delete_flag: AtomicBool::new(true),
-            leak: AtomicBool::new(false),
-            garbage_id: AtomicU32::new(0),
-        }
+        FSRValue::Function(Box::new(v))
     }
 
-    pub fn from_rust_fn(f: FSRRustFn, name: &'a str) -> FSRObject<'a> {
+    pub fn from_rust_fn_static(f: FSRRustFn, name: &'a str) -> FSRObject<'a> {
         let v = Self {
             fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
             module: 0

@@ -166,6 +166,7 @@ pub mod tests {
         let source_code = "
         fn test() {
             println('abc')
+            dump(println)
         }
 
         i = 0

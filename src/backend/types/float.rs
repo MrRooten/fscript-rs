@@ -255,35 +255,35 @@ impl<'a> FSRFloat {
 
     pub fn get_class() -> FSRClass<'a> {
         let mut cls = FSRClass::new("Float");
-        let add_fn = FSRFn::from_rust_fn(add, "float_add");
+        let add_fn = FSRFn::from_rust_fn_static(add, "float_add");
         //cls.insert_attr("__add__", add_fn);
         cls.insert_offset_attr(BinaryOffset::Add, add_fn);
-        let sub_fn = FSRFn::from_rust_fn(sub, "float_sub");
+        let sub_fn = FSRFn::from_rust_fn_static(sub, "float_sub");
         //cls.insert_attr("__sub__", sub_fn);
         cls.insert_offset_attr(BinaryOffset::Sub, sub_fn);
 
-        let div_fn = FSRFn::from_rust_fn(div, "float_div");
+        let div_fn = FSRFn::from_rust_fn_static(div, "float_div");
         cls.insert_offset_attr(BinaryOffset::Div, div_fn);
 
-        let mul_fn = FSRFn::from_rust_fn(mul, "float_mul");
+        let mul_fn = FSRFn::from_rust_fn_static(mul, "float_mul");
         //cls.insert_attr("__mul__", mul_fn);
         cls.insert_offset_attr(BinaryOffset::Mul, mul_fn);
-        let gt_fn = FSRFn::from_rust_fn(greater, "float_gt");
+        let gt_fn = FSRFn::from_rust_fn_static(greater, "float_gt");
         //cls.insert_attr("__gt__", gt_fn);
         cls.insert_offset_attr(BinaryOffset::Greater, gt_fn);
-        let gte_fn = FSRFn::from_rust_fn(greater_equal, "float_gte");
+        let gte_fn = FSRFn::from_rust_fn_static(greater_equal, "float_gte");
         //cls.insert_attr("__gte__", gte_fn);
         cls.insert_offset_attr(BinaryOffset::GreatEqual, gte_fn);
-        let lt_fn = FSRFn::from_rust_fn(less, "float_lt");
+        let lt_fn = FSRFn::from_rust_fn_static(less, "float_lt");
         //cls.insert_attr("__lt__", lt_fn);
         cls.insert_offset_attr(BinaryOffset::Less, lt_fn);
-        let lte_fn = FSRFn::from_rust_fn(less_equal, "float_lte");
+        let lte_fn = FSRFn::from_rust_fn_static(less_equal, "float_lte");
         //cls.insert_attr("__lte__", lte_fn);
         cls.insert_offset_attr(BinaryOffset::LessEqual, lte_fn);
-        let eq = FSRFn::from_rust_fn(equal, "float_eq");
+        let eq = FSRFn::from_rust_fn_static(equal, "float_eq");
         cls.insert_offset_attr(BinaryOffset::Equal, eq);
 
-        let not_eq = FSRFn::from_rust_fn(not_equal, "float_not_eq");
+        let not_eq = FSRFn::from_rust_fn_static(not_equal, "float_not_eq");
         cls.insert_offset_attr(BinaryOffset::NotEqual, not_eq);
         cls
     }

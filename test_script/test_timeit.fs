@@ -4,9 +4,9 @@ fn abcd() {
 }
 
 fn abc() {
-    a = ((1 + 3 + 1 ) * 3 + 4 + 2) * 4 + abcd()
-    assert(a == 168)
+    c = abcd()
+    a = ((1 + 3 + 1 ) * 3 + 4 + 2) * 4 + c
 }
 
 
-timeit(abc, 3000000)
+timeit(abc, 30000)

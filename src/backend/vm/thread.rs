@@ -242,7 +242,7 @@ impl<'a> SValue<'a> {
         match self {
             Self::BoxObject(obj) => {
                 allocator.free_object(obj);
-            }
+            },
             _ => {}
         }
     }
@@ -1519,9 +1519,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 bc,
                 context.module.unwrap(),
             );
+            
+            let fn_obj = self.thread_allocator.new_object(fn_obj, FSRGlobalObjId::FnCls as ObjId);
             fn_obj.ref_add();
-            let fn_id = FSRVM::register_object(fn_obj);
-
+            let fn_id = FSRVM::leak_object(fn_obj);
             let state = self.call_frames.last_mut().unwrap();
             if let Some(cur_cls) = &mut state.cur_cls {
                 cur_cls.insert_attr_id(name.1, fn_id);
@@ -1616,6 +1617,7 @@ impl<'a> FSRThreadRuntime<'a> {
         cur.ret_val = Some(SValue::Global(v));
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1);
         context.module = cur.module;
+        context.call_end.pop();
         Ok(true)
     }
 
@@ -2164,8 +2166,8 @@ impl<'a> FSRThreadRuntime<'a> {
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
-            self.call_frames
-                .push(self.frame_free_list.new_frame(fn_def.get_name(), module));
+            // self.call_frames
+            //     .push(self.frame_free_list.new_frame(fn_def.get_name(), module));
             context.exp.clear();
 
             for arg in args.iter().rev() {
@@ -2186,11 +2188,14 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
+        
+
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
             return Ok(SValue::Global(0));
         }
         let ret_val = cur.ret_val.take();
+        // self.call_frames.pop();
         // let v = FSRObject::id_to_obj(s);
         // println!("{:#?}", v);
         match ret_val {
@@ -2263,7 +2268,7 @@ mod test {
             }
         }
         t = Test()
-        println(t)
+        println(t.__str__())
         "#;
         let v = FSRModule::from_code("main", source_code).unwrap();
         let base_module = FSRVM::leak_object(Box::new(v));

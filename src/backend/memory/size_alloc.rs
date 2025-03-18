@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::RefCell, collections::VecDeque, sync::atomic::Ordering};
+use std::{borrow::Cow, cell::RefCell, collections::VecDeque, sync::atomic::{AtomicU32, Ordering}};
 
 use crate::backend::types::{base::{FSRObject, FSRValue, ObjId}, integer::FSRInteger, string::FSRString};
 
@@ -7,7 +7,9 @@ use super::FSRAllocator;
 #[allow(clippy::vec_box)]
 pub struct FSRObjectAllocator<'a> {
     object_bins    : RefCell<VecDeque<Box<FSRObject<'a>>>>,
-    object_to_clear : RefCell<Vec<Box<FSRObject<'a>>>>
+    object_to_clear : RefCell<Vec<Box<FSRObject<'a>>>>,
+    allocator_count: AtomicU32,
+    free_count     : AtomicU32,
 }
 
 #[allow(clippy::new_without_default)]
@@ -16,10 +18,13 @@ impl<'a> FSRObjectAllocator<'a> {
         Self {
             object_bins: RefCell::new(VecDeque::new()),
             object_to_clear: RefCell::new(vec![]),
+            allocator_count: AtomicU32::new(0),
+            free_count: AtomicU32::new(0),
         }
     }
 
     pub fn new_object(&self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
+        self.allocator_count.fetch_add(1, Ordering::Relaxed);
         if let Some(mut s) = self.object_bins.borrow_mut().pop_front() {
             s.cls = cls;
             s.value = value;
@@ -31,6 +36,7 @@ impl<'a> FSRObjectAllocator<'a> {
 
     #[inline(always)]
     pub fn free(&self, obj_id: ObjId) {
+        
         let obj = FSRObject::id_to_obj(obj_id);
         // if !obj.delete_flag.load(Ordering::Relaxed) {
         //     return ;
@@ -58,6 +64,7 @@ impl<'a> FSRObjectAllocator<'a> {
 
     #[inline(always)]
     pub fn free_object(&self, obj: Box<FSRObject<'a>>) {
+        self.free_count.fetch_add(1, Ordering::Relaxed);
         obj.leak.store(false, Ordering::Relaxed);
         self.object_bins.borrow_mut().push_front(obj);
         return ;
