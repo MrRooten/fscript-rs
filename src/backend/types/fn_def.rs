@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cell::Cell, fmt::{Debug, Formatter}, sync::atomic::{AtomicBool, AtomicU32, AtomicU64}};
 
 use crate::{
-    backend::{compiler::bytecode::Bytecode, vm::{virtual_machine::FSRVM, thread::FSRThreadRuntime}},
+    backend::{compiler::bytecode::Bytecode, vm::{thread::{FSRThreadRuntime, ThreadContext}, virtual_machine::FSRVM}},
     utils::error::FSRError,
 };
 

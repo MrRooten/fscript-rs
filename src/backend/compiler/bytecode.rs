@@ -388,16 +388,17 @@ impl<'a> Bytecode {
         let mut var_map_ref = var_map;
 
         let name = getter.get_name();
-
-        if !var_map_ref.has_var(name) {
-            let v = name;
-            var_map_ref.insert_var(v);
+        if !name.is_empty() {
+            if !var_map_ref.has_var(name) {
+                let v = name;
+                var_map_ref.insert_var(v);
+            }
+            let id = var_map_ref.get_var(name).unwrap();
+            result.push(BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::Variable(*id, name.to_string()),
+            });
         }
-        let id = var_map_ref.get_var(name).unwrap();
-        result.push(BytecodeArg {
-            operator: BytecodeOperator::Load,
-            arg: ArgType::Variable(*id, name.to_string()),
-        });
 
         let mut v = Self::load_token_with_map(getter.get_getter(), var_map_ref, const_map);
         var_map_ref = v.1;
@@ -422,38 +423,40 @@ impl<'a> Bytecode {
         let mut var_map_ref = var_map;
 
         let name = call.get_name();
-        if is_attr {
-            if !var_map_ref.has_attr(name) {
-                let v = name;
-                var_map_ref.insert_attr(v);
-            }
-            let id = var_map_ref.get_attr(name).unwrap();
-            result.push(BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: ArgType::Attr(*id, name.to_string()),
-            });
+        if !name.is_empty() {
+            if is_attr {
+                if !var_map_ref.has_attr(name) {
+                    let v = name;
+                    var_map_ref.insert_attr(v);
+                }
+                let id = var_map_ref.get_attr(name).unwrap();
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: ArgType::Attr(*id, name.to_string()),
+                });
 
-            if is_method_call {
-                result.push(BytecodeArg {
-                    operator: BytecodeOperator::BinaryDot,
-                    arg: ArgType::None,
-                });
+                if is_method_call {
+                    result.push(BytecodeArg {
+                        operator: BytecodeOperator::BinaryDot,
+                        arg: ArgType::None,
+                    });
+                } else {
+                    result.push(BytecodeArg {
+                        operator: BytecodeOperator::BinaryClassGetter,
+                        arg: ArgType::None,
+                    });
+                }
             } else {
+                if !var_map_ref.has_var(name) {
+                    let v = name;
+                    var_map_ref.insert_var(v);
+                }
+                let id = var_map_ref.get_var(name).unwrap();
                 result.push(BytecodeArg {
-                    operator: BytecodeOperator::BinaryClassGetter,
-                    arg: ArgType::None,
+                    operator: BytecodeOperator::Load,
+                    arg: ArgType::Variable(*id, name.to_string()),
                 });
             }
-        } else {
-            if !var_map_ref.has_var(name) {
-                let v = name;
-                var_map_ref.insert_var(v);
-            }
-            let id = var_map_ref.get_var(name).unwrap();
-            result.push(BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: ArgType::Variable(*id, name.to_string()),
-            });
         }
 
         for arg in call.get_args() {
@@ -527,6 +530,26 @@ impl<'a> Bytecode {
         (ans, var_map)
     }
 
+    fn load_stack_expr(
+        var: &'a (Option<&'a str>, Vec<FSRToken<'a>>),
+        var_map: &'a mut VarMap<'a>,
+        const_map: &mut ConstTable
+    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        let mut result = Vec::new();
+        let mut var_map_ref = var_map;
+        for token in var.1.iter() {
+            let mut v = Self::load_token_with_map(token, var_map_ref, const_map);
+            var_map_ref = v.1;
+            if v.0.is_empty() {
+                continue;
+            }
+            
+            result.append(&mut v.0[0]);
+        }
+
+        (result, var_map_ref)
+    }
+
     fn load_expr(
         expr: &'a FSRExpr<'a>,
         var_map: &'a mut VarMap<'a>,
@@ -552,6 +575,10 @@ impl<'a> Bytecode {
             var_map_ref = Some(v.1);
         } else if let FSRToken::Constant(c) = expr.get_left() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap(), const_map);
+            op_code.append(&mut v.0);
+            var_map_ref = Some(v.1);
+        } else if let FSRToken::StackExpr(st) = expr.get_left() {
+            let mut v = Self::load_stack_expr(st, var_map_ref.unwrap(), const_map);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else {
@@ -600,6 +627,13 @@ impl<'a> Bytecode {
             let mut v = Self::load_constant(c, var_map_ref.unwrap(), const_map);
             second.append(&mut v.0);
             var_map_ref = Some(v.1);
+        } else if let FSRToken::StackExpr(st) = expr.get_right() {
+            let mut v = Self::load_stack_expr(st, var_map_ref.unwrap(), const_map);
+            second.append(&mut v.0);
+            var_map_ref = Some(v.1);
+        } else {
+            println!("{:#?}", expr.get_right());
+            unimplemented!()
         }
         if expr.get_op().eq("&&") || expr.get_op().eq("and") {
             op_code.push(BytecodeArg {
@@ -960,12 +994,12 @@ impl<'a> Bytecode {
         } else if let FSRToken::Import(import) = token {
             let v = Self::load_import(import, var_map);
             return (v.0, v.1);
+        } else if let FSRToken::StackExpr(st) = token {
+            let v = Self::load_stack_expr(st, var_map, const_map);
+            return (vec![v.0], v.1);
         } else if let FSRToken::EmptyExpr = token {
             return (
-                vec![vec![BytecodeArg {
-                    operator: BytecodeOperator::Empty,
-                    arg: ArgType::None,
-                }]],
+                vec![],
                 var_map,
             );
         }
@@ -1254,14 +1288,42 @@ impl<'a> Bytecode {
     }
 }
 
-
 mod test {
-    use crate::{backend::compiler::bytecode::Bytecode, frontend::ast::token::{base::{FSRPosition, FSRToken}, module::FSRModuleFrontEnd}};
+    use crate::{
+        backend::compiler::bytecode::Bytecode,
+        frontend::ast::token::{
+            base::{FSRPosition, FSRToken},
+            module::FSRModuleFrontEnd,
+        },
+    };
 
     #[test]
     fn test_1() {
         let expr = "
         b[abc()]
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_stack_expr() {
+        let expr = "
+        a = [1, 2, 3]
+        println(a[0])
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_class_getter() {
+        let expr = "
+        Test::abc()
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

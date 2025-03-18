@@ -1,11 +1,7 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    cell::RefCell,
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::{Arc, Mutex},
-    thread, vec,
+    cell::RefCell, path::{Path, PathBuf}, str::FromStr, sync::{Arc, Mutex}, thread, time::Instant, vec
 };
 
 use std::borrow::Cow;
@@ -256,7 +252,7 @@ impl<'a> SValue<'a> {
 }
 
 pub struct ThreadContext<'a> {
-    exp_index: isize,
+    call_end: bool,
     exp: Vec<SValue<'a>>,
     ip: (usize, usize),
     vm: Arc<Mutex<FSRVM<'a>>>,
@@ -268,9 +264,26 @@ pub struct ThreadContext<'a> {
     #[allow(unused)]
     module_stack: Vec<u64>,
     module: Option<ObjId>,
+
 }
 
 impl<'a> ThreadContext<'a> {
+    pub fn new_context(vm: Arc<Mutex<FSRVM<'a>>>, module_id: ObjId) -> Self {
+        ThreadContext {
+            exp: Vec::with_capacity(10),
+            ip: (0, 0),
+            vm,
+            is_attr: false,
+            last_if_test: vec![],
+            break_line: vec![],
+            continue_line: vec![],
+            for_iter_obj: vec![],
+            module_stack: vec![],
+            module: Some(module_id),
+            call_end: false
+        }
+    }
+
     #[inline(always)]
     pub fn false_last_if_test(&mut self) {
         let l = self.last_if_test.len() - 1;
@@ -437,6 +450,8 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
         };
 
+        println!("obj_id: {:?}", FSRObject::id_to_obj(obj_id));
+
         let list_obj = match context.exp.get(context.exp.len() - 2).unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_frame();
@@ -591,7 +606,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         v1.drop_box(&self.thread_allocator);
         v2.drop_box(&self.thread_allocator);
-        
+
         match res {
             FSRRetValue::Value(object) => {
                 context.exp.push(SValue::BoxObject(object));
@@ -1483,7 +1498,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for _ in 0..*arg_len {
                 let v = match context.exp.pop().unwrap() {
                     SValue::Stack(id) => id,
-                    _ => panic!("not support args value")
+                    _ => panic!("not support args value"),
                 };
                 args.push(v.1.to_string());
             }
@@ -1527,6 +1542,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let cur = self.get_cur_mut_frame();
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
         context.module = cur.module;
+        context.call_end = true;
         Ok(true)
     }
 
@@ -2040,7 +2056,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for_iter_obj: vec![],
             module_stack: vec![],
             module: Some(module_id),
-            exp_index: -1,
+            call_end: false
         };
 
         self.call_frames.push(
@@ -2073,7 +2089,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for_iter_obj: vec![],
             module_stack: vec![],
             module: Some(module_id),
-            exp_index: -1,
+            call_end: false
         };
 
         let mut module = FSRObject::id_to_obj(module_id).as_module();
@@ -2105,6 +2121,38 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
+    pub fn run_with_context(
+        &mut self,
+        module_id: ObjId,
+        context: &mut ThreadContext<'a>,
+    ) -> Result<(), FSRError> {
+        let mut module = FSRObject::id_to_obj(module_id).as_module();
+        while let Some(expr) = FSRObject::id_to_obj(context.module.unwrap())
+            .as_module()
+            .get_expr(&context.ip)
+        {
+            #[cfg(feature = "bytecode_trace")]
+            {
+                println!(
+                    "cur_module: {}",
+                    FSRObject::id_to_obj(context.module.unwrap())
+                        .as_module()
+                        .as_string()
+                )
+            }
+            self.run_expr(expr, context, module.get_bytecode())?;
+            module = FSRObject::id_to_obj(context.module.unwrap()).as_module();
+        }
+
+        #[cfg(feature = "alloc_trace")]
+        println!(
+            "reused count: {}",
+            crate::backend::types::base::HEAP_TRACE.object_count()
+        );
+        context.ip = (0, 0);
+        Ok(())
+    }
+
     pub fn call_fn(
         &mut self,
         fn_def: &'a FSRFnInner,
@@ -2122,7 +2170,7 @@ impl<'a> FSRThreadRuntime<'a> {
             for_iter_obj: vec![],
             module_stack: vec![],
             module,
-            exp_index: -1,
+            call_end: false
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
@@ -2140,6 +2188,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
         while let Some(expr) = fn_def.get_bytecode().get(&context.ip) {
             let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
+            if context.call_end {
+                break;
+            }
             if v {
                 break;
             }
@@ -2157,6 +2208,8 @@ impl<'a> FSRThreadRuntime<'a> {
             None => Ok(SValue::Global(0)),
         }
     }
+
+    
 }
 
 #[allow(unused_imports)]
@@ -2266,8 +2319,10 @@ mod test {
         let source_code = r#"
         a = [1, 2, 3]
         println(a[0])
-        println(a[1])
-        println(a[2])
+
+        b = [[1,2,3]]
+        c = b[0][0]
+        println(c)
         "#;
         let v = FSRModule::from_code("main", source_code).unwrap();
         let base_module = FSRVM::leak_object(Box::new(v));
@@ -2280,4 +2335,6 @@ mod test {
     fn test_svalue_size() {
         println!("svalue size: {}", std::mem::size_of::<super::SValue>());
     }
+
+
 }

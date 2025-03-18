@@ -1,6 +1,9 @@
 use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 
-use super::{base::{FSRPosition, FSRToken}, expr::FSRExpr};
+use super::{
+    base::{FSRPosition, FSRToken},
+    expr::FSRExpr,
+};
 
 #[derive(PartialEq)]
 enum GetterState {
@@ -19,7 +22,6 @@ pub struct FSRGetter<'a> {
     meta: FSRPosition,
 }
 
-
 impl<'a> FSRGetter<'a> {
     pub fn get_name(&self) -> &str {
         self.name
@@ -27,6 +29,10 @@ impl<'a> FSRGetter<'a> {
 
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
+    }
+
+    pub fn is_unnamed(&self) -> bool {
+        self.name.is_empty()
     }
 
     pub fn get_getter(&self) -> &FSRToken<'a> {
@@ -37,30 +43,34 @@ impl<'a> FSRGetter<'a> {
         let mut state = GetterState::Start;
         let mut start = 0;
         let mut length = 0;
-        let name ;
-        loop {
-            let i = source[start];
-            let t_i = source[start + length];
-            if state == GetterState::Start && ASTParser::is_blank_char_with_new_line(i) {
-                start += 1;
-                continue;
-            }
+        let name;
+        if source[start] == b'[' {
+            name = std::str::from_utf8(&source[start..start + length]).unwrap();
+        } else {
+            loop {
+                let i = source[start];
+                let t_i = source[start + length];
+                if state == GetterState::Start && ASTParser::is_blank_char_with_new_line(i) {
+                    start += 1;
+                    continue;
+                }
 
-            if ASTParser::is_name_letter(i) && state == GetterState::Start {
-                state = GetterState::Name;
-                continue;
-            }
+                if ASTParser::is_name_letter(i) && state == GetterState::Start {
+                    state = GetterState::Name;
+                    continue;
+                }
 
-            if state == GetterState::Name && ASTParser::is_name_letter(t_i) {
-                length += 1;
-                continue;
-            }
+                if state == GetterState::Name && ASTParser::is_name_letter(t_i) {
+                    length += 1;
+                    continue;
+                }
 
-            if state == GetterState::Name && t_i as char == '[' {
-                name = std::str::from_utf8(&source[start..start + length]).unwrap();
-                start += length;
-                start += 1;
-                break;
+                if state == GetterState::Name && t_i as char == '[' {
+                    name = std::str::from_utf8(&source[start..start + length]).unwrap();
+                    start += length;
+                    start += 1;
+                    break;
+                }
             }
         }
 
@@ -69,7 +79,7 @@ impl<'a> FSRGetter<'a> {
         let last = s.rfind(']').unwrap();
         let args = &source[first + 1..last];
         let sub_meta = meta.from_offset(start);
-        let getter = FSRExpr::parse(args, true,sub_meta)?;
+        let getter = FSRExpr::parse(args, true, sub_meta)?;
         Ok(Self {
             name,
             len: 0,

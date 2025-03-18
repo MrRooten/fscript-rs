@@ -19,11 +19,6 @@ impl<'a> FSRObjectAllocator<'a> {
         }
     }
 
-    pub fn add_object_to_clear_list(&self, obj_id: ObjId) {
-        let object = FSRObject::into_object(obj_id);
-        self.object_to_clear.borrow_mut().push(object);
-    }
-
     pub fn new_object(&self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
         if let Some(mut s) = self.object_bins.borrow_mut().pop_front() {
             s.cls = cls;

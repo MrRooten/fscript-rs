@@ -8,47 +8,20 @@ use std::io::Read;
 
 use fscript_rs::backend::{
     types::module::FSRModule,
-    vm::{virtual_machine::FSRVM, thread::FSRThreadRuntime},
+    vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
 };
 mod test {
-    use std::{
-        sync::{Arc, Mutex},
-        time::Instant,
-    };
-
-    use fscript_rs::backend::{
-        compiler::bytecode::BinaryOffset,
-        types::{base::FSRObject, integer::FSRInteger},
-        vm::{virtual_machine::FSRVM, thread::FSRThreadRuntime},
-    };
+    use fscript_rs::backend::utils::timeit_code;
 
     pub fn bench() {
-        let vm = Arc::new(Mutex::new(FSRVM::new()));
-        let mut runtime = FSRThreadRuntime::new(0, vm.clone());
-        let start = Instant::now();
-        //runtime.start(&v, &mut vm).unwrap();
-
-        let obj = FSRInteger::new_inst(3);
-        let obj2 = FSRInteger::new_inst(4);
-        for _ in 0..30000000 {
-            let v = FSRObject::invoke_offset_method(
-                BinaryOffset::Add,
-                &[FSRObject::obj_to_id(&obj), FSRObject::obj_to_id(&obj2)],
-                &mut runtime,
-                None,
-            )
-            .unwrap();
-
-            match v {
-                fscript_rs::backend::types::base::FSRRetValue::Value(fsrobject) => {
-                    vm.lock().unwrap().allocator.free_object(fsrobject)
-                }
-                fscript_rs::backend::types::base::FSRRetValue::GlobalId(_) => todo!(),
-                fscript_rs::backend::types::base::FSRRetValue::GlobalIdTemp(_) => todo!(),
-            }
-        }
-        let end = Instant::now();
-        println!("{:?}", end - start);
+        timeit_code(
+            r#"
+fn abc() {
+    
+}
+abc()"#,
+            3000000,
+        );
     }
 }
 

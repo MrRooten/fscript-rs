@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::frontend::ast::token::block::FSRBlock;
+use crate::{frontend::ast::token::block::FSRBlock, utils::error::SyntaxError};
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 
 use super::{
@@ -16,6 +16,7 @@ pub enum FSRToken<'a> {
     Break(FSRPosition),
     Continue(FSRPosition),
     Expr(FSRExpr<'a>),
+    StackExpr((Option<&'a str>, Vec<FSRToken<'a>>)),
     ForBlock(FSRFor<'a>),
     Call(FSRCall<'a>),
     Variable(FSRVariable<'a>),
@@ -54,7 +55,32 @@ impl<'a> FSRToken<'a> {
             FSRToken::Continue(e) => e,
             FSRToken::ForBlock(b) => b.get_meta(),
             FSRToken::Getter(fsrslice) => fsrslice.get_meta(),
+            FSRToken::StackExpr(fsrexprs) => fsrexprs.1.get(0).unwrap().get_meta(),
         }
+    }
+
+    pub fn is_stack_expr(&self) -> bool {
+        matches!(self, FSRToken::StackExpr(_))
+    }
+
+    pub fn is_call(&self) -> bool {
+        matches!(self, FSRToken::Call(_))
+    }
+
+    pub fn is_getter(&self) -> bool {
+        matches!(self, FSRToken::Getter(_))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        matches!(self, FSRToken::EmptyExpr)
+    }
+
+    pub fn try_push_stack_expr(&mut self, value: FSRToken<'a>) -> Result<(), SyntaxError> {
+        if let FSRToken::StackExpr(e) = self {
+            e.1.push(value);
+            return Ok(())
+        }
+        return Err(SyntaxError::new(value.get_meta(), "Empty stack expression"));
     }
 }
 

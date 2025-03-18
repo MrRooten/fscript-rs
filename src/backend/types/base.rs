@@ -7,12 +7,9 @@ use std::{
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
-        types::fn_def::FSRnE,
-        vm::{
-            virtual_machine::{FSRVM, OBJECTS},
-            thread::FSRThreadRuntime,
-        },
+        compiler::bytecode::BinaryOffset, memory::size_alloc::FSRObjectAllocator, types::fn_def::FSRnE, vm::{
+            thread::FSRThreadRuntime, virtual_machine::{FSRVM, OBJECTS}
+        }
     },
     utils::error::{FSRErrCode, FSRError},
 };
@@ -653,4 +650,8 @@ mod test {
 
         println!("Size of FSRList: {}", size_of::<crate::backend::types::list::FSRList>());
     }
+}
+
+pub trait DropObject<'a> {
+    fn drop(&self, allocator: &FSRObjectAllocator<'a>);
 }

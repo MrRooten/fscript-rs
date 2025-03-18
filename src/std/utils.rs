@@ -135,15 +135,40 @@ pub fn fsr_fn_type<'a>(
     }
 }
 
+pub fn fsr_timeit<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: Option<ObjId>
+) -> Result<FSRRetValue<'a>, FSRError> {
+    if args.len() != 2 {
+        return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
+    }
+
+    let fn_def = FSRObject::id_to_obj(args[0]);
+    if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[1]).value {
+        let start = std::time::Instant::now();
+        for _ in 0..*count {
+            fn_def.call(&[], thread, module)?;
+        }
+        let end = std::time::Instant::now();
+        println!("times: {}\nduration: {:?}\nspeed: {}/s", count, end - start, *count as f64 / (end - start).as_secs_f64());
+        return Ok(FSRRetValue::GlobalId(0));
+    }
+    unimplemented!()
+}
+
+
 pub fn init_utils<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     let assert_fn = FSRFn::from_rust_fn(fsr_fn_assert, "assert");
     let export_fn = FSRFn::from_rust_fn(fsr_fn_export, "export");
     let ref_count = FSRFn::from_rust_fn(fsr_fn_ref_count, "ref_count");
     let type_fn = FSRFn::from_rust_fn(fsr_fn_type, "type");
+    let time_it = FSRFn::from_rust_fn(fsr_timeit, "timeit");
     let mut m = HashMap::new();
     m.insert("assert", assert_fn);
     m.insert("export", export_fn);
     m.insert("ref_count", ref_count);
     m.insert("type", type_fn);
+    m.insert("timeit", time_it);
     m
 }

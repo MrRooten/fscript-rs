@@ -1,8 +1,8 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::{FSRErrCode, FSRError}};
+use crate::{backend::{compiler::bytecode::BinaryOffset, memory::size_alloc::FSRObjectAllocator, types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::{FSRErrCode, FSRError}};
 
-use super::{base::{FSRGlobalObjId, FSRRetValue, ObjId}, class::FSRClass, fn_def::FSRFn, module::FSRModule};
+use super::{base::{DropObject, FSRGlobalObjId, FSRRetValue, ObjId}, class::FSRClass, fn_def::FSRFn, module::FSRModule};
 
 #[derive(Debug, Clone)]
 pub struct FSRList {
@@ -132,4 +132,14 @@ impl FSRList {
 }
 
 
-
+impl DropObject<'_> for FSRList {
+    fn drop(&self, allocator: &FSRObjectAllocator<'_>) {
+        for id in &self.vs {
+            let obj = FSRObject::id_to_obj(*id);
+            obj.ref_dec();
+            if obj.count_ref() == 0 {
+                allocator.free(*id);
+            }
+        }
+    }
+}

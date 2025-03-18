@@ -42,31 +42,38 @@ impl<'a> FSRCall<'a> {
         let mut length = 0;
         let name ;
         let mut fn_args = vec![];
-        loop {
-            let i = source[start];
-            let t_i = source[start + length];
-            if state == CallState::Start && ASTParser::is_blank_char_with_new_line(i) {
-                start += 1;
-                continue;
-            }
-
-            if ASTParser::is_name_letter(i) && state == CallState::Start {
-                state = CallState::Name;
-                continue;
-            }
-
-            if state == CallState::Name && ASTParser::is_name_letter(t_i) {
-                length += 1;
-                continue;
-            }
-
-            if state == CallState::Name && t_i as char == '(' {
-                name = str::from_utf8(&source[start..start + length]).unwrap();
-                start += length;
-                start += 1;
-                break;
+        if b'(' == source[start] {
+            name = str::from_utf8(&source[start..start + length]).unwrap();
+        } else {
+            loop {
+                let i = source[start];
+                let t_i = source[start + length];
+                
+    
+                if state == CallState::Start && ASTParser::is_blank_char_with_new_line(i) {
+                    start += 1;
+                    continue;
+                }
+    
+                if ASTParser::is_name_letter(i) && state == CallState::Start {
+                    state = CallState::Name;
+                    continue;
+                }
+    
+                if state == CallState::Name && ASTParser::is_name_letter(t_i) {
+                    length += 1;
+                    continue;
+                }
+    
+                if state == CallState::Name && t_i as char == '(' {
+                    name = str::from_utf8(&source[start..start + length]).unwrap();
+                    start += length;
+                    start += 1;
+                    break;
+                }
             }
         }
+        
 
         let s = str::from_utf8(source).unwrap();
         let first = s.find('(').unwrap();

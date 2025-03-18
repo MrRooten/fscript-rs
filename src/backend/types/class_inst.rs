@@ -4,7 +4,7 @@ use std::{
 
 use crate::backend::memory::size_alloc::FSRObjectAllocator;
 
-use super::base::{FSRObject, FSRValue, ObjId};
+use super::base::{DropObject, FSRObject, FSRValue, ObjId};
 
 #[derive(Clone)]
 pub struct FSRClassInst<'a> {
@@ -68,8 +68,10 @@ impl<'a> FSRClassInst<'a> {
     pub fn get_cls_name(&self) -> &str {
         self.name
     }
+}
 
-    pub fn drop_obj(&self, allocator: &FSRObjectAllocator) {
+impl<'a> DropObject<'a> for FSRClassInst<'a> {
+    fn drop(&self, allocator: &FSRObjectAllocator<'a>) {
         let mut stack = vec![self];
 
         while let Some(s) = stack.pop() {
@@ -78,7 +80,7 @@ impl<'a> FSRClassInst<'a> {
                 obj.ref_dec();
     
                 if obj.count_ref() == 0 {
-                    allocator.add_object_to_clear_list(*key_value.1);
+                    allocator.free(*key_value.1);
                 }
 
                 if let FSRValue::ClassInst(i) = &obj.value {

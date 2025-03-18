@@ -272,28 +272,6 @@ mod frontend_tests {
     }
 
     #[test]
-    fn test_bench_hash_map() {
-        let start = Instant::now();
-        let mut m = HashMap::new();
-        for i in 0..1000000 {
-            m.insert(0, i);
-        }
-        let end = Instant::now();
-        println!("{:?}", end - start);
-    }
-
-    #[test]
-    fn test_bench_vec() {
-        let mut v = [0];
-        let start = Instant::now();
-        for i in 0..1000000 {
-            v[0] = i;
-        }
-        let end = Instant::now();
-        println!("{:?}", end - start);
-    }
-
-    #[test]
     fn test_bracket_in_string() {
         let a = "p(\"a(e) \")";
         let meta = FSRPosition::new();
