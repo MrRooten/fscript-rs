@@ -304,7 +304,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let sub_meta = meta.from_offset(states.peek().1);
+            let sub_meta = meta.from_offset(states.peek().1 + len);
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",
@@ -331,7 +331,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let sub_meta = meta.from_offset(states.peek().1);
+            let sub_meta = meta.from_offset(states.peek().1 + len);
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",
@@ -415,6 +415,8 @@ impl ASTParser {
         } else if op.eq("::") {
             return "::"
         }
+
+        println!("error: {}", op);
 
         unimplemented!()
     }

@@ -258,14 +258,11 @@ impl<'a> SValue<'a> {
 }
 
 pub struct ThreadContext<'a> {
-    call_end: bool,
+    call_end: Vec<()>,
     exp: Vec<SValue<'a>>,
     ip: (usize, usize),
     is_attr: bool,
-    last_if_test: Vec<bool>,
-    break_line: Vec<usize>,
-    continue_line: Vec<usize>,
-    for_iter_obj: Vec<ObjId>,
+    
     #[allow(unused)]
     module: Option<ObjId>,
 }
@@ -276,15 +273,27 @@ impl<'a> ThreadContext<'a> {
             exp: Vec::with_capacity(10),
             ip: (0, 0),
             is_attr: false,
-            last_if_test: vec![],
-            break_line: vec![],
-            continue_line: vec![],
-            for_iter_obj: vec![],
             module: Some(module_id),
-            call_end: false,
+            call_end: vec![()],
         }
     }
 
+    
+}
+
+pub struct FSRThreadRuntime<'a> {
+    call_frames: Vec<CallFrame<'a>>,
+    frame_index: usize,
+    frame_free_list: FrameFreeList<'a>,
+    vm: Arc<Mutex<FSRVM<'a>>>,
+    pub(crate) thread_allocator: FSRObjectAllocator<'a>,
+    last_if_test: Vec<bool>,
+    break_line: Vec<usize>,
+    continue_line: Vec<usize>,
+    for_iter_obj: Vec<ObjId>,
+}
+
+impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     pub fn false_last_if_test(&mut self) {
         let l = self.last_if_test.len() - 1;
@@ -315,17 +324,8 @@ impl<'a> ThreadContext<'a> {
     pub fn pop_last_if_test(&mut self) {
         self.last_if_test.pop();
     }
-}
 
-pub struct FSRThreadRuntime<'a> {
-    call_frames: Vec<CallFrame<'a>>,
-    frame_index: usize,
-    frame_free_list: FrameFreeList<'a>,
-    vm: Arc<Mutex<FSRVM<'a>>>,
-    pub(crate) thread_allocator: FSRObjectAllocator<'a>,
-}
 
-impl<'a> FSRThreadRuntime<'a> {
     pub fn get_vm(&self) -> Arc<Mutex<FSRVM<'a>>> {
         self.vm.clone()
     }
@@ -341,6 +341,10 @@ impl<'a> FSRThreadRuntime<'a> {
             frame_index: 0,
             frame_free_list: FrameFreeList::new(),
             thread_allocator: FSRObjectAllocator::new(),
+            last_if_test: vec![],
+            break_line: vec![],
+            continue_line: vec![],
+            for_iter_obj: vec![],
         }
     }
 
@@ -1192,6 +1196,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(v);
             }
         } else if fn_obj.is_fsr_function() {
+            context.call_end.push(());
             self.save_ip_to_callstate(&mut context.exp, &mut context.ip, context.module);
             if let FSRValue::Function(f) = &fn_obj.value {
                 self.call_frames
@@ -1271,11 +1276,11 @@ impl<'a> FSRThreadRuntime<'a> {
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
-                context.push_last_if_test(false);
+                self.push_last_if_test(false);
                 return Ok(true);
             }
         }
-        context.push_last_if_test(true);
+        self.push_last_if_test(true);
         Ok(false)
     }
 
@@ -1286,7 +1291,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        context.pop_last_if_test();
+        self.pop_last_if_test();
         Ok(false)
     }
 
@@ -1321,11 +1326,11 @@ impl<'a> FSRThreadRuntime<'a> {
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
-                context.false_last_if_test();
+                self.false_last_if_test();
                 return Ok(true);
             }
         }
-        context.true_last_if_test();
+        self.true_last_if_test();
         Ok(false)
     }
 
@@ -1336,14 +1341,14 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        if context.peek_last_if_test() {
+        if self.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
                 return Ok(true);
             }
         }
 
-        context.false_last_if_test();
+        self.false_last_if_test();
         Ok(false)
     }
 
@@ -1354,13 +1359,13 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        if context.peek_last_if_test() {
+        if self.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
                 return Ok(true);
             }
         }
-        context.false_last_if_test();
+        self.false_last_if_test();
         Ok(false)
     }
 
@@ -1371,8 +1376,8 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let break_line = context.break_line.pop().unwrap();
-        context.continue_line.pop();
+        let break_line = self.break_line.pop().unwrap();
+        self.continue_line.pop();
         context.ip = (break_line, 0);
         Ok(true)
     }
@@ -1384,8 +1389,8 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let l = context.continue_line.len();
-        let continue_line = context.continue_line[l - 1];
+        let l = self.continue_line.len();
+        let continue_line = self.continue_line[l - 1];
         context.ip = (continue_line, 0);
         Ok(true)
     }
@@ -1406,10 +1411,10 @@ impl<'a> FSRThreadRuntime<'a> {
         // let v = FSRObject::id_to_obj(iter_id);
         // println!("{:#?}", v);
         if let ArgType::ForLine(n) = bytecode.get_arg() {
-            context.break_line.push(context.ip.0 + *n as usize);
-            context.continue_line.push(context.ip.0 + 1);
+            self.break_line.push(context.ip.0 + *n as usize);
+            self.continue_line.push(context.ip.0 + 1);
         }
-        context.for_iter_obj.push(iter_id);
+        self.for_iter_obj.push(iter_id);
         Ok(false)
     }
 
@@ -1422,8 +1427,8 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let id = context.exp.last().unwrap().get_global_id(self)?;
         if id == 0 {
-            let break_line = context.break_line.pop().unwrap();
-            context.continue_line.pop();
+            let break_line = self.break_line.pop().unwrap();
+            self.continue_line.pop();
             context.ip = (break_line, 0);
             return Ok(true);
         }
@@ -1457,26 +1462,26 @@ impl<'a> FSRThreadRuntime<'a> {
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::WhileTest(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + *n as usize + 1, 0);
-                context.continue_line.pop();
+                self.continue_line.pop();
                 return Ok(true);
             }
         }
         if let ArgType::WhileTest(n) = bytecode.get_arg() {
             // Avoid repeat add break ip and continue ip
-            if let Some(s) = context.break_line.last() {
+            if let Some(s) = self.break_line.last() {
                 if context.ip.0 + *n as usize + 1 != *s {
-                    context.break_line.push(context.ip.0 + *n as usize + 1);
+                    self.break_line.push(context.ip.0 + *n as usize + 1);
                 }
             } else {
-                context.break_line.push(context.ip.0 + *n as usize + 1);
+                self.break_line.push(context.ip.0 + *n as usize + 1);
             }
 
-            if let Some(s) = context.continue_line.last() {
+            if let Some(s) = self.continue_line.last() {
                 if context.ip.0 != *s {
-                    context.continue_line.push(context.ip.0);
+                    self.continue_line.push(context.ip.0);
                 }
             } else {
-                context.continue_line.push(context.ip.0);
+                self.continue_line.push(context.ip.0);
             }
         }
 
@@ -1545,7 +1550,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let cur = self.get_cur_mut_frame();
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
         context.module = cur.module;
-        context.call_end = true;
+        context.call_end.pop();
         Ok(true)
     }
 
@@ -1780,7 +1785,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         context
             .exp
-            .push(SValue::Global(*context.for_iter_obj.last().unwrap()));
+            .push(SValue::Global(*self.for_iter_obj.last().unwrap()));
         Ok(false)
     }
 
@@ -2052,12 +2057,8 @@ impl<'a> FSRThreadRuntime<'a> {
             exp: Vec::with_capacity(10),
             ip: (0, 0),
             is_attr: false,
-            last_if_test: vec![],
-            break_line: vec![],
-            continue_line: vec![],
-            for_iter_obj: vec![],
             module: Some(module_id),
-            call_end: false,
+            call_end: vec![()],
         };
 
         self.call_frames.push(
@@ -2083,12 +2084,8 @@ impl<'a> FSRThreadRuntime<'a> {
             exp: Vec::with_capacity(10),
             ip: (0, 0),
             is_attr: false,
-            last_if_test: vec![],
-            break_line: vec![],
-            continue_line: vec![],
-            for_iter_obj: vec![],
             module: Some(module_id),
-            call_end: false,
+            call_end: vec![()],
         };
 
         let mut module = FSRObject::id_to_obj(module_id).as_module();
@@ -2159,15 +2156,11 @@ impl<'a> FSRThreadRuntime<'a> {
         module: Option<ObjId>,
     ) -> Result<SValue, FSRError> {
         let mut context = ThreadContext {
-            exp: vec![],
+            exp: Vec::with_capacity(10),
             ip: fn_def.get_ip(),
             is_attr: false,
-            last_if_test: vec![],
-            break_line: vec![],
-            continue_line: vec![],
-            for_iter_obj: vec![],
             module,
-            call_end: false,
+            call_end: vec![()],
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
@@ -2185,7 +2178,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         while let Some(expr) = fn_def.get_bytecode().get(&context.ip) {
             let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
-            if context.call_end {
+            if context.call_end.is_empty() {
                 break;
             }
             if v {

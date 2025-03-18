@@ -892,6 +892,14 @@ impl<'a> FSRExpr<'a> {
             }
         }
 
+        if ctx.states.eq_peek(&ExprState::Operator) {
+            return Err(SyntaxError::new_with_type(
+                &meta.from_offset(ctx.start),
+                "Must have a expr after operator",
+                SyntaxErrType::OperatorError,
+            ));
+        }
+
         Ok(())
     }
 
@@ -1138,5 +1146,22 @@ mod test {
         let v = "Test::abc()";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_expr_error1() {
+        let v = "1 + 1 +";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
+        println!("{:#?}", p);
+    }
+
+    /// test error case
+    /// this test case is for abc(
+    /// it should be abc() or abc(1)
+    #[test]
+    fn test_expr_error2() {
+        let v = "abc(";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
+        println!("{:#?}", p);
     }
 }
