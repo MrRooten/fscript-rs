@@ -144,6 +144,7 @@ impl<'a> FSRBlock<'a> {
             }
 
             if states.peek() == &BlockState::Block {
+                // Escape all blank characters
                 while ASTParser::is_blank_char_with_new_line(c as u8) {
                     start += 1;
                     c = source[start + length] as char;

@@ -20,3 +20,4 @@ pub mod hashmap;
 pub mod class;
 pub mod r#else;
 pub mod for_statement;
+pub mod try_expr;

@@ -9,3 +9,4 @@ pub mod module;
 pub mod iterator;
 pub mod bool;
 pub mod float;
+pub mod error;

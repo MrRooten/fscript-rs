@@ -171,6 +171,14 @@ pub fn fsr_timeit<'a>(
     unimplemented!()
 }
 
+pub fn fsr_try<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: Option<ObjId>
+) -> Result<FSRRetValue<'a>, FSRError> {
+    unimplemented!()
+}
+
 
 pub fn init_utils<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
