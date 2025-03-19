@@ -11,7 +11,7 @@ pub struct FrameFreeList<'a> {
 }
 
 impl<'a> FrameFreeList<'a> {
-    pub fn new() -> Self {
+    pub fn new_list() -> Self {
         Self {
             list: VecDeque::new()
         }

@@ -57,7 +57,7 @@ impl Error for SyntaxError {
     }
 
     fn description(&self) -> &str {
-        return self.msg.as_str();
+        self.msg.as_str()
     }
 
     fn cause(&self) -> Option<&dyn Error> {

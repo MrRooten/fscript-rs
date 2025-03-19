@@ -7,7 +7,7 @@ use super::{types::module::FSRModule, vm::{thread::FSRThreadRuntime, virtual_mac
 
 pub fn timeit_code(code: &str, times: usize) {
     println!("running code:\n{}", code);
-    println!("");
+    println!();
     let vm = Arc::new(Mutex::new(FSRVM::new()));
     let mut runtime = FSRThreadRuntime::new(0, vm.clone());
     let m = Box::new(FSRModule::from_code("main", code).unwrap());

@@ -55,7 +55,7 @@ impl<'a> FSRToken<'a> {
             FSRToken::Continue(e) => e,
             FSRToken::ForBlock(b) => b.get_meta(),
             FSRToken::Getter(fsrslice) => fsrslice.get_meta(),
-            FSRToken::StackExpr(fsrexprs) => fsrexprs.1.get(0).unwrap().get_meta(),
+            FSRToken::StackExpr(fsrexprs) => fsrexprs.1.first().unwrap().get_meta(),
         }
     }
 
@@ -80,7 +80,7 @@ impl<'a> FSRToken<'a> {
             e.1.push(value);
             return Ok(())
         }
-        return Err(SyntaxError::new(value.get_meta(), "Empty stack expression"));
+        Err(SyntaxError::new(value.get_meta(), "Empty stack expression"))
     }
 }
 

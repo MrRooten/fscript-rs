@@ -50,7 +50,6 @@ fn main() {
     let mut rt = FSRThreadRuntime::new(base_module, vm);
     // let runtime = Arc::new(rt);
 
-    let base_module = base_module.clone();
     let start = Instant::now();
     let th = thread::spawn(move || {
         rt.start(base_module).unwrap();

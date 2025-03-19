@@ -46,7 +46,6 @@ impl<'a> FSRObjectAllocator<'a> {
         let obj = FSRObject::into_object(obj_id);
         obj.leak.store(false, Ordering::Relaxed);
         self.object_bins.borrow_mut().push_front(obj);
-        return ;
         
 
         // #[allow(clippy::single_match)]
@@ -67,7 +66,6 @@ impl<'a> FSRObjectAllocator<'a> {
         self.free_count.fetch_add(1, Ordering::Relaxed);
         obj.leak.store(false, Ordering::Relaxed);
         self.object_bins.borrow_mut().push_front(obj);
-        return ;
         
 
         // #[allow(clippy::single_match)]
@@ -97,8 +95,7 @@ impl<'a> FSRAllocator<'a> for FSRObjectAllocator<'a> {
     
     fn allocate(&mut self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
         let obj = FSRObject::new_inst(value, cls);
-        let b = Box::new(obj);
-        b
+        Box::new(obj)
     }
     
     fn free(&mut self, ptr: Box<FSRObject>) {

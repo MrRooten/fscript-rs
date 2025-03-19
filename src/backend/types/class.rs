@@ -67,7 +67,7 @@ impl<'a> FSRClass<'a> {
     }
 
     pub fn get_attr(&self, name: &str) -> Option<ObjId> {
-        return self.attrs.get(name).copied();
+        self.attrs.get(name).copied()
     }
 
     #[inline]

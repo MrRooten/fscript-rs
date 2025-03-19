@@ -18,7 +18,7 @@ pub struct GarbageCollector {
 }
 
 impl GarbageCollector {
-    pub fn new() -> Self {
+    pub fn new_gc() -> Self {
         Self {
             // keep the first element as None, because the garbage id starts from 1, 0 means the object is not in the garbage collector
             objects: vec![None],
@@ -87,8 +87,7 @@ impl GarbageCollector {
         let obj = FSRObject::id_to_obj(obj);
         let mut sk = vec![];
         sk.push(obj);
-        while !sk.is_empty() {
-            let cur = sk.pop().unwrap();
+        while let Some(cur) = sk.pop() {
             let id = cur.get_garbage_id() as usize;
             if id == 0 {
                 continue;
@@ -148,7 +147,7 @@ mod test {
 
     #[test]
     fn test_garbege_collector() {
-        let mut gc = GarbageCollector::new();
+        let mut gc = GarbageCollector::new_gc();
 
         let value = Box::new(FSRInteger::new_inst(1));
 

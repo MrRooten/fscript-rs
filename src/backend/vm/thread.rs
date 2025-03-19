@@ -81,7 +81,7 @@ impl IndexMap {
     }
 }
 
-impl<'a> Iterator for IndexIterator<'a> {
+impl Iterator for IndexIterator<'_> {
     type Item = ObjId;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -242,7 +242,16 @@ impl<'a> SValue<'a> {
         match self {
             Self::BoxObject(obj) => {
                 allocator.free_object(obj);
-            },
+            }
+            Self::Global(id) => {
+                if FSRObject::is_sp_object(id) {
+                    return;
+                }
+                let obj = FSRObject::id_to_obj(id);
+                if obj.count_ref() == 0 {
+                    allocator.free(id);
+                }
+            }
             _ => {}
         }
     }
@@ -262,7 +271,7 @@ pub struct ThreadContext<'a> {
     exp: Vec<SValue<'a>>,
     ip: (usize, usize),
     is_attr: bool,
-    
+
     #[allow(unused)]
     module: Option<ObjId>,
 }
@@ -278,13 +287,17 @@ impl<'a> ThreadContext<'a> {
         }
     }
 
-    
+    pub fn clear_exp(&mut self) {
+        while let Some(s) = self.exp.pop() {
+            s.drop_box(&FSRObjectAllocator::new());
+        }
+    }
 }
 
 pub struct FSRThreadRuntime<'a> {
-    call_frames: Vec<CallFrame<'a>>,
+    pub(crate) call_frames: Vec<CallFrame<'a>>,
     frame_index: usize,
-    frame_free_list: FrameFreeList<'a>,
+    pub(crate) frame_free_list: FrameFreeList<'a>,
     vm: Arc<Mutex<FSRVM<'a>>>,
     pub(crate) thread_allocator: FSRObjectAllocator<'a>,
     last_if_test: Vec<bool>,
@@ -325,7 +338,6 @@ impl<'a> FSRThreadRuntime<'a> {
         self.last_if_test.pop();
     }
 
-
     pub fn get_vm(&self) -> Arc<Mutex<FSRVM<'a>>> {
         self.vm.clone()
     }
@@ -337,9 +349,9 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn new(base_module: ObjId, vm: Arc<Mutex<FSRVM<'a>>>) -> FSRThreadRuntime<'a> {
         Self {
             call_frames: vec![CallFrame::new("base", Some(base_module))],
-            vm: vm,
+            vm,
             frame_index: 0,
-            frame_free_list: FrameFreeList::new(),
+            frame_free_list: FrameFreeList::new_list(),
             thread_allocator: FSRObjectAllocator::new(),
             last_if_test: vec![],
             break_line: vec![],
@@ -363,12 +375,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     pub fn get_cur_mut_frame(&mut self) -> &mut CallFrame<'a> {
-        return self.call_frames.last_mut().unwrap();
+        self.call_frames.last_mut().unwrap()
     }
 
     #[inline(always)]
     fn get_cur_frame(&self) -> &CallFrame<'a> {
-        return self.call_frames.last().unwrap();
+        self.call_frames.last().unwrap()
     }
 
     #[inline(always)]
@@ -938,15 +950,13 @@ impl<'a> FSRThreadRuntime<'a> {
             Some(value)
         }
         // 尝试从全局对象中获取变量
-        else if let Some(value) = thread
-            .get_vm()
-            .lock()
-            .unwrap()
-            .get_global_obj_by_name(var.1)
-        {
-            Some(*value)
-        } else {
-            None
+        else {
+            thread
+                .get_vm()
+                .lock()
+                .unwrap()
+                .get_global_obj_by_name(var.1)
+                .copied()
         }
     }
 
@@ -1171,7 +1181,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Attr(attr) => {
                 call_method = attr.call_method;
 
-                if call_method == false {
+                if !call_method {
                     let cls_obj = FSRObject::id_to_obj(attr.father).as_class();
                     cls_obj.get_attr(attr.name).unwrap()
                 } else {
@@ -1513,14 +1523,16 @@ impl<'a> FSRThreadRuntime<'a> {
 
             //println!("define_fn: {}", FSRObject::id_to_obj(context.module.unwrap()).as_module().as_string());
             let fn_obj = FSRFn::from_fsr_fn(
-                &name.1,
+                name.1,
                 (context.ip.0 + 1, 0),
                 args,
                 bc,
                 context.module.unwrap(),
             );
-            
-            let fn_obj = self.thread_allocator.new_object(fn_obj, FSRGlobalObjId::FnCls as ObjId);
+
+            let fn_obj = self
+                .thread_allocator
+                .new_object(fn_obj, FSRGlobalObjId::FnCls as ObjId);
             fn_obj.ref_add();
             let fn_id = FSRVM::leak_object(fn_obj);
             let state = self.call_frames.last_mut().unwrap();
@@ -1844,11 +1856,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let v1_id = v1.get_global_id(self)?;
         let mut target = false;
-        if (FSRObject::none_id() == v1_id || FSRObject::false_id() == v1_id) {
-            target = true;
-        } else {
-            target = false;
-        }
+        target = FSRObject::none_id() == v1_id || FSRObject::false_id() == v1_id;
 
         context.exp.pop();
 
@@ -2038,7 +2046,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         return Ok(true);
                     }
                     if v {
-                        context.exp.clear();
+                        context.clear_exp();
                         return Ok(false);
                     }
                 }
@@ -2047,7 +2055,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         context.ip.0 += 1;
         context.ip.1 = 0;
-        context.exp.clear();
+        context.clear_exp();
         context.is_attr = false;
         Ok(false)
     }
@@ -2180,6 +2188,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         while let Some(expr) = fn_def.get_bytecode().get(&context.ip) {
             let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
+
             if context.call_end.is_empty() {
                 break;
             }
@@ -2187,8 +2196,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 break;
             }
         }
-
-        
 
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
@@ -2268,7 +2275,7 @@ mod test {
             }
         }
         t = Test()
-        println(t.__str__())
+        println(t)
         "#;
         let v = FSRModule::from_code("main", source_code).unwrap();
         let base_module = FSRVM::leak_object(Box::new(v));

@@ -296,7 +296,7 @@ pub struct VarMap<'a> {
     const_id: AtomicU64,
 }
 
-impl<'a> Default for VarMap<'a> {
+impl Default for VarMap<'_> {
     fn default() -> Self {
         Self::new()
     }
@@ -308,7 +308,7 @@ impl<'a> VarMap<'a> {
     }
 
     pub fn get_var(&self, var: &str) -> Option<&u64> {
-        return self.var_map.get(var);
+        self.var_map.get(var)
     }
 
     pub fn insert_var(&mut self, var: &'a str) {
@@ -345,7 +345,7 @@ impl<'a> VarMap<'a> {
     }
 
     pub fn get_attr(&self, attr: &str) -> Option<&u64> {
-        return self.attr_map.get(attr);
+        self.attr_map.get(attr)
     }
 
     pub fn new() -> Self {

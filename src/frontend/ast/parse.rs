@@ -63,7 +63,7 @@ impl BracketStates {
     }
 
     pub fn eq_peek(&self, state: BracketState) -> bool {
-        return self.peek().0 == state;
+        self.peek().0 == state
     }
 
     pub fn is_empty(&self) -> bool {

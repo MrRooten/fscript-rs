@@ -31,7 +31,7 @@ struct Node {
 
 impl Node {
     pub fn get_node(&mut self, c: &char) -> Option<&mut Box<Node>> {
-        return self.subs.get_mut(c);
+        self.subs.get_mut(c)
     }
 
     pub fn get_subs(&mut self) -> &mut HashMap<char, Box<Node>> {

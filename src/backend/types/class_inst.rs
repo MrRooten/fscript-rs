@@ -39,7 +39,7 @@ impl<'a> FSRClassInst<'a> {
     }
 
     pub fn get_attr(&self, name: &str) -> Option<&ObjId> {
-        return self.attrs.get(name);
+        self.attrs.get(name)
     }
 
     pub fn set_attr(&mut self, name: &'a str, value: ObjId) {
@@ -58,7 +58,7 @@ impl<'a> FSRClassInst<'a> {
     }
 
     pub fn list_attrs(&self) -> Keys<&'a str, ObjId> {
-        return self.attrs.keys();
+        self.attrs.keys()
     }
 
     pub fn iter_values(&self) -> impl Iterator<Item = &ObjId> {

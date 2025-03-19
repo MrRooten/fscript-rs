@@ -47,7 +47,7 @@ impl BlockStates {
     }
 
     pub fn eq_peek(&self, state: &BlockState) -> bool {
-        return self.peek().eq(state);
+        self.peek().eq(state)
     }
 
     pub fn is_empty(&self) -> bool {

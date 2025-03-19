@@ -1,7 +1,10 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
-    sync::{atomic::{AtomicBool, AtomicU32, Ordering}, Mutex},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        Mutex,
+    },
 };
 
 use ahash::AHashMap;
@@ -10,12 +13,20 @@ use crate::{
     backend::{
         memory::{gc::GarbageCollector, size_alloc::FSRObjectAllocator},
         types::{
-            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
+            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
+            bool::FSRBool,
+            class::FSRClass,
+            float::FSRFloat,
+            fn_def::FSRFn,
+            integer::FSRInteger,
+            iterator::FSRInnerIterator,
+            list::FSRList,
+            module::FSRModule,
+            string::FSRString,
         },
     },
     std::{io::init_io, utils::init_utils},
 };
-
 
 #[derive(Hash, Debug, Eq, PartialEq)]
 pub enum ConstType<'a> {
@@ -36,7 +47,7 @@ pub struct FSRVM<'a> {
 // pub static mut TRUE_OBJECT: Option<FSRObject> = None;
 // pub static mut FALSE_OBJECT: Option<FSRObject> = None;
 pub static mut OBJECTS: Vec<FSRObject> = vec![];
-impl<'a> Default for FSRVM<'a> {
+impl Default for FSRVM<'_> {
     fn default() -> Self {
         Self::new()
     }
@@ -51,7 +62,7 @@ impl<'a> FSRVM<'a> {
             const_integer_global: RefCell::new(HashMap::new()),
             const_map: Mutex::new(AHashMap::new()),
             allocator: FSRObjectAllocator::new(),
-            garbage_collector: GarbageCollector::new(),
+            garbage_collector: GarbageCollector::new_gc(),
         };
         v.init();
         v
@@ -205,7 +216,7 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn get_global_obj_by_name(&self, name: &str) -> Option<&ObjId> {
-        return self.global.get(name);
+        self.global.get(name)
     }
 
     pub fn register_module(&mut self, name: &'a str, module: ObjId) {

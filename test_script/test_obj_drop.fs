@@ -6,10 +6,13 @@ fn abcd() {
 fn abc() {
     c = abcd()
     a = ((1 + 3 + 1 ) * 3 + 4 + 2) * 4 + c
+    return a
 }
 
-i = 1
-while i < 30000 {
-    abc()
+a = abc()
+
+i = 0
+while i < 3 {
     i = i + 1
+    abc()
 }

@@ -45,7 +45,7 @@ impl ModuleStates {
 
     #[allow(unused)]
     pub fn eq_peek(&self, state: &ModuleState) -> bool {
-        return self.peek().eq(state);
+        self.peek().eq(state)
     }
 
     #[allow(unused)]

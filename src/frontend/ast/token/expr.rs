@@ -88,7 +88,7 @@ impl ExprStates {
     }
 
     pub fn eq_peek(&self, state: &ExprState) -> bool {
-        return self.peek().eq(state);
+        self.peek().eq(state)
     }
 
     pub fn is_string(&self) -> bool {
@@ -221,7 +221,7 @@ struct StmtContext<'a> {
     is_high_prio_single_op: bool,
 }
 
-impl<'a> StmtContext<'a> {
+impl StmtContext<'_> {
     pub fn new() -> Self {
         let mut states = ExprStates::new();
         states.push_state(ExprState::WaitToken);
@@ -858,8 +858,8 @@ impl<'a> FSRExpr<'a> {
                 //     ctx.length += 1;
                 //     continue;
                 // }
-                if ctx.candidates.get(0).is_some() {
-                    let c = ctx.candidates.get(0).unwrap();
+                if !ctx.candidates.is_empty() {
+                    let c = ctx.candidates.first().unwrap();
                     // case like a[1][1] + 2
                     if c.is_stack_expr() || c.is_call() || c.is_getter() {
                         ctx.states.pop_state();
@@ -933,10 +933,8 @@ impl<'a> FSRExpr<'a> {
             }
             let n_left = left.clone();
             if ctx.operators.is_empty() {
-                let mut stack_expr = vec![];
-
-                stack_expr.push(left);
-                stack_expr.push(right);
+                
+                let mut stack_expr = vec![left, right];
 
                 return Ok((
                     FSRToken::StackExpr((ctx.single_op.take(), stack_expr)),
@@ -1038,7 +1036,7 @@ impl<'a> FSRExpr<'a> {
                 ));
             }
         }
-        return Ok((
+        Ok((
             FSRToken::Expr(Self {
                 single_op: ctx.single_op,
                 left: Box::new(left),
@@ -1048,7 +1046,7 @@ impl<'a> FSRExpr<'a> {
                 meta,
             }),
             ctx.start + ctx.length,
-        ));
+        ))
     }
 
     pub fn get_op(&self) -> &str {

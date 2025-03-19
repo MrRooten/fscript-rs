@@ -19,7 +19,7 @@ pub fn fsr_fn_assert<'a>(
     if value.is_false() {
         panic!("assert error")
     }
-    return Ok(FSRRetValue::GlobalId(0));
+    Ok(FSRRetValue::GlobalId(0))
 }
 
 
@@ -42,7 +42,7 @@ pub fn fsr_fn_export<'a>(
         let m = FSRObject::id_to_obj(s).as_module();
         m.register_object(name, obj);
     }
-    return Ok(FSRRetValue::GlobalId(0));
+    Ok(FSRRetValue::GlobalId(0))
 }
 
 pub fn fsr_fn_ref_count<'a>(
@@ -60,9 +60,9 @@ pub fn fsr_fn_ref_count<'a>(
         ))));
     }
 
-    return Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
+    Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
         FSRObject::id_to_obj(args[0]).count_ref() as i64
-    ))));
+    ))))
 }
 
 pub fn fsr_fn_type<'a>(
@@ -78,59 +78,59 @@ pub fn fsr_fn_type<'a>(
 
     match &obj.value {
         FSRValue::Integer(i) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("Integer")
-            ))));
+            ))))
         }
         FSRValue::Float(f) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("Float")
-            ))));
+            ))))
         },
         FSRValue::String(cow) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("String")
-            ))));
+            ))))
         },
         FSRValue::Class(fsrclass) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("Class")
-            ))));
+            ))))
         },
         FSRValue::ClassInst(fsrclass_inst) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed(fsrclass_inst.get_cls_name())
-            ))));
+            ))))
         },
         FSRValue::Function(fsrfn) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("Function")
-            ))));
+            ))))
         },
         FSRValue::Bool(b) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("Bool")
-            ))));
+            ))))
         },
         FSRValue::List(fsrlist) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("List")
-            ))));
+            ))))
         },
         FSRValue::Iterator(fsrinner_iterator) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("Iterator")
-            ))));
+            ))))
         },
         FSRValue::Module(fsrmodule) => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("Module")
-            ))));
+            ))))
         },
         FSRValue::None => {
-            return Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
                 Cow::Borrowed("None")
-            ))));
+            ))))
         },
     }
 }

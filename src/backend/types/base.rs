@@ -222,7 +222,7 @@ pub(crate) static HEAP_TRACE: HeapTrace = HeapTrace {
     total_object: AtomicI64::new(0),
 };
 
-impl<'a> Default for FSRObject<'a> {
+impl Default for FSRObject<'_> {
     fn default() -> Self {
         Self::new()
     }
@@ -232,7 +232,7 @@ impl<'a> FSRObject<'a> {
     pub fn new_inst(value: FSRValue<'a>, cls: ObjId) -> FSRObject<'a> {
         FSRObject {
             value,
-            cls: cls,
+            cls,
             ref_count: AtomicU32::new(0),
             delete_flag: AtomicBool::new(true),
             leak: AtomicBool::new(false),
@@ -373,15 +373,7 @@ impl<'a> FSRObject<'a> {
 
     #[inline]
     pub fn ref_add(&self) {
-        // if Self::is_sp_object(self.obj_id) {
-        //     return;
-        // }
-
-        // if !self.delete_flag.load(Ordering::Relaxed) {
-        //     return;
-        // }
-
-        self.ref_count.fetch_add(1, Ordering::AcqRel);
+        self.ref_count.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn set_not_delete(&self) {
@@ -390,15 +382,7 @@ impl<'a> FSRObject<'a> {
 
     #[inline]
     pub fn ref_dec(&self) {
-        // if Self::is_sp_object(self.obj_id) {
-        //     return;
-        // }
-
-        // if !self.delete_flag.load(Ordering::Relaxed) {
-        //     return;
-        // }
-
-        self.ref_count.fetch_sub(1, Ordering::AcqRel);
+        self.ref_count.fetch_sub(1, Ordering::Relaxed);
     }
 
     pub fn into_object(id: ObjId) -> Box<FSRObject<'a>> {
@@ -554,10 +538,10 @@ impl<'a> FSRObject<'a> {
                 self as *const Self
             )));
         }
-        return FSRString::new_inst(Cow::Owned(format!(
+        FSRString::new_inst(Cow::Owned(format!(
             "<`{}` Object at {:?}>",
             self.cls, self as *const Self
-        )));
+        )))
         //return self.invoke("__str__", vec![]);
     }
 

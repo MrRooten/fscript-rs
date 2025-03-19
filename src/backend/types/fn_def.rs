@@ -23,7 +23,7 @@ pub struct FSRFnInner<'a> {
     bytecode    : &'a Bytecode
 }
 
-impl<'a> FSRFnInner<'a> {
+impl FSRFnInner<'_> {
     pub fn get_name(&self) -> &Cow<str> {
         &self.name
     }
@@ -133,6 +133,7 @@ impl<'a> FSRFn<'a> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f.1(args, thread, module);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
+            thread.call_frames.push(thread.frame_free_list.new_frame(self.get_name(), module));
             let v = FSRThreadRuntime::call_fn(thread, f, args, Some(self.module))?;
             let v = match v {
                 crate::backend::vm::thread::SValue::Global(g) => g,

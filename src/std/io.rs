@@ -23,7 +23,7 @@ pub fn fsr_fn_print<'a>(
     if let FSRValue::String(s) = &obj.value {
         print!("{}", s);
     }
-    return Ok(FSRRetValue::GlobalId(0));
+    Ok(FSRRetValue::GlobalId(0))
 }
 
 pub fn fsr_fn_println<'a>(
@@ -36,7 +36,7 @@ pub fn fsr_fn_println<'a>(
     if let FSRValue::String(s) = &obj.value {
         println!("{}", s);
     }
-    return Ok(FSRRetValue::GlobalId(0));
+    Ok(FSRRetValue::GlobalId(0))
 }
 
 pub fn fsr_fn_dump<'a>(
@@ -46,7 +46,7 @@ pub fn fsr_fn_dump<'a>(
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
-    return Ok(FSRRetValue::GlobalId(0));
+    Ok(FSRRetValue::GlobalId(0))
 }
 
 pub fn fsr_fn_format<'a>(
@@ -57,7 +57,7 @@ pub fn fsr_fn_format<'a>(
     
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
-    return Ok(FSRRetValue::GlobalId(0));
+    Ok(FSRRetValue::GlobalId(0))
 }
 
 pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {

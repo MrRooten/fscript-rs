@@ -68,7 +68,7 @@ fn iter<'a>(
         index: 0,
     };
 
-    return Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))));
+    Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))))
 }
 
 fn get_item<'a>(
