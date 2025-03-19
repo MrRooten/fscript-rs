@@ -198,7 +198,7 @@ impl<'a> AttrArgs<'a> {
 #[derive(Debug, Clone)]
 pub enum SValue<'a> {
     Stack((u64, &'a String)),
-    Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
+    Attr(AttrArgs<'a>), // father, attr, name, call_method
     Global(ObjId),
     #[allow(dead_code)]
     BoxObject(Box<FSRObject<'a>>),
@@ -287,9 +287,9 @@ impl<'a> ThreadContext<'a> {
         }
     }
 
-    pub fn clear_exp(&mut self) {
+    pub fn clear_exp(&mut self, allocator: &FSRObjectAllocator<'a>) {
         while let Some(s) = self.exp.pop() {
-            s.drop_box(&FSRObjectAllocator::new());
+            s.drop_box(allocator);
         }
     }
 }
@@ -607,6 +607,11 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
+        // if let SValue::Attr(_) = &v1 {
+        //     context.exp.pop();
+        //     context.is_attr = false;
+        // }
+
         let v2 = match context.exp.pop() {
             Some(s) => s,
             None => {
@@ -616,6 +621,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
+
+        // if let SValue::Attr(_) = &v2 {
+        //     context.exp.pop();
+        //     context.is_attr = false;
+        // }
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
@@ -655,10 +665,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
-        if let SValue::Attr(_) = &v1 {
-            context.exp.pop();
-            context.is_attr = false;
-        }
+        // if let SValue::Attr(_) = &v1 {
+        //     context.exp.pop();
+        //     context.is_attr = false;
+        // }
 
         let v2 = match context.exp.pop() {
             Some(s) => s,
@@ -670,10 +680,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
         // if is binary dot operator, pop last father
-        if let SValue::Attr(_) = &v2 {
-            context.exp.pop();
-            context.is_attr = false;
-        }
+        // if let SValue::Attr(_) = &v2 {
+        //     context.exp.pop();
+        //     context.is_attr = false;
+        // }
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
@@ -712,10 +722,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        if let SValue::Attr(_) = &v1 {
-            context.exp.pop();
-            context.is_attr = false;
-        }
+        // if let SValue::Attr(_) = &v1 {
+        //     context.exp.pop();
+        //     context.is_attr = false;
+        // }
 
         let v2 = match context.exp.pop() {
             Some(s) => s,
@@ -727,10 +737,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        if let SValue::Attr(_) = &v2 {
-            context.exp.pop();
-            context.is_attr = false;
-        }
+        // if let SValue::Attr(_) = &v2 {
+        //     context.exp.pop();
+        //     context.is_attr = false;
+        // }
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
@@ -771,10 +781,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        if let SValue::Attr(_) = &v1 {
-            context.exp.pop();
-            context.is_attr = false;
-        }
+        // if let SValue::Attr(_) = &v1 {
+        //     context.exp.pop();
+        //     context.is_attr = false;
+        // }
 
         let v2 = match context.exp.pop() {
             Some(s) => s,
@@ -786,10 +796,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        if let SValue::Attr(_) = &v2 {
-            context.exp.pop();
-            context.is_attr = false;
-        }
+        // if let SValue::Attr(_) = &v2 {
+        //     context.exp.pop();
+        //     context.is_attr = false;
+        // }
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
@@ -859,17 +869,17 @@ impl<'a> FSRThreadRuntime<'a> {
             // let obj = FSRObject::id_to_obj(id);
             // println!("{:#?}", obj);
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr(Box::new(AttrArgs::new(
+            context.exp.push(SValue::Attr(AttrArgs::new(
                 dot_father, id, name, true,
-            ))));
+            )));
         } else {
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr(Box::new(AttrArgs::new(
+            context.exp.push(SValue::Attr(AttrArgs::new(
                 dot_father,
                 attr_id.attr,
                 name,
                 true,
-            ))));
+            )));
         }
 
         Ok(false)
@@ -925,17 +935,17 @@ impl<'a> FSRThreadRuntime<'a> {
             // let obj = FSRObject::id_to_obj(id);
             // println!("{:#?}", obj);
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr(Box::new(AttrArgs::new(
+            context.exp.push(SValue::Attr(AttrArgs::new(
                 dot_father, id, name, false,
-            ))));
+            )));
         } else {
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr(Box::new(AttrArgs::new(
+            context.exp.push(SValue::Attr(AttrArgs::new(
                 dot_father,
                 attr_id.attr,
                 name,
                 false,
-            ))));
+            )));
         }
 
         Ok(false)
@@ -1942,12 +1952,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn load_var(
-        exp_stack: &mut Vec<SValue<'a>>,
-        arg: &'a BytecodeArg,
-        vm: &Arc<Mutex<FSRVM<'a>>>,
-        module: Option<ObjId>,
-    ) {
+    fn load_var(exp_stack: &mut Vec<SValue<'a>>, arg: &'a BytecodeArg, module: Option<ObjId>) {
         if let ArgType::Variable(id, name) = arg.get_arg() {
             exp_stack.push(SValue::Stack((*id, name)));
         } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
@@ -1992,19 +1997,25 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
         } else if let ArgType::Attr(_, name) = arg.get_arg() {
-            exp_stack.push(SValue::Attr(Box::new(AttrArgs::new(0, 0, name, true))));
+            exp_stack.push(SValue::Attr(AttrArgs::new(0, 0, name, true)));
+        }
+    }
+
+    fn restore_exp_stack(&mut self, exp_stack: &mut Vec<SValue<'a>>) {
+        let state = self.get_cur_mut_frame();
+        if state.exp.is_some() {
+            if let Some(mut s) = state.exp.take() {
+                // std::mem::replace(exp_stack, s);
+                *exp_stack = s;
+            }
         }
     }
 
     #[inline(always)]
     fn set_exp_stack_ret(&mut self, exp_stack: &mut Vec<SValue<'a>>) {
-        let state = self.get_cur_mut_frame();
-        if state.exp.is_some() {
-            if let Some(s) = state.exp.take() {
-                *exp_stack = s;
-            }
-        }
+        Self::restore_exp_stack(self, exp_stack);
 
+        let state = self.get_cur_mut_frame();
         // if take a none value, it seems a little slow, so check it first
         if state.ret_val.is_none() {
             return;
@@ -2038,7 +2049,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             match arg.get_operator() {
                 BytecodeOperator::Load => {
-                    Self::load_var(&mut context.exp, arg, &self.get_vm(), context.module);
+                    Self::load_var(&mut context.exp, arg, context.module);
                 }
                 _ => {
                     v = self.process(context, arg, bc)?;
@@ -2046,7 +2057,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         return Ok(true);
                     }
                     if v {
-                        context.clear_exp();
+                        context.clear_exp(&self.thread_allocator);
                         return Ok(false);
                     }
                 }
@@ -2055,7 +2066,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         context.ip.0 += 1;
         context.ip.1 = 0;
-        context.clear_exp();
+        context.clear_exp(&self.thread_allocator);
         context.is_attr = false;
         Ok(false)
     }

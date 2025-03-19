@@ -12,10 +12,18 @@ class Abc {
         self.abc = 123
         return self
     }
+
+    fn abcd(self) {
+        return 'abc'.len()
+    }
 }
 
+
 abc = Abc()
-println(abc)
+
+c = abc.abc + abc.abc
+
+println(c)
 assert(abc.abc == 123)
 true = 1 == 1
 

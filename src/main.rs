@@ -15,12 +15,8 @@ mod test {
 
     pub fn bench() {
         timeit_code(
-            r#"
-fn abc() {
-    
-}
-abc()"#,
-            3000000,
+            r#"1 + 3 + 4 + 5 + 6"#,
+            30000000,
         );
     }
 }

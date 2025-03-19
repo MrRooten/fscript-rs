@@ -4,13 +4,8 @@ fn abcd() {
 }
 
 fn abc() {
-    a = ((1 + 3 + 1 ) * 3 + 4 + 2) * 4
-    return a
+    a = ((1 + 3 + 1 ) + 3 + 4 + 2) + 4
 }
 
 
-i = 0 
-while i< 3000000 {
-    i = i + 1
-    abc()
-}
+timeit(abc, 300000)

@@ -148,7 +148,21 @@ pub fn fsr_timeit<'a>(
     if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[1]).value {
         let start = std::time::Instant::now();
         for _ in 0..*count {
-            fn_def.call(&[], thread, module)?;
+            let res = match fn_def.call(&[], thread, module)? {
+                FSRRetValue::Value(fsrobject) => {
+                    thread.thread_allocator.free_object(fsrobject);
+                },
+                FSRRetValue::GlobalId(id) => {
+                    if FSRObject::is_sp_object(id) {
+                        continue;;
+                    }
+                    let obj = FSRObject::id_to_obj(id);
+                    if obj.count_ref() == 0 {
+                        thread.thread_allocator.free(id);
+                    }
+                },
+                FSRRetValue::GlobalIdTemp(_) => todo!(),
+            };
         }
         let end = std::time::Instant::now();
         println!("times: {}\nduration: {:?}\nspeed: {}/s", count, end - start, *count as f64 / (end - start).as_secs_f64());
