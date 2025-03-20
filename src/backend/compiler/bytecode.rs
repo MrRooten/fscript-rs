@@ -10,23 +10,7 @@ use crate::{
         vm::virtual_machine::FSRVM,
     },
     frontend::ast::token::{
-        assign::FSRAssign,
-        base::{FSRPosition, FSRToken},
-        block::FSRBlock,
-        call::FSRCall,
-        class::FSRClassFrontEnd,
-        constant::{FSRConstant, FSRConstantType, FSROrinStr, FSROrinStr2},
-        expr::FSRExpr,
-        for_statement::FSRFor,
-        function_def::FSRFnDef,
-        if_statement::FSRIf,
-        import::FSRImport,
-        list::FSRListFrontEnd,
-        module::FSRModuleFrontEnd,
-        return_def::FSRReturn,
-        slice::FSRGetter,
-        variable::FSRVariable,
-        while_statement::FSRWhile,
+        assign::FSRAssign, base::{FSRPosition, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType, FSROrinStr, FSROrinStr2}, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf, import::FSRImport, list::FSRListFrontEnd, module::FSRModuleFrontEnd, return_def::FSRReturn, slice::FSRGetter, try_expr::FSRTryBlock, variable::FSRVariable, while_statement::FSRWhile
     },
 };
 
@@ -115,6 +99,9 @@ pub enum BytecodeOperator {
     BinaryDiv = 35,
     BinaryClassGetter = 36,
     Getter = 37,
+    Try = 38,
+    EndTry = 39,
+    EndCatch = 40,
     Load = 1000,
 }
 
@@ -142,6 +129,7 @@ pub enum ArgType {
     ForLine(u64),
     StoreFastVar(u64, String),
     Import(Vec<String>),
+    TryCatch(u64, u64), // first u64 for catch start, second for catch end + 1
     None,
 }
 
@@ -695,6 +683,72 @@ impl<'a> Bytecode {
         (vs, ref_self)
     }
 
+    fn load_try_def(
+        try_def: &'a FSRTryBlock<'a>,
+        var_map: &'a mut VarMap<'a>,
+        const_map: &mut ConstTable,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        let mut vs = vec![];
+        let mut ref_self = var_map;
+        
+        for token in try_def.get_block().get_tokens() {
+            let lines = Self::load_token_with_map(token, ref_self, const_map);
+            ref_self = lines.1;
+            let lines = lines.0;
+            for line in lines {
+                vs.push(line);
+            }
+        }
+
+        vs.push(vec![
+            BytecodeArg {
+                operator: BytecodeOperator::EndTry,
+                arg: ArgType::None,
+            },
+        ]);
+
+        // vs.push(vec![
+        //     BytecodeArg {
+        //         operator: BytecodeOperator::CatchStart,
+        //         arg: ArgType::None,
+        //     },
+        // ]);
+
+        let catch_start = vs.len();
+        
+        for token in try_def.get_catch().body.get_tokens() {
+            let lines = Self::load_token_with_map(token, ref_self, const_map);
+            ref_self = lines.1;
+            let lines = lines.0;
+            for line in lines {
+                vs.push(line);
+            }
+        }
+        
+        // vs.push(
+        //     vec![BytecodeArg {
+        //         operator: BytecodeOperator::CatchEnd,
+        //         arg: ArgType::None,
+        //     }]
+        // );
+
+        vs.insert(0, vec![
+            BytecodeArg {
+                operator: BytecodeOperator::Try,
+                arg: ArgType::TryCatch(catch_start as u64 + 1, vs.len() as u64 + 2),
+            }
+        ]);
+
+        vs.push(vec![
+            BytecodeArg {
+                operator: BytecodeOperator::EndCatch,
+                arg: ArgType::None,
+            }
+        ]);
+
+        (vs, ref_self)
+    }
+
     fn load_if_def(
         if_def: &'a FSRIf<'a>,
         var_map: &'a mut VarMap<'a>,
@@ -997,7 +1051,11 @@ impl<'a> Bytecode {
         } else if let FSRToken::StackExpr(st) = token {
             let v = Self::load_stack_expr(st, var_map, const_map);
             return (vec![v.0], v.1);
-        } else if let FSRToken::EmptyExpr = token {
+        } else if let FSRToken::TryBlock(try_block) = token {
+            let v = Self::load_try_def(try_block, var_map, const_map);
+            return (v.0, v.1);
+        }
+        else if let FSRToken::EmptyExpr = token {
             return (
                 vec![],
                 var_map,
@@ -1324,6 +1382,21 @@ mod test {
     fn test_class_getter() {
         let expr = "
         Test::abc()
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_try_block() {
+        let expr = "
+        try {
+            println(1)
+        } catch {
+            println(2)
+        }
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

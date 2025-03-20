@@ -3,6 +3,7 @@ use std::fmt::Display;
 use crate::{frontend::ast::token::block::FSRBlock, utils::error::SyntaxError};
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 
+use super::try_expr::FSRTryBlock;
 use super::{
     assign::FSRAssign, call::FSRCall, class::FSRClassFrontEnd, constant::FSRConstant, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::{FSRIf, FSRIfState}, import::FSRImport, list::FSRListFrontEnd, return_def::FSRReturn, slice::FSRGetter, variable::FSRVariable, while_statement::FSRWhile
 };
@@ -28,6 +29,7 @@ pub enum FSRToken<'a> {
     List(FSRListFrontEnd<'a>),
     Class(FSRClassFrontEnd<'a>),
     Getter(FSRGetter<'a>),
+    TryBlock(FSRTryBlock<'a>),
     EmptyExpr,
     None,
 }
@@ -56,6 +58,7 @@ impl<'a> FSRToken<'a> {
             FSRToken::ForBlock(b) => b.get_meta(),
             FSRToken::Getter(fsrslice) => fsrslice.get_meta(),
             FSRToken::StackExpr(fsrexprs) => fsrexprs.1.first().unwrap().get_meta(),
+            FSRToken::TryBlock(fsrtry_block) => fsrtry_block.get_meta(),
         }
     }
 

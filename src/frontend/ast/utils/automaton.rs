@@ -18,7 +18,8 @@ pub enum NodeType {
     Else,
     Break,
     Continue,
-    Import
+    Import,
+    Try
 }
 
 #[allow(unused)]
@@ -64,6 +65,7 @@ impl FSTrie {
         self.insert("break", NodeType::Break);
         self.insert("continue", NodeType::Continue);
         self.insert("import", NodeType::Import);
+        self.insert("try", NodeType::Try);
     }
 
     pub fn new() -> FSTrie {

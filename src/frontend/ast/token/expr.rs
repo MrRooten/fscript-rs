@@ -313,7 +313,7 @@ impl<'a> FSRExpr<'a> {
                 let mut sub_meta = meta.from_offset(ctx.start);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
-                    "Not Close for Single Quote",
+                    "Not Close for Double Quote",
                     SyntaxErrType::QuoteNotClose,
                 );
                 return Err(err);
@@ -1161,5 +1161,12 @@ mod test {
         let v = "abc(";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
         println!("{:#?}", p);
+    }
+
+    #[test]
+    fn test_single_quote_string() {
+        let v = "println('ab, c')";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
     }
 }

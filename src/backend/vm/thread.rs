@@ -103,6 +103,8 @@ pub struct CallFrame<'a> {
     ret_val: Option<SValue<'a>>,
     pub(crate) exp: Option<Vec<SValue<'a>>>,
     pub(crate) module: Option<ObjId>,
+    catch_ends: Vec<(usize, usize)>,
+    pub(crate) handling_exception: Option<ObjId>
 }
 
 impl<'a> CallFrame<'a> {
@@ -172,6 +174,8 @@ impl<'a> CallFrame<'a> {
             ret_val: None,
             exp: None,
             module,
+            catch_ends: vec![],
+            handling_exception: None,
         }
     }
 }
@@ -271,9 +275,8 @@ pub struct ThreadContext<'a> {
     exp: Vec<SValue<'a>>,
     ip: (usize, usize),
     is_attr: bool,
-
-    #[allow(unused)]
     module: Option<ObjId>,
+    
 }
 
 impl<'a> ThreadContext<'a> {
@@ -304,6 +307,8 @@ pub struct FSRThreadRuntime<'a> {
     break_line: Vec<usize>,
     continue_line: Vec<usize>,
     for_iter_obj: Vec<ObjId>,
+    pub(crate) exception: Option<ObjId>,
+    
 }
 
 impl<'a> FSRThreadRuntime<'a> {
@@ -357,6 +362,7 @@ impl<'a> FSRThreadRuntime<'a> {
             break_line: vec![],
             continue_line: vec![],
             for_iter_obj: vec![],
+            exception: None,
         }
     }
 
@@ -1250,6 +1256,48 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    fn try_process(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let catch_line = match bytecode.get_arg() {
+            ArgType::TryCatch(start_catch, end_catch) => {
+                (*start_catch, *end_catch)
+            },
+            _ => {
+                return Err(FSRError::new(
+                    "not a try catch line",
+                    FSRErrCode::NotValidArgs,
+                ))
+            }
+        };
+
+        self.get_cur_mut_frame().catch_ends.push((context.ip.0 + catch_line.0 as usize, context.ip.0 + catch_line.1 as usize));
+        Ok(false)
+    }
+
+    fn try_end(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let end = self.get_cur_mut_frame().catch_ends.pop().unwrap();
+        context.ip = (end.1 as usize, 0);
+        Ok(true)
+    }
+
+    fn catch_end(
+        self: &mut FSRThreadRuntime<'a>,
+        context: &mut ThreadContext<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let state = self.get_cur_mut_frame();
+        //state.catch_ends.pop().unwrap();
+        state.handling_exception.take();
+        Ok(true)
+    }
+
     fn if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1939,6 +1987,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 Self::binary_get_cls_attr_process(self, context, bytecode, bc)
             }
             BytecodeOperator::Getter => Self::getter_process(self, context, bytecode, bc),
+            BytecodeOperator::Try => Self::try_process(self, context, bytecode),
+            BytecodeOperator::EndTry => Self::try_end(self, context, bytecode),
+            BytecodeOperator::EndCatch => Self::catch_end(self, context, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -2047,6 +2098,24 @@ impl<'a> FSRThreadRuntime<'a> {
                 println!("{}", t);
             }
 
+            if self.exception.is_some() {
+                if !self.get_cur_mut_frame().catch_ends.is_empty() {
+                    self.get_cur_mut_frame().handling_exception = self.exception.take();
+                    context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
+                    return Ok(true)
+                } else {
+                    if self.call_frames.len() == 1 {
+                        panic!("No handle of error")
+                    }
+                    self.pop_stack(&[]);
+                    let cur = self.get_cur_mut_frame();
+                    context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
+                    context.module = cur.module;
+                    context.call_end.pop();
+                    return Ok(true);
+                }
+            }
+
             match arg.get_operator() {
                 BytecodeOperator::Load => {
                     Self::load_var(&mut context.exp, arg, context.module);
@@ -2056,6 +2125,25 @@ impl<'a> FSRThreadRuntime<'a> {
                     if self.get_cur_frame().ret_val.is_some() {
                         return Ok(true);
                     }
+
+                    // if self.exception.is_some() {
+                    //     if !self.get_cur_mut_frame().catch_ends.is_empty() {
+                    //         self.get_cur_mut_frame().handling_exception = self.exception.take();
+                    //         context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
+                    //         return Ok(true)
+                    //     } else {
+                    //         if self.call_frames.len() == 1 {
+                    //             panic!("No handle of error")
+                    //         }
+                    //         self.pop_stack(&[]);
+                    //         let cur = self.get_cur_mut_frame();
+                    //         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
+                    //         context.module = cur.module;
+                    //         context.call_end.pop();
+                    //         return Ok(true);
+                    //     }
+                    // }
+
                     if v {
                         context.clear_exp(&self.thread_allocator);
                         return Ok(false);
@@ -2345,5 +2433,101 @@ mod test {
     #[test]
     fn test_svalue_size() {
         println!("svalue size: {}", std::mem::size_of::<super::SValue>());
+    }
+
+    #[test]
+    fn test_try_catch_success() {
+        let source_code = r#"
+        try {
+            a = 1 == 1
+        } catch {
+            println("catch")
+        }
+
+        println('ok')
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(base_module, vm);
+        runtime.start(base_module).unwrap();
+    }
+
+    #[test]
+    fn test_try_catch_failed() {
+        let source_code = r#"
+        try {
+            a = 1 == 1
+            throw_error(1)
+            println('if not error will print this text')
+        } catch {
+            e = get_error()
+            println(e)
+            println("catch")
+        }
+
+        println('ok')
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(base_module, vm);
+        runtime.start(base_module).unwrap();
+    }
+
+    #[test]
+    fn test_try_catch_failed2() {
+        let source_code = r#"
+        fn abc() {
+            throw_error(1)
+            println('in abc')
+        }
+        try {
+            a = 1 == 1
+            abc()
+            println('if not error will print')
+        } catch {
+            e = get_error()
+            println(e)
+            println("catch")
+        }
+
+        println('ok')
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(base_module, vm);
+        runtime.start(base_module).unwrap();
+    }
+
+    #[test]
+    fn test_try_catch_failed3() {
+        let source_code = r#"
+        fn abc() {
+            try {
+                throw_error(1)
+            } catch {
+            }
+            
+            println('in abc')
+        }
+        try {
+            a = 1 == 1
+            abc()
+            println('if not error will print')
+        } catch {
+            e = get_error()
+            println(e)
+            println("catch")
+        }
+
+        println('ok')
+        "#;
+        let v = FSRModule::from_code("main", source_code).unwrap();
+        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(base_module, vm);
+        runtime.start(base_module).unwrap();
     }
 }

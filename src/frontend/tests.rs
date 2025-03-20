@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod frontend_tests {
     use std::collections::HashMap;
@@ -6,15 +5,15 @@ mod frontend_tests {
 
     use crate::frontend::ast::parse::ASTParser;
     use crate::frontend::ast::token::base::FSRPosition;
+    use crate::frontend::ast::token::block::FSRBlock;
     use crate::frontend::ast::token::class::FSRClassFrontEnd;
     use crate::frontend::ast::token::for_statement::FSRFor;
-    use crate::frontend::ast::token::import::FSRImport;
-    use crate::frontend::ast::token::while_statement::FSRWhile;
     use crate::frontend::ast::token::function_def::FSRFnDef;
     use crate::frontend::ast::token::if_statement::FSRIf;
-    use crate::frontend::ast::token::{base::FSRToken, expr::FSRExpr};
-    use crate::frontend::ast::token::block::FSRBlock;
+    use crate::frontend::ast::token::import::FSRImport;
     use crate::frontend::ast::token::module::FSRModuleFrontEnd;
+    use crate::frontend::ast::token::while_statement::FSRWhile;
+    use crate::frontend::ast::token::{base::FSRToken, expr::FSRExpr};
     use crate::frontend::ast::utils::automaton::{FSTrie, NodeType};
 
     #[test]
@@ -24,9 +23,7 @@ mod frontend_tests {
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
 
         println!("{:#?}", expr);
-
     }
-
 
     #[test]
     fn test_expr_method() {
@@ -45,7 +42,6 @@ mod frontend_tests {
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
 
         println!("{:#?}", expr);
-
     }
 
     #[test]
@@ -55,12 +51,10 @@ mod frontend_tests {
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
         if let FSRToken::EmptyExpr = expr.0 {
             //let e: FSRExpr = e.try_into().unwrap();
-            
         } else {
             unimplemented!()
         }
     }
-
 
     #[test]
     fn test_obj_attr() {
@@ -112,7 +106,6 @@ mod frontend_tests {
         let b = FSRBlock::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.get_len(), s.len());
-        
     }
 
     #[test]
@@ -126,7 +119,6 @@ mod frontend_tests {
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.get_len(), s.len());
-
     }
 
     #[test]
@@ -138,8 +130,7 @@ mod frontend_tests {
 
     #[test]
     fn test_while() {
-        let s = 
-        "while abc==123 {
+        let s = "while abc==123 {
             a = print(123)
             if a > 3 {
                 continue
@@ -153,8 +144,7 @@ mod frontend_tests {
 
     #[test]
     fn test_if() {
-        let s = 
-        "if abc==123 {
+        let s = "if abc==123 {
             a = print(123)
             if abc {
                 print(123)
@@ -168,8 +158,7 @@ mod frontend_tests {
 
     #[test]
     fn test_function() {
-        let s = 
-        "fn abc(test) {
+        let s = "fn abc(test) {
             while a + b {
                 abc
             }
@@ -188,7 +177,7 @@ mod frontend_tests {
     fn test_comma() {
         let s = "('abc',123, dfds, (abc, 123))";
         let meta = FSRPosition::new();
-        let d = FSRExpr::parse(s.as_bytes(), false , meta).unwrap();
+        let d = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
         println!("{:#?}", d);
     }
 
@@ -204,7 +193,7 @@ mod frontend_tests {
     fn test_list() {
         let s = "a = [(1+1),2,3,4]";
         let meta = FSRPosition::new();
-        let s = FSRExpr::parse(s.as_bytes(), false,  meta).unwrap();
+        let s = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
         println!("{:#?}", s);
     }
 
@@ -212,7 +201,7 @@ mod frontend_tests {
     fn test_module_name() {
         let s = "path::test('adf')";
         let meta = FSRPosition::new();
-        let s = FSRExpr::parse(s.as_bytes(), false,  meta).unwrap();
+        let s = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
         println!("{:#?}", s);
     }
 
@@ -226,7 +215,7 @@ mod frontend_tests {
         }
         ";
         let meta = FSRPosition::new();
-        let s = FSRClassFrontEnd::parse(s.as_bytes(),  meta).unwrap();
+        let s = FSRClassFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", s);
     }
 
@@ -240,7 +229,7 @@ mod frontend_tests {
         }
         ";
         let meta = FSRPosition::new();
-        let s = FSRModuleFrontEnd::parse(s.as_bytes(),  meta).unwrap();
+        let s = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", s);
     }
 
@@ -259,7 +248,7 @@ mod frontend_tests {
         }
         ";
         let meta = FSRPosition::new();
-        let s = FSRFor::parse(s.as_bytes(),  meta).unwrap();
+        let s = FSRFor::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", s);
     }
 
@@ -267,7 +256,7 @@ mod frontend_tests {
     fn test_import() {
         let s = "import abc.def";
         let meta = FSRPosition::new();
-        let s = FSRImport::parse(s.as_bytes(),  meta).unwrap();
+        let s = FSRImport::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", s);
     }
 
@@ -289,8 +278,7 @@ mod frontend_tests {
 
     #[test]
     fn test_comment() {
-        let s = 
-        "
+        let s = "
 while i < b { # while test
     i = i + one
 } # test
@@ -308,5 +296,23 @@ while i < b { # while test
         let expr = FSRExpr::parse(s.as_bytes(), false, meta).unwrap();
 
         println!("{:#?}", expr);
+    }
+
+    #[test]
+    fn test_try_block() {
+        let s = r#"
+try {
+    e = 123
+    for i in [1,2,3] {
+    }
+} catch {
+    e = get_error()
+}
+"#;
+
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+        assert_eq!(s.len(), i.get_len())
     }
 }

@@ -201,7 +201,7 @@ impl ASTParser {
             return Ok(());
         }
 
-        if c == '\'' && (!states.is_empty() && states.peek().0.is_bracket()) {
+        if c == '\'' {
             states.push_state(SingleQuote, offset);
             return Ok(());
         }

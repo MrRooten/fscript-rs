@@ -1,11 +1,12 @@
 #![allow(unused)]
 
 use super::base::{FSRPosition, FSRToken};
-use super::r#else::FSRElse;
 use super::for_statement::FSRFor;
 use super::function_def::FSRFnDef;
 use super::if_statement::FSRIf;
+use super::r#else::FSRElse;
 use super::return_def::FSRReturn;
+use super::try_expr::FSRTryBlock;
 use super::while_statement::FSRWhile;
 use crate::frontend::ast::token::assign;
 use crate::frontend::ast::token::assign::FSRAssign;
@@ -108,10 +109,12 @@ impl<'a> FSRBlock<'a> {
                 continue;
             }
 
-
             if c == '}' && states.peek() == &BlockState::Start && !is_start {
-                return Err(SyntaxError::new_with_type(&meta.from_offset(start), "error", crate::utils::error::SyntaxErrType::None))
-                
+                return Err(SyntaxError::new_with_type(
+                    &meta.from_offset(start),
+                    "error",
+                    crate::utils::error::SyntaxErrType::None,
+                ));
             }
 
             if c == '{' && states.peek() == &BlockState::Start {
@@ -195,7 +198,6 @@ impl<'a> FSRBlock<'a> {
                 } else if t == &NodeType::Else {
                     let mut sub_meta = meta.from_offset(start);
                     let else_expr = FSRElse::parse(&source[start..], sub_meta)?;
-                    
                 } else if t == &NodeType::Break {
                     let mut sub_meta = meta.from_offset(start);
                     block.tokens.push(FSRToken::Break(sub_meta));
@@ -212,6 +214,18 @@ impl<'a> FSRBlock<'a> {
                     block.tokens.push(FSRToken::ForBlock(for_def));
                     start += length;
                     length = 0;
+                } else if t == &NodeType::Try {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + start;
+                    let try_def = FSRTryBlock::parse(&source[start..], sub_meta)?;
+                    length += try_def.get_len();
+                    block.tokens.push(FSRToken::TryBlock(try_def));
+                    start += length;
+                    length = 0;
+                } else {
+                    let sub_meta = meta.from_offset(start);
+                    let err = SyntaxError::new(&sub_meta, "invalid token");
+                    return Err(err);
                 }
             }
         }

@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRPosition, FSRToken}, block::FSRBlock, class::FSRClassFrontEnd, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf, import::FSRImport, return_def::FSRReturn, while_statement::FSRWhile
+    base::{FSRPosition, FSRToken}, block::FSRBlock, class::FSRClassFrontEnd, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf, import::FSRImport, return_def::FSRReturn, try_expr::FSRTryBlock, while_statement::FSRWhile
 };
 
 #[derive(PartialEq)]
@@ -210,6 +210,18 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 module.tokens.push(FSRToken::Import(import_def.0));
                 start += length;
                 length = 0;
+            } else if t == &NodeType::Try {
+                let mut sub_meta = meta.clone();
+                sub_meta.offset = meta.offset + start;
+                let try_def = FSRTryBlock::parse(&source[start..], sub_meta)?;
+                length += try_def.get_len();
+                module.tokens.push(FSRToken::TryBlock(try_def));
+                start += length;
+                length = 0;
+            } else {
+                let sub_meta = meta.from_offset(start);
+                let err = SyntaxError::new(&sub_meta, "invalid token");
+                return Err(err);
             }
         }
         module.len = start + length;

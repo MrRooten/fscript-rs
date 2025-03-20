@@ -145,6 +145,7 @@ impl<'a> FSRVM<'a> {
     fn init_global_object(&mut self) {
         self.global.insert("true".to_string(), self.get_true_id());
         self.global.insert("false".to_owned(), self.get_false_id());
+        self.global.insert("none".to_string(), self.get_none_id());
     }
 
     pub fn init(&mut self) {
