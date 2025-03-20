@@ -63,6 +63,7 @@ impl FSRInnerIterator {
         let mut cls = FSRClass::new("InnerIterator");
         let next = FSRFn::from_rust_fn_static(next_obj, "inner_iterator_next");
         cls.insert_attr("__next__", next);
+        //cls.insert_offset_attr(BinaryOffset, object);
         cls
     }
 

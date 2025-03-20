@@ -13,16 +13,7 @@ use crate::{
     backend::{
         memory::{gc::GarbageCollector, size_alloc::FSRObjectAllocator},
         types::{
-            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
-            bool::FSRBool,
-            class::FSRClass,
-            float::FSRFloat,
-            fn_def::FSRFn,
-            integer::FSRInteger,
-            iterator::FSRInnerIterator,
-            list::FSRList,
-            module::FSRModule,
-            string::FSRString,
+            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, error::FSRException, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, string::FSRString
         },
     },
     std::{io::init_io, utils::init_utils},
@@ -134,6 +125,10 @@ impl<'a> FSRVM<'a> {
                     FSRGlobalObjId::FloatCls as ObjId,
                     FSRValue::Class(Box::new(FSRFloat::get_class())),
                 ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::Exception as ObjId,
+                    FSRValue::Class(Box::new(FSRException::get_class())),
+                ));
             }
         }
     }
@@ -146,6 +141,7 @@ impl<'a> FSRVM<'a> {
         self.global.insert("true".to_string(), self.get_true_id());
         self.global.insert("false".to_owned(), self.get_false_id());
         self.global.insert("none".to_string(), self.get_none_id());
+        self.global.insert("Exception".to_string(), FSRGlobalObjId::Exception as ObjId);
     }
 
     pub fn init(&mut self) {

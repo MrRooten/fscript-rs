@@ -2,6 +2,7 @@
 use std::error::Error;
 use std::fmt::Display;
 
+use crate::backend::types::base::ObjId;
 use crate::backend::vm::thread::CallFrame;
 use crate::frontend::ast::token::base::FSRPosition;
 
@@ -67,7 +68,7 @@ impl Error for SyntaxError {
 
 pub struct RuntimeBaseError {}
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FSRErrCode {
     EmptyExpStack,
     NoSuchMethod,
@@ -75,21 +76,31 @@ pub enum FSRErrCode {
     OutOfRange,
     NotValidArgs,
     NotSupportOperator,
-    IndexOutOfRange
+    IndexOutOfRange,
+    RuntimeError,
 }
 
 #[derive(Debug)]
 pub struct FSRError {
-    code: FSRErrCode,
+    pub(crate) code: FSRErrCode,
+    pub(crate) exception: Option<ObjId>,
     msg: String,
 }
 
 impl FSRError {
-    pub fn new(msg: impl Into<String>, code: FSRErrCode) -> Self
-    {
+    pub fn new(msg: impl Into<String>, code: FSRErrCode) -> Self {
         Self {
             code,
             msg: msg.into(),
+            exception: None,
+        }
+    }
+
+    pub fn new_runtime_error(exception: ObjId) -> Self {
+        Self {
+            code: FSRErrCode::RuntimeError,
+            exception: Some(exception),
+            msg: "".to_string(),
         }
     }
 }
@@ -113,3 +124,4 @@ impl Display for FSRError {
         todo!()
     }
 }
+

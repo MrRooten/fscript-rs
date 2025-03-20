@@ -17,15 +17,7 @@ use crate::{
         compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
         memory::size_alloc::FSRObjectAllocator,
         types::{
-            base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
-            class::FSRClass,
-            class_inst::FSRClassInst,
-            float::FSRFloat,
-            fn_def::{FSRFn, FSRFnInner},
-            integer::FSRInteger,
-            list::FSRList,
-            module::FSRModule,
-            string::FSRString,
+            base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, error::FSRException, float::FSRFloat, fn_def::{FSRFn, FSRFnInner}, integer::FSRInteger, list::FSRList, module::FSRModule, string::FSRString
         },
     },
     frontend::ast::token::call,
@@ -1242,7 +1234,17 @@ impl<'a> FSRThreadRuntime<'a> {
             context.ip = (offset.0, 0);
             return Ok(true);
         } else {
-            let v = fn_obj.call(&args, self, context.module).unwrap();
+            let v = match fn_obj.call(&args, self, context.module) {
+                Ok(o) => o,
+                Err(e) => {
+                    if e.code == FSRErrCode::RuntimeError {
+                        self.exception = e.exception;
+                        return Ok(false)
+                    }
+
+                    panic!()
+                }
+            };
 
             if let FSRRetValue::Value(v) = v {
                 let id = FSRVM::leak_object(v);
@@ -1993,7 +1995,19 @@ impl<'a> FSRThreadRuntime<'a> {
             _ => {
                 panic!("not implement for {:#?}", op);
             }
-        }?;
+        };
+
+        let v = match v {
+            Ok(o) => o,
+            Err(e) => {
+                if e.code == FSRErrCode::RuntimeError {
+                    self.exception = e.exception;
+                    return Ok(false)
+                }
+
+                return Err(e)
+            },
+        };
 
         if v {
             return Ok(v);
@@ -2098,6 +2112,25 @@ impl<'a> FSRThreadRuntime<'a> {
                 println!("{}", t);
             }
 
+            
+
+            match arg.get_operator() {
+                BytecodeOperator::Load => {
+                    Self::load_var(&mut context.exp, arg, context.module);
+                }
+                _ => {
+                    v = self.process(context, arg, bc)?;
+                    if self.get_cur_frame().ret_val.is_some() {
+                        return Ok(true);
+                    }
+
+                    if v {
+                        context.clear_exp(&self.thread_allocator);
+                        return Ok(false);
+                    }
+                }
+            }
+
             if self.exception.is_some() {
                 if !self.get_cur_mut_frame().catch_ends.is_empty() {
                     self.get_cur_mut_frame().handling_exception = self.exception.take();
@@ -2113,41 +2146,6 @@ impl<'a> FSRThreadRuntime<'a> {
                     context.module = cur.module;
                     context.call_end.pop();
                     return Ok(true);
-                }
-            }
-
-            match arg.get_operator() {
-                BytecodeOperator::Load => {
-                    Self::load_var(&mut context.exp, arg, context.module);
-                }
-                _ => {
-                    v = self.process(context, arg, bc)?;
-                    if self.get_cur_frame().ret_val.is_some() {
-                        return Ok(true);
-                    }
-
-                    // if self.exception.is_some() {
-                    //     if !self.get_cur_mut_frame().catch_ends.is_empty() {
-                    //         self.get_cur_mut_frame().handling_exception = self.exception.take();
-                    //         context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
-                    //         return Ok(true)
-                    //     } else {
-                    //         if self.call_frames.len() == 1 {
-                    //             panic!("No handle of error")
-                    //         }
-                    //         self.pop_stack(&[]);
-                    //         let cur = self.get_cur_mut_frame();
-                    //         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
-                    //         context.module = cur.module;
-                    //         context.call_end.pop();
-                    //         return Ok(true);
-                    //     }
-                    // }
-
-                    if v {
-                        context.clear_exp(&self.thread_allocator);
-                        return Ok(false);
-                    }
                 }
             }
         }
@@ -2288,9 +2286,17 @@ impl<'a> FSRThreadRuntime<'a> {
         while let Some(expr) = fn_def.get_bytecode().get(&context.ip) {
             let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
 
+            if self.exception.is_some() {
+                // If this is last function call, in this call_fn
+                if context.call_end.is_empty() {
+                    return Err(FSRError::new_runtime_error(self.exception.unwrap()));
+                }
+            }
+
             if context.call_end.is_empty() {
                 break;
             }
+
             if v {
                 break;
             }
@@ -2529,5 +2535,10 @@ mod test {
         let mut vm = Arc::new(Mutex::new(FSRVM::new()));
         let mut runtime = FSRThreadRuntime::new(base_module, vm);
         runtime.start(base_module).unwrap();
+    }
+
+    #[test]
+    fn test_try() {
+        let code = "try { a = 1 + 1 }";
     }
 }

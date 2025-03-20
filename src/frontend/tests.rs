@@ -315,4 +315,12 @@ try {
         println!("{:#?}", i);
         assert_eq!(s.len(), i.get_len())
     }
+
+    #[test]
+    fn test_try_expr() {
+        let code = "try { a = 1 + 1 } catch {}";
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
 }
