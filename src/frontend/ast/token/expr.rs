@@ -148,6 +148,10 @@ impl<'a> Node<'a> {
     }
 
     pub fn get_op_level(op: &str) -> i32 {
+        if op.eq("..") {
+            return 0;
+        }
+
         if op.eq("-") || op.eq("+") {
             return 1;
         }
@@ -585,6 +589,9 @@ impl<'a> FSRExpr<'a> {
             let c = source[ctx.start + ctx.length] as char;
 
             if c.eq(&'.') {
+                if ctx.start + ctx.length + 1 < source.len() && source[ctx.start + ctx.length + 1] == b'.' { // like range 0..4
+                    break;
+                }
                 is_float = true;
                 ctx.length += 1;
                 continue;
@@ -758,7 +765,8 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c.is_ascii_digit() {
-                Self::number_process(source, ignore_nline, meta, ctx)?;
+                Self::number_process(source, ignore_nline, meta, ctx)?;  
+                
                 continue;
             }
 
@@ -1166,6 +1174,27 @@ mod test {
     #[test]
     fn test_single_quote_string() {
         let v = "println('ab, c')";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_range() {
+        let v = "0..4+3";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_getter_expr() {
+        let v = "a.abc.ddc[0]";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_call_expr() {
+        let v = "a.abc(0)";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }

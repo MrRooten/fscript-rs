@@ -13,7 +13,7 @@ use super::{
 type FSRRustFn = for<'a> fn(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError>;
 
 #[derive(Debug, Clone)]
@@ -128,13 +128,13 @@ impl<'a> FSRFn<'a> {
         &'a self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<ObjId>,
+        module: ObjId,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f.1(args, thread, module);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             thread.call_frames.push(thread.frame_free_list.new_frame(self.get_name(), module));
-            let v = FSRThreadRuntime::call_fn(thread, f, args, Some(self.module))?;
+            let v = FSRThreadRuntime::call_fn(thread, f, args, self.module)?;
             let v = match v {
                 crate::backend::vm::thread::SValue::Global(g) => g,
                 crate::backend::vm::thread::SValue::BoxObject(o) => {

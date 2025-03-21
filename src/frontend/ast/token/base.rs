@@ -5,7 +5,7 @@ use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 
 use super::try_expr::FSRTryBlock;
 use super::{
-    assign::FSRAssign, call::FSRCall, class::FSRClassFrontEnd, constant::FSRConstant, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::{FSRIf, FSRIfState}, import::FSRImport, list::FSRListFrontEnd, return_def::FSRReturn, slice::FSRGetter, variable::FSRVariable, while_statement::FSRWhile
+    assign::FSRAssign, call::FSRCall, class::FSRClassFrontEnd, constant::FSRConstant, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::{FSRIf}, import::FSRImport, list::FSRListFrontEnd, return_def::FSRReturn, slice::FSRGetter, variable::FSRVariable, while_statement::FSRWhile
 };
 
 #[derive(Debug, Clone)]
@@ -87,9 +87,7 @@ impl<'a> FSRToken<'a> {
     }
 }
 
-pub enum FSRTokenState {
-    If(FSRIfState),
-}
+
 
 pub trait FSRTokenMatcher {
     fn match_token() -> bool;

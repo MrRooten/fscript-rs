@@ -83,6 +83,15 @@ impl<'a> FSRClass<'a> {
         None
     }
 
+    pub fn try_get_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
+        match self.get_offset_attr(offset) {
+            Some(s) => Some(s),
+            None => {
+                self.get_attr(offset.alias_name())
+            }
+        }
+    }
+
     pub fn get_name(&self) -> &str {
         self.name
     }

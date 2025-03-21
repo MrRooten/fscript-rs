@@ -12,7 +12,7 @@ pub struct FSRList {
 fn list_len<'a>(
     args: &[ObjId],
     _: &mut FSRThreadRuntime<'a>,
-    _module: Option<ObjId>
+    _module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
@@ -31,7 +31,7 @@ fn list_len<'a>(
 fn list_string<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    _module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let mut s = String::new();
     s.push('[');
@@ -41,7 +41,7 @@ fn list_string<'a>(
         let size = l.get_items().len();
         for (count, id) in l.get_items().iter().enumerate() {
             let obj = FSRObject::id_to_obj(*id);
-            let s_obj = obj.to_string(thread);
+            let s_obj = obj.to_string(thread, module);
             if let FSRValue::String(_s) = &s_obj.value {
                 s.push_str(_s);
                 if count < size - 1 {
@@ -60,7 +60,7 @@ fn list_string<'a>(
 fn iter<'a>(
     args: &[ObjId],
     _: &mut FSRThreadRuntime<'a>,
-    __module: Option<ObjId>
+    __module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_id = args[0];
     let iterator = FSRInnerIterator {
@@ -74,7 +74,7 @@ fn iter<'a>(
 fn get_item<'a>(
     args: &[ObjId],
     _: &mut FSRThreadRuntime<'a>,
-    _module: Option<ObjId>
+    _module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError>  {
     let self_id = args[0];
     let index_id = args[1];

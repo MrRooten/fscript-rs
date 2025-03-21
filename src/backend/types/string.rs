@@ -20,7 +20,7 @@ pub struct FSRString {}
 fn string_len<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>,
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
@@ -39,7 +39,7 @@ fn string_len<'a>(
 fn add<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>,
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -73,7 +73,7 @@ fn add<'a>(
 fn eq<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>,
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -106,7 +106,7 @@ fn eq<'a>(
 fn get_sub_char<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>,
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let index = FSRObject::id_to_obj(args[1]);

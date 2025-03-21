@@ -231,9 +231,9 @@ impl ASTParser {
             len += 1;
 
             if c == '(' || c == '[' {
-                let sub_meta = meta.from_offset(len);
-                let b_len = Self::read_valid_bracket(&source[len..], sub_meta)?;
-                len += b_len;
+                let sub_meta = meta.from_offset(len-1);
+                let b_len = Self::read_valid_bracket(&source[len-1..], sub_meta)?;
+                len += b_len - 1;
                 continue;
             }
 
@@ -414,6 +414,8 @@ impl ASTParser {
             return "/"
         } else if op.eq("::") {
             return "::"
+        } else if op.eq("..") {
+            return ".."
         }
 
         println!("error: {}", op);

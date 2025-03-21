@@ -211,15 +211,14 @@ impl<'a> FSRIf<'a> {
     }
 }
 
-pub enum FSRIfState {
-    IfTestStart,
-    IfTestEnd,
-    IfBodyStart,
-    IfBodyEnd,
-}
+mod test {
+    #[test]
+    fn test1() {
+        let soruce = r#"if a < b.len() {
 
-impl ASTTokenInterface for FSRIf<'_> {
-    fn get_expect_states() -> Vec<ASTTokenEnum> {
-        unimplemented!()
+}"#;
+        let meta = super::FSRPosition::new();
+        let if_token = super::FSRIf::parse(soruce.as_bytes(), meta).unwrap();
+        assert_eq!(if_token.get_len(), soruce.len());
     }
 }

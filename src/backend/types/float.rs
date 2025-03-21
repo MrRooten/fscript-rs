@@ -16,7 +16,7 @@ pub struct FSRFloat {
 fn add<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let _ = thread;
     let _ = module;
@@ -37,7 +37,7 @@ fn add<'a>(
 fn sub<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let _ = module;
     let _ = thread;
@@ -58,7 +58,7 @@ fn sub<'a>(
 fn mul<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let _ = module;
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -78,7 +78,7 @@ fn mul<'a>(
 fn div<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let _ = module;
     let _ = thread;
@@ -101,7 +101,7 @@ fn div<'a>(
 fn greater<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let _ = thread;
     let _ = module;
@@ -125,7 +125,7 @@ fn greater<'a>(
 fn less<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let _ = module;
     let _ = thread;
@@ -149,7 +149,7 @@ fn less<'a>(
 fn greater_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let _ = module;
     let _ = thread;
@@ -173,7 +173,7 @@ fn greater_equal<'a>(
 fn less_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -195,7 +195,7 @@ fn less_equal<'a>(
 fn equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -217,7 +217,7 @@ fn equal<'a>(
 fn not_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);

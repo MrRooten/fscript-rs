@@ -23,7 +23,7 @@ impl<'a> FrameFreeList<'a> {
     }
 
     #[inline]
-    pub fn new_frame(&mut self, name: &'a str, module: Option<ObjId>) -> CallFrame<'a> {
+    pub fn new_frame(&mut self, name: &'a str, module: ObjId) -> CallFrame<'a> {
         if let Some(mut frame) = self.list.pop_front() {
             frame.clear();
             frame.module = module;

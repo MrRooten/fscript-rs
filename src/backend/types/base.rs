@@ -7,16 +7,20 @@ use std::{
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset, memory::size_alloc::FSRObjectAllocator, types::fn_def::FSRnE, vm::{
-            thread::FSRThreadRuntime, virtual_machine::{FSRVM, OBJECTS}
-        }
+        compiler::bytecode::BinaryOffset,
+        memory::size_alloc::FSRObjectAllocator,
+        types::fn_def::FSRnE,
+        vm::{
+            thread::{FSRThreadRuntime, ThreadContext},
+            virtual_machine::{FSRVM, OBJECTS},
+        },
     },
     utils::error::{FSRErrCode, FSRError},
 };
 
 use super::{
     class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator,
-    list::FSRList, module::FSRModule, string::FSRString,
+    list::FSRList, module::{self, FSRModule}, range::FSRRange, string::FSRString,
 };
 
 pub type ObjId = usize;
@@ -34,7 +38,8 @@ pub enum FSRGlobalObjId {
     ModuleCls = 9,
     BoolCls = 10,
     FloatCls = 11,
-    Exception = 12
+    Exception = 12,
+    RangeCls = 13
 }
 
 #[derive(Debug, Clone)]
@@ -49,6 +54,7 @@ pub enum FSRValue<'a> {
     List(Box<FSRList>),
     Iterator(FSRInnerIterator),
     Module(Box<FSRModule<'a>>),
+    Range(FSRRange),
     None,
 }
 
@@ -56,7 +62,6 @@ pub enum FSRValue<'a> {
 pub enum FSRRetValue<'a> {
     Value(Box<FSRObject<'a>>),
     GlobalId(ObjId),
-    GlobalIdTemp(ObjId),
 }
 
 impl<'a> FSRValue<'a> {
@@ -64,6 +69,7 @@ impl<'a> FSRValue<'a> {
         inst: &FSRClassInst,
         self_id: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
+        module: ObjId,
     ) -> Option<Cow<'a, str>> {
         let _ = inst;
         let vm = thread.get_vm();
@@ -75,7 +81,7 @@ impl<'a> FSRValue<'a> {
         let v = cls.get_attr("__str__");
         if let Some(obj_id) = v {
             let obj = FSRObject::id_to_obj(obj_id);
-            let ret = obj.call(&[self_id], thread, None);
+            let ret = obj.call(&[self_id], thread, module);
             let ret_value = match ret {
                 Ok(o) => o,
                 Err(_) => {
@@ -97,18 +103,18 @@ impl<'a> FSRValue<'a> {
         None
     }
 
-    fn to_string(&self, self_id: ObjId, thread: &mut FSRThreadRuntime<'a>) -> Option<Cow<str>> {
+    fn to_string(&self, self_id: ObjId, thread: &mut FSRThreadRuntime<'a>, module: ObjId) -> Option<Cow<str>> {
         let s = match self {
             FSRValue::Integer(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::Float(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::String(e) => Some(e.clone()),
             FSRValue::Class(_) => None,
-            FSRValue::ClassInst(inst) => Self::inst_to_string(inst, self_id, thread),
+            FSRValue::ClassInst(inst) => Self::inst_to_string(inst, self_id, thread, module),
             FSRValue::Function(_) => None,
             FSRValue::None => Some(Cow::Borrowed("None")),
             FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::List(_) => {
-                let res = FSRObject::invoke_method("__str__", &[self_id], thread, None).unwrap();
+                let res = FSRObject::invoke_method("__str__", &[self_id], thread, module).unwrap();
                 match res {
                     FSRRetValue::Value(v) => {
                         if let FSRValue::String(s) = v.value {
@@ -124,19 +130,14 @@ impl<'a> FSRValue<'a> {
 
                         return None;
                     }
-                    FSRRetValue::GlobalIdTemp(id) => {
-                        let obj = FSRObject::id_to_obj(id);
-                        if let FSRValue::String(s) = &obj.value {
-                            return Some(s.clone());
-                        }
-
-                        FSRObject::drop_object(id);
-                        return None;
-                    }
                 }
             }
             FSRValue::Iterator(_) => None,
             FSRValue::Module(fsrmodule) => Some(Cow::Owned(fsrmodule.as_string())),
+            FSRValue::Range(fsrrange) => Some(Cow::Owned(format!(
+                "Range({}..{})",
+                fsrrange.range.start, fsrrange.range.end
+            ))),
         };
 
         s
@@ -175,6 +176,7 @@ impl Debug for FSRObject<'_> {
                     .field("cls", &"None".to_string())
                     .finish();
             }
+            FSRValue::Range(fsrrange) => todo!(),
         };
         f.debug_struct("FSRObject")
             .field("value", &self.value)
@@ -334,15 +336,15 @@ impl<'a> FSRObject<'a> {
         None
     }
 
+    /*
+    Try get offset of cls, if not get alias name
+    like BinaryOffset::Add if not -> __add__
+     */
     #[inline]
     pub fn get_cls_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
-        // if let Some(btype) = FSRVM::get_base_cls(self.cls) {
-        //     return btype.get_offset_attr(offset);
-        // }
-
         let cls_obj = FSRObject::id_to_obj(self.cls);
         if let FSRValue::Class(cls) = &cls_obj.value {
-            return cls.get_offset_attr(offset);
+            return cls.try_get_offset_attr(offset);
         }
 
         None
@@ -432,7 +434,7 @@ impl<'a> FSRObject<'a> {
         name: &str,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<ObjId>,
+        module: ObjId,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         let self_method = match self_object.get_cls_attr(name) {
@@ -454,7 +456,7 @@ impl<'a> FSRObject<'a> {
         offset: BinaryOffset,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<ObjId>,
+        module: ObjId,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
 
@@ -514,7 +516,7 @@ impl<'a> FSRObject<'a> {
         &'a self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: Option<ObjId>,
+        module: ObjId,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, module);
@@ -526,8 +528,8 @@ impl<'a> FSRObject<'a> {
         self as *const Self as u64
     }
 
-    pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>) -> FSRObject<'a> {
-        let s = self.value.to_string(FSRObject::obj_to_id(self), thread);
+    pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>, module: ObjId) -> FSRObject<'a> {
+        let s = self.value.to_string(FSRObject::obj_to_id(self), thread, module);
         if let Some(s) = s {
             return FSRString::new_inst(s);
         }
@@ -607,10 +609,8 @@ impl<'a> FSRObject<'a> {
 
     pub fn iter_object(&self) -> impl Iterator<Item = &ObjId> {
         match &self.value {
-            FSRValue::ClassInst(inst) => {
-                inst.iter_values()
-            },
-            _ => unimplemented!()
+            FSRValue::ClassInst(inst) => inst.iter_values(),
+            _ => unimplemented!(),
         }
     }
 
@@ -619,21 +619,26 @@ impl<'a> FSRObject<'a> {
     }
 }
 
-
 mod test {
     use crate::backend::types::base::FSRValue;
 
     #[test]
     fn test_size_of_object() {
-        use std::mem::size_of;
         use crate::backend::types::base::FSRObject;
+        use std::mem::size_of;
         println!("Size of FSRObject: {}", size_of::<FSRObject>());
 
         println!("Size of FSRValue: {}", size_of::<FSRValue>());
 
-        println!("Size of FSRInnerIterator: {}", size_of::<crate::backend::types::iterator::FSRInnerIterator>());
+        println!(
+            "Size of FSRInnerIterator: {}",
+            size_of::<crate::backend::types::iterator::FSRInnerIterator>()
+        );
 
-        println!("Size of FSRList: {}", size_of::<crate::backend::types::list::FSRList>());
+        println!(
+            "Size of FSRList: {}",
+            size_of::<crate::backend::types::list::FSRList>()
+        );
     }
 }
 

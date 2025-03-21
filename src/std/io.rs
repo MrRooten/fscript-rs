@@ -16,10 +16,10 @@ use super::utils::{fsr_fn_assert, fsr_fn_export};
 pub fn fsr_fn_print<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
-    let obj = value.to_string(thread);
+    let obj = value.to_string(thread, module);
     if let FSRValue::String(s) = &obj.value {
         print!("{}", s);
     }
@@ -29,10 +29,10 @@ pub fn fsr_fn_print<'a>(
 pub fn fsr_fn_println<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
-    let obj = value.to_string(thread);
+    let obj = value.to_string(thread, module);
     if let FSRValue::String(s) = &obj.value {
         println!("{}", s);
     }
@@ -42,7 +42,7 @@ pub fn fsr_fn_println<'a>(
 pub fn fsr_fn_dump<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
@@ -52,7 +52,7 @@ pub fn fsr_fn_dump<'a>(
 pub fn fsr_fn_format<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     
     let value = FSRObject::id_to_obj(args[0]);
@@ -63,7 +63,7 @@ pub fn fsr_fn_format<'a>(
 pub fn fsr_fn_throw_error<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     if args.is_empty() || args[0] == 0 {
         thread.exception = None
@@ -76,7 +76,7 @@ pub fn fsr_fn_throw_error<'a>(
 pub fn fsr_fn_get_error<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let ret = thread.get_cur_mut_frame().handling_exception.unwrap_or(0);
     Ok(FSRRetValue::GlobalId(ret))

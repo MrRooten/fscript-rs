@@ -10,7 +10,7 @@ pub struct FSRException {
 fn kind<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -32,7 +32,7 @@ fn kind<'a>(
 fn message<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let message_object = FSRObject::id_to_obj(args[0]);
     let kind_object = FSRObject::id_to_obj(args[1]);
@@ -55,7 +55,7 @@ fn message<'a>(
 fn new<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     
     unimplemented!()

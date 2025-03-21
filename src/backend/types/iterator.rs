@@ -1,24 +1,25 @@
 use crate::{
-    backend::vm::thread::FSRThreadRuntime,
+    backend::{compiler::bytecode::BinaryOffset, vm::thread::FSRThreadRuntime},
     utils::error::{FSRErrCode, FSRError},
 };
 
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
-    fn_def::FSRFn, module::FSRModule,
+    fn_def::FSRFn,
+    module::FSRModule,
 };
 
 #[derive(Debug, Clone)]
 pub struct FSRInnerIterator {
     pub(crate) obj: ObjId,
-    pub(crate) index: usize
+    pub(crate) index: usize,
 }
 
 fn next_obj<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: Option<ObjId>
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_obj = args[0];
     let self_obj = FSRObject::id_to_mut_obj(self_obj);
@@ -26,17 +27,10 @@ fn next_obj<'a>(
     if let FSRValue::Iterator(it) = &mut self_obj.value {
         let from_obj = FSRObject::id_to_obj(it.obj);
         if let FSRValue::ClassInst(inst) = &from_obj.value {
-            // let vm = thread.get_vm();
-            // let cls = match vm.lock().unwrap().get_global_obj_by_name(inst.get_cls_name()) {
-            //     Some(s) => *s,
-            //     None => {
-            //         return Err(FSRError::new("Not such a cls", FSRErrCode::NoSuchObject));
-            //     }
-            // };
             let cls = from_obj.cls;
             let cls = FSRObject::id_to_obj(cls);
             let cls = cls.as_class();
-            let v = cls.get_attr("__index__");
+            let v = cls.get_offset_attr(BinaryOffset::Index);
             if let Some(obj_id) = v {
                 let obj = FSRObject::id_to_obj(obj_id);
                 let ret = obj.call(&[it.obj], thread, module);
@@ -48,6 +42,19 @@ fn next_obj<'a>(
                 Some(s) => FSRRetValue::GlobalId(*s),
                 None => FSRRetValue::GlobalId(0),
             });
+        } else if let FSRValue::Range(r) = &from_obj.value {
+            if it.index as i64 + r.range.start >= r.range.end {
+                return Ok(FSRRetValue::GlobalId(0));
+            }
+
+            let obj = thread.thread_allocator.new_object(
+                FSRValue::Integer((it.index as i64 + r.range.start) as i64),
+                FSRGlobalObjId::IntegerCls as ObjId,
+            );
+
+            it.index += 1;
+
+            return Ok(FSRRetValue::Value(obj))
         }
         it.index += 1;
     }
@@ -62,8 +69,9 @@ impl FSRInnerIterator {
     pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass::new("InnerIterator");
         let next = FSRFn::from_rust_fn_static(next_obj, "inner_iterator_next");
-        cls.insert_attr("__next__", next);
-        //cls.insert_offset_attr(BinaryOffset, object);
+
+        // cls.insert_attr("__next__", next);
+        cls.insert_offset_attr(BinaryOffset::NextObject, next);
         cls
     }
 

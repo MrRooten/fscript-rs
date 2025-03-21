@@ -10,7 +10,24 @@ use crate::{
         vm::virtual_machine::FSRVM,
     },
     frontend::ast::token::{
-        assign::FSRAssign, base::{FSRPosition, FSRToken}, block::FSRBlock, call::FSRCall, class::FSRClassFrontEnd, constant::{FSRConstant, FSRConstantType, FSROrinStr, FSROrinStr2}, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf, import::FSRImport, list::FSRListFrontEnd, module::FSRModuleFrontEnd, return_def::FSRReturn, slice::FSRGetter, try_expr::FSRTryBlock, variable::FSRVariable, while_statement::FSRWhile
+        assign::FSRAssign,
+        base::{FSRPosition, FSRToken},
+        block::FSRBlock,
+        call::FSRCall,
+        class::FSRClassFrontEnd,
+        constant::{FSRConstant, FSRConstantType, FSROrinStr, FSROrinStr2},
+        expr::FSRExpr,
+        for_statement::FSRFor,
+        function_def::FSRFnDef,
+        if_statement::FSRIf,
+        import::FSRImport,
+        list::FSRListFrontEnd,
+        module::FSRModuleFrontEnd,
+        return_def::FSRReturn,
+        slice::FSRGetter,
+        try_expr::FSRTryBlock,
+        variable::FSRVariable,
+        while_statement::FSRWhile,
     },
 };
 
@@ -25,10 +42,11 @@ pub enum BinaryOffset {
     LessEqual = 6,
     Equal = 7,
     NotEqual = 8,
-    NextObject,
-    GetItem,
-    SetItem,
-    Div,
+    NextObject = 9,
+    GetItem = 10,
+    SetItem = 11,
+    Div = 12,
+    Index = 13,
 }
 
 impl BinaryOffset {
@@ -48,6 +66,27 @@ impl BinaryOffset {
             BinaryOffset::GetItem => "__get__",
             BinaryOffset::SetItem => "__set__",
             BinaryOffset::Div => "__div__",
+            BinaryOffset::Index => "__index__",
+        }
+    }
+
+    pub fn from_alias_name(name: &str) -> Self {
+        match name {
+            "__add__" => BinaryOffset::Add,
+            "__sub__" => BinaryOffset::Sub,
+            "__mul__" => BinaryOffset::Mul,
+            "__gt__" => BinaryOffset::Greater,
+            "__gte__" => BinaryOffset::GreatEqual,
+            "__lt__" => BinaryOffset::Less,
+            "__lte__" => BinaryOffset::LessEqual,
+            "__eq__" => BinaryOffset::Equal,
+            "__neq__" => BinaryOffset::NotEqual,
+            "__next__" => BinaryOffset::NextObject,
+            "__get__" => BinaryOffset::GetItem,
+            "__set__" => BinaryOffset::SetItem,
+            "__div__" => BinaryOffset::Div,
+            "__index__" => BinaryOffset::Index,
+            _ => unimplemented!(),
         }
     }
 }
@@ -102,6 +141,13 @@ pub enum BytecodeOperator {
     Try = 38,
     EndTry = 39,
     EndCatch = 40,
+    BinaryRange = 41, // For -> operator
+    // Add ref for loop like
+    // for i in [1, 2, 3] {
+    //     
+    //}
+    // the [1, 2, 3] need to be ref
+    ForBlockRefAdd = 42, 
     Load = 1000,
 }
 
@@ -230,6 +276,11 @@ impl BytecodeOperator {
         } else if op.eq("/") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryDiv,
+                arg: ArgType::None,
+            });
+        } else if op.eq("..") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::BinaryRange,
                 arg: ArgType::None,
             });
         }
@@ -377,15 +428,39 @@ impl<'a> Bytecode {
 
         let name = getter.get_name();
         if !name.is_empty() {
-            if !var_map_ref.has_var(name) {
-                let v = name;
-                var_map_ref.insert_var(v);
+            if is_attr {
+                if !var_map_ref.has_attr(name) {
+                    let v = name;
+                    var_map_ref.insert_attr(v);
+                }
+                let id = var_map_ref.get_attr(name).unwrap();
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: ArgType::Attr(*id, name.to_string()),
+                });
+
+                if is_method_call {
+                    result.push(BytecodeArg {
+                        operator: BytecodeOperator::BinaryDot,
+                        arg: ArgType::None,
+                    });
+                } else {
+                    result.push(BytecodeArg {
+                        operator: BytecodeOperator::BinaryClassGetter,
+                        arg: ArgType::None,
+                    });
+                }
+            } else {
+                if !var_map_ref.has_var(name) {
+                    let v = name;
+                    var_map_ref.insert_var(v);
+                }
+                let id = var_map_ref.get_var(name).unwrap();
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: ArgType::Variable(*id, name.to_string()),
+                });
             }
-            let id = var_map_ref.get_var(name).unwrap();
-            result.push(BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: ArgType::Variable(*id, name.to_string()),
-            });
         }
 
         let mut v = Self::load_token_with_map(getter.get_getter(), var_map_ref, const_map);
@@ -521,7 +596,7 @@ impl<'a> Bytecode {
     fn load_stack_expr(
         var: &'a (Option<&'a str>, Vec<FSRToken<'a>>),
         var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable
+        const_map: &mut ConstTable,
     ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
         let mut result = Vec::new();
         let mut var_map_ref = var_map;
@@ -531,7 +606,7 @@ impl<'a> Bytecode {
             if v.0.is_empty() {
                 continue;
             }
-            
+
             result.append(&mut v.0[0]);
         }
 
@@ -567,6 +642,10 @@ impl<'a> Bytecode {
             var_map_ref = Some(v.1);
         } else if let FSRToken::StackExpr(st) = expr.get_left() {
             let mut v = Self::load_stack_expr(st, var_map_ref.unwrap(), const_map);
+            op_code.append(&mut v.0);
+            var_map_ref = Some(v.1);
+        } else if let FSRToken::List(list) = expr.get_left() {
+            let mut v = Self::load_list(list, var_map_ref.unwrap(), const_map);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else {
@@ -608,9 +687,23 @@ impl<'a> Bytecode {
                 return (op_code, var_map_ref.unwrap());
             }
         } else if let FSRToken::Getter(s) = expr.get_right() {
-            let mut v = Self::load_list_getter(s, var_map_ref.unwrap(), false, false, const_map);
+            let mut is_attr = false;
+            let mut is_method_call = true;
+            if expr.get_op().eq(".") || expr.get_op().eq("::") {
+                is_attr = true;
+            }
+
+            if expr.get_op().eq("::") {
+                is_method_call = false;
+            }
+            let mut v = Self::load_list_getter(s, var_map_ref.unwrap(), is_attr, is_method_call, const_map);
             second.append(&mut v.0);
+            op_code.append(&mut second);
             var_map_ref = Some(v.1);
+            //call special process
+            if expr.get_op().eq(".") || expr.get_op().eq("::") {
+                return (op_code, var_map_ref.unwrap());
+            }
         } else if let FSRToken::Constant(c) = expr.get_right() {
             let mut v = Self::load_constant(c, var_map_ref.unwrap(), const_map);
             second.append(&mut v.0);
@@ -618,6 +711,10 @@ impl<'a> Bytecode {
         } else if let FSRToken::StackExpr(st) = expr.get_right() {
             let mut v = Self::load_stack_expr(st, var_map_ref.unwrap(), const_map);
             second.append(&mut v.0);
+            var_map_ref = Some(v.1);
+        } else if let FSRToken::List(list) = expr.get_left() {
+            let mut v = Self::load_list(list, var_map_ref.unwrap(), const_map);
+            op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
         } else {
             println!("{:#?}", expr.get_right());
@@ -690,7 +787,7 @@ impl<'a> Bytecode {
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
         let mut vs = vec![];
         let mut ref_self = var_map;
-        
+
         for token in try_def.get_block().get_tokens() {
             let lines = Self::load_token_with_map(token, ref_self, const_map);
             ref_self = lines.1;
@@ -700,12 +797,10 @@ impl<'a> Bytecode {
             }
         }
 
-        vs.push(vec![
-            BytecodeArg {
-                operator: BytecodeOperator::EndTry,
-                arg: ArgType::None,
-            },
-        ]);
+        vs.push(vec![BytecodeArg {
+            operator: BytecodeOperator::EndTry,
+            arg: ArgType::None,
+        }]);
 
         // vs.push(vec![
         //     BytecodeArg {
@@ -715,7 +810,7 @@ impl<'a> Bytecode {
         // ]);
 
         let catch_start = vs.len();
-        
+
         for token in try_def.get_catch().body.get_tokens() {
             let lines = Self::load_token_with_map(token, ref_self, const_map);
             ref_self = lines.1;
@@ -724,7 +819,7 @@ impl<'a> Bytecode {
                 vs.push(line);
             }
         }
-        
+
         // vs.push(
         //     vec![BytecodeArg {
         //         operator: BytecodeOperator::CatchEnd,
@@ -732,19 +827,18 @@ impl<'a> Bytecode {
         //     }]
         // );
 
-        vs.insert(0, vec![
-            BytecodeArg {
+        vs.insert(
+            0,
+            vec![BytecodeArg {
                 operator: BytecodeOperator::Try,
                 arg: ArgType::TryCatch(catch_start as u64 + 1, vs.len() as u64 + 2),
-            }
-        ]);
+            }],
+        );
 
-        vs.push(vec![
-            BytecodeArg {
-                operator: BytecodeOperator::EndCatch,
-                arg: ArgType::None,
-            }
-        ]);
+        vs.push(vec![BytecodeArg {
+            operator: BytecodeOperator::EndCatch,
+            arg: ArgType::None,
+        }]);
 
         (vs, ref_self)
     }
@@ -840,6 +934,10 @@ impl<'a> Bytecode {
         }
         let id = var_self.get_attr("__iter__").unwrap();
         t.push(BytecodeArg {
+            operator: BytecodeOperator::ForBlockRefAdd,
+            arg: ArgType::None,
+        });
+        t.push(BytecodeArg {
             operator: BytecodeOperator::Load,
             arg: ArgType::Attr(*id, "__iter__".to_string()),
         });
@@ -860,30 +958,30 @@ impl<'a> Bytecode {
         result.push(t);
 
         let mut load_next = Vec::new();
-        if !var_self.has_attr("__next__") {
-            var_self.insert_attr("__next__");
-        }
-        let id = var_self.get_attr("__next__").unwrap();
+        // if !var_self.has_attr("__next__") {
+        //     var_self.insert_attr("__next__");
+        // }
+        // let id = var_self.get_attr("__next__").unwrap();
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::SpecialLoadFor,
             arg: ArgType::None,
         });
-        load_next.push(BytecodeArg {
-            operator: BytecodeOperator::Load,
-            arg: ArgType::Attr(*id, "__next__".to_string()),
-        });
-        load_next.push(BytecodeArg {
-            operator: BytecodeOperator::BinaryDot,
-            arg: ArgType::None,
-        });
-        load_next.push(BytecodeArg {
-            operator: BytecodeOperator::Call,
-            arg: ArgType::CallArgsNumber(0),
-        });
-        load_next.push(BytecodeArg {
-            operator: BytecodeOperator::PushForNext,
-            arg: ArgType::None,
-        });
+        // load_next.push(BytecodeArg {
+        //     operator: BytecodeOperator::Load,
+        //     arg: ArgType::Attr(*id, "__next__".to_string()),
+        // });
+        // load_next.push(BytecodeArg {
+        //     operator: BytecodeOperator::BinaryDot,
+        //     arg: ArgType::None,
+        // });
+        // load_next.push(BytecodeArg {
+        //     operator: BytecodeOperator::Call,
+        //     arg: ArgType::CallArgsNumber(0),
+        // });
+        // load_next.push(BytecodeArg {
+        //     operator: BytecodeOperator::PushForNext,
+        //     arg: ArgType::None,
+        // });
         if !var_self.has_var(for_def.get_var_name()) {
             var_self.insert_var(for_def.get_var_name());
         }
@@ -1054,12 +1152,8 @@ impl<'a> Bytecode {
         } else if let FSRToken::TryBlock(try_block) = token {
             let v = Self::load_try_def(try_block, var_map, const_map);
             return (v.0, v.1);
-        }
-        else if let FSRToken::EmptyExpr = token {
-            return (
-                vec![],
-                var_map,
-            );
+        } else if let FSRToken::EmptyExpr = token {
+            return (vec![], var_map);
         }
 
         unimplemented!()
@@ -1369,8 +1463,18 @@ mod test {
     #[test]
     fn test_stack_expr() {
         let expr = "
-        a = [1, 2, 3]
-        println(a[0])
+a.abc[0]
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_method_call() {
+        let expr = "
+a.abc(0)
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
