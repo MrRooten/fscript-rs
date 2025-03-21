@@ -2746,5 +2746,6 @@ mod test {
     fn size_of_object() {
         println!("size of object: {}", std::mem::size_of::<FSRObject>());
         println!("size of svalue: {}", std::mem::size_of::<super::SValue>());
+        println!("size of fvalue: {}", std::mem::size_of::<super::FSRValue>());
     }
 }

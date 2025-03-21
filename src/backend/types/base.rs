@@ -19,8 +19,14 @@ use crate::{
 };
 
 use super::{
-    class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator,
-    list::FSRList, module::{self, FSRModule}, range::FSRRange, string::FSRString,
+    class::FSRClass,
+    class_inst::FSRClassInst,
+    fn_def::FSRFn,
+    iterator::FSRInnerIterator,
+    list::FSRList,
+    module::{self, FSRModule},
+    range::FSRRange,
+    string::FSRString,
 };
 
 pub type ObjId = usize;
@@ -39,7 +45,7 @@ pub enum FSRGlobalObjId {
     BoolCls = 10,
     FloatCls = 11,
     Exception = 12,
-    RangeCls = 13
+    RangeCls = 13,
 }
 
 #[derive(Debug, Clone)]
@@ -103,7 +109,12 @@ impl<'a> FSRValue<'a> {
         None
     }
 
-    fn to_string(&self, self_id: ObjId, thread: &mut FSRThreadRuntime<'a>, module: ObjId) -> Option<Cow<str>> {
+    fn to_string(
+        &self,
+        self_id: ObjId,
+        thread: &mut FSRThreadRuntime<'a>,
+        module: ObjId,
+    ) -> Option<Cow<str>> {
         let s = match self {
             FSRValue::Integer(e) => Some(Cow::Owned(e.to_string())),
             FSRValue::Float(e) => Some(Cow::Owned(e.to_string())),
@@ -535,7 +546,9 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>, module: ObjId) -> FSRObject<'a> {
-        let s = self.value.to_string(FSRObject::obj_to_id(self), thread, module);
+        let s = self
+            .value
+            .to_string(FSRObject::obj_to_id(self), thread, module);
         if let Some(s) = s {
             return FSRString::new_inst(s);
         }

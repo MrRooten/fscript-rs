@@ -31,8 +31,8 @@ impl<'a> FSRObjectAllocator<'a> {
             s.value = value;
             return s;
         }
-        let obj = FSRObject::new_inst(value, cls);
-        Box::new(obj)
+        
+        Box::new(FSRObject::new_inst(value, cls))
     }
 
     #[inline(always)]
