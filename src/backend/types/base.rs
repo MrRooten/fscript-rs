@@ -231,6 +231,12 @@ impl Default for FSRObject<'_> {
     }
 }
 
+macro_rules! is_sp_object {
+    ($id:expr) => {
+        $id < 1000
+    };
+}
+
 impl<'a> FSRObject<'a> {
     pub fn new_inst(value: FSRValue<'a>, cls: ObjId) -> FSRObject<'a> {
         FSRObject {

@@ -192,20 +192,20 @@ pub struct AttrArgs<'a> {
 }
 
 impl<'a> AttrArgs<'a> {
-    pub fn new(father: ObjId, attr: ObjId, name: &'a str, call_method: bool) -> Self {
-        Self {
+    pub fn new(father: ObjId, attr: ObjId, name: &'a str, call_method: bool) -> Box<Self> {
+        Box::new(Self {
             father,
             attr,
             name,
             call_method,
-        }
+        })
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum SValue<'a> {
     Stack((u64, &'a String)),
-    Attr(AttrArgs<'a>), // father, attr, name, call_method
+    Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
     Global(ObjId),
     #[allow(dead_code)]
     BoxObject(Box<FSRObject<'a>>),
@@ -1589,22 +1589,22 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
-    fn push_for_next(
-        self: &mut FSRThreadRuntime<'a>,
-        context: &mut ThreadContext<'a>,
-        _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
-    ) -> Result<bool, FSRError> {
-        let id = context.exp.last().unwrap().get_global_id(self)?;
-        if id == 0 {
-            let break_line = self.break_line.pop().unwrap();
-            self.continue_line.pop();
-            context.ip = (break_line, 0);
-            return Ok(true);
-        }
-        Ok(false)
-    }
+    // #[inline(always)]
+    // fn push_for_next(
+    //     self: &mut FSRThreadRuntime<'a>,
+    //     context: &mut ThreadContext<'a>,
+    //     _bytecode: &BytecodeArg,
+    //     _: &'a Bytecode,
+    // ) -> Result<bool, FSRError> {
+    //     let id = context.exp.last().unwrap().get_global_id(self)?;
+    //     if id == 0 {
+    //         let break_line = self.break_line.pop().unwrap();
+    //         self.continue_line.pop();
+    //         context.ip = (break_line, 0);
+    //         return Ok(true);
+    //     }
+    //     Ok(false)
+    // }
 
     #[inline(always)]
     fn while_test_process(
@@ -2067,6 +2067,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+
     fn empty_process(
         self: &mut FSRThreadRuntime<'a>,
         _context: &mut ThreadContext<'a>,
@@ -2111,7 +2112,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Break => Self::break_process(self, context, bytecode, bc),
             BytecodeOperator::Continue => Self::continue_process(self, context, bytecode, bc),
             BytecodeOperator::LoadForIter => Self::load_for_iter(self, context, bytecode, bc),
-            BytecodeOperator::PushForNext => Self::push_for_next(self, context, bytecode, bc),
+            // BytecodeOperator::PushForNext => Self::push_for_next(self, context, bytecode, bc),
             BytecodeOperator::ForBlockEnd => Self::for_block_end(self, context, bytecode, bc),
             BytecodeOperator::SpecialLoadFor => Self::special_load_for(self, context, bytecode, bc),
             BytecodeOperator::AndJump => Self::process_logic_and(self, context, bytecode, bc),
@@ -2203,7 +2204,10 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    fn restore_exp_stack(&mut self, exp_stack: &mut Vec<SValue<'a>>) {
+    fn restore_exp_stack(&mut self, exp_stack: &mut Vec<SValue<'a>>) {}
+
+    #[inline(always)]
+    fn set_exp_stack_ret(&mut self, exp_stack: &mut Vec<SValue<'a>>) {
         let state = self.get_cur_mut_frame();
         if state.exp.is_some() {
             if let Some(mut s) = state.exp.take() {
@@ -2211,13 +2215,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 *exp_stack = s;
             }
         }
-    }
 
-    #[inline(always)]
-    fn set_exp_stack_ret(&mut self, exp_stack: &mut Vec<SValue<'a>>) {
-        Self::restore_exp_stack(self, exp_stack);
-
-        let state = self.get_cur_mut_frame();
         // if take a none value, it seems a little slow, so check it first
         if state.ret_val.is_none() {
             return;
@@ -2303,10 +2301,8 @@ impl<'a> FSRThreadRuntime<'a> {
             call_end: vec![()],
         };
 
-        self.call_frames.push(
-            self.frame_free_list
-                .new_frame("load_module", module_id),
-        );
+        self.call_frames
+            .push(self.frame_free_list.new_frame("load_module", module_id));
 
         let module = FSRObject::id_to_obj(module_id).as_module();
         while let Some(expr) = module.get_expr(&context.ip) {
@@ -2743,5 +2739,11 @@ mod test {
         let mut vm = Arc::new(Mutex::new(FSRVM::new()));
         let mut runtime = FSRThreadRuntime::new(base_module, vm);
         runtime.start(base_module).unwrap();
+    }
+
+    #[test]
+    fn size_of_object() {
+        println!("size of object: {}", std::mem::size_of::<FSRObject>());
+        println!("size of svalue: {}", std::mem::size_of::<super::SValue>());
     }
 }

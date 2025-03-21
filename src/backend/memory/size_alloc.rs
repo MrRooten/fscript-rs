@@ -24,7 +24,7 @@ impl<'a> FSRObjectAllocator<'a> {
     }
 
     pub fn new_object(&self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
-        self.allocator_count.fetch_add(1, Ordering::Relaxed);
+        // self.allocator_count.fetch_add(1, Ordering::Relaxed);
         if let Some(mut s) = self.object_bins.borrow_mut().pop_front() {
             s.cls = cls;
             s.value = value;

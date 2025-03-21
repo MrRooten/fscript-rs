@@ -72,23 +72,19 @@ impl<'a> FSRClass<'a> {
 
     #[inline]
     pub fn get_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
-        if let Some(s) = self.offset_attrs.get(offset as usize) {
-            if s == &0 {
-                return None;
-            }
-
-            return Some(*s);
+        let s = unsafe { self.offset_attrs.get_unchecked(offset as usize) };
+        if s == &0 {
+            return None;
         }
 
-        None
+        return Some(*s);
     }
 
+    #[inline(always)]
     pub fn try_get_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
         match self.get_offset_attr(offset) {
             Some(s) => Some(s),
-            None => {
-                self.get_attr(offset.alias_name())
-            }
+            None => self.get_attr(offset.alias_name()),
         }
     }
 
