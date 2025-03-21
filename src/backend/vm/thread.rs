@@ -245,6 +245,7 @@ impl<'a> SValue<'a> {
         })
     }
 
+    #[inline(always)]
     pub fn drop_box(self, allocator: &FSRObjectAllocator<'a>) {
         match self {
             Self::BoxObject(obj) => {
