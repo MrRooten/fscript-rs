@@ -144,10 +144,10 @@ pub enum BytecodeOperator {
     BinaryRange = 41, // For -> operator
     // Add ref for loop like
     // for i in [1, 2, 3] {
-    //     
+    //
     //}
     // the [1, 2, 3] need to be ref
-    ForBlockRefAdd = 42, 
+    ForBlockRefAdd = 42,
     Load = 1000,
 }
 
@@ -156,9 +156,9 @@ pub enum ArgType {
     Variable((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
-    ConstString(u64, String),
-    ConstInteger(u64, i64),
-    ConstFloat(u64, f64),
+    ConstString(u64, ObjId),
+    ConstInteger(u64, ObjId),
+    ConstFloat(u64, ObjId),
     Attr(u64, String),
     BinaryOperator(BinaryOffset),
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
@@ -314,12 +314,21 @@ impl ConstTable {
         }
     }
 
-    pub fn insert(&mut self, c_id: usize, obj_id: ObjId) {
+    pub fn insert_table(&mut self, c_id: usize, obj_id: ObjId) {
         if c_id + 1 > self.table.len() {
             self.table.resize(c_id + 1, 0);
         }
 
         self.table[c_id] = obj_id;
+    }
+
+    pub fn get_from_table(&self, c_id: usize) -> Option<ObjId> {
+        let v = self.table.get(c_id).cloned();
+        match v {
+            Some(0) => None,
+            Some(v) => Some(v),
+            None => None,
+        }
     }
 }
 
@@ -696,7 +705,8 @@ impl<'a> Bytecode {
             if expr.get_op().eq("::") {
                 is_method_call = false;
             }
-            let mut v = Self::load_list_getter(s, var_map_ref.unwrap(), is_attr, is_method_call, const_map);
+            let mut v =
+                Self::load_list_getter(s, var_map_ref.unwrap(), is_attr, is_method_call, const_map);
             second.append(&mut v.0);
             op_code.append(&mut second);
             var_map_ref = Some(v.1);
@@ -1211,35 +1221,52 @@ impl<'a> Bytecode {
             } else {
                 *i
             };
-            let obj = FSRInteger::new_inst(i);
-            obj.ref_add();
-            obj.set_not_delete();
-            let ptr = FSRVM::leak_object(Box::new(obj));
-            const_map.insert(id as usize, ptr);
+            let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
+                obj
+            } else {
+                let obj = FSRInteger::new_inst(i);
+                obj.ref_add();
+                obj.set_not_delete();
+                let ptr = FSRVM::leak_object(Box::new(obj));
+                const_map.insert_table(id as usize, ptr);
+                ptr
+            };
 
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstInteger(id, i),
+                arg: ArgType::ConstInteger(id, ptr),
             });
         } else if let FSRConstantType::String(s) = token.get_constant() {
-            let obj = FSRString::new_inst(Cow::Owned(String::from_utf8_lossy(s).to_string()));
-            obj.ref_add();
-            obj.set_not_delete();
-            let ptr = FSRVM::leak_object(Box::new(obj));
-            const_map.insert(id as usize, ptr);
+            let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
+                obj
+            } else {
+                let obj = FSRString::new_inst(Cow::Owned(String::from_utf8_lossy(s).to_string()));
+                obj.ref_add();
+                obj.set_not_delete();
+                let ptr = FSRVM::leak_object(Box::new(obj));
+                const_map.insert_table(id as usize, ptr);
+                ptr
+            };
+
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstString(id, String::from_utf8_lossy(s).to_string()),
+                arg: ArgType::ConstString(id, ptr),
             });
         } else if let FSRConstantType::Float(f) = token.get_constant() {
-            let obj = FSRFloat::new_inst(*f);
-            obj.ref_add();
-            obj.set_not_delete();
-            let ptr = FSRVM::leak_object(Box::new(obj));
-            const_map.insert(id as usize, ptr);
+            let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
+                obj
+            } else {
+                let obj = FSRFloat::new_inst(*f);
+                obj.ref_add();
+                obj.set_not_delete();
+                let ptr = FSRVM::leak_object(Box::new(obj));
+                const_map.insert_table(id as usize, ptr);
+                ptr
+            };
+
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstFloat(id, *f),
+                arg: ArgType::ConstFloat(id, ptr),
             });
         }
 

@@ -2166,44 +2166,47 @@ impl<'a> FSRThreadRuntime<'a> {
     fn load_var(exp_stack: &mut Vec<SValue<'a>>, arg: &'a BytecodeArg, module: ObjId) {
         if let ArgType::Variable(var) = arg.get_arg() {
             exp_stack.push(SValue::Stack(var));
-        } else if let ArgType::ConstInteger(c_id, i) = arg.get_arg() {
+        } else if let ArgType::ConstInteger(_, obj) = arg.get_arg() {
             //let int_const = Self::load_integer_const(i, vm);
-            let m = module;
-            let obj = FSRObject::id_to_obj(m);
-            let m = obj.as_module();
-            if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
-                if id != &0 {
-                    exp_stack.push(SValue::Global(*id));
-                    return;
-                }
-            } else {
-                panic!("not found integer const")
-            }
-        } else if let ArgType::ConstFloat(c_id, f) = arg.get_arg() {
+            exp_stack.push(SValue::Global(*obj));
+            // let m = module;
+            // let obj = FSRObject::id_to_obj(m);
+            // let m = obj.as_module();
+            // if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
+            //     if id != &0 {
+            //         exp_stack.push(SValue::Global(*id));
+            //         return;
+            //     }
+            // } else {
+            //     panic!("not found integer const")
+            // }
+        } else if let ArgType::ConstFloat(_, obj) = arg.get_arg() {
+            exp_stack.push(SValue::Global(*obj));
             //let float_const = Self::load_float_const(f, vm);
-            let m = module;
-            let m = FSRObject::id_to_obj(m).as_module();
-            if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
-                if id != &0 {
-                    exp_stack.push(SValue::Global(*id));
-                    return;
-                }
-            } else {
-                panic!("not found float const")
-            }
-        } else if let ArgType::ConstString(c_id, i) = arg.get_arg() {
+            // let m = module;
+            // let m = FSRObject::id_to_obj(m).as_module();
+            // if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
+            //     if id != &0 {
+            //         exp_stack.push(SValue::Global(*id));
+            //         return;
+            //     }
+            // } else {
+            //     panic!("not found float const")
+            // }
+        } else if let ArgType::ConstString(_, obj) = arg.get_arg() {
+            exp_stack.push(SValue::Global(*obj));
             // let string_const = Self::load_string_const(i.clone(), vm);
             // s.insert_const(id, string_const);
-            let m = module;
-            let m = FSRObject::id_to_obj(m).as_module();
-            if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
-                if id != &0 {
-                    exp_stack.push(SValue::Global(*id));
-                    return;
-                }
-            } else {
-                panic!("not found str const")
-            }
+            // let m = module;
+            // let m = FSRObject::id_to_obj(m).as_module();
+            // if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
+            //     if id != &0 {
+            //         exp_stack.push(SValue::Global(*id));
+            //         return;
+            //     }
+            // } else {
+            //     panic!("not found str const")
+            // }
         } else if let ArgType::Attr(_, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr(AttrArgs::new(0, 0, name, true)));
         }

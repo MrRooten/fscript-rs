@@ -41,4 +41,4 @@ println(a.abc.ddc)
 
 Abc::not_self()
 
-println(Abc::__str__(a))
+println(a)
