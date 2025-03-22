@@ -143,6 +143,9 @@ pub fn fsr_fn_type<'a>(
         FSRValue::Range(fsrrange) => Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
             Cow::Borrowed("Range"),
         )))),
+        FSRValue::Any(any) => Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Cow::Borrowed("Any"),
+        )))),
     }
 }
 

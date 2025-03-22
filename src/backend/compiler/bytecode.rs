@@ -153,7 +153,7 @@ pub enum BytecodeOperator {
 
 #[derive(Debug)]
 pub enum ArgType {
-    Variable(u64, String),
+    Variable((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
     ConstString(u64, String),
@@ -458,7 +458,7 @@ impl<'a> Bytecode {
                 let id = var_map_ref.get_var(name).unwrap();
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: ArgType::Variable(*id, name.to_string()),
+                    arg: ArgType::Variable((*id, name.to_string())),
                 });
             }
         }
@@ -517,7 +517,7 @@ impl<'a> Bytecode {
                 let id = var_map_ref.get_var(name).unwrap();
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: ArgType::Variable(*id, name.to_string()),
+                    arg: ArgType::Variable((*id, name.to_string())),
                 });
             }
         }
@@ -558,7 +558,7 @@ impl<'a> Bytecode {
             },
             false => BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
+                arg: ArgType::Variable((*arg_id, var.get_name().to_string())),
             },
         };
         let mut ans = vec![op_arg];
@@ -585,7 +585,7 @@ impl<'a> Bytecode {
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::AssignArgs,
-            arg: ArgType::Variable(*arg_id, var.get_name().to_string()),
+            arg: ArgType::Variable((*arg_id, var.get_name().to_string())),
         };
 
         let ans = vec![op_arg];
@@ -989,7 +989,7 @@ impl<'a> Bytecode {
         let arg_id = var_self.get_var(for_def.get_var_name()).unwrap();
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable(*arg_id, for_def.get_var_name().to_string()),
+            arg: ArgType::Variable((*arg_id, for_def.get_var_name().to_string())),
         });
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::Assign,
@@ -1172,7 +1172,7 @@ impl<'a> Bytecode {
             let id = right.1.get_var(v.get_name()).unwrap();
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Assign,
-                arg: ArgType::Variable(*id, v.get_name().to_string()),
+                arg: ArgType::Variable((*id, v.get_name().to_string())),
             });
             (result_list, right.1)
         } else {
@@ -1322,7 +1322,7 @@ impl<'a> Bytecode {
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable(*arg_id, name.to_string()),
+            arg: ArgType::Variable((*arg_id, name.to_string())),
         };
 
         let body = fn_def.get_body();
@@ -1385,7 +1385,7 @@ impl<'a> Bytecode {
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable(*arg_id, name.to_string()),
+            arg: ArgType::Variable((*arg_id, name.to_string())),
         };
 
         let mut class_var_map = VarMap::new();
@@ -1403,7 +1403,7 @@ impl<'a> Bytecode {
         result.extend(v.0);
         let end_of_cls = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineClass,
-            arg: ArgType::Variable(*arg_id, name.to_string()),
+            arg: ArgType::Variable((*arg_id, name.to_string())),
         }];
         result.push(end_of_cls);
         (result, var_map)

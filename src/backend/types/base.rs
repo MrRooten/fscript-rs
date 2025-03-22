@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     borrow::Cow,
     collections::hash_map::Keys,
     fmt::Debug,
@@ -48,7 +49,7 @@ pub enum FSRGlobalObjId {
     RangeCls = 13,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum FSRValue<'a> {
     Integer(i64),
     Float(f64),
@@ -61,6 +62,7 @@ pub enum FSRValue<'a> {
     Iterator(FSRInnerIterator),
     Module(Box<FSRModule<'a>>),
     Range(FSRRange),
+    Any(Box<dyn Any + Send>),
     None,
 }
 
@@ -149,6 +151,7 @@ impl<'a> FSRValue<'a> {
                 "Range({}..{})",
                 fsrrange.range.start, fsrrange.range.end
             ))),
+            FSRValue::Any(any) => Some(Cow::Borrowed("InnerAny")),
         };
 
         s
@@ -187,25 +190,13 @@ impl Debug for FSRObject<'_> {
                     .finish();
             }
             FSRValue::Range(fsrrange) => todo!(),
+            FSRValue::Any(any) => todo!(),
         };
         f.debug_struct("FSRObject")
             .field("value", &self.value)
             .field("ref_count", &self.ref_count)
             .field("cls", &cls.name.to_string())
             .finish()
-    }
-}
-
-impl Clone for FSRObject<'_> {
-    fn clone(&self) -> Self {
-        // Only use for SValue like tempory value
-        Self {
-            value: self.value.clone(),
-            ref_count: AtomicU32::new(0),
-            cls: self.cls,
-            delete_flag: AtomicBool::new(true),
-            garbage_id: AtomicU32::new(0),
-        }
     }
 }
 
@@ -434,7 +425,7 @@ impl<'a> FSRObject<'a> {
             if let Some(obj) = OBJECTS.get(id) {
                 return obj;
             }
-            
+
             panic!("Invalid special object ID: {}", id);
         }
     }
