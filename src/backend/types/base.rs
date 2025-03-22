@@ -160,7 +160,6 @@ pub struct FSRObject<'a> {
     pub(crate) ref_count: AtomicU32,
     pub(crate) cls: ObjId,
     pub(crate) delete_flag: AtomicBool,
-    pub(crate) leak: AtomicBool,
     pub(crate) garbage_id: AtomicU32,
 }
 
@@ -205,7 +204,6 @@ impl Clone for FSRObject<'_> {
             ref_count: AtomicU32::new(0),
             cls: self.cls,
             delete_flag: AtomicBool::new(true),
-            leak: AtomicBool::new(false),
             garbage_id: AtomicU32::new(0),
         }
     }
@@ -255,7 +253,6 @@ impl<'a> FSRObject<'a> {
             cls,
             ref_count: AtomicU32::new(0),
             delete_flag: AtomicBool::new(true),
-            leak: AtomicBool::new(false),
             garbage_id: AtomicU32::new(0),
         }
     }
@@ -281,7 +278,6 @@ impl<'a> FSRObject<'a> {
             cls: 0,
             ref_count: AtomicU32::new(0),
             delete_flag: AtomicBool::new(true),
-            leak: AtomicBool::new(false),
             garbage_id: AtomicU32::new(0),
         }
     }
@@ -438,7 +434,7 @@ impl<'a> FSRObject<'a> {
             if let Some(obj) = OBJECTS.get(id) {
                 return obj;
             }
-
+            
             panic!("Invalid special object ID: {}", id);
         }
     }

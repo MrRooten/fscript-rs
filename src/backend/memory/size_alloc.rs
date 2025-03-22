@@ -29,6 +29,7 @@ impl<'a> FSRObjectAllocator<'a> {
         if let Some(mut s) = self.object_bins.borrow_mut().pop_front() {
             s.cls = cls;
             s.value = value;
+            s.ref_count.store(0, Ordering::Relaxed);
             return s;
         }
         
@@ -45,7 +46,6 @@ impl<'a> FSRObjectAllocator<'a> {
 
         
         let obj = FSRObject::into_object(obj_id);
-        obj.leak.store(false, Ordering::Relaxed);
         self.object_bins.borrow_mut().push_front(obj);
         
 
@@ -64,8 +64,6 @@ impl<'a> FSRObjectAllocator<'a> {
 
     #[inline(always)]
     pub fn free_object(&self, obj: Box<FSRObject<'a>>) {
-        self.free_count.fetch_add(1, Ordering::Relaxed);
-        obj.leak.store(false, Ordering::Relaxed);
         self.object_bins.borrow_mut().push_front(obj);
         
 

@@ -114,7 +114,6 @@ impl<'a> FSRFn<'a> {
             cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU32::new(1),
             delete_flag: AtomicBool::new(true),
-            leak: AtomicBool::new(false),
             garbage_id: AtomicU32::new(0),
         }
     }

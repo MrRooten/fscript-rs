@@ -185,7 +185,6 @@ impl<'a> FSRVM<'a> {
             cls: 0,
             ref_count: AtomicU32::new(0),
             delete_flag: AtomicBool::new(true),
-            leak: AtomicBool::new(false),
             garbage_id: AtomicU32::new(0),
         }
     }
@@ -203,7 +202,6 @@ impl<'a> FSRVM<'a> {
         crate::backend::types::base::HEAP_TRACE.add_object();
         let id = Self::get_object_id(&object);
 
-        object.leak.store(true, Ordering::Relaxed);
         //self.obj_map.insert(id, object);
         Box::leak(object);
         id

@@ -79,6 +79,7 @@ impl IndexMap {
         IndexIterator { vs: self.vs.iter() }
     }
 
+    #[inline(always)]
     pub fn clear(&mut self) {
         self.vs.fill(0);
     }
@@ -111,6 +112,7 @@ pub struct CallFrame<'a> {
 }
 
 impl<'a> CallFrame<'a> {
+    #[inline(always)]
     pub fn clear(&mut self) {
         self.var_map.clear();
         self.args.clear();
@@ -138,13 +140,12 @@ impl<'a> CallFrame<'a> {
         id: &u64,
         obj_id: ObjId,
         allocator: Option<&FSRObjectAllocator<'a>>,
-        add_ref: bool,
     ) {
         if self.var_map.contains_key(id) {
             let to_be_dec = self.var_map.get(id).unwrap();
             let origin_obj = FSRObject::id_to_obj(*to_be_dec);
-            origin_obj.ref_dec();
-            if origin_obj.count_ref() == 0 {
+            // origin_obj.ref_dec();
+            if origin_obj.count_ref() == 1 {
                 if let Some(rt) = allocator {
                     rt.free(*to_be_dec);
                 } else {
@@ -152,10 +153,8 @@ impl<'a> CallFrame<'a> {
                 }
             }
         }
-        if add_ref {
-            FSRObject::id_to_obj(obj_id).ref_add();
-        }
 
+        FSRObject::id_to_obj(obj_id).ref_add();
         self.var_map.insert(*id, obj_id);
     }
 
@@ -393,7 +392,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     pub fn pop_frame(&mut self) -> CallFrame<'a> {
-
         let v = self.call_frames.pop().unwrap();
         std::mem::replace(&mut self.cur_frame, v)
     }
@@ -557,13 +555,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 let id = FSRVM::leak_object(obj);
 
                 // println!("{:#?}", obj);
-                state.insert_var(var_id, id, Some(&self.thread_allocator), true);
+                state.insert_var(var_id, id, Some(&self.thread_allocator));
                 return Ok(false);
             }
             let obj_id = svalue.get_global_id(self)?;
             let state = &mut self.cur_frame;
 
-            state.insert_var(var_id, obj_id, Some(&self.thread_allocator), true);
+            state.insert_var(var_id, obj_id, Some(&self.thread_allocator));
 
             return Ok(false);
         }
@@ -600,12 +598,7 @@ impl<'a> FSRThreadRuntime<'a> {
         match assign_id {
             SValue::Stack((var_id, _)) => {
                 let state = &mut self.cur_frame;
-                state.insert_var(
-                    &var_id,
-                    to_assign_obj_id,
-                    Some(&self.thread_allocator),
-                    true,
-                );
+                state.insert_var(&var_id, to_assign_obj_id, Some(&self.thread_allocator));
                 //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
             }
             SValue::Attr(attr) => {
@@ -1249,7 +1242,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     .get_global_obj_by_name(name)
                     .cloned()?;
                 let state = self.get_cur_mut_frame();
-                state.insert_var(&c_id, v, None, true);
+                state.insert_var(&c_id, v, None);
                 Some(v)
             }
         }
@@ -1419,7 +1412,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         .cloned()
                         .unwrap();
                     let state = self.get_cur_mut_frame();
-                    state.insert_var(&s.0, v, None, true);
+                    state.insert_var(&s.0, v, None);
                     Some(v)
                 }
             }
@@ -1712,7 +1705,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(true);
             }
 
-            state.insert_var(&name.0, fn_id, Some(&self.thread_allocator), true);
+            state.insert_var(&name.0, fn_id, Some(&self.thread_allocator));
             FSRObject::id_to_obj(context.module)
                 .as_module()
                 .register_object(name.1, fn_id);
@@ -1839,7 +1832,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = &mut self.cur_frame;
         let v = state.args.pop().unwrap();
         if let ArgType::Variable(s_id, _) = bytecode.get_arg() {
-            state.insert_var(s_id, v, Some(&self.thread_allocator), true);
+            state.insert_var(s_id, v, Some(&self.thread_allocator));
         }
         Ok(false)
     }
@@ -1926,7 +1919,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let obj_id = { self.load(Box::new(module))? };
 
             let frame = self.get_cur_mut_frame();
-            frame.insert_var(v, obj_id, None, true);
+            frame.insert_var(v, obj_id, None);
             FSRObject::id_to_obj(context)
                 .as_module()
                 .register_object(module_name.last().unwrap(), obj_id);
@@ -1950,7 +1943,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let name = obj.get_name().to_string();
             cls_obj.set_value(FSRValue::Class(obj));
             let obj_id = FSRVM::register_object(cls_obj);
-            state.insert_var(id, obj_id, None, true);
+            state.insert_var(id, obj_id, None);
             FSRObject::id_to_obj(context.module)
                 .as_module()
                 .register_object(&name, obj_id);
@@ -1990,14 +1983,14 @@ impl<'a> FSRThreadRuntime<'a> {
                     self.continue_line.pop();
                     let obj = self.for_iter_obj.pop().unwrap();
                     let iter_obj = FSRObject::id_to_obj(obj);
-                    iter_obj.ref_dec();
-                    if iter_obj.count_ref() == 0 {
+                    // iter_obj.ref_dec();
+                    if iter_obj.count_ref() == 1 {
                         self.thread_allocator.free(obj);
                     }
                     let obj_id = self.ref_for_obj.pop().unwrap();
                     let for_obj = FSRObject::id_to_obj(obj_id);
-                    for_obj.ref_dec();
-                    if for_obj.count_ref() == 0 {
+                    // for_obj.ref_dec();
+                    if for_obj.count_ref() == 1 {
                         self.thread_allocator.free(obj_id);
                     }
                     context.ip = (break_line, 0);
