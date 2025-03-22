@@ -112,6 +112,7 @@ impl GarbageCollector {
         }
     }
 
+    #[inline(always)]
     pub fn clear_map(&mut self) {
         self.object_map.fill(false);
     }

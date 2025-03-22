@@ -430,12 +430,16 @@ impl<'a> FSRObject<'a> {
 
     #[inline(always)]
     pub fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
-        if id < 1000 {
-            return Self::sp_object(id);
+        if id >= 1000 {
+            return unsafe { &*(id as *const FSRObject) };
         }
+
         unsafe {
-            let ptr = id as *const FSRObject;
-            &*ptr
+            if let Some(obj) = OBJECTS.get(id) {
+                return obj;
+            }
+
+            panic!("Invalid special object ID: {}", id);
         }
     }
 

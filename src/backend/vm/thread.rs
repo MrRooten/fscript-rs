@@ -293,7 +293,12 @@ impl<'a> ThreadContext<'a> {
         }
     }
 
+    #[inline(always)]
     pub fn clear_exp(&mut self, allocator: &FSRObjectAllocator<'a>) {
+        if self.exp.is_empty() {
+            return;
+        }
+
         while let Some(s) = self.exp.pop() {
             s.drop_box(allocator);
         }
@@ -301,6 +306,7 @@ impl<'a> ThreadContext<'a> {
 }
 
 pub struct FSRThreadRuntime<'a> {
+    cur_frame: CallFrame<'a>,
     pub(crate) call_frames: Vec<CallFrame<'a>>,
     frame_index: usize,
     pub(crate) frame_free_list: FrameFreeList<'a>,
@@ -356,8 +362,10 @@ impl<'a> FSRThreadRuntime<'a> {
     // }
 
     pub fn new(base_module: ObjId, vm: Arc<Mutex<FSRVM<'a>>>) -> FSRThreadRuntime<'a> {
+        let frame = CallFrame::new("base", base_module);
         Self {
-            call_frames: vec![CallFrame::new("base", base_module)],
+            cur_frame: frame,
+            call_frames: vec![],
             vm,
             frame_index: 0,
             frame_free_list: FrameFreeList::new_list(),
@@ -372,27 +380,27 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    pub fn push_frame(&mut self) {
-        self.frame_index += 1;
-
-        if let Some(s) = self.call_frames.get_mut(self.frame_index) {
-            s.clear();
-        }
-    }
-
-    pub fn pop_frame(&mut self) -> Option<&mut CallFrame<'a>> {
-        self.frame_index -= 1;
-        self.call_frames.get_mut(self.frame_index + 1)
+    #[inline(always)]
+    pub fn get_cur_mut_frame(&mut self) -> &mut CallFrame<'a> {
+        &mut self.cur_frame
     }
 
     #[inline(always)]
-    pub fn get_cur_mut_frame(&mut self) -> &mut CallFrame<'a> {
-        self.call_frames.last_mut().unwrap()
+    pub fn push_frame(&mut self, frame: CallFrame<'a>) {
+        let old_frame = std::mem::replace(&mut self.cur_frame, frame);
+        self.call_frames.push(old_frame);
+    }
+
+    #[inline(always)]
+    pub fn pop_frame(&mut self) -> CallFrame<'a> {
+
+        let v = self.call_frames.pop().unwrap();
+        std::mem::replace(&mut self.cur_frame, v)
     }
 
     #[inline(always)]
     fn get_cur_frame(&self) -> &CallFrame<'a> {
-        self.call_frames.last().unwrap()
+        &self.cur_frame
     }
 
     #[inline(always)]
@@ -460,7 +468,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn pop_stack(&mut self, escape: &[ObjId]) {
-        let v = self.call_frames.pop().unwrap();
+        let v = self.pop_frame();
         for kv in v.var_map.iter() {
             let obj = FSRObject::id_to_obj(kv);
 
@@ -545,7 +553,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if let SValue::BoxObject(obj) = svalue {
                 //let state = self.get_cur_mut_frame();
-                let state = self.call_frames.last_mut().unwrap();
+                let state = &mut self.cur_frame;
                 let id = FSRVM::leak_object(obj);
 
                 // println!("{:#?}", obj);
@@ -553,7 +561,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(false);
             }
             let obj_id = svalue.get_global_id(self)?;
-            let state = self.call_frames.last_mut().unwrap();
+            let state = &mut self.cur_frame;
 
             state.insert_var(var_id, obj_id, Some(&self.thread_allocator), true);
 
@@ -591,7 +599,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match assign_id {
             SValue::Stack((var_id, _)) => {
-                let state = self.call_frames.last_mut().unwrap();
+                let state = &mut self.cur_frame;
                 state.insert_var(
                     &var_id,
                     to_assign_obj_id,
@@ -1156,7 +1164,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if let FSRValue::Function(f) = &new_obj.value {
                 let mut frame = self.frame_free_list.new_frame("__new__", f.module);
                 context.module = f.module;
-                self.call_frames.push(frame);
+                self.push_frame(frame);
             } else {
                 unimplemented!()
             }
@@ -1194,7 +1202,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if let FSRValue::Function(f) = &fn_obj.value {
                 let mut frame = self.frame_free_list.new_frame(f.get_name(), f.module);
                 frame.module = f.module;
-                self.call_frames.push(frame);
+                self.push_frame(frame);
             }
 
             for arg in args.iter().rev() {
@@ -1304,8 +1312,8 @@ impl<'a> FSRThreadRuntime<'a> {
             context.call_end.push(());
             self.save_ip_to_callstate(&mut context.exp, &mut context.ip, context.module);
             if let FSRValue::Function(f) = &fn_obj.value {
-                self.call_frames
-                    .push(self.frame_free_list.new_frame("tmp2", f.module));
+                let frame = self.frame_free_list.new_frame("tmp2", f.module);
+                self.push_frame(frame);
             }
 
             for arg in args.iter().rev() {
@@ -1697,7 +1705,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .new_object(fn_obj, FSRGlobalObjId::FnCls as ObjId);
             fn_obj.ref_add();
             let fn_id = FSRVM::leak_object(fn_obj);
-            let state = self.call_frames.last_mut().unwrap();
+            let state = &mut self.cur_frame;
             if let Some(cur_cls) = &mut state.cur_cls {
                 cur_cls.insert_attr_id(name.1, fn_id);
                 context.ip = (context.ip.0 + *n as usize + 2, 0);
@@ -1828,7 +1836,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let state = self.call_frames.last_mut().unwrap();
+        let state = &mut self.cur_frame;
         let v = state.args.pop().unwrap();
         if let ArgType::Variable(s_id, _) = bytecode.get_arg() {
             state.insert_var(s_id, v, Some(&self.thread_allocator), true);
@@ -2068,7 +2076,6 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-
     fn empty_process(
         self: &mut FSRThreadRuntime<'a>,
         _context: &mut ThreadContext<'a>,
@@ -2209,21 +2216,51 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     fn set_exp_stack_ret(&mut self, exp_stack: &mut Vec<SValue<'a>>) {
+        // let state = self.get_cur_mut_frame();
+        // if state.exp.is_some() {
+        //     if let Some(mut s) = state.exp.take() {
+        //         // std::mem::replace(exp_stack, s);
+        //         *exp_stack = s;
+        //     }
+        // }
+
+        // // if take a none value, it seems a little slow, so check it first
+        // if state.ret_val.is_none() {
+        //     return;
+        // }
+
+        // if let Some(s) = state.ret_val.take() {
+        //     exp_stack.push(s);
+        // }
         let state = self.get_cur_mut_frame();
+
+        // 假设这是最常见的情况
+        match (&state.exp, &state.ret_val) {
+            (Some(_), None) => {
+                // 只有 exp，没有 ret_val
+                if let Some(s) = state.exp.take() {
+                    *exp_stack = s;
+                }
+                return;
+            }
+            (None, None) => {
+                // 两者都没有，直接返回
+                return;
+            }
+            _ => {}
+        }
+
+        // 处理其他不太常见的情况
         if state.exp.is_some() {
-            if let Some(mut s) = state.exp.take() {
-                // std::mem::replace(exp_stack, s);
+            if let Some(s) = state.exp.take() {
                 *exp_stack = s;
             }
         }
 
-        // if take a none value, it seems a little slow, so check it first
-        if state.ret_val.is_none() {
-            return;
-        }
-
-        if let Some(s) = state.ret_val.take() {
-            exp_stack.push(s);
+        if state.ret_val.is_some() {
+            if let Some(s) = state.ret_val.take() {
+                exp_stack.push(s);
+            }
         }
     }
 
@@ -2271,7 +2308,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
                     return Ok(true);
                 } else {
-                    if self.call_frames.len() == 1 {
+                    if self.call_frames.len() == 0 {
                         panic!("No handle of error")
                     }
                     self.pop_stack(&[]);
@@ -2301,9 +2338,8 @@ impl<'a> FSRThreadRuntime<'a> {
             module: module_id,
             call_end: vec![()],
         };
-
-        self.call_frames
-            .push(self.frame_free_list.new_frame("load_module", module_id));
+        let frame = self.frame_free_list.new_frame("load_module", module_id);
+        self.push_frame(frame);
 
         let module = FSRObject::id_to_obj(module_id).as_module();
         while let Some(expr) = module.get_expr(&context.ip) {
@@ -2311,7 +2347,7 @@ impl<'a> FSRThreadRuntime<'a> {
             bytecode_count += expr.len();
         }
 
-        self.call_frames.pop();
+        self.pop_frame();
 
         Ok(module_id)
     }
