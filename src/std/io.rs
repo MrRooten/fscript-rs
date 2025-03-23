@@ -66,9 +66,9 @@ pub fn fsr_fn_throw_error<'a>(
     module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     if args.is_empty() || args[0] == 0 {
-        thread.exception = None
+        thread.exception = FSRObject::none_id();
     } else {
-        thread.exception = Some(args[0]);
+        thread.exception = args[0];
     }
     Ok(FSRRetValue::GlobalId(0))
 }
@@ -78,7 +78,7 @@ pub fn fsr_fn_get_error<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let ret = thread.get_cur_mut_frame().handling_exception.unwrap_or(0);
+    let ret = thread.get_cur_mut_frame().handling_exception;
     Ok(FSRRetValue::GlobalId(ret))
 }
 

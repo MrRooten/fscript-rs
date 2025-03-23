@@ -109,7 +109,7 @@ pub struct CallFrame<'a> {
     pub(crate) exp: Option<Vec<SValue<'a>>>,
     pub(crate) module: ObjId,
     catch_ends: Vec<(usize, usize)>,
-    pub(crate) handling_exception: Option<ObjId>,
+    pub(crate) handling_exception: ObjId,
 }
 
 impl<'a> CallFrame<'a> {
@@ -120,6 +120,7 @@ impl<'a> CallFrame<'a> {
         self.cur_cls = None;
         self.ret_val = None;
         self.exp = None;
+        self.handling_exception = FSRObject::none_id();
     }
 
     #[inline(always)]
@@ -140,7 +141,7 @@ impl<'a> CallFrame<'a> {
         &mut self,
         id: u64,
         obj_id: ObjId,
-        allocator: Option<&FSRObjectAllocator<'a>>,
+        allocator: Option<&mut FSRObjectAllocator<'a>>,
     ) {
         if self.var_map.contains_key(&id) {
             let to_be_dec = self.var_map.get(&id).unwrap();
@@ -178,7 +179,7 @@ impl<'a> CallFrame<'a> {
             exp: None,
             module,
             catch_ends: vec![],
-            handling_exception: None,
+            handling_exception: FSRObject::none_id(),
         }
     }
 }
@@ -246,7 +247,7 @@ impl<'a> SValue<'a> {
     }
 
     #[inline(always)]
-    pub fn drop_box(self, allocator: &FSRObjectAllocator<'a>) {
+    pub fn drop_box(self, allocator: &mut FSRObjectAllocator<'a>) {
         match self {
             Self::BoxObject(obj) => {
                 allocator.free_object(obj);
@@ -294,7 +295,7 @@ impl<'a> ThreadContext<'a> {
     }
 
     #[inline(always)]
-    pub fn clear_exp(&mut self, allocator: &FSRObjectAllocator<'a>) {
+    pub fn clear_exp(&mut self, allocator: &mut FSRObjectAllocator<'a>) {
         if self.exp.is_empty() {
             return;
         }
@@ -318,7 +319,8 @@ pub struct FSRThreadRuntime<'a> {
     for_iter_obj: Vec<ObjId>, // for i in a , the a will call __iter__ Iterator object
     ref_for_obj: Vec<ObjId>,  // use for ref obj, like (for i in a) ref about a variable
     is_break: bool,
-    pub(crate) exception: Option<ObjId>,
+    pub(crate) exception: ObjId,
+    pub(crate) exception_flag: bool,
 }
 
 impl<'a> FSRThreadRuntime<'a> {
@@ -374,9 +376,10 @@ impl<'a> FSRThreadRuntime<'a> {
             break_line: vec![],
             continue_line: vec![],
             for_iter_obj: vec![],
-            exception: None,
+            exception: FSRObject::none_id(),
             ref_for_obj: vec![],
             is_break: false,
+            exception_flag: false,
         }
     }
 
@@ -557,13 +560,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 let id = FSRVM::leak_object(obj);
 
                 // println!("{:#?}", obj);
-                state.insert_var(var_id, id, Some(&self.thread_allocator));
+                state.insert_var(var_id, id, Some(&mut self.thread_allocator));
                 return Ok(false);
             }
             let obj_id = svalue.get_global_id(self)?;
             let state = &mut self.cur_frame;
 
-            state.insert_var(var_id, obj_id, Some(&self.thread_allocator));
+            state.insert_var(var_id, obj_id, Some(&mut self.thread_allocator));
 
             return Ok(false);
         }
@@ -600,7 +603,7 @@ impl<'a> FSRThreadRuntime<'a> {
         match assign_id {
             SValue::Stack(v) => {
                 let state = &mut self.cur_frame;
-                state.insert_var(v.0, to_assign_obj_id, Some(&self.thread_allocator));
+                state.insert_var(v.0, to_assign_obj_id, Some(&mut self.thread_allocator));
                 //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
             }
             SValue::Attr(attr) => {
@@ -660,8 +663,8 @@ impl<'a> FSRThreadRuntime<'a> {
             context.module,
         )?;
 
-        v1.drop_box(&self.thread_allocator);
-        v2.drop_box(&self.thread_allocator);
+        v1.drop_box(&mut self.thread_allocator);
+        v2.drop_box(&mut self.thread_allocator);
 
         match res {
             FSRRetValue::Value(object) => {
@@ -719,8 +722,8 @@ impl<'a> FSRThreadRuntime<'a> {
             self,
             context.module,
         )?;
-        v1.drop_box(&self.thread_allocator);
-        v2.drop_box(&self.thread_allocator);
+        v1.drop_box(&mut self.thread_allocator);
+        v2.drop_box(&mut self.thread_allocator);
         match res {
             FSRRetValue::Value(object) => {
                 context.exp.push(SValue::BoxObject(object));
@@ -780,8 +783,8 @@ impl<'a> FSRThreadRuntime<'a> {
             context.module,
         )?;
 
-        v1.drop_box(&self.thread_allocator);
-        v2.drop_box(&self.thread_allocator);
+        v1.drop_box(&mut self.thread_allocator);
+        v2.drop_box(&mut self.thread_allocator);
 
         match res {
             FSRRetValue::Value(object) => {
@@ -1328,7 +1331,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 Ok(o) => o,
                 Err(e) => {
                     if e.code == FSRErrCode::RuntimeError {
-                        self.exception = e.exception;
+                        self.exception = e.exception.unwrap();
                         return Ok(false);
                     }
 
@@ -1387,7 +1390,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_frame();
         //state.catch_ends.pop().unwrap();
-        state.handling_exception.take();
+        state.handling_exception = FSRObject::none_id();
         Ok(true)
     }
 
@@ -1707,7 +1710,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(true);
             }
 
-            state.insert_var(name.0, fn_id, Some(&self.thread_allocator));
+            state.insert_var(name.0, fn_id, Some(&mut self.thread_allocator));
             FSRObject::id_to_obj(context.module)
                 .as_module()
                 .register_object(&name.1, fn_id);
@@ -1834,7 +1837,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = &mut self.cur_frame;
         let v = state.args.pop().unwrap();
         if let ArgType::Variable(s_id) = bytecode.get_arg() {
-            state.insert_var(s_id.0, v, Some(&self.thread_allocator));
+            state.insert_var(s_id.0, v, Some(&mut self.thread_allocator));
         }
         Ok(false)
     }
@@ -2146,7 +2149,7 @@ impl<'a> FSRThreadRuntime<'a> {
             Ok(o) => o,
             Err(e) => {
                 if e.code == FSRErrCode::RuntimeError {
-                    self.exception = e.exception;
+                    self.exception = e.exception.unwrap();
                     return Ok(false);
                 }
 
@@ -2215,22 +2218,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     fn set_exp_stack_ret(&mut self, exp_stack: &mut Vec<SValue<'a>>) {
-        // let state = self.get_cur_mut_frame();
-        // if state.exp.is_some() {
-        //     if let Some(mut s) = state.exp.take() {
-        //         // std::mem::replace(exp_stack, s);
-        //         *exp_stack = s;
-        //     }
-        // }
-
-        // // if take a none value, it seems a little slow, so check it first
-        // if state.ret_val.is_none() {
-        //     return;
-        // }
-
-        // if let Some(s) = state.ret_val.take() {
-        //     exp_stack.push(s);
-        // }
         let state = self.get_cur_mut_frame();
 
         match (&state.exp, &state.ret_val) {
@@ -2262,7 +2249,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     fn run_expr(
         &mut self,
-        expr: &'a Vec<BytecodeArg>,
+        expr: &'a [BytecodeArg],
         context: &mut ThreadContext<'a>,
         bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
@@ -2291,15 +2278,17 @@ impl<'a> FSRThreadRuntime<'a> {
                     }
 
                     if v {
-                        context.clear_exp(&self.thread_allocator);
+                        context.clear_exp(&mut self.thread_allocator);
                         return Ok(false);
                     }
                 }
             }
 
-            if self.exception.is_some() {
+            if self.exception_flag {
                 if !self.get_cur_mut_frame().catch_ends.is_empty() {
-                    self.get_cur_mut_frame().handling_exception = self.exception.take();
+                    self.get_cur_mut_frame().handling_exception = self.exception;
+                    self.exception = FSRObject::none_id();
+                    self.exception_flag = false;
                     context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
                     return Ok(true);
                 } else {
@@ -2318,7 +2307,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         context.ip.0 += 1;
         context.ip.1 = 0;
-        context.clear_exp(&self.thread_allocator);
+        context.clear_exp(&mut self.thread_allocator);
         context.is_attr = false;
         Ok(false)
     }
@@ -2337,7 +2326,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.push_frame(frame);
 
         let module = FSRObject::id_to_obj(module_id).as_module();
-        while let Some(expr) = module.get_expr(&context.ip) {
+        while let Some(expr) = module.get_expr(context.ip.0) {
             self.run_expr(expr, &mut context, module.get_bytecode())?;
             bytecode_count += expr.len();
         }
@@ -2361,7 +2350,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut module = FSRObject::id_to_obj(module_id).as_module();
         while let Some(expr) = FSRObject::id_to_obj(context.module)
             .as_module()
-            .get_expr(&context.ip)
+            .get_expr(context.ip.0)
         {
             #[cfg(feature = "bytecode_trace")]
             {
@@ -2395,7 +2384,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut module = FSRObject::id_to_obj(module_id).as_module();
         while let Some(expr) = FSRObject::id_to_obj(context.module)
             .as_module()
-            .get_expr(&context.ip)
+            .get_expr(context.ip.0)
         {
             #[cfg(feature = "bytecode_trace")]
             {
@@ -2446,13 +2435,13 @@ impl<'a> FSRThreadRuntime<'a> {
             context.ip = (offset.0, 0);
         }
 
-        while let Some(expr) = fn_def.get_bytecode().get(&context.ip) {
+        while let Some(expr) = fn_def.get_bytecode().get(context.ip.0) {
             let v = self.run_expr(expr, &mut context, fn_def.get_bytecode())?;
 
-            if self.exception.is_some() {
+            if self.exception_flag {
                 // If this is last function call, in this call_fn
                 if context.call_end.is_empty() {
-                    return Err(FSRError::new_runtime_error(self.exception.unwrap()));
+                    return Err(FSRError::new_runtime_error(self.exception));
                 }
             }
 
@@ -2500,13 +2489,13 @@ impl<'a> FSRThreadRuntime<'a> {
             context.ip = (offset.0, 0);
         }
 
-        while let Some(expr) = fn_def.get_bytecode().get(&context.ip) {
+        while let Some(expr) = fn_def.get_bytecode().get(context.ip.0) {
             let v = self.run_expr(expr, context, fn_def.get_bytecode())?;
 
-            if self.exception.is_some() {
+            if self.exception_flag {
                 // If this is last function call, in this call_fn
                 if context.call_end.is_empty() {
-                    return Err(FSRError::new_runtime_error(self.exception.unwrap()));
+                    return Err(FSRError::new_runtime_error(self.exception));
                 }
             }
 

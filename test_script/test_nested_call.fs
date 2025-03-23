@@ -7,3 +7,4 @@ fn fib(n) {
 }
 
 result = fib(30)
+println(result)

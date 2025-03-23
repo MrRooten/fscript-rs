@@ -71,7 +71,7 @@ impl<'a> FSRClassInst<'a> {
 }
 
 impl<'a> DropObject<'a> for FSRClassInst<'a> {
-    fn drop(&self, allocator: &FSRObjectAllocator<'a>) {
+    fn drop(&self, allocator: &mut FSRObjectAllocator<'a>) {
         let mut stack = vec![self];
 
         while let Some(s) = stack.pop() {

@@ -21,28 +21,17 @@ fn next_obj<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let self_obj = args[0];
-    let self_obj = FSRObject::id_to_mut_obj(self_obj);
+    let self_obj = FSRObject::id_to_mut_obj(args[0]);
     let mut result = None;
     if let FSRValue::Iterator(it) = &mut self_obj.value {
         let from_obj = FSRObject::id_to_obj(it.obj);
-        if let FSRValue::ClassInst(inst) = &from_obj.value {
-            let cls = from_obj.cls;
-            let cls = FSRObject::id_to_obj(cls);
-            let cls = cls.as_class();
-            let v = cls.get_offset_attr(BinaryOffset::Index);
-            if let Some(obj_id) = v {
-                let obj = FSRObject::id_to_obj(obj_id);
-                let ret = obj.call(&[it.obj], thread, module);
-                result = Some(ret?);
-            }
-        } else if let FSRValue::List(l) = &from_obj.value {
+        if let FSRValue::List(l) = &from_obj.value {
             let vs = l.get_items();
             result = Some(match vs.get(it.index) {
                 Some(s) => FSRRetValue::GlobalId(*s),
                 None => FSRRetValue::GlobalId(0),
             });
-        } else if let FSRValue::Range(r) = &from_obj.value {
+        } if let FSRValue::Range(r) = &from_obj.value {
             if it.index as i64 + r.range.start >= r.range.end {
                 return Ok(FSRRetValue::GlobalId(0));
             }
@@ -55,9 +44,23 @@ fn next_obj<'a>(
             it.index += 1;
 
             return Ok(FSRRetValue::Value(obj))
+        } else if let FSRValue::ClassInst(inst) = &from_obj.value {
+            let cls = from_obj.cls;
+            let cls = FSRObject::id_to_obj(cls);
+            let cls = cls.as_class();
+            let v = cls.get_offset_attr(BinaryOffset::Index);
+            if let Some(obj_id) = v {
+                let obj = FSRObject::id_to_obj(obj_id);
+                let ret = obj.call(&[it.obj], thread, module);
+                result = Some(ret?);
+            }
         }
         it.index += 1;
+    } else {
+        panic!("not a iterator");
     }
+
+    
 
     Ok(match result {
         Some(s) => s,

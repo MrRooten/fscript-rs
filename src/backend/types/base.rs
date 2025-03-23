@@ -653,5 +653,5 @@ mod test {
 }
 
 pub trait DropObject<'a> {
-    fn drop(&self, allocator: &FSRObjectAllocator<'a>);
+    fn drop(&self, allocator: &mut FSRObjectAllocator<'a>);
 }

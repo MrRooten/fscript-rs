@@ -417,8 +417,8 @@ pub struct Bytecode {
 }
 
 impl<'a> Bytecode {
-    pub fn get(&self, index: &(usize, usize)) -> Option<&Vec<BytecodeArg>> {
-        if let Some(s) = self.bytecode.get(index.0) {
+    pub fn get(&self, index: usize) -> Option<&Vec<BytecodeArg>> {
+        if let Some(s) = self.bytecode.get(index) {
             return Some(s);
         }
 

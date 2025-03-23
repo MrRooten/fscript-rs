@@ -133,7 +133,7 @@ impl FSRList {
 
 
 impl DropObject<'_> for FSRList {
-    fn drop(&self, allocator: &FSRObjectAllocator<'_>) {
+    fn drop(&self, allocator: &mut FSRObjectAllocator<'_>) {
         for id in &self.vs {
             let obj = FSRObject::id_to_obj(*id);
             // obj.ref_dec();
