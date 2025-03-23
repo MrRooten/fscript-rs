@@ -57,6 +57,7 @@ impl ModuleStates {
 #[derive(Debug, Clone)]
 pub struct FSRModuleFrontEnd<'a> {
     pub(crate) tokens: Vec<FSRToken<'a>>,
+    pub(crate) lambda_define_lines: Vec<usize>,
     len: usize,
     meta: FSRPosition,
 }
@@ -80,6 +81,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             tokens: vec![],
             len: 0,
             meta: meta.clone(),
+            lambda_define_lines: vec![],
         };
         loop {
             if start + length >= source.len() {
