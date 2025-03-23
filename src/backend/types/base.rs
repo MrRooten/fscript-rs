@@ -558,14 +558,14 @@ impl<'a> FSRObject<'a> {
         //return self.invoke("__str__", vec![]);
     }
 
+    #[inline]
     pub fn is_fsr_function(&self) -> bool {
-        if let FSRValue::Function(fn_def) = &self.value {
-            if let FSRnE::FSRFn(_) = &fn_def.get_def() {
-                return true;
-            }
-        }
-
-        false
+        let FSRValue::Function(fn_def) = &self.value else {
+            return false;
+        };
+        
+        // 检查函数类型
+        matches!(fn_def.get_def(), FSRnE::FSRFn(_))
     }
 
     pub fn is_fsr_cls(&self) -> bool {

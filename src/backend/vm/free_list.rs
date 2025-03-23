@@ -7,7 +7,7 @@ use crate::backend::types::base::ObjId;
 use super::thread::CallFrame;
 
 pub struct FrameFreeList<'a> {
-    list: VecDeque<CallFrame<'a>>
+    list: VecDeque<Box<CallFrame<'a>>>
 }
 
 impl<'a> FrameFreeList<'a> {
@@ -18,18 +18,18 @@ impl<'a> FrameFreeList<'a> {
     }
 
     #[inline]
-    pub fn free(&mut self, mut frame: CallFrame<'a>) {
+    pub fn free(&mut self, mut frame: Box<CallFrame<'a>>) {
         self.list.push_back(frame);
     }
 
     #[inline]
-    pub fn new_frame(&mut self, name: &'a str, module: ObjId) -> CallFrame<'a> {
+    pub fn new_frame(&mut self, name: &'a str, module: ObjId) -> Box<CallFrame<'a>> {
         if let Some(mut frame) = self.list.pop_front() {
             frame.clear();
             frame.module = module;
             return frame;
         }
 
-        CallFrame::new(name, module)
+        Box::new(CallFrame::new(name, module))
     }
 }

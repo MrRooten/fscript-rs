@@ -57,7 +57,8 @@ impl IndexMap {
     #[inline(always)]
     pub fn insert(&mut self, i: u64, v: ObjId) {
         if i as usize >= self.vs.len() {
-            self.vs.resize(i as usize + 1, 0);
+            let new_capacity = (i + 1) + (4 - (i + 1) % 4);
+            self.vs.resize(new_capacity as usize, 0);
         }
         self.vs[i as usize] = v;
     }
@@ -305,8 +306,8 @@ impl<'a> ThreadContext<'a> {
 }
 
 pub struct FSRThreadRuntime<'a> {
-    cur_frame: CallFrame<'a>,
-    pub(crate) call_frames: Vec<CallFrame<'a>>,
+    cur_frame: Box<CallFrame<'a>>,
+    pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
     frame_index: usize,
     pub(crate) frame_free_list: FrameFreeList<'a>,
     vm: Arc<Mutex<FSRVM<'a>>>,
@@ -361,7 +362,7 @@ impl<'a> FSRThreadRuntime<'a> {
     // }
 
     pub fn new(base_module: ObjId, vm: Arc<Mutex<FSRVM<'a>>>) -> FSRThreadRuntime<'a> {
-        let frame = CallFrame::new("base", base_module);
+        let frame = Box::new(CallFrame::new("base", base_module));
         Self {
             cur_frame: frame,
             call_frames: vec![],
@@ -385,13 +386,13 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    pub fn push_frame(&mut self, frame: CallFrame<'a>) {
+    pub fn push_frame(&mut self, frame: Box<CallFrame<'a>>) {
         let old_frame = std::mem::replace(&mut self.cur_frame, frame);
         self.call_frames.push(old_frame);
     }
 
     #[inline(always)]
-    pub fn pop_frame(&mut self) -> CallFrame<'a> {
+    pub fn pop_frame(&mut self) -> Box<CallFrame<'a>> {
         let v = self.call_frames.pop().unwrap();
         std::mem::replace(&mut self.cur_frame, v)
     }
@@ -1040,14 +1041,11 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     fn chain_get_variable(var: &(u64, String), thread: &Self, module: ObjId) -> Option<ObjId> {
-        // 尝试从当前栈获取变量
         if let Some(value) = thread.get_cur_frame().get_var(&var.0) {
             Some(*value)
         } else if let Some(value) = FSRObject::id_to_obj(module).as_module().get_object(&var.1) {
             Some(value)
-        }
-        // 尝试从全局对象中获取变量
-        else {
+        } else {
             thread
                 .get_vm()
                 .lock()
@@ -1218,6 +1216,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline]
     fn try_get_obj_by_name(
         &mut self,
         c_id: u64,
@@ -2234,23 +2233,19 @@ impl<'a> FSRThreadRuntime<'a> {
         // }
         let state = self.get_cur_mut_frame();
 
-        // 假设这是最常见的情况
         match (&state.exp, &state.ret_val) {
             (Some(_), None) => {
-                // 只有 exp，没有 ret_val
                 if let Some(s) = state.exp.take() {
                     *exp_stack = s;
                 }
                 return;
             }
             (None, None) => {
-                // 两者都没有，直接返回
                 return;
             }
             _ => {}
         }
 
-        // 处理其他不太常见的情况
         if state.exp.is_some() {
             if let Some(s) = state.exp.take() {
                 *exp_stack = s;
