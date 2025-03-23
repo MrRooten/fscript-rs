@@ -673,6 +673,17 @@ impl<'a> FSRExpr<'a> {
                 ctx.last_loop = true;
             }
 
+            if ctx.states.eq_peek(&ExprState::WaitToken) && c == '|' {
+                // Process lambda, like |a, b| {
+                //    
+                // }
+
+                if !ctx.operators.is_empty() || ctx.candidates.is_empty() {
+                    unimplemented!("Lambda not support yet");
+                }
+
+            }
+
             if ctx.states.eq_peek(&ExprState::WaitToken) && Self::is_op_one_char(c) {
                 ctx.states.push_state(ExprState::Operator);
                 continue;

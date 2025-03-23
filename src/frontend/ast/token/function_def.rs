@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::{
     frontend::ast::{
         parse::ASTParser,
-        token::{block::FSRBlock, call::FSRCall},
+        token::{block::FSRBlock, call::FSRCall, variable::FSRVariable},
     },
     utils::error::SyntaxError,
 };
@@ -49,6 +49,96 @@ impl<'a> FSRFnDef<'a> {
 
     pub fn get_body(&self) -> &FSRBlock<'a> {
         &self.body
+    }
+
+    pub fn parse_lambda(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
+        if source[0] != b'|' {
+            let mut sub_meta = meta.from_offset(0);
+            let err = SyntaxError::new(&sub_meta, "Invalid lambda function");
+            return Err(err);
+        }
+        let mut args_len = 1;
+
+        while args_len< source.len() {
+            if source[args_len] == b'|' {
+                break;
+            }
+
+            args_len += 1;
+        }
+
+        if args_len == source.len() {
+            let mut sub_meta = meta.from_offset(0);
+            let err = SyntaxError::new(&sub_meta, "Invalid lambda function, args not closed");
+            return Err(err);
+        }
+
+        let args = &source[1..args_len];
+
+        let args_s = std::str::from_utf8(args).unwrap();
+        let args_define = args_s.split(",").collect::<Vec<&str>>();
+
+
+        let mut arg_collect = vec![];
+        // check arg is valid variable name
+        for arg in args_define {
+            let arg = arg.trim();
+            if arg.len() == 0 {
+                let mut sub_meta = meta.from_offset(0);
+                let err = SyntaxError::new(&sub_meta, "Invalid lambda function, empty arg");
+                return Err(err);
+            }
+
+            let b_arg = arg.as_bytes();
+
+            let mut i = 0;
+            if ASTParser::is_name_letter_first(b_arg[0]) {
+                i += 1;
+            } else {
+                let mut sub_meta = meta.from_offset(0);
+                let err = SyntaxError::new(&sub_meta, "Invalid lambda function, invalid arg");
+                return Err(err);
+            }
+
+            while i < b_arg.len() {
+                if !ASTParser::is_name_letter(b_arg[i]) {
+                    let mut sub_meta = meta.from_offset(0);
+                    let err = SyntaxError::new(&sub_meta, "Invalid lambda function, invalid arg");
+                    return Err(err);
+                }
+
+                i += 1;
+            }
+
+            arg_collect.push(FSRToken::Variable(FSRVariable::parse(arg, meta.from_offset(0))?));
+        }
+
+        while source[args_len] != b'{' {
+            args_len += 1;
+        }
+
+        // check is end of source
+        if args_len == source.len() {
+            let mut sub_meta = meta.from_offset(args_len);
+            let err = SyntaxError::new(&sub_meta, "Invalid lambda function, body not found");
+            return Err(err);
+        }
+
+        let mut sub_meta = meta.from_offset(args_len);
+        let fn_block_len =
+            ASTParser::read_valid_bracket(&source[args_len..], sub_meta.clone())?;
+        let fn_block = FSRBlock::parse(
+            &source[args_len..args_len + fn_block_len],
+            sub_meta.from_offset(0),
+        )?;
+        
+        return Ok(Self {
+            name: "",
+            args: arg_collect,
+            body: Rc::new(fn_block),
+            len: args_len + fn_block_len,
+            meta,
+        });
     }
 
     pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
@@ -142,5 +232,18 @@ impl<'a> FSRFnDef<'a> {
             len: fn_block_start + fn_block_len,
             meta,
         })
+    }
+}
+
+mod test {
+    use crate::frontend::ast::token::base::FSRPosition;
+
+    #[test]
+    fn test_lambda() {
+        let source = b"|a,b|{a+b}";
+        let meta = FSRPosition::new();
+        let result = super::FSRFnDef::parse_lambda(source, meta);
+        assert!(result.is_ok());
+        println!("{:#?}", result.unwrap());
     }
 }

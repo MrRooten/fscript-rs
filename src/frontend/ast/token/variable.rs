@@ -1,3 +1,5 @@
+use crate::utils::error::SyntaxError;
+
 use super::base::FSRPosition;
 
 #[derive(Debug, Clone)]
@@ -13,7 +15,7 @@ impl<'a> FSRVariable<'a> {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
-    pub fn parse(name: &'a str, meta: FSRPosition) -> Result<FSRVariable<'a>, &'a str> {
+    pub fn parse(name: &'a str, meta: FSRPosition) -> Result<FSRVariable<'a>, SyntaxError> {
         
         Ok(Self {
             name,
