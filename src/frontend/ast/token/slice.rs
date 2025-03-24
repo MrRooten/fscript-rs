@@ -2,7 +2,7 @@ use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 
 use super::{
     base::{FSRPosition, FSRToken},
-    expr::FSRExpr,
+    expr::FSRExpr, ASTContext,
 };
 
 #[derive(PartialEq)]
@@ -20,6 +20,7 @@ pub struct FSRGetter<'a> {
     len: usize,
     single_op: Option<&'a str>,
     meta: FSRPosition,
+    pub(crate) is_defined: bool,
 }
 
 impl<'a> FSRGetter<'a> {
@@ -39,7 +40,7 @@ impl<'a> FSRGetter<'a> {
         &self.getter
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
         let mut state = GetterState::Start;
         let mut start = 0;
         let mut length = 0;
@@ -79,13 +80,14 @@ impl<'a> FSRGetter<'a> {
         let last = s.rfind(']').unwrap();
         let args = &source[first + 1..last];
         let sub_meta = meta.from_offset(start);
-        let getter = FSRExpr::parse(args, true, sub_meta)?;
+        let getter = FSRExpr::parse(args, true, sub_meta, context)?;
         Ok(Self {
             name,
             len: 0,
             single_op: None,
             meta,
             getter: Box::new(getter.0),
+            is_defined: true,
         })
     }
 

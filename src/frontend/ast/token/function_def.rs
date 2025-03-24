@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     frontend::ast::{
@@ -10,7 +10,10 @@ use crate::{
     utils::error::SyntaxError,
 };
 
-use super::base::{FSRPosition, FSRToken};
+use super::{
+    base::{FSRPosition, FSRToken},
+    ASTContext,
+};
 
 #[derive(Debug, Clone)]
 pub struct FSRFnDef<'a> {
@@ -20,6 +23,7 @@ pub struct FSRFnDef<'a> {
     body: Rc<FSRBlock<'a>>,
     len: usize,
     meta: FSRPosition,
+    ref_map: HashMap<String, bool>
 }
 
 #[derive(PartialEq, Clone)]
@@ -60,6 +64,7 @@ impl<'a> FSRFnDef<'a> {
         source: &'a [u8],
         meta: FSRPosition,
         name: &str,
+        context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {
         if source[0] != b'|' {
             let mut sub_meta = meta.from_offset(0);
@@ -138,6 +143,7 @@ impl<'a> FSRFnDef<'a> {
             args_len += 1;
         }
 
+        context.push_scope();
         // check is end of source
         if args_len == source.len() {
             let mut sub_meta = meta.from_offset(args_len);
@@ -150,8 +156,9 @@ impl<'a> FSRFnDef<'a> {
         let fn_block = FSRBlock::parse(
             &source[args_len..args_len + fn_block_len],
             sub_meta.from_offset(0),
+            context,
         )?;
-
+        let scope = context.pop_scope();
         return Ok(Self {
             name: name.to_string(),
             args: arg_collect,
@@ -159,10 +166,15 @@ impl<'a> FSRFnDef<'a> {
             len: args_len + fn_block_len,
             meta,
             lambda: true,
+            ref_map: scope,
         });
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
+    pub fn parse(
+        source: &'a [u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<Self, SyntaxError> {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let mut sub_meta = meta.from_offset(0);
@@ -231,10 +243,12 @@ impl<'a> FSRFnDef<'a> {
 
         let fn_args = &source[2..2 + len];
         let mut sub_meta = meta.from_offset(2);
-        let fn_args = FSRCall::parse(fn_args, sub_meta)?;
+        
+        context.push_scope();
+        let fn_args = FSRCall::parse(fn_args, sub_meta, context, true)?;
 
         let name = fn_args.get_name();
-
+        
         let fn_block_start = 2 + len;
         let mut sub_meta = meta.from_offset(fn_block_start);
 
@@ -244,8 +258,10 @@ impl<'a> FSRFnDef<'a> {
         let fn_block = FSRBlock::parse(
             &source[fn_block_start..fn_block_start + fn_block_len],
             block_meta,
+            context,
         )?;
-
+        let cur = context.pop_scope();
+        context.add_variable(name);
         Ok(Self {
             name: name.to_string(),
             args: fn_args.get_args().clone(),
@@ -253,6 +269,7 @@ impl<'a> FSRFnDef<'a> {
             len: fn_block_start + fn_block_len,
             meta,
             lambda: false,
+            ref_map: cur,
         })
     }
 }
@@ -264,7 +281,8 @@ mod test {
     fn test_lambda() {
         let source = b"|a,b|{a+b}";
         let meta = FSRPosition::new();
-        let result = super::FSRFnDef::parse_lambda(source, meta, "lambda_xxxx");
+        let mut context = super::ASTContext::new();
+        let result = super::FSRFnDef::parse_lambda(source, meta, "lambda_xxxx", &mut context);
         assert!(result.is_ok());
         println!("{:#?}", result.unwrap());
     }

@@ -10,6 +10,7 @@ use super::base::FSRToken;
 use super::r#else::FSRElse;
 use super::statement::ASTTokenEnum;
 use super::statement::ASTTokenInterface;
+use super::ASTContext;
 
 #[derive(Debug, Clone)]
 pub struct FSRIf<'a> {
@@ -43,7 +44,7 @@ impl<'a> FSRIf<'a> {
         &self.body
     }
 
-    pub fn parse_without_else(source: &'a [u8], meta: FSRPosition) -> Result<FSRIf<'a>, SyntaxError> {
+    pub fn parse_without_else(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf<'a>, SyntaxError> {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.from_offset(0);
@@ -115,7 +116,7 @@ impl<'a> FSRIf<'a> {
         let test = &source[2..2 + len];
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + 2;
-        let test_expr = FSRExpr::parse(test, false, sub_meta)?.0;
+        let test_expr = FSRExpr::parse(test, false, sub_meta, context)?.0;
 
         let mut start = 2 + len;
         let mut sub_meta = meta.clone();
@@ -123,7 +124,7 @@ impl<'a> FSRIf<'a> {
         let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
-        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
+        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         start += b_len;
         b_len = 0;
@@ -137,7 +138,7 @@ impl<'a> FSRIf<'a> {
         })
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRIf<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf<'a>, SyntaxError> {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.from_offset(0);
@@ -161,7 +162,7 @@ impl<'a> FSRIf<'a> {
         let test = &source[2..2 + len];
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + 2;
-        let test_expr = FSRExpr::parse(test, false, sub_meta)?.0;
+        let test_expr = FSRExpr::parse(test, false, sub_meta, context)?.0;
 
         let mut start = 2 + len;
         let mut sub_meta = meta.clone();
@@ -169,7 +170,7 @@ impl<'a> FSRIf<'a> {
         let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
-        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
+        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         start += b_len;
         b_len = 0;
@@ -183,7 +184,7 @@ impl<'a> FSRIf<'a> {
             let may_else_token = std::str::from_utf8(&source[start..start+4]).unwrap();
             if may_else_token.eq("else") {
                 let sub_meta = meta.from_offset(start);
-                let elses = FSRElse::parse(&source[start..], sub_meta)?;
+                let elses = FSRElse::parse(&source[start..], sub_meta, context)?;
                 start += elses.get_len();
                 may_else = Some(Box::new(elses));
             }
@@ -218,7 +219,8 @@ mod test {
 
 }"#;
         let meta = super::FSRPosition::new();
-        let if_token = super::FSRIf::parse(soruce.as_bytes(), meta).unwrap();
+        let mut context = super::ASTContext::new();
+        let if_token = super::FSRIf::parse(soruce.as_bytes(), meta, &mut context).unwrap();
         assert_eq!(if_token.get_len(), soruce.len());
     }
 }

@@ -5,7 +5,7 @@ use crate::{
 
 use super::{
     base::{FSRPosition, FSRToken},
-    block::FSRBlock,
+    block::FSRBlock, ASTContext,
 };
 
 #[allow(unused)]
@@ -51,7 +51,7 @@ impl<'a> FSRElse<'a> {
     }
 
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRElse<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRElse<'a>, SyntaxError> {
         let mut else_ifs = vec![];
         let mut s = std::str::from_utf8(&source[0..4]).unwrap();
         let mut start = 0;
@@ -64,7 +64,7 @@ impl<'a> FSRElse<'a> {
             let may_if_token = std::str::from_utf8(&source[start..start + 2]).unwrap();
             if may_if_token.eq("if") {
                 let sub_meta = meta.from_offset(start);
-                let if_block = FSRIf::parse_without_else(&source[start..], sub_meta)?;
+                let if_block = FSRIf::parse_without_else(&source[start..], sub_meta, context)?;
                 start += if_block.get_len();
                 let e = ElseIf {
                     test: Some(if_block.test),
@@ -76,7 +76,7 @@ impl<'a> FSRElse<'a> {
                 let sub_meta = meta.from_offset(start);
                 let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
                 let sub_meta = meta.from_offset(start);
-                let block = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
+                let block = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
                 let len = block.get_len();
                 start += len;
                 let e = ElseIf {

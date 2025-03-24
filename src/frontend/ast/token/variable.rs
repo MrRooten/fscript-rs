@@ -9,6 +9,7 @@ pub struct FSRVariable<'a> {
     pub(crate) type_hint: Option<&'a str>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
+    pub(crate) is_defined: bool,
 }
 
 impl<'a> FSRVariable<'a> {
@@ -23,6 +24,7 @@ impl<'a> FSRVariable<'a> {
             len: 0,
             meta,
             type_hint: None,
+            is_defined: true,
         })
     }
 

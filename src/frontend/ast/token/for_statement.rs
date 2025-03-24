@@ -1,6 +1,6 @@
 use crate::{frontend::ast::{parse::ASTParser, token::expr::FSRExpr}, utils::error::SyntaxError};
 
-use super::{base::{FSRPosition, FSRToken}, block::FSRBlock};
+use super::{base::{FSRPosition, FSRToken}, block::FSRBlock, ASTContext};
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
@@ -42,7 +42,7 @@ impl<'a> FSRFor<'a> {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
         let s = std::str::from_utf8(&source[0..3]).unwrap();
         
         if s != "for" {
@@ -167,13 +167,13 @@ impl<'a> FSRFor<'a> {
 
         let expr = &source[start..start + len];
         let sub_meta = meta.from_offset(start);
-        let expr = FSRExpr::parse(expr, false, sub_meta)?.0;
+        let expr = FSRExpr::parse(expr, false, sub_meta, context)?.0;
         start += len;
         let sub_meta = meta.from_offset(start);
         let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
-        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
+        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
         start += body.get_len();
         
         Ok(Self {

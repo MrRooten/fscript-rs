@@ -5,6 +5,7 @@ use crate::utils::error::SyntaxError;
 
 use super::base::FSRPosition;
 use super::base::FSRToken;
+use super::ASTContext;
 
 #[derive(Debug, Clone)]
 pub struct FSRWhile<'a> {
@@ -36,7 +37,7 @@ impl<'a> FSRWhile<'a> {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition,context: &mut ASTContext) -> Result<Self, SyntaxError> {
         let s = std::str::from_utf8(&source[0..5]).unwrap();
         if source.len() < 5 {
             unimplemented!()
@@ -107,7 +108,7 @@ impl<'a> FSRWhile<'a> {
         let test = &source[5..5 + len];
         let mut test_meta = meta.clone();
         test_meta.offset = meta.offset + 5;
-        let test_expr = FSRExpr::parse(test, false, test_meta)?.0;
+        let test_expr = FSRExpr::parse(test, false, test_meta, context)?.0;
 
         let start = 5 + len;
         let mut sub_meta = meta.clone();
@@ -115,7 +116,7 @@ impl<'a> FSRWhile<'a> {
         let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
-        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
+        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         Ok(Self {
             test: Box::new(test_expr),

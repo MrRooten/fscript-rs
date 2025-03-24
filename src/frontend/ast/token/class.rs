@@ -4,7 +4,7 @@ use crate::{
     utils::error::SyntaxError,
 };
 
-use super::base::FSRPosition;
+use super::{base::FSRPosition, ASTContext};
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRClassFrontEnd<'a> {
@@ -26,7 +26,7 @@ impl<'a> FSRClassFrontEnd<'a> {
         &self.meta
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
         let start_token = str::from_utf8(&source[0..5]).unwrap();
         if !start_token.eq("class") {
             unimplemented!()
@@ -68,7 +68,7 @@ impl<'a> FSRClassFrontEnd<'a> {
         let sub_meta = meta.from_offset(start);
         let len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let sub_meta = meta.from_offset(start);
-        let block = FSRBlock::parse(&source[start..start + len], sub_meta)?;
+        let block = FSRBlock::parse(&source[start..start + len], sub_meta, context)?;
 
         Ok((Self { name, block, meta }, start + len))
     }

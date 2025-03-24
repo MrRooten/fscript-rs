@@ -8,6 +8,7 @@ use super::r#else::FSRElse;
 use super::return_def::FSRReturn;
 use super::try_expr::FSRTryBlock;
 use super::while_statement::FSRWhile;
+use super::ASTContext;
 use crate::frontend::ast::token::assign;
 use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::utils::automaton::{FSTrie, NodeType};
@@ -76,7 +77,7 @@ impl<'a> FSRBlock<'a> {
         self.len
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition,context: &mut ASTContext) -> Result<Self, SyntaxError> {
         let mut trie = FSTrie::new();
         let mut start = 0;
         let mut length = 0;
@@ -139,7 +140,7 @@ impl<'a> FSRBlock<'a> {
                 length += l;
                 let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
                 let mut sub_block_meta = meta.from_offset(start);
-                let sub_block = Self::parse(&source[start..start + length], sub_block_meta)?;
+                let sub_block = Self::parse(&source[start..start + length], sub_block_meta, context)?;
                 block.tokens.push(FSRToken::Block(sub_block));
                 start += length;
                 length = 0;
@@ -158,7 +159,7 @@ impl<'a> FSRBlock<'a> {
                     Some(s) => s,
                     None => {
                         let mut sub_meta = meta.from_offset(start);
-                        let expr = FSRExpr::parse(&source[start..], false, sub_meta)?;
+                        let expr = FSRExpr::parse(&source[start..], false, sub_meta, context)?;
                         length += expr.1;
                         block.tokens.push(expr.0);
                         start += length;
@@ -169,35 +170,35 @@ impl<'a> FSRBlock<'a> {
 
                 if t == &NodeType::IfState {
                     let mut sub_meta = meta.from_offset(start);
-                    let if_block = FSRIf::parse(&source[start..], sub_meta)?;
+                    let if_block = FSRIf::parse(&source[start..], sub_meta, context)?;
                     length += if_block.get_len();
                     block.tokens.push(FSRToken::IfExp(if_block));
                     start += length;
                     length = 0;
                 } else if t == &NodeType::WhileState {
                     let mut sub_meta = meta.from_offset(start);
-                    let while_block = FSRWhile::parse(&source[start..], sub_meta)?;
+                    let while_block = FSRWhile::parse(&source[start..], sub_meta, context)?;
                     length += while_block.get_len();
                     block.tokens.push(FSRToken::WhileExp(while_block));
                     start += length;
                     length = 0;
                 } else if t == &NodeType::FnState {
                     let mut sub_meta = meta.from_offset(start);
-                    let fn_def = FSRFnDef::parse(&source[start..], sub_meta)?;
+                    let fn_def = FSRFnDef::parse(&source[start..], sub_meta, context)?;
                     length += fn_def.get_len();
                     block.tokens.push(FSRToken::FunctionDef(fn_def));
                     start += length;
                     length = 0;
                 } else if t == &NodeType::ReturnState {
                     let mut sub_meta = meta.from_offset(start);
-                    let ret_expr = FSRReturn::parse(&source[start..], sub_meta)?;
+                    let ret_expr = FSRReturn::parse(&source[start..], sub_meta, context)?;
                     length += ret_expr.1;
                     block.tokens.push(FSRToken::Return(ret_expr.0));
                     start += length;
                     length = 0;
                 } else if t == &NodeType::Else {
                     let mut sub_meta = meta.from_offset(start);
-                    let else_expr = FSRElse::parse(&source[start..], sub_meta)?;
+                    let else_expr = FSRElse::parse(&source[start..], sub_meta, context)?;
                 } else if t == &NodeType::Break {
                     let mut sub_meta = meta.from_offset(start);
                     block.tokens.push(FSRToken::Break(sub_meta));
@@ -209,7 +210,7 @@ impl<'a> FSRBlock<'a> {
                 } else if t == &NodeType::ForState {
                     let mut sub_meta = meta.clone();
                     sub_meta.offset = meta.offset + start;
-                    let for_def = FSRFor::parse(&source[start..], sub_meta)?;
+                    let for_def = FSRFor::parse(&source[start..], sub_meta, context)?;
                     length += for_def.get_len();
                     block.tokens.push(FSRToken::ForBlock(for_def));
                     start += length;
@@ -217,7 +218,7 @@ impl<'a> FSRBlock<'a> {
                 } else if t == &NodeType::Try {
                     let mut sub_meta = meta.clone();
                     sub_meta.offset = meta.offset + start;
-                    let try_def = FSRTryBlock::parse(&source[start..], sub_meta)?;
+                    let try_def = FSRTryBlock::parse(&source[start..], sub_meta, context)?;
                     length += try_def.get_len();
                     block.tokens.push(FSRToken::TryBlock(try_def));
                     start += length;
@@ -235,7 +236,7 @@ impl<'a> FSRBlock<'a> {
 }
 
 mod test {
-    use crate::frontend::ast::token::{base::FSRPosition, block::FSRBlock};
+    use crate::frontend::ast::token::{base::FSRPosition, block::FSRBlock, ASTContext};
 
     #[test]
     fn test_block_comment() {
@@ -244,7 +245,8 @@ mod test {
         } #absdfsdf
         ";
         let meta = FSRPosition::new();
-        let b = FSRBlock::parse(s.as_bytes(), meta).unwrap();
+        let mut context = ASTContext::new();
+        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context).unwrap();
         println!("{:#?}", b);
     }
 }

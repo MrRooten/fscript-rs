@@ -1,7 +1,7 @@
 
 use super::{
     base::{FSRPosition, FSRToken},
-    expr::FSRExpr,
+    expr::FSRExpr, ASTContext,
 };
 use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 use std::str;
@@ -13,6 +13,7 @@ pub struct FSRCall<'a> {
     pub(crate) len: usize,
     pub(crate) single_op: Option<&'a str>,
     meta: FSRPosition,
+    pub(crate) is_defined: bool,
 }
 
 #[derive(PartialEq)]
@@ -36,7 +37,7 @@ impl<'a> FSRCall<'a> {
         self.name
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext, pre_args: bool) -> Result<Self, SyntaxError> {
         let mut state = CallState::Start;
         let mut start = 0;
         let mut length = 0;
@@ -83,7 +84,19 @@ impl<'a> FSRCall<'a> {
         let exprs = ASTParser::split_by_comma(args, sub_meta)?;
         for s in exprs {
             let sub_meta = meta.from_offset(first);
-            let expr = FSRExpr::parse(s, true, sub_meta)?;
+            let expr = FSRExpr::parse(s, true, sub_meta, context)?;
+            if pre_args {
+                match &expr.0 {
+                    FSRToken::Variable(v) => {
+                        context.add_variable(v.get_name());
+                    },
+                    FSRToken::Assign(a) => {
+                        context.add_variable(a.get_name());
+                    },
+                    _ => {}
+                }
+            }
+            
             fn_args.push(expr.0);
         }
         Ok(Self {
@@ -92,6 +105,7 @@ impl<'a> FSRCall<'a> {
             len: 0,
             single_op: None,
             meta,
+            is_defined: true,
         })
     }
 

@@ -10,6 +10,7 @@ use super::base::FSRToken;
 use super::r#else::FSRElse;
 use super::statement::ASTTokenEnum;
 use super::statement::ASTTokenInterface;
+use super::ASTContext;
 
 #[derive(PartialEq, Clone)]
 enum State {
@@ -28,7 +29,7 @@ pub struct FSRCatch<'a> {
 }
 
 impl<'a> FSRCatch<'a> {
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRCatch<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRCatch<'a>, SyntaxError> {
         let s = std::str::from_utf8(&source[0..5]).unwrap();
         if source.len() < 5 {
             let sub_meta = meta.from_offset(0);
@@ -57,7 +58,7 @@ impl<'a> FSRCatch<'a> {
         let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
-        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
+        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         start += b_len;
         b_len = 0;
@@ -92,7 +93,7 @@ impl<'a> FSRTryBlock<'a> {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRTryBlock<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRTryBlock<'a>, SyntaxError> {
         let s = std::str::from_utf8(&source[0..3]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.from_offset(0);
@@ -127,7 +128,7 @@ impl<'a> FSRTryBlock<'a> {
         let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
         let mut sub_meta = meta.clone();
         sub_meta.offset = meta.offset + start;
-        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta)?;
+        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         start += b_len;
         b_len = 0;
@@ -139,7 +140,7 @@ impl<'a> FSRTryBlock<'a> {
             let may_else_token = std::str::from_utf8(&source[start..start + 5]).unwrap();
             if may_else_token.eq("catch") {
                 let sub_meta = meta.from_offset(start);
-                let catches = FSRCatch::parse(&source[start..], sub_meta)?;
+                let catches = FSRCatch::parse(&source[start..], sub_meta, context)?;
                 start += catches.get_len();
                 Box::new(catches)
             } else {
@@ -182,7 +183,8 @@ mod test {
  b = 2 
 }"#;
         let meta = FSRPosition::new();
-        let try_expr = FSRTryBlock::parse(source.as_bytes(), meta).unwrap();
+        let mut context = super::ASTContext::new();
+        let try_expr = FSRTryBlock::parse(source.as_bytes(), meta, &mut context).unwrap();
         println!("{:#?}", try_expr);
 
         assert!(try_expr.get_len() == source.len());

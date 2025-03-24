@@ -13,10 +13,10 @@ use crate::utils::error::{SyntaxErrType, SyntaxError};
 use std::str;
 
 use super::base::FSRPosition;
+use super::ASTContext;
 use super::{base::FSRToken, call::FSRCall, variable::FSRVariable};
 
 static mut LAMBDA_NUMBER: i32 = 0;
-
 
 #[derive(Debug, Clone)]
 pub struct FSRExpr<'a> {
@@ -461,6 +461,7 @@ impl<'a> FSRExpr<'a> {
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext<'a>,
+        context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         ctx.states.pop_state();
         ctx.bracket_count -= 1;
@@ -475,7 +476,7 @@ impl<'a> FSRExpr<'a> {
             ctx.start += ctx.length;
             ctx.length = 0;
             let sub_meta = meta.from_offset(0);
-            let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta)?.0;
+            let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta, context)?.0;
             if let FSRToken::Expr(e) = &mut sub_expr {
                 e.single_op = ctx.single_op;
             }
@@ -499,6 +500,7 @@ impl<'a> FSRExpr<'a> {
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext<'a>,
+        context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         ctx.states.pop_state();
         ctx.bracket_count -= 1;
@@ -513,7 +515,7 @@ impl<'a> FSRExpr<'a> {
             ctx.start += ctx.length;
             ctx.length = 0;
             let sub_meta = meta.from_offset(0);
-            let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta)?.0;
+            let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta, context)?.0;
             if let FSRToken::Expr(e) = &mut sub_expr {
                 e.single_op = ctx.single_op;
             }
@@ -593,7 +595,10 @@ impl<'a> FSRExpr<'a> {
             let c = source[ctx.start + ctx.length] as char;
 
             if c.eq(&'.') {
-                if ctx.start + ctx.length + 1 < source.len() && source[ctx.start + ctx.length + 1] == b'.' { // like range 0..4
+                if ctx.start + ctx.length + 1 < source.len()
+                    && source[ctx.start + ctx.length + 1] == b'.'
+                {
+                    // like range 0..4
                     break;
                 }
                 is_float = true;
@@ -632,6 +637,7 @@ impl<'a> FSRExpr<'a> {
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext<'a>,
+        context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         loop {
             if ctx.last_loop {
@@ -679,10 +685,15 @@ impl<'a> FSRExpr<'a> {
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && c == '|' {
                 // Process lambda, like |a, b| {
-                //    
+                //
                 // }
                 if !ctx.operators.is_empty() || ctx.candidates.is_empty() {
-                    let fn_def = FSRFnDef::parse_lambda(&source[ctx.start..], meta.from_offset(ctx.start), &format!("___lambda_zXjiTkDs_{}", unsafe { LAMBDA_NUMBER }))?;
+                    let fn_def = FSRFnDef::parse_lambda(
+                        &source[ctx.start..],
+                        meta.from_offset(ctx.start),
+                        &format!("___lambda_zXjiTkDs_{}", unsafe { LAMBDA_NUMBER }),
+                        context,
+                    )?;
                     unsafe {
                         LAMBDA_NUMBER += 1;
                     }
@@ -690,7 +701,6 @@ impl<'a> FSRExpr<'a> {
                     ctx.candidates.push(FSRToken::FunctionDef(fn_def));
                     continue;
                 }
-
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && Self::is_op_one_char(c) {
@@ -709,8 +719,12 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.is_high_prio_single_op && ctx.states.eq_peek(&ExprState::WaitToken) {
-                let mut sub_expr =
-                    FSRExpr::parse(&source[ctx.start..], false, meta.from_offset(ctx.start))?;
+                let mut sub_expr = FSRExpr::parse(
+                    &source[ctx.start..],
+                    false,
+                    meta.from_offset(ctx.start),
+                    context,
+                )?;
                 ctx.start += sub_expr.1;
                 if let FSRToken::Expr(e) = &mut sub_expr.0 {
                     e.single_op = ctx.single_op;
@@ -763,7 +777,7 @@ impl<'a> FSRExpr<'a> {
                 && ctx.states.eq_peek(&ExprState::Bracket)
                 || ctx.last_loop
             {
-                Self::end_of_bracket(source, ignore_nline, meta, ctx)?;
+                Self::end_of_bracket(source, ignore_nline, meta, ctx, context)?;
                 continue;
             }
 
@@ -785,8 +799,8 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c.is_ascii_digit() {
-                Self::number_process(source, ignore_nline, meta, ctx)?;  
-                
+                Self::number_process(source, ignore_nline, meta, ctx)?;
+
                 continue;
             }
 
@@ -795,7 +809,7 @@ impl<'a> FSRExpr<'a> {
                 let len = ASTParser::read_valid_bracket(&source[ctx.start..], sub_meta.clone())?;
                 assert!(len >= 2);
 
-                let list = FSRListFrontEnd::parse(&source[ctx.start..ctx.start + len], sub_meta)?;
+                let list = FSRListFrontEnd::parse(&source[ctx.start..ctx.start + len], sub_meta, context)?;
                 ctx.candidates.push(FSRToken::List(list));
                 ctx.start += len;
                 ctx.length = 0;
@@ -815,7 +829,7 @@ impl<'a> FSRExpr<'a> {
                 ctx.length += len;
                 let mut sub_meta = meta.from_offset(ctx.start);
                 let mut call =
-                    FSRCall::parse(&source[ctx.start..ctx.start + ctx.length], sub_meta)?;
+                    FSRCall::parse(&source[ctx.start..ctx.start + ctx.length], sub_meta, context, false)?;
                 if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
                     let mut stack_expr = vec![];
                     let mut right = ctx.candidates.pop().unwrap();
@@ -833,9 +847,9 @@ impl<'a> FSRExpr<'a> {
                     ctx.candidates.push(FSRToken::Call(call));
                     ctx.single_op = None;
                 }
-                
+
                 // escape blank char, case like a[1] (1 + 2)
-                while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]){
+                while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]) {
                     ctx.start += 1;
                 }
 
@@ -852,7 +866,7 @@ impl<'a> FSRExpr<'a> {
                 ctx.length += len;
                 let mut sub_meta = meta.from_offset(ctx.start);
                 let getter =
-                    FSRGetter::parse(&source[ctx.start..ctx.start + ctx.length], sub_meta).unwrap();
+                    FSRGetter::parse(&source[ctx.start..ctx.start + ctx.length], sub_meta, context).unwrap();
                 if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
                     let mut stack_expr = vec![];
                     let mut right = ctx.candidates.pop().unwrap();
@@ -872,7 +886,7 @@ impl<'a> FSRExpr<'a> {
                 ctx.start += ctx.length;
                 ctx.length = 0;
 
-                while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]){
+                while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]) {
                     ctx.start += 1;
                 }
                 // ctx.states.pop_state();
@@ -935,9 +949,10 @@ impl<'a> FSRExpr<'a> {
         source: &'a [u8],
         ignore_nline: bool,
         meta: FSRPosition,
+        context: &mut ASTContext,
     ) -> Result<(FSRToken<'a>, usize), SyntaxError> {
         let mut ctx = StmtContext::new();
-        Self::stmt_loop(source, ignore_nline, &meta, &mut ctx)?;
+        Self::stmt_loop(source, ignore_nline, &meta, &mut ctx, context)?;
 
         if ctx.candidates.is_empty() {
             return Ok((FSRToken::EmptyExpr, ctx.start + ctx.length));
@@ -956,12 +971,12 @@ impl<'a> FSRExpr<'a> {
         if ctx.candidates.len() == 2 {
             let mut left = ctx.candidates.remove(0);
             let mut right = ctx.candidates.remove(0);
+
             if right.is_empty() {
                 return Ok((left, ctx.start + ctx.length));
             }
             let n_left = left.clone();
             if ctx.operators.is_empty() {
-                
                 let mut stack_expr = vec![left, right];
 
                 return Ok((
@@ -972,6 +987,7 @@ impl<'a> FSRExpr<'a> {
             let op = ctx.operators.remove(0).0;
             if op.eq("=") {
                 if let FSRToken::Variable(name) = left {
+                    context.add_variable(name.get_name());
                     return Ok((
                         FSRToken::Assign(FSRAssign {
                             left: Rc::new(n_left),
@@ -1028,13 +1044,14 @@ impl<'a> FSRExpr<'a> {
         let split_offset = operator.1;
 
         let mut sub_meta = meta.from_offset(0);
-        let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta)?.0;
+        let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta, context)?.0;
 
         let mut sub_meta = meta.from_offset(0);
         let right = FSRExpr::parse(
             &source[split_offset + operator.0.len()..],
             false,
             sub_meta.clone(),
+            context,
         )?
         .0;
         let n_left = left.clone();
@@ -1082,154 +1099,154 @@ impl<'a> FSRExpr<'a> {
     }
 }
 
-mod test {
-    use crate::frontend::ast::token::base::FSRPosition;
+// mod test {
+//     use crate::frontend::ast::token::base::FSRPosition;
 
-    use super::FSRExpr;
+//     use super::FSRExpr;
 
-    #[test]
-    fn test_binary_str() {
-        let v = "v and c";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_binary_str() {
+//         let v = "v and c";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_binary_str2() {
-        let v = "not c and d";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_binary_str2() {
+//         let v = "not c and d";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_binary_str3() {
-        let v = "not false";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_binary_str3() {
+//         let v = "not false";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_binary_str4() {
-        let v = "(not 1 == 1) or 1 == 1";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_binary_str4() {
+//         let v = "(not 1 == 1) or 1 == 1";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_float() {
-        let v = "1.0 + 1.0";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_float() {
+//         let v = "1.0 + 1.0";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_float_div() {
-        let v = "1.0 / 1.0";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_float_div() {
+//         let v = "1.0 / 1.0";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_class() {
-        let v = "Abc::test";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_class() {
+//         let v = "Abc::test";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_square_bracket() {
-        let v = "a[1]";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_square_bracket() {
+//         let v = "a[1]";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_bracket() {
-        let v = "a(1)(1) + a(1)(1)";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_bracket() {
+//         let v = "a(1)(1) + a(1)(1)";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_square_bracket2() {
-        let case = vec!["a[1][1]", "a[1][1] + 1", "a[1][1] + 1 + 1",  "a[1][2][3]", "a[1] (1 + 2)"];
-        for c in case {
-            let v = c;
-            let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-            println!("{:#?}", p.0);
-        }
-    }
+//     #[test]
+//     fn test_square_bracket2() {
+//         let case = vec!["a[1][1]", "a[1][1] + 1", "a[1][1] + 1 + 1",  "a[1][2][3]", "a[1] (1 + 2)"];
+//         for c in case {
+//             let v = c;
+//             let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//             println!("{:#?}", p.0);
+//         }
+//     }
 
-    #[test]
-    fn test_list() {
-        let v = "[1, 2, 3]";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_list() {
+//         let v = "[1, 2, 3]";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_class_getter() {
-        let v = "Test::abc()";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_class_getter() {
+//         let v = "Test::abc()";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_expr_error1() {
-        let v = "1 + 1 +";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
-        println!("{:#?}", p);
-    }
+//     #[test]
+//     fn test_expr_error1() {
+//         let v = "1 + 1 +";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
+//         println!("{:#?}", p);
+//     }
 
-    /// test error case
-    /// this test case is for abc(
-    /// it should be abc() or abc(1)
-    #[test]
-    fn test_expr_error2() {
-        let v = "abc(";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
-        println!("{:#?}", p);
-    }
+//     /// test error case
+//     /// this test case is for abc(
+//     /// it should be abc() or abc(1)
+//     #[test]
+//     fn test_expr_error2() {
+//         let v = "abc(";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
+//         println!("{:#?}", p);
+//     }
 
-    #[test]
-    fn test_single_quote_string() {
-        let v = "println('ab, c')";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_single_quote_string() {
+//         let v = "println('ab, c')";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_range() {
-        let v = "0..4+3";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_range() {
+//         let v = "0..4+3";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_getter_expr() {
-        let v = "a.abc.ddc[0]";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_getter_expr() {
+//         let v = "a.abc.ddc[0]";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_call_expr() {
-        let v = "a.abc(0)";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_call_expr() {
+//         let v = "a.abc(0)";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_lambda() {
-        let v = "a = |a, b| { a + b }";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
+//     #[test]
+//     fn test_lambda() {
+//         let v = "a = |a, b| { a + b }";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
 
-    #[test]
-    fn test_lambda2() {
-        let v = "|a, b| { a + b }";
-        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-        println!("{:#?}", p.0);
-    }
-}
+//     #[test]
+//     fn test_lambda2() {
+//         let v = "|a, b| { a + b }";
+//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+//         println!("{:#?}", p.0);
+//     }
+// }

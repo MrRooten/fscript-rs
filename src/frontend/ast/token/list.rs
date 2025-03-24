@@ -3,7 +3,7 @@ use crate::{
     utils::error::SyntaxError,
 };
 
-use super::base::{FSRPosition, FSRToken};
+use super::{base::{FSRPosition, FSRToken}, ASTContext};
 
 #[derive(Debug, Clone)]
 pub struct FSRListFrontEnd<'a> {
@@ -23,7 +23,7 @@ impl<'a> FSRListFrontEnd<'a> {
         &self.meta
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<FSRListFrontEnd<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRListFrontEnd<'a>, SyntaxError> {
         let mut vs = vec![];
         let mut sub_meta = meta.clone();
         sub_meta.offset += 1;
@@ -32,7 +32,7 @@ impl<'a> FSRListFrontEnd<'a> {
         for t in tokens {
             let mut _sub_meta = meta.clone();
             _sub_meta.offset += start;
-            let token = FSRExpr::parse(t, true, _sub_meta)?;
+            let token = FSRExpr::parse(t, true, _sub_meta, context)?;
             vs.push(token.0);
             start += t.len();
             start += 1; //escape comma

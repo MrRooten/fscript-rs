@@ -7,7 +7,7 @@ use crate::{
     utils::error::SyntaxError,
 };
 
-use super::base::{FSRPosition, FSRToken};
+use super::{base::{FSRPosition, FSRToken}, ASTContext};
 
 #[derive(Debug, Clone)]
 pub struct FSRAssign<'a> {
@@ -49,7 +49,7 @@ impl<'a> FSRAssign<'a> {
     pub fn get_len(&self) -> usize {
         self.len
     }
-    pub fn parse(source: &'a [u8], meta: &FSRPosition) -> Result<FSRAssign<'a>, SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: &FSRPosition, context: &mut ASTContext) -> Result<FSRAssign<'a>, SyntaxError> {
         let mut start = 0;
         let mut length = 0;
         let mut state = FSRAssignState::Start;
@@ -94,7 +94,7 @@ impl<'a> FSRAssign<'a> {
 
             if state == FSRAssignState::RightValue {
                 let mut sub_meta = meta.from_offset(start);
-                let expr = FSRExpr::parse(&source[start..], false, sub_meta)?;
+                let expr = FSRExpr::parse(&source[start..], false, sub_meta, context)?;
                 if let FSRToken::Expr(e) = &expr.0 {
                     len += expr.1;
                 }
