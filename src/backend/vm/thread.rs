@@ -1,22 +1,14 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    cell::RefCell,
-    collections::HashMap,
-    ops::Range,
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::{Arc, Mutex},
-    thread,
-    time::Instant,
-    vec,
+    cell::RefCell, collections::HashMap, ops::Range, path::{Path, PathBuf}, rc::Rc, str::FromStr, sync::{Arc, Mutex}, thread, time::Instant, vec
 };
 
 use std::borrow::Cow;
 
 use crate::{
     backend::{
-        compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
+        compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, VarId},
         memory::size_alloc::FSRObjectAllocator,
         types::{
             base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
@@ -207,7 +199,7 @@ impl<'a> AttrArgs<'a> {
 
 #[derive(Debug)]
 pub enum SValue<'a> {
-    Stack(&'a (u64, String)),
+    Stack(&'a (Rc<VarId>, String)),
     Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
     Global(ObjId),
     #[allow(dead_code)]
@@ -229,7 +221,7 @@ impl<'a> SValue<'a> {
         Ok(match self {
             SValue::Stack(s) => {
                 let state = thread.get_cur_frame();
-                if let Some(id) = state.get_var(&s.0) {
+                if let Some(id) = state.get_var(&s.0.id) {
                     *id
                 } else {
                     let module = FSRObject::id_to_obj(state.module).as_code();
@@ -500,7 +492,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let obj_id = match context.exp.last().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_frame();
-                state.get_var(&s.0).cloned().unwrap()
+                state.get_var(&s.0.id).cloned().unwrap()
             }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr,
@@ -510,7 +502,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let list_obj = match context.exp.get(context.exp.len() - 2).unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_frame();
-                state.get_var(&s.0).cloned().unwrap()
+                state.get_var(&s.0.id).cloned().unwrap()
             }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr,
@@ -550,7 +542,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if let ArgType::Variable(v) = bytecode.get_arg() {
-            let var_id = v.0;
+            let var_id = v.0.clone();
             let svalue = match context.exp.pop() {
                 Some(s) => s,
                 None => {
@@ -564,13 +556,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 let id = FSRVM::leak_object(obj);
 
                 // println!("{:#?}", obj);
-                state.insert_var(var_id, id, Some(&mut self.thread_allocator));
+                state.insert_var(var_id.id, id, Some(&mut self.thread_allocator));
                 return Ok(false);
             }
             let obj_id = svalue.get_global_id(self)?;
             let state = &mut self.cur_frame;
 
-            state.insert_var(var_id, obj_id, Some(&mut self.thread_allocator));
+            state.insert_var(var_id.id, obj_id, Some(&mut self.thread_allocator));
 
             return Ok(false);
         }
@@ -597,7 +589,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let to_assign_obj_id = match context.exp.pop().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_frame();
-                if let Some(id) = state.get_var(&s.0) {
+                if let Some(id) = state.get_var(&s.0.id) {
                     *id
                 } else {
                     let module = FSRObject::id_to_obj(state.module).as_code();
@@ -618,7 +610,7 @@ impl<'a> FSRThreadRuntime<'a> {
         match assign_id {
             SValue::Stack(v) => {
                 let state = &mut self.cur_frame;
-                state.insert_var(v.0, to_assign_obj_id, Some(&mut self.thread_allocator));
+                state.insert_var(v.0.id, to_assign_obj_id, Some(&mut self.thread_allocator));
                 //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
             }
             SValue::Attr(attr) => {
@@ -1058,8 +1050,8 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn chain_get_variable(var: &(u64, String), thread: &Self, module: ObjId) -> Option<ObjId> {
-        if let Some(value) = thread.get_cur_frame().get_var(&var.0) {
+    fn chain_get_variable(var: &(Rc<VarId>, String), thread: &Self, module: ObjId) -> Option<ObjId> {
+        if let Some(value) = thread.get_cur_frame().get_var(&var.0.id) {
             Some(*value)
         } else if let Some(value) = FSRObject::id_to_obj(module).as_code().get_object(&var.1) {
             Some(value)
@@ -1285,7 +1277,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut call_method = false;
         let fn_id = match context.exp.pop().unwrap() {
             SValue::Stack(s) => self
-                .try_get_obj_by_name(s.0, &s.1, module, context)
+                .try_get_obj_by_name(s.0.id, &s.1, module, context)
                 .unwrap(),
             SValue::Global(id) => id,
             SValue::Attr(attr) => {
@@ -1415,7 +1407,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let test_val = match &v {
             SValue::Stack(s) => {
                 name = &s.1;
-                if let Some(id) = state.get_var(&s.0) {
+                if let Some(id) = state.get_var(&s.0.id) {
                     Some(*id)
                 } else {
                     let v = self
@@ -1426,7 +1418,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         .cloned()
                         .unwrap();
                     let state = self.get_cur_mut_frame();
-                    state.insert_var(s.0, v, None);
+                    state.insert_var(s.0.id, v, None);
                     Some(v)
                 }
             }
@@ -1478,7 +1470,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_frame();
         let test_val = match context.exp.pop().unwrap() {
             SValue::Stack(s) => {
-                if let Some(id) = state.get_var(&s.0) {
+                if let Some(id) = state.get_var(&s.0.id) {
                     *id
                 } else {
                     return Err(FSRError::new(
@@ -1632,7 +1624,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_frame();
         let test_val = match context.exp.pop().unwrap() {
             SValue::Stack(s) => {
-                if let Some(id) = state.get_var(&s.0) {
+                if let Some(id) = state.get_var(&s.0.id) {
                     *id
                 } else {
                     return Err(FSRError::new(
@@ -1725,7 +1717,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(true);
             }
 
-            state.insert_var(name.0, fn_id, Some(&mut self.thread_allocator));
+            state.insert_var(name.0.id, fn_id, Some(&mut self.thread_allocator));
             FSRObject::id_to_obj(context.code)
                 .as_code()
                 .register_object(&name.1, fn_id);
@@ -1789,7 +1781,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = match context.exp.pop().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_frame();
-                if let Some(id) = state.get_var(&s.0) {
+                if let Some(id) = state.get_var(&s.0.id) {
                     *id
                 } else {
                     let module = FSRObject::id_to_obj(state.module).as_code();
@@ -1852,7 +1844,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = &mut self.cur_frame;
         let v = state.args.pop().unwrap();
         if let ArgType::Variable(s_id) = bytecode.get_arg() {
-            state.insert_var(s_id.0, v, Some(&mut self.thread_allocator));
+            state.insert_var(s_id.0.id, v, Some(&mut self.thread_allocator));
         }
         Ok(false)
     }
@@ -1941,7 +1933,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let obj_id = { self.load(module_obj)? };
 
             let frame = self.get_cur_mut_frame();
-            frame.insert_var(*v, obj_id, None);
+            frame.insert_var(v.id, obj_id, None);
             FSRObject::id_to_obj(context)
                 .as_code()
                 .register_object(module_name.last().unwrap(), obj_id);
@@ -1957,7 +1949,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if let ArgType::Variable(var) = bc.get_arg() {
-            let id = var.0;
+            let id = var.0.clone();
             let state = self.get_cur_mut_frame();
             let mut cls_obj = FSRObject::new();
             cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
@@ -1966,7 +1958,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let name = obj.get_name().to_string();
             cls_obj.set_value(FSRValue::Class(obj));
             let obj_id = FSRVM::register_object(cls_obj);
-            state.insert_var(id, obj_id, None);
+            state.insert_var(id.id, obj_id, None);
             FSRObject::id_to_obj(context.code)
                 .as_code()
                 .register_object(&name, obj_id);

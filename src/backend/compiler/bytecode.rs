@@ -1,7 +1,5 @@
 use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    sync::atomic::{AtomicU64, Ordering},
+    borrow::Cow, collections::{HashMap, HashSet}, rc::Rc, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{
@@ -153,10 +151,10 @@ pub enum BytecodeOperator {
 
 #[derive(Debug)]
 pub enum ArgType {
-    Variable((u64, String)),
+    Variable((Rc<VarId>, String)),
     PreVariable((u64, String)),
     Lambda((u64, String)),
-    ImportModule(u64, Vec<String>),
+    ImportModule(Rc<VarId>, Vec<String>),
     VariableList(Vec<(u64, String)>),
     ConstString(u64, ObjId),
     ConstInteger(u64, ObjId),
@@ -337,8 +335,15 @@ impl BytecodeContext {
 }
 
 #[derive(Debug)]
+pub struct VarId {
+    pub(crate) id: u64,
+    pub(crate) name: String,
+    pub(crate) is_ref: bool,
+}
+
+#[derive(Debug)]
 pub struct VarMap<'a> {
-    var_map: HashMap<&'a str, u64>,
+    var_map: HashMap<&'a str, Rc<VarId>>,
     var_id: AtomicU64,
     attr_map: HashMap<&'a str, u64>,
     attr_id: AtomicU64,
@@ -355,8 +360,8 @@ impl<'a> VarMap<'a> {
         self.var_map.contains_key(var)
     }
 
-    pub fn get_var(&self, var: &str) -> Option<&u64> {
-        self.var_map.get(var)
+    pub fn get_var(&self, var: &str) -> Option<Rc<VarId>> {
+        self.var_map.get(var).cloned()
     }
 
     pub fn insert_var(&mut self, var: &'a str) {
@@ -364,7 +369,12 @@ impl<'a> VarMap<'a> {
             return;
         }
         let v = self.var_id.fetch_add(1, Ordering::Acquire);
-        self.var_map.insert(var, v);
+        let v = VarId {
+            id: v,
+            name: var.to_string(),
+            is_ref: false,
+        };
+        self.var_map.insert(var, Rc::new(v));
     }
 
     pub fn has_const(&self, c: &FSROrinStr) -> bool {
@@ -469,7 +479,7 @@ impl<'a> Bytecode {
                 let id = var_map_ref.last_mut().unwrap().get_var(name).unwrap();
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: ArgType::Variable((*id, name.to_string())),
+                    arg: ArgType::Variable((id, name.to_string())),
                 });
             }
         }
@@ -528,7 +538,7 @@ impl<'a> Bytecode {
                 let id = var_map_ref.last_mut().unwrap().get_var(name).unwrap();
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: ArgType::Variable((*id, name.to_string())),
+                    arg: ArgType::Variable((id, name.to_string())),
                 });
             }
         }
@@ -551,11 +561,14 @@ impl<'a> Bytecode {
         (result, var_map_ref)
     }
 
-    fn search_var_map_name_id(name: &'a str, var_map: &mut Vec<VarMap<'a>>) -> Option<u64> {
+    fn search_var_map_name_id(
+        name: &'a str,
+        var_map: &'a mut Vec<VarMap<'a>>,
+    ) -> Option<Rc<VarId>> {
         for v in var_map.iter_mut().rev() {
             if v.has_var(name) {
-                let id = *v.get_var(name).unwrap();
-                v.store_mark.insert(name, id);
+                let id = v.get_var(name).unwrap();
+                // v.store_mark.insert(name, id);
                 return Some(id);
             }
         }
@@ -577,11 +590,12 @@ impl<'a> Bytecode {
         let op_arg = match is_attr {
             true => BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Attr(*arg_id, var.get_name().to_string()),
+                // ???
+                arg: ArgType::Attr(arg_id.id, var.get_name().to_string()),
             },
             false => BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Variable((*arg_id, var.get_name().to_string())),
+                arg: ArgType::Variable((arg_id, var.get_name().to_string())),
             },
         };
         let mut ans = vec![op_arg];
@@ -608,7 +622,7 @@ impl<'a> Bytecode {
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::AssignArgs,
-            arg: ArgType::Variable((*arg_id, var.get_name().to_string())),
+            arg: ArgType::Variable((arg_id, var.get_name().to_string())),
         };
 
         let ans = vec![op_arg];
@@ -1020,7 +1034,7 @@ impl<'a> Bytecode {
             .unwrap();
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable((*arg_id, for_def.get_var_name().to_string())),
+            arg: ArgType::Variable((arg_id, for_def.get_var_name().to_string())),
         });
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::Assign,
@@ -1097,14 +1111,13 @@ impl<'a> Bytecode {
         let import_list = vec![BytecodeArg {
             operator: BytecodeOperator::Import,
             arg: ArgType::ImportModule(
-                *id,
+                id,
                 import.module_name.iter().map(|x| x.to_string()).collect(),
             ),
         }];
 
         (vec![import_list], var_map)
     }
-
 
     // iter stack and join with ::, like __main__::fn_name
     fn get_cur_name(map: &Vec<VarMap<'a>>, name: &str) -> String {
@@ -1168,15 +1181,12 @@ impl<'a> Bytecode {
             if fn_def.is_lambda() {
                 let v = Self::load_function(fn_def, var_map, const_map);
                 let fn_name = Self::get_cur_name(v.1, fn_def.get_name());
-                const_map
-                    .fn_def_map
-                    .insert(fn_name.clone(), v.0);
+                const_map.fn_def_map.insert(fn_name.clone(), v.0);
 
                 let c_id =
                     v.1.last_mut()
                         .unwrap()
                         .get_var(fn_def.get_name())
-                        .cloned()
                         .unwrap();
                 let mut result = vec![];
 
@@ -1236,7 +1246,7 @@ impl<'a> Bytecode {
             let id = right.1.last_mut().unwrap().get_var(v.get_name()).unwrap();
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Assign,
-                arg: ArgType::Variable((*id, v.get_name().to_string())),
+                arg: ArgType::Variable((id, v.get_name().to_string())),
             });
             (result_list, right.1)
         } else {
@@ -1384,7 +1394,7 @@ impl<'a> Bytecode {
         if !var_map.last_mut().unwrap().has_var(name) {
             var_map.last_mut().unwrap().insert_var(name);
         }
-        let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
+        let arg_id = var_map.last_mut().unwrap().get_var(name).unwrap();
 
         let mut fn_var_map = VarMap::new(fn_def.get_name());
         var_map.push(fn_var_map);
@@ -1463,11 +1473,11 @@ impl<'a> Bytecode {
             let v = name;
             var_map.last_mut().unwrap().insert_var(v);
         }
-        let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
+        let arg_id = var_map.last_mut().unwrap().get_var(name).unwrap();
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable((arg_id, name.to_string())),
+            arg: ArgType::Variable((arg_id.clone(), name.to_string())),
         };
 
         let mut class_var_map = VarMap::new(class_def.get_name());
@@ -1486,7 +1496,7 @@ impl<'a> Bytecode {
         result.extend(v.0);
         let end_of_cls = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineClass,
-            arg: ArgType::Variable((arg_id, name.to_string())),
+            arg: ArgType::Variable((arg_id.clone(), name.to_string())),
         }];
         result.push(end_of_cls);
         var_map.pop();
