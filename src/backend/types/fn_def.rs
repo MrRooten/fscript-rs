@@ -1,8 +1,5 @@
 use std::{
-    borrow::Cow,
-    cell::Cell,
-    fmt::{Debug, Formatter},
-    sync::atomic::{AtomicBool, AtomicU32, AtomicU64},
+    borrow::Cow, cell::Cell, collections::HashMap, fmt::{Debug, Formatter}, sync::atomic::{AtomicBool, AtomicU32, AtomicU64}
 };
 
 use crate::{
@@ -59,6 +56,7 @@ pub enum FSRnE<'a> {
 pub struct FSRFn<'a> {
     fn_def: FSRnE<'a>,
     pub(crate) code: ObjId,
+    closure: HashMap<&'a str, ObjId>,
 }
 
 impl Debug for FSRFn<'_> {
@@ -117,6 +115,7 @@ impl<'a> FSRFn<'a> {
         let v = Self {
             fn_def: FSRnE::FSRFn(fn_obj),
             code: code_obj,
+            closure: HashMap::new(),
         };
         FSRValue::Function(Box::new(v))
     }
@@ -125,6 +124,7 @@ impl<'a> FSRFn<'a> {
         let v = Self {
             fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
             code: 0,
+            closure: HashMap::new(),
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
