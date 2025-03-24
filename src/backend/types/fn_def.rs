@@ -1,26 +1,38 @@
-use std::{borrow::Cow, cell::Cell, fmt::{Debug, Formatter}, sync::atomic::{AtomicBool, AtomicU32, AtomicU64}};
+use std::{
+    borrow::Cow,
+    cell::Cell,
+    fmt::{Debug, Formatter},
+    sync::atomic::{AtomicBool, AtomicU32, AtomicU64},
+};
 
 use crate::{
-    backend::{compiler::bytecode::Bytecode, vm::{thread::{FSRThreadRuntime, ThreadContext}, virtual_machine::FSRVM}},
+    backend::{
+        compiler::bytecode::Bytecode,
+        vm::{
+            thread::{FSRThreadRuntime, ThreadContext},
+            virtual_machine::FSRVM,
+        },
+    },
     utils::error::FSRError,
 };
 
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
-    class::FSRClass
+    class::FSRClass,
 };
 
 type FSRRustFn = for<'a> fn(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError>;
 
 #[derive(Debug, Clone)]
 pub struct FSRFnInner<'a> {
     name: Cow<'a, str>,
-    fn_ip   : (usize, usize),
-    bytecode    : &'a Bytecode
+    fn_ip: (usize, usize),
+    bytecode: &'a Bytecode,
+    module: ObjId,
 }
 
 impl FSRFnInner<'_> {
@@ -43,11 +55,10 @@ pub enum FSRnE<'a> {
     FSRFn(FSRFnInner<'a>),
 }
 
-
 #[derive(Clone)]
 pub struct FSRFn<'a> {
     fn_def: FSRnE<'a>,
-    pub(crate) module: ObjId
+    pub(crate) code: ObjId,
 }
 
 impl Debug for FSRFn<'_> {
@@ -56,24 +67,22 @@ impl Debug for FSRFn<'_> {
     }
 }
 
-
 impl<'a> FSRFn<'a> {
     pub fn as_str(&self) -> String {
         if let FSRnE::RustFn(r) = &self.fn_def {
-            return format!("<fn {:?}>", r)
+            return format!("<fn {:?}>", r);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            return format!("<fn {:?}>", f.name)
+            return format!("<fn {:?}>", f.name);
         }
 
         unimplemented!()
-        
     }
 
     pub fn get_name(&self) -> &Cow<str> {
         if let FSRnE::FSRFn(f) = &self.fn_def {
-            return f.get_name()
+            return f.get_name();
         } else if let FSRnE::RustFn(f) = &self.fn_def {
-            return &Cow::Borrowed("RustFn")
+            return &Cow::Borrowed("RustFn");
         }
         unimplemented!()
     }
@@ -90,16 +99,24 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    pub fn from_fsr_fn(fn_name: &str, u: (usize, usize), _: Vec<String>, bytecode: &'a Bytecode, m_obj: ObjId) -> FSRValue<'a> {
+    pub fn from_fsr_fn(
+        fn_name: &str,
+        u: (usize, usize),
+        _: Vec<String>,
+        bytecode: &'a Bytecode,
+        code_obj: ObjId,
+        module_obj: ObjId,
+    ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
             fn_ip: u,
-            bytecode
+            bytecode,
+            module: module_obj,
         };
 
         let v = Self {
             fn_def: FSRnE::FSRFn(fn_obj),
-            module: m_obj
+            code: code_obj,
         };
         FSRValue::Function(Box::new(v))
     }
@@ -107,7 +124,7 @@ impl<'a> FSRFn<'a> {
     pub fn from_rust_fn_static(f: FSRRustFn, name: &'a str) -> FSRObject<'a> {
         let v = Self {
             fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
-            module: 0
+            code: 0,
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
@@ -127,19 +144,19 @@ impl<'a> FSRFn<'a> {
         &'a self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: ObjId,
+        code: ObjId,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
-            return f.1(args, thread, module);
+            return f.1(args, thread, code);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            thread.call_frames.push(thread.frame_free_list.new_frame(self.get_name(), module));
-            let v = FSRThreadRuntime::call_fn(thread, f, args, self.module)?;
+            thread
+                .call_frames
+                .push(thread.frame_free_list.new_frame(self.get_name(), code));
+            let v = FSRThreadRuntime::call_fn(thread, f, args, self.code, f.module)?;
             let v = match v {
                 crate::backend::vm::thread::SValue::Global(g) => g,
-                crate::backend::vm::thread::SValue::BoxObject(o) => {
-                    FSRVM::leak_object(o)
-                },
-                _ => unimplemented!()
+                crate::backend::vm::thread::SValue::BoxObject(o) => FSRVM::leak_object(o),
+                _ => unimplemented!(),
             };
             return Ok(FSRRetValue::GlobalId(v));
         }

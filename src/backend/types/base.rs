@@ -22,10 +22,11 @@ use crate::{
 use super::{
     class::FSRClass,
     class_inst::FSRClassInst,
+    code::{self, FSRCode},
     fn_def::FSRFn,
     iterator::FSRInnerIterator,
     list::FSRList,
-    module::{self, FSRModule},
+    module::FSRModule,
     range::FSRRange,
     string::FSRString,
 };
@@ -42,11 +43,12 @@ pub enum FSRGlobalObjId {
     ListCls = 6,
     StringCls = 7,
     ClassCls = 8,
-    ModuleCls = 9,
+    CodeCls = 9,
     BoolCls = 10,
     FloatCls = 11,
     Exception = 12,
     RangeCls = 13,
+    ModuleCls = 14,
 }
 
 #[derive(Debug)]
@@ -60,9 +62,10 @@ pub enum FSRValue<'a> {
     Bool(bool),
     List(Box<FSRList>),
     Iterator(FSRInnerIterator),
-    Module(Box<FSRModule<'a>>),
+    Code(Box<FSRCode<'a>>),
     Range(FSRRange),
     Any(Box<dyn Any + Send>),
+    Module(Box<FSRModule<'a>>),
     None,
 }
 
@@ -146,12 +149,13 @@ impl<'a> FSRValue<'a> {
                 }
             }
             FSRValue::Iterator(_) => None,
-            FSRValue::Module(fsrmodule) => Some(Cow::Owned(fsrmodule.as_string())),
+            FSRValue::Code(fsrmodule) => Some(Cow::Owned(fsrmodule.as_string())),
             FSRValue::Range(fsrrange) => Some(Cow::Owned(format!(
                 "Range({}..{})",
                 fsrrange.range.start, fsrrange.range.end
             ))),
             FSRValue::Any(any) => Some(Cow::Borrowed("InnerAny")),
+            FSRValue::Module(fsrmodule) => Some(Cow::Owned(fsrmodule.as_string())),
         };
 
         s
@@ -180,7 +184,7 @@ impl Debug for FSRObject<'_> {
             FSRValue::Bool(_) => todo!(),
             FSRValue::List(_) => todo!(),
             FSRValue::Iterator(_) => todo!(),
-            FSRValue::Module(_) => todo!(),
+            FSRValue::Code(_) => todo!(),
             FSRValue::None => {
                 return f
                     .debug_struct("FSRObject")
@@ -191,6 +195,7 @@ impl Debug for FSRObject<'_> {
             }
             FSRValue::Range(fsrrange) => todo!(),
             FSRValue::Any(any) => todo!(),
+            FSRValue::Module(fsrmodule) => todo!(),
         };
         f.debug_struct("FSRObject")
             .field("value", &self.value)
@@ -248,6 +253,13 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    pub fn as_code(&self) -> &FSRCode<'a> {
+        match &self.value {
+            FSRValue::Code(fsrmodule) => fsrmodule,
+            _ => unimplemented!(),
+        }
+    }
+
     pub fn as_module(&self) -> &FSRModule<'a> {
         match &self.value {
             FSRValue::Module(fsrmodule) => fsrmodule,
@@ -256,7 +268,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn is_module(&self) -> bool {
-        matches!(&self.value, FSRValue::Module(_fsrmodule))
+        matches!(&self.value, FSRValue::Code(_fsrmodule))
     }
 
     pub fn get_garbage_id(&self) -> u32 {
@@ -504,7 +516,7 @@ impl<'a> FSRObject<'a> {
             return Some(*v);
         }
 
-        if let FSRValue::Module(m) = &self.value {
+        if let FSRValue::Code(m) = &self.value {
             return m.get_object(name);
         }
 
@@ -563,7 +575,7 @@ impl<'a> FSRObject<'a> {
         let FSRValue::Function(fn_def) = &self.value else {
             return false;
         };
-        
+
         // 检查函数类型
         matches!(fn_def.get_def(), FSRnE::FSRFn(_))
     }

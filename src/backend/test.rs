@@ -13,6 +13,7 @@ pub mod tests {
             compiler::bytecode::{BinaryOffset, Bytecode},
             types::{
                 base::{FSRObject, FSRValue},
+                code::FSRCode,
                 fn_def::FSRFn,
                 integer::FSRInteger,
                 iterator::FSRInnerIterator,
@@ -20,8 +21,8 @@ pub mod tests {
                 module::FSRModule,
             },
             vm::{
-                virtual_machine::FSRVM,
                 thread::{CallFrame, FSRThreadRuntime, SValue},
+                virtual_machine::FSRVM,
             },
         },
         frontend::ast::token::{
@@ -163,6 +164,7 @@ pub mod tests {
 
     #[test]
     fn test_while_backend() {
+        let vm = FSRVM::new();
         let source_code = "
         fn test() {
             println('abc')
@@ -176,11 +178,12 @@ pub mod tests {
         }
         
         ";
-        let v = FSRModule::from_code("main", source_code).unwrap();
-        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut v = FSRCode::from_code("main", &source_code).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
         let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-        let mut runtime = FSRThreadRuntime::new(base_module, vm);
-        runtime.start(base_module).unwrap();
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
     }
 
     #[test]
@@ -200,7 +203,7 @@ a.abc = 1
 dump(a)
         
         ";
-        let v = FSRModule::from_code("main", source_code).unwrap();
+        let v = FSRCode::from_code("main", source_code).unwrap();
 
         println!("{:#?}", v);
     }
@@ -222,11 +225,12 @@ dump(a)
 
     #[test]
     fn test_script() {
+        let vm = FSRVM::new();
         let vs = vec![
             "test_script/test_class.fs",
             "test_script/test_expression.fs",
             "test_script/test_nested_call.fs",
-            "test_script/test_error_handle.fs"
+            "test_script/test_error_handle.fs",
         ];
         for i in vs {
             println!("Running script: {}", i);
@@ -234,15 +238,16 @@ dump(a)
             let mut f = std::fs::File::open(file).unwrap();
             let mut source_code = String::new();
             f.read_to_string(&mut source_code).unwrap();
-            let v = FSRModule::from_code("main", &source_code).unwrap();
-            let base_module = FSRVM::leak_object(Box::new(v));
+            let mut v = FSRCode::from_code("main", &source_code).unwrap();
+            let obj = Box::new(FSRModule::new("main", v));
+            let obj_id = FSRVM::leak_object(obj);
             let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-            let mut runtime = FSRThreadRuntime::new(base_module, vm);
-            
+            let mut runtime = FSRThreadRuntime::new(vm);
+
             let start = Instant::now();
             //runtime.start(&v, &mut vm).unwrap();
 
-            runtime.start(base_module).unwrap();
+            runtime.start(obj_id).unwrap();
             let end = Instant::now();
             println!("{:?}", end - start);
         }
@@ -288,14 +293,15 @@ dump(a)
 
         abc()
         "#;
-        let v = FSRModule::from_code("module1", module1).unwrap();
-        let base_module = FSRVM::leak_object(Box::new(v));
+        let mut v = FSRCode::from_code("main", &module1).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
         let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-        let mut runtime = FSRThreadRuntime::new(base_module, vm);
-        
+        let mut runtime = FSRThreadRuntime::new(vm);
+
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
 
-        runtime.start(base_module).unwrap();
+        runtime.start(obj_id).unwrap();
     }
 }

@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -154,6 +154,8 @@ pub enum BytecodeOperator {
 #[derive(Debug)]
 pub enum ArgType {
     Variable((u64, String)),
+    PreVariable((u64, String)),
+    Lambda((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
     ConstString(u64, ObjId),
@@ -300,17 +302,19 @@ impl BytecodeOperator {
 }
 
 #[derive(Debug)]
-pub struct ConstTable {
+pub struct BytecodeContext {
     pub(crate) const_map: HashMap<FSROrinStr2, u64>,
     pub(crate) table: Vec<ObjId>,
+    pub(crate) fn_def_map: HashMap<String, Vec<Vec<BytecodeArg>>>,
 }
 
 #[allow(clippy::new_without_default)]
-impl ConstTable {
+impl BytecodeContext {
     pub fn new() -> Self {
         Self {
             const_map: HashMap::new(),
             table: vec![0],
+            fn_def_map: HashMap::new(),
         }
     }
 
@@ -342,12 +346,8 @@ pub struct VarMap<'a> {
     const_map: HashMap<FSROrinStr<'a>, u64>,
     #[allow(unused)]
     const_id: AtomicU64,
-}
-
-impl Default for VarMap<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
+    store_mark: HashMap<&'a str, u64>,
+    pub(crate) name: String,
 }
 
 impl<'a> VarMap<'a> {
@@ -396,7 +396,7 @@ impl<'a> VarMap<'a> {
         self.attr_map.get(attr)
     }
 
-    pub fn new() -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
             var_map: HashMap::new(),
             var_id: AtomicU64::new(1),
@@ -404,6 +404,8 @@ impl<'a> VarMap<'a> {
             attr_id: AtomicU64::new(1),
             const_map: HashMap::new(),
             const_id: AtomicU64::new(1),
+            store_mark: HashMap::new(),
+            name: name.to_string(),
         }
     }
 }
@@ -412,7 +414,7 @@ impl<'a> VarMap<'a> {
 pub struct Bytecode {
     #[allow(unused)]
     name: String,
-    pub(crate) const_table: ConstTable,
+    pub(crate) context: BytecodeContext,
     bytecode: Vec<Vec<BytecodeArg>>,
 }
 
@@ -427,22 +429,22 @@ impl<'a> Bytecode {
 
     fn load_list_getter(
         getter: &'a FSRGetter<'a>,
-        var_map: &'a mut VarMap<'a>,
+        var_map: &'a mut Vec<VarMap<'a>>,
         is_attr: bool,
         is_method_call: bool,
-        const_map: &mut ConstTable,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
         let mut result = Vec::new();
         let mut var_map_ref = var_map;
 
         let name = getter.get_name();
         if !name.is_empty() {
             if is_attr {
-                if !var_map_ref.has_attr(name) {
+                if !var_map_ref.last_mut().unwrap().has_attr(name) {
                     let v = name;
-                    var_map_ref.insert_attr(v);
+                    var_map_ref.last_mut().unwrap().insert_attr(v);
                 }
-                let id = var_map_ref.get_attr(name).unwrap();
+                let id = var_map_ref.last_mut().unwrap().get_attr(name).unwrap();
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
                     arg: ArgType::Attr(*id, name.to_string()),
@@ -460,11 +462,11 @@ impl<'a> Bytecode {
                     });
                 }
             } else {
-                if !var_map_ref.has_var(name) {
+                if !var_map_ref.last_mut().unwrap().has_var(name) {
                     let v = name;
-                    var_map_ref.insert_var(v);
+                    var_map_ref.last_mut().unwrap().insert_var(v);
                 }
-                let id = var_map_ref.get_var(name).unwrap();
+                let id = var_map_ref.last_mut().unwrap().get_var(name).unwrap();
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
                     arg: ArgType::Variable((*id, name.to_string())),
@@ -486,22 +488,22 @@ impl<'a> Bytecode {
 
     fn load_call(
         call: &'a FSRCall<'a>,
-        var_map: &'a mut VarMap<'a>,
+        var_map: &'a mut Vec<VarMap<'a>>,
         is_attr: bool,
         is_method_call: bool,
-        const_map: &mut ConstTable,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
         let mut result = Vec::new();
         let mut var_map_ref = var_map;
 
         let name = call.get_name();
         if !name.is_empty() {
             if is_attr {
-                if !var_map_ref.has_attr(name) {
+                if !var_map_ref.last_mut().unwrap().has_attr(name) {
                     let v = name;
-                    var_map_ref.insert_attr(v);
+                    var_map_ref.last_mut().unwrap().insert_attr(v);
                 }
-                let id = var_map_ref.get_attr(name).unwrap();
+                let id = var_map_ref.last_mut().unwrap().get_attr(name).unwrap();
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
                     arg: ArgType::Attr(*id, name.to_string()),
@@ -519,11 +521,11 @@ impl<'a> Bytecode {
                     });
                 }
             } else {
-                if !var_map_ref.has_var(name) {
+                if !var_map_ref.last_mut().unwrap().has_var(name) {
                     let v = name;
-                    var_map_ref.insert_var(v);
+                    var_map_ref.last_mut().unwrap().insert_var(v);
                 }
-                let id = var_map_ref.get_var(name).unwrap();
+                let id = var_map_ref.last_mut().unwrap().get_var(name).unwrap();
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
                     arg: ArgType::Variable((*id, name.to_string())),
@@ -549,17 +551,29 @@ impl<'a> Bytecode {
         (result, var_map_ref)
     }
 
-    fn load_variable(
-        var: &'a FSRVariable<'a>,
-        var_map: &'a mut VarMap<'a>,
-        is_attr: bool,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
-        if !var_map.has_var(var.get_name()) {
-            let v = var.get_name();
-            var_map.insert_var(v);
+    fn search_var_map_name_id(name: &'a str, var_map: &mut Vec<VarMap<'a>>) -> Option<u64> {
+        for v in var_map.iter_mut().rev() {
+            if v.has_var(name) {
+                let id = *v.get_var(name).unwrap();
+                v.store_mark.insert(name, id);
+                return Some(id);
+            }
         }
 
-        let arg_id = var_map.get_var(var.get_name()).unwrap();
+        None
+    }
+
+    fn load_variable(
+        var: &'a FSRVariable<'a>,
+        var_map: &'a mut Vec<VarMap<'a>>,
+        is_attr: bool,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
+        if !var_map.last_mut().unwrap().has_var(var.get_name()) {
+            let v = var.get_name();
+            var_map.last_mut().unwrap().insert_var(v);
+        }
+
+        let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
         let op_arg = match is_attr {
             true => BytecodeArg {
                 operator: BytecodeOperator::Load,
@@ -583,14 +597,14 @@ impl<'a> Bytecode {
 
     fn load_assign_arg(
         var: &'a FSRVariable<'a>,
-        var_map: &'a mut VarMap<'a>,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
-        if !var_map.has_var(var.get_name()) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
+        if !var_map.last_mut().unwrap().has_var(var.get_name()) {
             let v = var.get_name();
-            var_map.insert_var(v);
+            var_map.last_mut().unwrap().insert_var(v);
         }
 
-        let arg_id = var_map.get_var(var.get_name()).unwrap();
+        let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::AssignArgs,
@@ -604,9 +618,9 @@ impl<'a> Bytecode {
 
     fn load_stack_expr(
         var: &'a (Option<&'a str>, Vec<FSRToken<'a>>),
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
         let mut result = Vec::new();
         let mut var_map_ref = var_map;
         for token in var.1.iter() {
@@ -624,9 +638,9 @@ impl<'a> Bytecode {
 
     fn load_expr(
         expr: &'a FSRExpr<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
         let mut op_code = Vec::new();
         let mut var_map_ref = Some(var_map);
         if let FSRToken::Expr(sub_expr) = expr.get_left() {
@@ -766,9 +780,9 @@ impl<'a> Bytecode {
 
     fn load_block(
         block: &'a FSRBlock<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let mut vs = vec![];
         let mut ref_self = var_map;
         for token in block.get_tokens() {
@@ -792,9 +806,9 @@ impl<'a> Bytecode {
 
     fn load_try_def(
         try_def: &'a FSRTryBlock<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let mut vs = vec![];
         let mut ref_self = var_map;
 
@@ -855,9 +869,9 @@ impl<'a> Bytecode {
 
     fn load_if_def(
         if_def: &'a FSRIf<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let mut var_ref = var_map;
         let test_exp = if_def.get_test();
         let mut vs = vec![];
@@ -929,9 +943,9 @@ impl<'a> Bytecode {
     #[allow(unused)]
     fn load_for_def(
         for_def: &'a FSRFor<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let mut result = vec![];
 
         let mut var_self = var_map;
@@ -939,10 +953,10 @@ impl<'a> Bytecode {
         let mut expr = v.0;
         var_self = v.1;
         let mut t = expr.remove(0);
-        if !var_self.has_attr("__iter__") {
-            var_self.insert_attr("__iter__");
+        if !var_self.last_mut().unwrap().has_attr("__iter__") {
+            var_self.last_mut().unwrap().insert_attr("__iter__");
         }
-        let id = var_self.get_attr("__iter__").unwrap();
+        let id = var_self.last_mut().unwrap().get_attr("__iter__").unwrap();
         t.push(BytecodeArg {
             operator: BytecodeOperator::ForBlockRefAdd,
             arg: ArgType::None,
@@ -992,11 +1006,18 @@ impl<'a> Bytecode {
         //     operator: BytecodeOperator::PushForNext,
         //     arg: ArgType::None,
         // });
-        if !var_self.has_var(for_def.get_var_name()) {
-            var_self.insert_var(for_def.get_var_name());
+        if !var_self.last_mut().unwrap().has_var(for_def.get_var_name()) {
+            var_self
+                .last_mut()
+                .unwrap()
+                .insert_var(for_def.get_var_name());
         }
 
-        let arg_id = var_self.get_var(for_def.get_var_name()).unwrap();
+        let arg_id = var_self
+            .last_mut()
+            .unwrap()
+            .get_var(for_def.get_var_name())
+            .unwrap();
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::Load,
             arg: ArgType::Variable((*arg_id, for_def.get_var_name().to_string())),
@@ -1019,9 +1040,9 @@ impl<'a> Bytecode {
 
     fn load_while_def(
         while_def: &'a FSRWhile<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let test_exp = while_def.get_test();
         let mut vs = vec![];
         let mut v = Self::load_token_with_map(test_exp, var_map, const_map);
@@ -1064,15 +1085,15 @@ impl<'a> Bytecode {
 
     fn load_import(
         import: &'a FSRImport,
-        var_map: &'a mut VarMap<'a>,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let name = import.module_name.last().unwrap();
-        if !var_map.has_var(name) {
+        if !var_map.last_mut().unwrap().has_var(name) {
             let v = name;
-            var_map.insert_var(name);
+            var_map.last_mut().unwrap().insert_var(name);
         }
 
-        let id = var_map.get_var(name).unwrap();
+        let id = var_map.last_mut().unwrap().get_var(name).unwrap();
         let import_list = vec![BytecodeArg {
             operator: BytecodeOperator::Import,
             arg: ArgType::ImportModule(
@@ -1084,11 +1105,22 @@ impl<'a> Bytecode {
         (vec![import_list], var_map)
     }
 
+
+    // iter stack and join with ::, like __main__::fn_name
+    fn get_cur_name(map: &Vec<VarMap<'a>>, name: &str) -> String {
+        let mut res_vec = vec![];
+        for v in map.iter().rev() {
+            res_vec.push(v.name.as_str());
+        }
+        res_vec.push(name);
+        res_vec.join("::")
+    }
+
     fn load_token_with_map(
         token: &'a FSRToken<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         if let FSRToken::Expr(expr) = token {
             let v = Self::load_expr(expr, var_map, const_map);
             let r = v.1;
@@ -1133,6 +1165,28 @@ impl<'a> Bytecode {
             let v = Self::load_constant(c, var_map, const_map);
             return (vec![v.0], v.1);
         } else if let FSRToken::FunctionDef(fn_def) = token {
+            if fn_def.is_lambda() {
+                let v = Self::load_function(fn_def, var_map, const_map);
+                let fn_name = Self::get_cur_name(v.1, fn_def.get_name());
+                const_map
+                    .fn_def_map
+                    .insert(fn_name.clone(), v.0);
+
+                let c_id =
+                    v.1.last_mut()
+                        .unwrap()
+                        .get_var(fn_def.get_name())
+                        .cloned()
+                        .unwrap();
+                let mut result = vec![];
+
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: ArgType::Variable((c_id, fn_name)),
+                });
+                return (vec![result], v.1);
+            }
+
             let v = Self::load_function(fn_def, var_map, const_map);
             return (v.0, v.1);
         } else if let FSRToken::Class(cls) = token {
@@ -1171,15 +1225,15 @@ impl<'a> Bytecode {
 
     fn load_assign(
         token: &'a FSRAssign<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
         let mut result_list = Vec::new();
         if let FSRToken::Variable(v) = &**token.get_left() {
             let mut right = Self::load_token_with_map(token.get_assign_expr(), var_map, const_map);
             result_list.append(&mut right.0[0]);
-            right.1.insert_var(v.get_name());
-            let id = right.1.get_var(v.get_name()).unwrap();
+            right.1.last_mut().unwrap().insert_var(v.get_name());
+            let id = right.1.last_mut().unwrap().get_var(v.get_name()).unwrap();
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Assign,
                 arg: ArgType::Variable((*id, v.get_name().to_string())),
@@ -1200,9 +1254,9 @@ impl<'a> Bytecode {
 
     fn load_constant(
         token: &'a FSRConstant,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
         let c = token.get_const_str();
         if !const_map.const_map.contains_key(&c.to_2()) {
             let r = if const_map.const_map.is_empty() {
@@ -1275,9 +1329,9 @@ impl<'a> Bytecode {
 
     fn load_list(
         token: &'a FSRListFrontEnd,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
         let mut result_list = Vec::new();
         let mut self_var = var_map;
         for sub_t in token.get_items().iter().rev() {
@@ -1302,9 +1356,9 @@ impl<'a> Bytecode {
 
     fn load_ret(
         ret: &'a FSRReturn,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<BytecodeArg>, &'a mut VarMap<'a>) {
+        var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
         let v = Self::load_token_with_map(ret.get_return_expr(), var_map, const_map);
         let mut ret_expr = Vec::new();
         let mut r = v.0;
@@ -1321,40 +1375,40 @@ impl<'a> Bytecode {
 
     fn load_function(
         fn_def: &'a FSRFnDef<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        mut var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let mut result = vec![];
         let name = fn_def.get_name();
         //let mut define_fn = Vec::new();
-        if !var_map.has_var(name) {
-            var_map.insert_var(name);
+        if !var_map.last_mut().unwrap().has_var(name) {
+            var_map.last_mut().unwrap().insert_var(name);
         }
+        let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
 
-        let mut fn_var_map = VarMap::new();
-        let mut fn_var_map_ref = &mut fn_var_map;
+        let mut fn_var_map = VarMap::new(fn_def.get_name());
+        var_map.push(fn_var_map);
+        //let mut fn_var_map_ref = &mut fn_var_map;
         let args = fn_def.get_args();
         let mut args_load = Vec::new();
         let mut arg_len = 0;
         for arg in args {
             if let FSRToken::Variable(v) = arg {
-                let mut a = Self::load_variable(v, fn_var_map_ref, false);
-                fn_var_map_ref = a.1;
+                let mut a = Self::load_variable(v, var_map, false);
+                var_map = a.1;
                 args_load.append(&mut a.0);
                 arg_len += 1;
             }
         }
 
-        let arg_id = var_map.get_var(name).unwrap();
-
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable((*arg_id, name.to_string())),
+            arg: ArgType::Variable((arg_id, name.to_string())),
         };
 
         let body = fn_def.get_body();
-        let v = Self::load_block(body, fn_var_map_ref, const_map);
-        fn_var_map_ref = v.1;
+        let v = Self::load_block(body, var_map, const_map);
+        var_map = v.1;
         let fn_body = v.0;
         // let mut end_list = Vec::new();
         // end_list.push(BytecodeArg {
@@ -1365,8 +1419,8 @@ impl<'a> Bytecode {
         let mut load_args = Vec::new();
         for arg in args {
             if let FSRToken::Variable(v) = arg {
-                let mut a = Self::load_assign_arg(v, fn_var_map_ref);
-                fn_var_map_ref = a.1;
+                let mut a = Self::load_assign_arg(v, var_map);
+                var_map = a.1;
                 load_args.append(&mut a.0);
             }
         }
@@ -1393,31 +1447,33 @@ impl<'a> Bytecode {
             arg: ArgType::None,
         }];
         result.push(end_of_fn);
+        var_map.pop();
         // result.push(end_list);
         (result, var_map)
     }
 
     fn load_class(
         class_def: &'a FSRClassFrontEnd<'a>,
-        var_map: &'a mut VarMap<'a>,
-        const_map: &mut ConstTable,
-    ) -> (Vec<Vec<BytecodeArg>>, &'a mut VarMap<'a>) {
+        mut var_map: &'a mut Vec<VarMap<'a>>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let mut result = vec![];
         let name = class_def.get_name();
-        if !var_map.has_var(name) {
+        if !var_map.last_mut().unwrap().has_var(name) {
             let v = name;
-            var_map.insert_var(v);
+            var_map.last_mut().unwrap().insert_var(v);
         }
-        let arg_id = var_map.get_var(name).unwrap();
+        let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: ArgType::Variable((*arg_id, name.to_string())),
+            arg: ArgType::Variable((arg_id, name.to_string())),
         };
 
-        let mut class_var_map = VarMap::new();
-        let v = Self::load_block(class_def.get_block(), &mut class_var_map, const_map);
-
+        let mut class_var_map = VarMap::new(class_def.get_name());
+        var_map.push(class_var_map);
+        let v = Self::load_block(class_def.get_block(), var_map, const_map);
+        var_map = v.1;
         let ans = vec![
             op_arg,
             BytecodeArg {
@@ -1430,37 +1486,57 @@ impl<'a> Bytecode {
         result.extend(v.0);
         let end_of_cls = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineClass,
-            arg: ArgType::Variable((*arg_id, name.to_string())),
+            arg: ArgType::Variable((arg_id, name.to_string())),
         }];
         result.push(end_of_cls);
+        var_map.pop();
         (result, var_map)
     }
 
     fn load_isolate_block(
         token: &FSRToken<'a>,
-        const_map: &mut ConstTable,
+        const_map: &mut BytecodeContext,
     ) -> Vec<Vec<BytecodeArg>> {
-        let mut var_map = VarMap::new();
+        let mut var_map = vec![VarMap::new("__main__")];
         let v = Self::load_token_with_map(token, &mut var_map, const_map);
         v.0
     }
 
-    pub fn load_ast(name: &str, token: FSRToken<'a>) -> Bytecode {
-        let mut const_table = ConstTable::new();
+    pub fn load_ast(name: &str, token: FSRToken<'a>) -> HashMap<String, Bytecode> {
+        let mut const_table = BytecodeContext::new();
         let vs = Self::load_isolate_block(&token, &mut const_table);
         let mut result = vec![];
         for v in vs {
             let single_line = Vec::from_iter(v);
             result.push(single_line);
         }
-        Self {
-            bytecode: result,
-            name: name.to_string(),
-            const_table,
+
+        let mut res = HashMap::new();
+        res.insert(
+            "__main__".to_string(),
+            Bytecode {
+                name: "__main__".to_string(),
+                context: BytecodeContext::new(),
+                bytecode: result,
+            },
+        );
+
+        let codes = const_table.fn_def_map;
+
+        for code in codes {
+            let bytecode = Bytecode {
+                name: code.0.to_string(),
+                context: BytecodeContext::new(),
+                bytecode: code.1,
+            };
+
+            res.insert(code.0.to_string(), bytecode);
         }
+
+        res
     }
 
-    pub fn compile(name: &str, code: &str) -> Bytecode {
+    pub fn compile(name: &str, code: &str) -> HashMap<String, Bytecode> {
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
         Self::load_ast(name, FSRToken::Module(token))
@@ -1529,6 +1605,15 @@ a.abc(0)
             println(2)
         }
         ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn lambda_test() {
+        let expr = "a = |a, b| { a + b }";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token));

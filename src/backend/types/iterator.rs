@@ -7,7 +7,7 @@ use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
     fn_def::FSRFn,
-    module::FSRModule,
+    code::FSRCode,
 };
 
 #[derive(Debug, Clone)]

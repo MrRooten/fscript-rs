@@ -13,7 +13,7 @@ use crate::{
     backend::{
         memory::{gc::GarbageCollector, size_alloc::FSRObjectAllocator},
         types::{
-            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, error::FSRException, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, range::FSRRange, string::FSRString
+            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, code::FSRCode, error::FSRException, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, range::FSRRange, string::FSRString
         },
     },
     std::{io::init_io, utils::init_utils},
@@ -114,8 +114,8 @@ impl<'a> FSRVM<'a> {
                     FSRValue::Class(Box::new(FSRClass::new("Class"))),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::ModuleCls as ObjId,
-                    FSRValue::Class(Box::new(FSRModule::get_class())),
+                    FSRGlobalObjId::CodeCls as ObjId,
+                    FSRValue::Class(Box::new(FSRCode::get_class())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
                     FSRGlobalObjId::BoolCls as ObjId,
@@ -132,6 +132,10 @@ impl<'a> FSRVM<'a> {
                 OBJECTS.push(Self::new_stataic_object_with_id(
                     FSRGlobalObjId::RangeCls as ObjId,
                     FSRValue::Class(Box::new(FSRRange::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::ModuleCls as ObjId,
+                    FSRValue::Class(Box::new(FSRModule::get_class())),
                 ));
             }
         }

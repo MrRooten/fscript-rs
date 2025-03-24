@@ -8,7 +8,7 @@ use crate::{
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
-    fn_def::FSRFn, module::FSRModule,
+    fn_def::FSRFn, code::FSRCode,
 };
 
 pub struct FSRInteger {}

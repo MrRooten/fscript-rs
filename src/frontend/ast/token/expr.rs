@@ -5,6 +5,7 @@ use std::{cmp::Ordering, fmt::Display};
 
 use crate::frontend::ast::token;
 use crate::frontend::ast::token::assign::FSRAssign;
+use crate::frontend::ast::token::function_def::FSRFnDef;
 use crate::frontend::ast::token::list::FSRListFrontEnd;
 use crate::frontend::ast::token::slice::FSRGetter;
 use crate::frontend::ast::{parse::ASTParser, token::constant::FSRConstant};
@@ -13,6 +14,9 @@ use std::str;
 
 use super::base::FSRPosition;
 use super::{base::FSRToken, call::FSRCall, variable::FSRVariable};
+
+static mut LAMBDA_NUMBER: i32 = 0;
+
 
 #[derive(Debug, Clone)]
 pub struct FSRExpr<'a> {
@@ -677,9 +681,14 @@ impl<'a> FSRExpr<'a> {
                 // Process lambda, like |a, b| {
                 //    
                 // }
-
                 if !ctx.operators.is_empty() || ctx.candidates.is_empty() {
-                    unimplemented!("Lambda not support yet");
+                    let fn_def = FSRFnDef::parse_lambda(&source[ctx.start..], meta.from_offset(ctx.start), &format!("___lambda_zXjiTkDs_{}", unsafe { LAMBDA_NUMBER }))?;
+                    unsafe {
+                        LAMBDA_NUMBER += 1;
+                    }
+                    ctx.start += fn_def.get_len();
+                    ctx.candidates.push(FSRToken::FunctionDef(fn_def));
+                    continue;
                 }
 
             }
@@ -1206,6 +1215,20 @@ mod test {
     #[test]
     fn test_call_expr() {
         let v = "a.abc(0)";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_lambda() {
+        let v = "a = |a, b| { a + b }";
+        let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
+        println!("{:#?}", p.0);
+    }
+
+    #[test]
+    fn test_lambda2() {
+        let v = "|a, b| { a + b }";
         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
         println!("{:#?}", p.0);
     }

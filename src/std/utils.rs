@@ -4,9 +4,9 @@ use crate::{
     backend::{
         types::{
             base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            code::FSRCode,
             fn_def::FSRFn,
             integer::FSRInteger,
-            module::FSRModule,
             range::FSRRange,
             string::FSRString,
         },
@@ -43,7 +43,7 @@ pub fn fsr_fn_export<'a>(
     let r_obj = FSRObject::id_to_obj(obj);
     r_obj.ref_add();
     let s = module;
-    let m = FSRObject::id_to_obj(s).as_module();
+    let m = FSRObject::id_to_obj(s).as_code();
     m.register_object(name, obj);
 
     Ok(FSRRetValue::GlobalId(0))
@@ -134,7 +134,7 @@ pub fn fsr_fn_type<'a>(
         FSRValue::Iterator(fsrinner_iterator) => Ok(FSRRetValue::Value(Box::new(
             FSRString::new_inst(Cow::Borrowed("Iterator")),
         ))),
-        FSRValue::Module(fsrmodule) => Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+        FSRValue::Code(fsrmodule) => Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
             Cow::Borrowed("Module"),
         )))),
         FSRValue::None => Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
@@ -145,6 +145,9 @@ pub fn fsr_fn_type<'a>(
         )))),
         FSRValue::Any(any) => Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
             Cow::Borrowed("Any"),
+        )))),
+        FSRValue::Module(fsrmodule) => Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(
+            Cow::Borrowed("Module"),
         )))),
     }
 }

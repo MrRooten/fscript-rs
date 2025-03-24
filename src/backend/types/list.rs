@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap};
 
 use crate::{backend::{compiler::bytecode::BinaryOffset, memory::size_alloc::FSRObjectAllocator, types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::{FSRErrCode, FSRError}};
 
-use super::{base::{DropObject, FSRGlobalObjId, FSRRetValue, ObjId}, class::FSRClass, fn_def::FSRFn, module::FSRModule};
+use super::{base::{DropObject, FSRGlobalObjId, FSRRetValue, ObjId}, class::FSRClass, fn_def::FSRFn, code::FSRCode};
 
 #[derive(Debug, Clone)]
 pub struct FSRList {

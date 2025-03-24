@@ -4,7 +4,7 @@ use crate::{
     backend::{
         types::{
             base::{FSRObject, FSRRetValue, FSRValue, ObjId},
-            fn_def::FSRFn, module::FSRModule,
+            fn_def::FSRFn, code::FSRCode,
         },
         vm::thread::FSRThreadRuntime,
     },
