@@ -1,13 +1,20 @@
 fn abc() {
     a = 1
     b = 1
-    fn ddc() {
+    ddc = || {
         return a + b
     }
 
     return ddc
 }
 
-a = abc()
 
-println(a())
+
+fn main() {
+    a = abc()
+
+    c = a()
+    println(c)
+}
+
+main()

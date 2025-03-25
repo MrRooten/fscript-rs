@@ -342,11 +342,11 @@ impl BytecodeContext {
     pub fn contains_variable_in_ref_stack(&self, name: &str) -> bool {
         for i in &self.ref_map_stack {
             if i.contains_key(name) {
-                return true
+                return true;
             }
         }
 
-        return false
+        return false;
     }
 }
 
@@ -362,6 +362,7 @@ pub struct VarMap<'a> {
     const_id: AtomicU64,
     store_mark: HashMap<&'a str, u64>,
     pub(crate) name: String,
+    pub(crate) sub_fn_def: Vec<Bytecode>,
 }
 
 impl<'a> VarMap<'a> {
@@ -420,6 +421,7 @@ impl<'a> VarMap<'a> {
             const_id: AtomicU64::new(1),
             store_mark: HashMap::new(),
             name: name.to_string(),
+            sub_fn_def: vec![],
         }
     }
 }
@@ -1161,18 +1163,18 @@ impl<'a> Bytecode {
     }
 
     // iter stack and join with ::, like __main__::fn_name
-    fn get_cur_name(map: &Vec<VarMap<'a>>, name: &str) -> String {
-        let mut res_vec = vec![];
-        for v in map.iter().rev() {
-            res_vec.push(v.name.as_str());
-        }
-        res_vec.push(name);
-        res_vec.join("::")
-    }
+    // fn get_cur_name(map: &Vec<VarMap<'a>>, name: &str) -> String {
+    //     let mut res_vec = vec![];
+    //     for v in map.iter().skip(1) {
+    //         res_vec.push(v.name.as_str());
+    //     }
+    //     res_vec.push(name);
+    //     res_vec.join("::")
+    // }
 
     fn load_token_with_map(
         token: &'a FSRToken<'a>,
-        var_map: &'a mut Vec<VarMap<'a>>,
+        mut var_map: &'a mut Vec<VarMap<'a>>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         if let FSRToken::Expr(expr) = token {
@@ -1221,22 +1223,27 @@ impl<'a> Bytecode {
         } else if let FSRToken::FunctionDef(fn_def) = token {
             if fn_def.is_lambda() {
                 let v = Self::load_function(fn_def, var_map, const_map);
-                let fn_name = Self::get_cur_name(v.1, fn_def.get_name());
-                const_map.fn_def_map.insert(fn_name.clone(), v.0);
-
-                let c_id =
-                    v.1.last_mut()
-                        .unwrap()
-                        .get_var(fn_def.get_name())
-                        .cloned()
-                        .unwrap();
+                var_map = v.1;
+                //let fn_name = Self::get_cur_name(var_map, fn_def.get_name());
+                //const_map.fn_def_map.insert(fn_name.clone(), v.0);
+                var_map.last_mut().unwrap().sub_fn_def.push(Bytecode {
+                    name: fn_def.get_name().to_string(),
+                    context: BytecodeContext::new(),
+                    bytecode: v.0,
+                });
+                let c_id = var_map
+                    .last_mut()
+                    .unwrap()
+                    .get_var(fn_def.get_name())
+                    .cloned()
+                    .unwrap();
                 let mut result = vec![];
 
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: ArgType::Variable((c_id, fn_name)),
+                    arg: ArgType::Variable((c_id, fn_def.get_name().to_string())),
                 });
-                return (vec![result], v.1);
+                return (vec![result], var_map);
             }
 
             let v = Self::load_function(fn_def, var_map, const_map);
@@ -1287,7 +1294,9 @@ impl<'a> Bytecode {
             right.1.last_mut().unwrap().insert_var(v.get_name());
             let id = right.1.last_mut().unwrap().get_var(v.get_name()).unwrap();
             if let Some(ref_map) = const_map.ref_map_stack.last() {
-                if ref_map.get(v.get_name()).cloned().unwrap_or(false) && const_map.contains_variable_in_ref_stack(v.get_name()) {
+                if ref_map.get(v.get_name()).cloned().unwrap_or(false)
+                    && const_map.contains_variable_in_ref_stack(v.get_name())
+                {
                     result_list.push(BytecodeArg {
                         operator: BytecodeOperator::Assign,
                         arg: ArgType::ClosureVar((*id, v.get_name().to_string())),
@@ -1471,13 +1480,11 @@ impl<'a> Bytecode {
         let body = fn_def.get_body();
         let v = Self::load_block(body, var_map, const_map);
         var_map = v.1;
-        let fn_body = v.0;
-        // let mut end_list = Vec::new();
-        // end_list.push(BytecodeArg {
-        //     operator: BytecodeOperator::EndDefineFn,
-        //     arg: ArgType::None,
-        // });
-        //define_fn.push(op_arg);
+        let mut fn_body = v.0;
+        
+
+        
+
         let mut load_args = Vec::new();
         for arg in args {
             if let FSRToken::Variable(v) = arg {
@@ -1487,18 +1494,23 @@ impl<'a> Bytecode {
             }
         }
 
+        let v = var_map.pop().unwrap();
+        for sub_def in v.sub_fn_def.into_iter() {
+            fn_body.splice(0..0, sub_def.bytecode);
+        }
+
+
         args_load.push(op_arg);
         args_load.push(BytecodeArg {
             operator: BytecodeOperator::DefineFn,
             arg: ArgType::DefineFnArgs(fn_body.len() as u64 + 1, arg_len),
         });
-        // define_fn.push(BytecodeArg {
-        //     operator: BytecodeOperator::DefineFn,
-        //     arg: ArgType::DefineFnArgs(fn_body.len() as u64 + 1, arg_len),
-        // });
 
         result.push(args_load);
         result.push(load_args);
+
+        
+
         //result.push(define_fn);
         if !fn_body.is_empty() {
             result.extend(fn_body);
@@ -1510,7 +1522,8 @@ impl<'a> Bytecode {
         }];
         const_map.ref_map_stack.pop();
         result.push(end_of_fn);
-        var_map.pop();
+        
+
         // result.push(end_list);
         (result, var_map)
     }
@@ -1709,6 +1722,50 @@ a.abc(0)
                 return self
             }
         }
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn lambda_closure_test() {
+        let expr = "
+        fn abc() {
+            a = 1
+            b = 1
+            ddc = || {
+                return a + b
+            }
+
+            return ddc
+        }
+
+        a = abc()
+
+        dump(a)
+        ";
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn lambda_closure_test2() {
+        let expr = "
+        fn abc() {
+            a = 1
+            b = 1
+            
+
+            return ddc
+        }
+
+        a = abc()
+
+        dump(a)
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
