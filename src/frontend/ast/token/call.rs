@@ -33,6 +33,10 @@ impl<'a> FSRCall<'a> {
         &self.args
     }
 
+    pub fn get_args_mut(&mut self) -> &mut Vec<FSRToken<'a>> {
+        &mut self.args
+    }
+
     pub fn get_name(&self) -> &'a str {
         self.name
     }
@@ -84,7 +88,7 @@ impl<'a> FSRCall<'a> {
         let exprs = ASTParser::split_by_comma(args, sub_meta)?;
         for s in exprs {
             let sub_meta = meta.from_offset(first);
-            let expr = FSRExpr::parse(s, true, sub_meta, context)?;
+            let mut expr = FSRExpr::parse(s, true, sub_meta, context)?;
             if pre_args {
                 match &expr.0 {
                     FSRToken::Variable(v) => {
@@ -92,6 +96,17 @@ impl<'a> FSRCall<'a> {
                     },
                     FSRToken::Assign(a) => {
                         context.add_variable(a.get_name());
+                    },
+                    _ => {}
+                }
+            } else {
+                match &mut expr.0 {
+                    FSRToken::Variable(v) => {
+                        if context.is_variable_defined_in_curr(v.get_name()) {
+                            v.is_defined = true
+                        } else {
+                            context.ref_variable(v.get_name());
+                        }
                     },
                     _ => {}
                 }

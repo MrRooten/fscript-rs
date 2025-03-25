@@ -197,7 +197,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             } else if t == &NodeType::ImportState {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
-                let import_statement = FSRImport::parse(&source[start..], sub_meta)?;
+                let import_statement = FSRImport::parse(&source[start..], sub_meta, &mut context)?;
                 length += import_statement.1;
                 module
                     .tokens
@@ -223,7 +223,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             } else if t == &NodeType::Import {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + start;
-                let import_def = FSRImport::parse(&source[start..], sub_meta)?;
+                let import_def = FSRImport::parse(&source[start..], sub_meta, &mut context)?;
                 length += import_def.1;
                 module.tokens.push(FSRToken::Import(import_def.0));
                 start += length;

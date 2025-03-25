@@ -60,7 +60,8 @@ pub enum FSRnE<'a> {
 pub struct FSRFn<'a> {
     fn_def: FSRnE<'a>,
     pub(crate) code: ObjId,
-    closure: HashMap<&'a str, ObjId>,
+    pub(crate) closure_fn: Vec<ObjId>, // fn define chain
+    pub(crate) store_cells: HashMap<&'a str, Cell<ObjId>>
 }
 
 impl Debug for FSRFn<'_> {
@@ -70,6 +71,21 @@ impl Debug for FSRFn<'_> {
 }
 
 impl<'a> FSRFn<'a> {
+    pub fn get_closure_var(&self, name: &str) -> Option<ObjId> {
+        for i in self.closure_fn.iter().rev() {
+            let obj = FSRObject::id_to_obj(*i);
+            if let FSRValue::Function(f) = &obj.value {
+                let v = match f.store_cells.get(name) {
+                    Some(s) => s.get(),
+                    None => continue,
+                };
+                return Some(v)
+            }
+        }
+        None
+
+    }
+
     pub fn as_str(&self) -> String {
         if let FSRnE::RustFn(r) = &self.fn_def {
             return format!("<fn {:?}>", r);
@@ -118,17 +134,20 @@ impl<'a> FSRFn<'a> {
         };
 
         let c = if fn_id != 0 {
-            let father_fn = FSRObject::id_to_obj(fn_id).as_fn();
-            let closure = father_fn.closure.clone();
+            let obj = FSRObject::id_to_obj(fn_id);
+            let father_fn = obj.as_fn();
+            let mut closure = father_fn.closure_fn.clone();
+            closure.push(fn_id);
             closure
         } else {
-            HashMap::new()
+            vec![]
         };
 
         let v = Self {
             fn_def: FSRnE::FSRFn(fn_obj),
             code: code_obj,
-            closure: c,
+            closure_fn: c,
+            store_cells: HashMap::new(),
         };
         FSRValue::Function(Box::new(v))
     }
@@ -137,7 +156,8 @@ impl<'a> FSRFn<'a> {
         let v = Self {
             fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
             code: 0,
-            closure: HashMap::new(),
+            closure_fn: vec![],
+            store_cells: HashMap::new(),
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),

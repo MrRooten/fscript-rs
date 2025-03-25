@@ -279,7 +279,7 @@ mod frontend_tests {
         let s = "import abc.def";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new();
-        let s = FSRImport::parse(s.as_bytes(), meta).unwrap();
+        let s = FSRImport::parse(s.as_bytes(), meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -357,6 +357,59 @@ try {
                 return a
             }
         }";
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
+
+    #[test]
+    fn test_class_2() {
+        let code = r#"
+        class Ddc {
+            fn __new__(self) {
+                self.ddc = 123 + 1
+                return self
+            }
+        }
+
+        class Abc {
+            fn __new__(self) {
+                self.abc = Ddc()
+                return self
+            }
+
+            fn __str__(self) {
+                return 'return string'
+            }
+
+            fn test(self) {
+                return 323
+            }
+
+            fn not_self() {
+                println("not self")
+                return 1
+            }
+        }
+
+
+
+        a = Abc()
+        println(a.__str__()) # will prin 'return string'
+
+
+        if a.abc.ddc < 323 {
+            a.abc.ddc = a.test() + a.abc.ddc
+        }
+
+        assert(a.abc.ddc == 447)
+
+        println(a.abc.ddc)
+
+        Abc::not_self()
+
+        println(a)
+        "#;
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
         println!("{:#?}", i);

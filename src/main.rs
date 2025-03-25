@@ -41,12 +41,16 @@ fn main() {
     let vm = Arc::new(Mutex::new(vm));
     let mut rt = FSRThreadRuntime::new(vm);
     // let runtime = Arc::new(rt);
-    let v = FSRCode::from_code("main", &source_code).unwrap();
-    let module = Box::new(FSRModule::new("main", v));
-    let module_id = FSRVM::leak_object(module);
-    let start = Instant::now();
     
-    rt.start(module_id).unwrap();
+
+    let start = Instant::now();
+    let th = thread::spawn(move || {
+        let v = FSRCode::from_code("main", &source_code).unwrap();
+        let module = Box::new(FSRModule::new("main", v));
+        let module_id = FSRVM::leak_object(module);
+        rt.start(module_id).unwrap();
+    });
+    th.join();
 
     let end = Instant::now();
     println!("{:?}", end - start);

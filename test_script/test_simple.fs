@@ -1,8 +1,10 @@
-fn example_function() {
-    i = 0
-    while i < 100 {
-        i = i + 1
-    }
+fn test() {
+    println('abc')
+    dump(println)
 }
 
-example_function()
+i = 0
+while i < 10 {
+    test()
+    i = i + 1
+}

@@ -382,6 +382,14 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
+    pub fn as_mut_fn(&mut self) -> &mut FSRFn<'a> {
+        if let FSRValue::Function(f) = &mut self.value {
+            return f
+        }
+
+        unimplemented!()
+    }
+
     #[inline(always)]
     fn sp_object(id: ObjId) -> &'static FSRObject<'static> {
         unsafe {

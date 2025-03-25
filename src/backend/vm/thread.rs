@@ -1,7 +1,7 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     ops::Range,
     path::{Path, PathBuf},
@@ -113,7 +113,7 @@ pub struct CallFrame<'a> {
     catch_ends: Vec<(usize, usize)>,
     pub(crate) handling_exception: ObjId,
     // Record current call fn_obj
-    pub(crate) fn_obj: ObjId
+    pub(crate) fn_obj: ObjId,
 }
 
 impl<'a> CallFrame<'a> {
@@ -592,16 +592,34 @@ impl<'a> FSRThreadRuntime<'a> {
             if let SValue::BoxObject(obj) = svalue {
                 //let state = self.get_cur_mut_frame();
                 let state = &mut self.cur_frame;
-                let id = FSRVM::leak_object(obj);
-
+                obj.ref_add();
+                let obj_id = FSRVM::leak_object(obj);
                 // println!("{:#?}", obj);
-                let last_ref_map = self.closure_stack.last_mut().unwrap();
-                last_ref_map.insert(v.1.as_str(), id);
+                let fn_obj = self.get_cur_frame().fn_obj;
+                if fn_obj == FSRObject::none_id() {
+                    panic!("closure var must in closure");
+                }
+                let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
+                if let Some(s) = fn_obj.store_cells.get(v.1.as_str()) {
+                    s.replace(obj_id);
+                } else {
+                    fn_obj.store_cells.insert(v.1.as_str(), Cell::new(obj_id));
+                }
                 return Ok(false);
             }
             let obj_id = svalue.get_global_id(self)?;
-            let last_ref_map = self.closure_stack.last_mut().unwrap();
-            last_ref_map.insert(v.1.as_str(), obj_id);
+            FSRObject::id_to_obj(obj_id).ref_add();
+            let fn_obj = self.get_cur_frame().fn_obj;
+            if fn_obj == FSRObject::none_id() {
+                panic!("closure var must in closure");
+            }
+            let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
+            if let Some(s) = fn_obj.store_cells.get(v.1.as_str()) {
+                s.replace(obj_id);
+            } else {
+                fn_obj.store_cells.insert(v.1.as_str(), Cell::new(obj_id));
+            }
+
             return Ok(false);
         }
 
@@ -1202,7 +1220,9 @@ impl<'a> FSRThreadRuntime<'a> {
         if let Some(self_new_obj) = self_new {
             let new_obj = FSRObject::id_to_obj(self_new_obj);
             if let FSRValue::Function(f) = &new_obj.value {
-                let mut frame = self.frame_free_list.new_frame("__new__", f.code, self_new_obj);
+                let mut frame = self
+                    .frame_free_list
+                    .new_frame("__new__", f.code, self_new_obj);
                 context.code = f.code;
                 self.push_frame(frame);
             } else {
@@ -1240,7 +1260,11 @@ impl<'a> FSRThreadRuntime<'a> {
             state.set_reverse_ip(context.ip);
             state.exp = Some(std::mem::take(&mut context.exp));
             if let FSRValue::Function(f) = &fn_obj.value {
-                let mut frame = self.frame_free_list.new_frame(f.get_name(), f.code, FSRObject::obj_to_id(fn_obj));
+                let mut frame = self.frame_free_list.new_frame(
+                    f.get_name(),
+                    f.code,
+                    FSRObject::obj_to_id(fn_obj),
+                );
                 frame.code = f.code;
                 self.push_frame(frame);
             }
@@ -1252,7 +1276,9 @@ impl<'a> FSRThreadRuntime<'a> {
             context.ip = (offset.0, 0);
             return Ok(true);
         } else {
-            let v = fn_obj.call(args, self, context.code, FSRObject::obj_to_id(fn_obj)).unwrap();
+            let v = fn_obj
+                .call(args, self, context.code, FSRObject::obj_to_id(fn_obj))
+                .unwrap();
 
             if let FSRRetValue::Value(v) = v {
                 let id = FSRVM::leak_object(v);
@@ -1741,7 +1767,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 bc,
                 context.code,
                 context.module,
-                self.get_cur_frame().fn_obj
+                self.get_cur_frame().fn_obj,
             );
 
             let fn_obj = self
@@ -2213,50 +2239,22 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::Variable(var) = arg.get_arg() {
             exp_stack.push(SValue::Stack(var));
         } else if let ArgType::ConstInteger(_, obj) = arg.get_arg() {
-            //let int_const = Self::load_integer_const(i, vm);
             exp_stack.push(SValue::Global(*obj));
-            // let m = module;
-            // let obj = FSRObject::id_to_obj(m);
-            // let m = obj.as_module();
-            // if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
-            //     if id != &0 {
-            //         exp_stack.push(SValue::Global(*id));
-            //         return;
-            //     }
-            // } else {
-            //     panic!("not found integer const")
-            // }
         } else if let ArgType::ConstFloat(_, obj) = arg.get_arg() {
             exp_stack.push(SValue::Global(*obj));
-            //let float_const = Self::load_float_const(f, vm);
-            // let m = module;
-            // let m = FSRObject::id_to_obj(m).as_module();
-            // if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
-            //     if id != &0 {
-            //         exp_stack.push(SValue::Global(*id));
-            //         return;
-            //     }
-            // } else {
-            //     panic!("not found float const")
-            // }
         } else if let ArgType::ConstString(_, obj) = arg.get_arg() {
             exp_stack.push(SValue::Global(*obj));
-            // let string_const = Self::load_string_const(i.clone(), vm);
-            // s.insert_const(id, string_const);
-            // let m = module;
-            // let m = FSRObject::id_to_obj(m).as_module();
-            // if let Some(id) = m.get_bytecode().const_table.table.get(*c_id as usize) {
-            //     if id != &0 {
-            //         exp_stack.push(SValue::Global(*id));
-            //         return;
-            //     }
-            // } else {
-            //     panic!("not found str const")
-            // }
         } else if let ArgType::Attr(_, name) = arg.get_arg() {
             exp_stack.push(SValue::Attr(AttrArgs::new(0, 0, name, true)));
         } else if let ArgType::ClosureVar(v) = arg.get_arg() {
-            unimplemented!()
+            let fn_id = self.get_cur_frame().fn_obj;
+            if fn_id == 0 {
+                panic!("not found function object");
+            }
+
+            let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
+            let var = fn_obj.get_closure_var(&v.1);
+            exp_stack.push(SValue::Global(var.unwrap()));
         } else {
             unimplemented!()
         }
@@ -2373,9 +2371,9 @@ impl<'a> FSRThreadRuntime<'a> {
             is_attr: false,
             code: code_id,
             call_end: vec![()],
-            module: main_fn,
+            module: 0,
         };
-        let frame = self.frame_free_list.new_frame("load_module", code_id, main_fn);
+        let frame = self.frame_free_list.new_frame("load_module", code_id, 0);
         self.push_frame(frame);
 
         let module = FSRObject::id_to_obj(code_id).as_code();
@@ -2417,6 +2415,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         context.code = FSRObject::obj_to_id(main_code.unwrap());
         let mut module = FSRObject::id_to_obj(code_id).as_code();
+        //self.get_cur_mut_frame().fn_obj = code_id;
         while let Some(expr) = FSRObject::id_to_obj(context.code)
             .as_code()
             .get_expr(context.ip.0)

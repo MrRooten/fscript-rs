@@ -36,6 +36,10 @@ enum State {
 }
 
 impl<'a> FSRFnDef<'a> {
+    pub fn clone_ref_map(&self) -> HashMap<String, bool> {
+        self.ref_map.borrow().clone()
+    }
+
     pub fn is_lambda(&self) -> bool {
         self.lambda
     }
@@ -246,9 +250,9 @@ impl<'a> FSRFnDef<'a> {
         let mut sub_meta = meta.from_offset(2);
         
         context.push_scope();
-        let fn_args = FSRCall::parse(fn_args, sub_meta, context, true)?;
+        let mut fn_call = FSRCall::parse(fn_args, sub_meta, context, true)?;
 
-        let name = fn_args.get_name();
+        let name = fn_call.get_name();
         
         let fn_block_start = 2 + len;
         let mut sub_meta = meta.from_offset(fn_block_start);
@@ -261,11 +265,20 @@ impl<'a> FSRFnDef<'a> {
             block_meta,
             context,
         )?;
+
+        for args in fn_call.get_args_mut() {
+            match args {
+                FSRToken::Variable(v) => {
+                    v.is_defined = true;
+                }
+                _ => {}
+            }
+        }
         let cur = context.pop_scope();
         context.add_variable(name);
         Ok(Self {
             name: name.to_string(),
-            args: fn_args.get_args().clone(),
+            args: fn_call.get_args().clone(),
             body: Rc::new(fn_block),
             len: fn_block_start + fn_block_len,
             meta,

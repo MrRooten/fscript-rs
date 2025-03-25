@@ -1,6 +1,6 @@
 use crate::utils::error::SyntaxError;
 
-use super::base::FSRPosition;
+use super::{base::FSRPosition, ASTContext};
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRImport<'a> {
@@ -13,7 +13,7 @@ impl<'a> FSRImport<'a> {
         &self.meta
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
         while len < source.len() && source[len] != b'\n' {
             if source[len] as char == '\\' {
@@ -30,6 +30,7 @@ impl<'a> FSRImport<'a> {
         let module_start = sub.find(' ').unwrap();
         let mod_name = sub[module_start..len].trim();
 
+        context.add_variable(mod_name.split('.').last().unwrap());
         Ok((
             Self {
                 module_name: mod_name.split('.').collect::<Vec<&str>>(),

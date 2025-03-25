@@ -520,10 +520,20 @@ impl<'a> FSRExpr<'a> {
                 e.single_op = ctx.single_op;
             }
             if let FSRToken::Call(c) = &mut sub_expr {
+                if context.is_variable_defined_in_curr(c.get_name()) {
+                    c.is_defined = true;
+                } else {
+                    context.ref_variable(c.get_name());
+                }
                 c.single_op = ctx.single_op;
             }
 
             if let FSRToken::Variable(v) = &mut sub_expr {
+                if context.is_variable_defined_in_curr(v.get_name()) {
+                    v.is_defined = true;
+                } else {
+                    context.ref_variable(v.get_name());
+                }
                 v.single_op = ctx.single_op;
             }
 
@@ -736,10 +746,20 @@ impl<'a> FSRExpr<'a> {
                     e.single_op = ctx.single_op;
                 }
                 if let FSRToken::Call(c) = &mut sub_expr.0 {
+                    if context.is_variable_defined_in_curr(c.get_name()) {
+                        c.is_defined = true;
+                    } else {
+                        context.ref_variable(c.get_name());
+                    }
                     c.single_op = ctx.single_op;
                 }
 
                 if let FSRToken::Variable(v) = &mut sub_expr.0 {
+                    if context.is_variable_defined_in_curr(v.get_name()) {
+                        v.is_defined = true;
+                    } else {
+                        context.ref_variable(v.get_name());
+                    }
                     v.single_op = ctx.single_op;
                 }
 
@@ -953,6 +973,7 @@ impl<'a> FSRExpr<'a> {
                 }
                 variable.single_op = ctx.single_op;
                 ctx.single_op = None;
+                
                 ctx.candidates.push(FSRToken::Variable(variable));
                 ctx.start += ctx.length;
                 ctx.length = 0;
@@ -1017,7 +1038,7 @@ impl<'a> FSRExpr<'a> {
             }
             let op = ctx.operators.remove(0).0;
             if op.eq("=") {
-                if let FSRToken::Variable(name) = left {
+                if let FSRToken::Variable(mut name) = left {
                     context.add_variable(name.get_name());
                     return Ok((
                         FSRToken::Assign(FSRAssign {
@@ -1089,6 +1110,7 @@ impl<'a> FSRExpr<'a> {
 
         if operator.0.eq("=") {
             if let FSRToken::Variable(name) = left {
+                context.add_variable(name.get_name());
                 return Ok((
                     FSRToken::Assign(FSRAssign {
                         left: Rc::new(n_left),
