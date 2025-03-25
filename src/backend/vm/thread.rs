@@ -2601,46 +2601,48 @@ mod test {
 
     use super::FSRThreadRuntime;
 
-    // #[test]
-    // fn test_export() {
-    //     let vm = FSRVM::new();
-    //     let source_code = r#"
-    //     i = 0
-    //     export("i", i)
+    #[test]
+    fn test_export() {
+        let vm = FSRVM::new();
+        let source_code = r#"
+        i = 0
+        export("i", i)
 
-    //     fn abc() {
-    //         return 'abc'
-    //     }
+        fn abc() {
+            return 'abc'
+        }
 
-    //     export('abc', abc)
-    //     "#;
-    //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
-    //     let base_module = FSRVM::leak_object(Box::new(v));
+        export('abc', abc)
+        "#;
+        let mut v = FSRCode::from_code("main", source_code).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
 
-    //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-    //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
-    //     runtime.start(base_module).unwrap();
+        // println!("{:?}", FSRObject::id_to_obj(v.get_object("abc").unwrap()));
+    }
 
-    //     // println!("{:?}", FSRObject::id_to_obj(v.get_object("abc").unwrap()));
-    // }
-
-    // #[test]
-    // fn test_float() {
-    //     let vm = FSRVM::new();
-    //     let source_code = r#"
-    //     i = 1.1
-    //     b = 1.2
-    //     dump(i + b)
-    //     "#;
-    //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
-    //     let base_module = FSRVM::leak_object(Box::new(v));
-
-    //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-    //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
-    //     runtime.start(base_module).unwrap();
-    // }
+    #[test]
+    fn test_float() {
+        let vm = FSRVM::new();
+        let source_code = r#"
+        i = 1.1
+        b = 1.2
+        dump(i + b)
+        "#;
+        let mut v = FSRCode::from_code("main", source_code).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
+    }
 
     // #[test]
     // fn test_print_str() {
@@ -2721,125 +2723,135 @@ mod test {
     //     println!("svalue size: {}", std::mem::size_of::<super::SValue>());
     // }
 
-    // #[test]
-    // fn test_try_catch_success() {
-    //     let source_code = r#"
-    //     try {
-    //         a = 1 == 1
-    //     } catch {
-    //         println("catch")
-    //     }
+    #[test]
+    fn test_try_catch_success() {
+        let source_code = r#"
+        try {
+            a = 1 == 1
+        } catch {
+            println("catch")
+        }
 
-    //     println('ok')
-    //     "#;
-    //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
-    //     let base_module = FSRVM::leak_object(Box::new(v));
-    //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-    //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
-    //     runtime.start(base_module).unwrap();
-    // }
+        println('ok')
+        "#;
+        let mut v = FSRCode::from_code("main", source_code).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
+    }
 
-    // #[test]
-    // fn test_try_catch_failed() {
-    //     let source_code = r#"
-    //     try {
-    //         a = 1 == 1
-    //         throw_error(1)
-    //         println('if not error will print this text')
-    //     } catch {
-    //         e = get_error()
-    //         println(e)
-    //         println("catch")
-    //     }
+    #[test]
+    fn test_try_catch_failed() {
+        let source_code = r#"
+        try {
+            a = 1 == 1
+            throw_error(1)
+            println('if not error will print this text')
+        } catch {
+            e = get_error()
+            println(e)
+            println("catch")
+        }
 
-    //     println('ok')
-    //     "#;
-    //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
-    //     let base_module = FSRVM::leak_object(Box::new(v));
-    //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-    //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
-    //     runtime.start(base_module).unwrap();
-    // }
+        println('ok')
+        "#;
+        let mut v = FSRCode::from_code("main", source_code).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
+    }
 
-    // #[test]
-    // fn test_try_catch_failed2() {
-    //     let source_code = r#"
-    //     fn abc() {
-    //         throw_error(1)
-    //         println('in abc')
-    //     }
-    //     try {
-    //         a = 1 == 1
-    //         abc()
-    //         println('if not error will print')
-    //     } catch {
-    //         e = get_error()
-    //         println(e)
-    //         println("catch")
-    //     }
+    #[test]
+    fn test_try_catch_failed2() {
+        let source_code = r#"
+        fn abc() {
+            throw_error(1)
+            println('in abc')
+        }
+        try {
+            a = 1 == 1
+            abc()
+            println('if not error will print')
+        } catch {
+            e = get_error()
+            println(e)
+            println("catch")
+        }
 
-    //     println('ok')
-    //     "#;
-    //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
-    //     let base_module = FSRVM::leak_object(Box::new(v));
-    //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-    //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
-    //     runtime.start(base_module).unwrap();
-    // }
+        println('ok')
+        "#;
+        let mut v = FSRCode::from_code("main", source_code).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
+    }
 
-    // #[test]
-    // fn test_try_catch_failed3() {
-    //     let source_code = r#"
-    //     fn abc() {
-    //         try {
-    //             throw_error(1)
-    //         } catch {
-    //         }
+    #[test]
+    fn test_try_catch_failed3() {
+        let source_code = r#"
+        fn abc() {
+            try {
+                throw_error(1)
+            } catch {
+            }
 
-    //         println('in abc')
-    //     }
-    //     try {
-    //         a = 1 == 1
-    //         abc()
-    //         println('if not error will print')
-    //     } catch {
-    //         e = get_error()
-    //         println(e)
-    //         println("catch")
-    //     }
+            println('in abc')
+        }
+        try {
+            a = 1 == 1
+            abc()
+            println('if not error will print')
+        } catch {
+            e = get_error()
+            println(e)
+            println("catch")
+        }
 
-    //     println('ok')
-    //     "#;
-    //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
-    //     let base_module = FSRVM::leak_object(Box::new(v));
-    //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-    //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
-    //     runtime.start(base_module).unwrap();
-    // }
+        println('ok')
+        "#;
+        let mut v = FSRCode::from_code("main", source_code).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
+    }
 
     // #[test]
     // fn test_try() {
     //     let code = "try { a = 1 + 1 }";
     // }
 
-    // #[test]
-    // fn test_range() {
-    //     let range = r#"
-    //     for i in 0..4 {
-    //         println(i)
-    //     }
-    //     "#;
-    //     let mut v = FSRCode::from_code("main", range).unwrap();
-    //     let v = v.remove("__main__").unwrap();
-    //     let base_module = FSRVM::leak_object(Box::new(v));
-    //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-    //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
-    //     runtime.start(base_module).unwrap();
-    // }
+    #[test]
+    fn test_range() {
+        let range = r#"
+        for i in 0..4 {
+            println(i)
+        }
+        "#;
+        let mut v = FSRCode::from_code("main", range).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
+    }
 
     // #[test]
     // fn size_of_object() {

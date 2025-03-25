@@ -1574,7 +1574,11 @@ impl<'a> Bytecode {
         const_map: &mut BytecodeContext,
     ) -> Vec<Vec<BytecodeArg>> {
         let mut var_map = vec![VarMap::new("__main__")];
-        let v = Self::load_token_with_map(token, &mut var_map, const_map);
+        let mut v = Self::load_token_with_map(token, &mut var_map, const_map);
+        let var = v.1.pop().unwrap();
+        for sub_def in var.sub_fn_def.into_iter() {
+            v.0.splice(0..0, sub_def.bytecode);
+        }
         v.0
     }
 
