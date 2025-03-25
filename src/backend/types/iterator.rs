@@ -51,7 +51,7 @@ fn next_obj<'a>(
             let v = cls.get_offset_attr(BinaryOffset::Index);
             if let Some(obj_id) = v {
                 let obj = FSRObject::id_to_obj(obj_id);
-                let ret = obj.call(&[it.obj], thread, module);
+                let ret = obj.call(&[it.obj], thread, module, obj_id);
                 result = Some(ret?);
             }
         }

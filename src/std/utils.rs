@@ -165,7 +165,7 @@ pub fn fsr_timeit<'a>(
     if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[1]).value {
         let start = std::time::Instant::now();
         for _ in 0..*count {
-            let res = match fn_def.call(&[], thread, module)? {
+            let res = match fn_def.call(&[], thread, module, args[0])? {
                 FSRRetValue::Value(fsrobject) => {
                     thread.thread_allocator.free_object(fsrobject);
                 }

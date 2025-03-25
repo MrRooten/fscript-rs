@@ -23,13 +23,14 @@ impl<'a> FrameFreeList<'a> {
     }
 
     #[inline]
-    pub fn new_frame(&mut self, name: &'a str, module: ObjId) -> Box<CallFrame<'a>> {
+    pub fn new_frame(&mut self, name: &'a str, module: ObjId, fn_obj: ObjId) -> Box<CallFrame<'a>> {
         if let Some(mut frame) = self.list.pop() {
             frame.clear();
-            frame.module = module;
+            frame.code = module;
+            frame.fn_obj = fn_obj;
             return frame;
         }
 
-        Box::new(CallFrame::new(name, module))
+        Box::new(CallFrame::new(name, module, fn_obj))
     }
 }

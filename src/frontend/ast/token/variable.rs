@@ -24,7 +24,7 @@ impl<'a> FSRVariable<'a> {
             len: 0,
             meta,
             type_hint: None,
-            is_defined: true,
+            is_defined: false,
         })
     }
 

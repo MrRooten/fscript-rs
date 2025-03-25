@@ -87,7 +87,7 @@ impl<'a> FSRGetter<'a> {
             single_op: None,
             meta,
             getter: Box::new(getter.0),
-            is_defined: true,
+            is_defined: false,
         })
     }
 

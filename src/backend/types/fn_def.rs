@@ -1,5 +1,9 @@
 use std::{
-    borrow::Cow, cell::Cell, collections::HashMap, fmt::{Debug, Formatter}, sync::atomic::{AtomicBool, AtomicU32, AtomicU64}
+    borrow::Cow,
+    cell::Cell,
+    collections::HashMap,
+    fmt::{Debug, Formatter},
+    sync::atomic::{AtomicBool, AtomicU32, AtomicU64},
 };
 
 use crate::{
@@ -104,6 +108,7 @@ impl<'a> FSRFn<'a> {
         bytecode: &'a Bytecode,
         code_obj: ObjId,
         module_obj: ObjId,
+        fn_id: ObjId // Which father fn define this son fn
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
@@ -112,10 +117,18 @@ impl<'a> FSRFn<'a> {
             module: module_obj,
         };
 
+        let c = if fn_id != 0 {
+            let father_fn = FSRObject::id_to_obj(fn_id).as_fn();
+            let closure = father_fn.closure.clone();
+            closure
+        } else {
+            HashMap::new()
+        };
+
         let v = Self {
             fn_def: FSRnE::FSRFn(fn_obj),
             code: code_obj,
-            closure: HashMap::new(),
+            closure: c,
         };
         FSRValue::Function(Box::new(v))
     }
@@ -145,13 +158,16 @@ impl<'a> FSRFn<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         code: ObjId,
+        fn_id: ObjId,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f.1(args, thread, code);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            thread
-                .call_frames
-                .push(thread.frame_free_list.new_frame(self.get_name(), code));
+            thread.call_frames.push(
+                thread
+                    .frame_free_list
+                    .new_frame(self.get_name(), code, fn_id),
+            );
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code, f.module)?;
             let v = match v {
                 crate::backend::vm::thread::SValue::Global(g) => g,

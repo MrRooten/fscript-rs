@@ -105,7 +105,7 @@ impl<'a> FSRCall<'a> {
             len: 0,
             single_op: None,
             meta,
-            is_defined: true,
+            is_defined: false,
         })
     }
 

@@ -92,7 +92,7 @@ impl<'a> FSRValue<'a> {
         let v = cls.get_attr("__str__");
         if let Some(obj_id) = v {
             let obj = FSRObject::id_to_obj(obj_id);
-            let ret = obj.call(&[self_id], thread, module);
+            let ret = obj.call(&[self_id], thread, module, obj_id);
             let ret_value = match ret {
                 Ok(o) => o,
                 Err(_) => {
@@ -374,6 +374,14 @@ impl<'a> FSRObject<'a> {
         false
     }
 
+    pub fn as_fn(&self) -> &FSRFn {
+        if let FSRValue::Function(f) = &self.value {
+            return f
+        }
+
+        unimplemented!()
+    }
+
     #[inline(always)]
     fn sp_object(id: ObjId) -> &'static FSRObject<'static> {
         unsafe {
@@ -467,7 +475,7 @@ impl<'a> FSRObject<'a> {
             }
         };
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, thread, module)?;
+        let v = method_object.call(args, thread, module, self_method)?;
         Ok(v)
     }
 
@@ -482,7 +490,7 @@ impl<'a> FSRObject<'a> {
 
         if let Some(self_method) = self_object.get_cls_offset_attr(offset) {
             let method_object = Self::id_to_obj(self_method);
-            let v = method_object.call(args, thread, module)?;
+            let v = method_object.call(args, thread, module, self_method)?;
             return Ok(v);
         }
 
@@ -496,7 +504,7 @@ impl<'a> FSRObject<'a> {
             }
         };
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, thread, module)?;
+        let v = method_object.call(args, thread, module, self_method)?;
         Ok(v)
     }
 
@@ -537,9 +545,10 @@ impl<'a> FSRObject<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
+        fn_id: ObjId
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
-            return fn_def.invoke(args, thread, module);
+            return fn_def.invoke(args, thread, module, fn_id);
         }
         unimplemented!()
     }

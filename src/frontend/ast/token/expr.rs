@@ -540,6 +540,7 @@ impl<'a> FSRExpr<'a> {
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext<'a>,
+        context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         ctx.states.push_state(ExprState::Variable);
         loop {
@@ -568,6 +569,11 @@ impl<'a> FSRExpr<'a> {
             }
             let mut sub_meta = meta.from_offset(ctx.start);
             let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
+            if context.is_variable_defined_in_curr(variable.get_name()) {
+                variable.is_defined = true;
+            } else {
+                context.ref_variable(variable.get_name());
+            }
             variable.single_op = ctx.single_op;
             ctx.single_op = None;
             ctx.candidates.push(FSRToken::Variable(variable));
@@ -809,7 +815,8 @@ impl<'a> FSRExpr<'a> {
                 let len = ASTParser::read_valid_bracket(&source[ctx.start..], sub_meta.clone())?;
                 assert!(len >= 2);
 
-                let list = FSRListFrontEnd::parse(&source[ctx.start..ctx.start + len], sub_meta, context)?;
+                let list =
+                    FSRListFrontEnd::parse(&source[ctx.start..ctx.start + len], sub_meta, context)?;
                 ctx.candidates.push(FSRToken::List(list));
                 ctx.start += len;
                 ctx.length = 0;
@@ -817,7 +824,7 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && ASTParser::is_name_letter_first(ord) {
-                Self::variable_process(source, ignore_nline, meta, ctx)?;
+                Self::variable_process(source, ignore_nline, meta, ctx, context)?;
 
                 continue;
             }
@@ -828,8 +835,17 @@ impl<'a> FSRExpr<'a> {
                     ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta)?;
                 ctx.length += len;
                 let mut sub_meta = meta.from_offset(ctx.start);
-                let mut call =
-                    FSRCall::parse(&source[ctx.start..ctx.start + ctx.length], sub_meta, context, false)?;
+                let mut call = FSRCall::parse(
+                    &source[ctx.start..ctx.start + ctx.length],
+                    sub_meta,
+                    context,
+                    false,
+                )?;
+                if context.is_variable_defined_in_curr(call.get_name()) {
+                    call.is_defined = true;
+                } else {
+                    context.ref_variable(call.get_name());
+                }
                 if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
                     let mut stack_expr = vec![];
                     let mut right = ctx.candidates.pop().unwrap();
@@ -865,8 +881,18 @@ impl<'a> FSRExpr<'a> {
                     ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta)?;
                 ctx.length += len;
                 let mut sub_meta = meta.from_offset(ctx.start);
-                let getter =
-                    FSRGetter::parse(&source[ctx.start..ctx.start + ctx.length], sub_meta, context).unwrap();
+                let mut getter = FSRGetter::parse(
+                    &source[ctx.start..ctx.start + ctx.length],
+                    sub_meta,
+                    context,
+                )
+                .unwrap();
+
+                if context.is_variable_defined_in_curr(getter.get_name()) {
+                    getter.is_defined = true;
+                } else {
+                    context.ref_variable(getter.get_name());
+                }
                 if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
                     let mut stack_expr = vec![];
                     let mut right = ctx.candidates.pop().unwrap();
@@ -920,6 +946,11 @@ impl<'a> FSRExpr<'a> {
 
                 let mut sub_meta = meta.from_offset(ctx.start);
                 let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
+                if context.is_variable_defined_in_curr(variable.get_name()) {
+                    variable.is_defined = true;
+                } else {
+                    context.ref_variable(variable.get_name());
+                }
                 variable.single_op = ctx.single_op;
                 ctx.single_op = None;
                 ctx.candidates.push(FSRToken::Variable(variable));

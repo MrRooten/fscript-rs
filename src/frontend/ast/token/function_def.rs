@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     frontend::ast::{
@@ -23,7 +23,7 @@ pub struct FSRFnDef<'a> {
     body: Rc<FSRBlock<'a>>,
     len: usize,
     meta: FSRPosition,
-    ref_map: HashMap<String, bool>
+    pub(crate) ref_map: Rc<RefCell<HashMap<String, bool>>>
 }
 
 #[derive(PartialEq, Clone)]
@@ -129,11 +129,12 @@ impl<'a> FSRFnDef<'a> {
 
                     i += 1;
                 }
-
-                arg_collect.push(FSRToken::Variable(FSRVariable::parse(
+                let mut variable = FSRVariable::parse(
                     arg,
                     meta.from_offset(0),
-                )?));
+                )?;
+                variable.is_defined = true;
+                arg_collect.push(FSRToken::Variable(variable));
             }
 
             arg_collect
