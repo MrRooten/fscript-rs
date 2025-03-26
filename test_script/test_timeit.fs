@@ -4,7 +4,7 @@ fn abcd() {
 }
 
 fn abc() {
-    a = 1 + 1
+    
 }
 
 

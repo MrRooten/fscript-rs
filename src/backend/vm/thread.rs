@@ -2414,7 +2414,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap();
         let code_id = FSRObject::obj_to_id(code);
         let mut context = ThreadContext {
-            exp: Vec::with_capacity(10),
+            exp: Vec::with_capacity(8),
             ip: (0, 0),
             is_attr: false,
             code: code_id,
@@ -2526,7 +2526,7 @@ impl<'a> FSRThreadRuntime<'a> {
         module: ObjId,
     ) -> Result<SValue, FSRError> {
         let mut context = ThreadContext {
-            exp: Vec::with_capacity(10),
+            exp: Vec::with_capacity(8),
             ip: fn_def.get_ip(),
             is_attr: false,
             code,
