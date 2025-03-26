@@ -9,6 +9,8 @@ Running on bytecode, simple and useless program language, \[temporary not but wi
 ### [x] Turing Completeness
 ### [x] better AST error handle(display or tips)
 ### [x] jit compiler
+### [√] closure support
+### [√] anonymous function
 
 ## Usage
 
@@ -39,7 +41,7 @@ target/release/fscript-rs ./test_script/test_while.fs
 3000000
 count: 26999986
 obj count: 4
-294.098625ms
+184.098625ms
 ```
 
 #### Class Test
