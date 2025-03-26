@@ -4,7 +4,4 @@ fn test() {
 }
 
 i = 0
-while i < 10 {
-    test()
-    i = i + 1
-}
+test()

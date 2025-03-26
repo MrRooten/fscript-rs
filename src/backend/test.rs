@@ -231,6 +231,7 @@ dump(a)
             "test_script/test_expression.fs",
             "test_script/test_nested_call.fs",
             "test_script/test_error_handle.fs",
+            "test_script/test_closure.fs"
         ];
         for i in vs {
             println!("Running script: {}", i);

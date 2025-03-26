@@ -8,13 +8,24 @@ fn abc() {
     return ddc
 }
 
+fn abc2() {
+    fn ddc() {
+        return 1
+    }
 
+    fn abcd() {
+        return ddc
+    }
 
-fn main() {
-    a = abc()
-
-    c = a()
-    println(c)
+    return abcd()
 }
 
-main()
+a = abc2()
+println(a)
+
+assert(a() == 1)
+
+
+a = abc()
+
+assert(a() == 2)

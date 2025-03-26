@@ -210,7 +210,7 @@ impl<'a> AttrArgs<'a> {
 
 #[derive(Debug)]
 pub enum SValue<'a> {
-    Stack(&'a (u64, String)),
+    Stack(&'a (u64, String, bool)),
     Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
     Global(ObjId),
     #[allow(dead_code)]
@@ -581,58 +581,9 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         if let ArgType::ClosureVar(v) = bytecode.get_arg() {
-            let var_id = v.0;
-            let svalue = match context.exp.pop() {
-                Some(s) => s,
-                None => {
-                    return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
-                }
-            };
-
-            if let SValue::BoxObject(obj) = svalue {
-                //let state = self.get_cur_mut_frame();
-                let state = &mut self.cur_frame;
-                obj.ref_add();
-                let obj_id = FSRVM::leak_object(obj);
-                // println!("{:#?}", obj);
-                let fn_obj = self.get_cur_frame().fn_obj;
-                if fn_obj == FSRObject::none_id() {
-                    panic!("closure var must in closure");
-                }
-                let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
-                if let Some(s) = fn_obj.store_cells.get(v.1.as_str()) {
-                    s.replace(obj_id);
-                } else {
-                    fn_obj.store_cells.insert(v.1.as_str(), Cell::new(obj_id));
-                }
-                return Ok(false);
-            }
-            let obj_id = svalue.get_global_id(self)?;
-            FSRObject::id_to_obj(obj_id).ref_add();
-            let fn_obj = self.get_cur_frame().fn_obj;
-            if fn_obj == FSRObject::none_id() {
-                panic!("closure var must in closure");
-            }
-            let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
-            if let Some(s) = fn_obj.store_cells.get(v.1.as_str()) {
-                s.replace(obj_id);
-            } else {
-                fn_obj.store_cells.insert(v.1.as_str(), Cell::new(obj_id));
-            }
-
+            self.load_closure(v, context)?;
             return Ok(false);
         }
-
-        // if let ArgType::Lambda(v) = bytecode.get_arg() {
-        //     let state = &mut self.cur_frame;
-        //     let lambda_obj = FSRObject::id_to_obj(context.module)
-        //         .as_module()
-        //         .get_fn(&v.1)
-        //         .unwrap();
-        //     let lambda_id = FSRObject::obj_to_id(lambda_obj);
-        //     state.insert_var(v.0, lambda_id, Some(&mut self.thread_allocator));
-        //     return Ok(false);
-        // }
 
         //Assign variable name
         let assign_id = match context.exp.pop() {
@@ -1106,7 +1057,11 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn chain_get_variable(var: &(u64, String), thread: &Self, module: ObjId) -> Option<ObjId> {
+    fn chain_get_variable(
+        var: &(u64, String, bool),
+        thread: &Self,
+        module: ObjId,
+    ) -> Option<ObjId> {
         if let Some(value) = thread.get_cur_frame().get_var(&var.0) {
             Some(*value)
         } else if let Some(value) = FSRObject::id_to_obj(module).as_code().get_object(&var.1) {
@@ -1786,7 +1741,24 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRObject::id_to_obj(context.code)
                 .as_code()
                 .register_object(&name.1, fn_id);
-
+            if name.2 {
+                let define_fn_obj = self.get_cur_frame().fn_obj;
+                if define_fn_obj == FSRObject::none_id() {
+                    panic!("closure var must in closure");
+                }
+                let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj).as_mut_fn();
+                if let Some(s) = define_fn_obj.store_cells.get(name.1.as_str()) {
+                    let origin_var = s.get();
+                    if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
+                        self.thread_allocator.free(origin_var);
+                    }
+                    s.replace(fn_id);
+                } else {
+                    define_fn_obj
+                        .store_cells
+                        .insert(name.1.as_str(), Cell::new(fn_id));
+                }
+            }
             context.ip = (context.ip.0 + *n as usize + 2, 0);
             return Ok(true);
         }
@@ -1900,6 +1872,64 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    fn load_closure(
+        &mut self,
+        closure: &(u64, String),
+        context: &mut ThreadContext,
+    ) -> Result<(), FSRError> {
+        let var_id = closure.0;
+        let svalue = match context.exp.pop() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
+            }
+        };
+
+        if let SValue::BoxObject(obj) = svalue {
+            //let state = self.get_cur_mut_frame();
+            let state = &mut self.cur_frame;
+            obj.ref_add();
+            let obj_id = FSRVM::leak_object(obj);
+            // println!("{:#?}", obj);
+            let fn_obj = self.get_cur_frame().fn_obj;
+            if fn_obj == FSRObject::none_id() {
+                panic!("closure var must in closure");
+            }
+            let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
+            if let Some(s) = fn_obj.store_cells.get(closure.1.as_str()) {
+                let origin_var = s.get();
+                if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
+                    self.thread_allocator.free(origin_var);
+                }
+                s.replace(obj_id);
+            } else {
+                fn_obj
+                    .store_cells
+                    .insert(closure.1.as_str(), Cell::new(obj_id));
+            }
+
+            return Ok(());
+        }
+
+        let obj_id = svalue.get_global_id(self)?;
+        FSRObject::id_to_obj(obj_id).ref_add();
+        let fn_obj = self.get_cur_frame().fn_obj;
+        if fn_obj == FSRObject::none_id() {
+            panic!("closure var must in closure");
+        }
+        let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
+        if let Some(s) = fn_obj.store_cells.get(closure.1.as_str()) {
+            let origin_var = s.get();
+            if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
+                self.thread_allocator.free(origin_var);
+            }
+            s.replace(obj_id);
+        } else {
+            fn_obj.store_cells.insert(closure.1.as_str(), Cell::new(obj_id));
+        }
+        Ok(())
+    }
+
     fn assign_args(
         self: &mut FSRThreadRuntime<'a>,
         context: &mut ThreadContext<'a>,
@@ -1910,6 +1940,8 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = state.args.pop().unwrap();
         if let ArgType::Variable(s_id) = bytecode.get_arg() {
             state.insert_var(s_id.0, v, Some(&mut self.thread_allocator));
+        } else if let ArgType::ClosureVar(s_id) = bytecode.get_arg() {
+            self.load_closure(s_id, context)?;
         }
         Ok(false)
     }
@@ -2256,6 +2288,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let var = fn_obj.get_closure_var(&v.1);
             exp_stack.push(SValue::Global(var.unwrap()));
         } else {
+            println!("{:?}", exp_stack);
             unimplemented!()
         }
     }
@@ -2700,28 +2733,30 @@ mod test {
     //     runtime.start(base_module).unwrap();
     // }
 
-    // #[test]
-    // fn get_list_item() {
-    //     let source_code = r#"
-    //     a = [1, 2, 3]
-    //     println(a[0])
+    #[test]
+    fn get_list_item() {
+        let source_code = r#"
+        a = [1, 2, 3]
+        println(a[0])
 
-    //     b = [[1,2,3]]
-    //     c = b[0][0]
-    //     println(c)
-    //     "#;
-    //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
-    //     let base_module = FSRVM::leak_object(Box::new(v));
-    //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
-    //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
-    //     runtime.start(base_module).unwrap();
-    // }
+        b = [[1,2,3]]
+        c = b[0][0]
+        println(c)
+        "#;
+        let mut v = FSRCode::from_code("main", source_code).unwrap();
+        let obj = Box::new(FSRModule::new("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut runtime = FSRThreadRuntime::new(vm);
+        runtime.start(obj_id).unwrap();
+    }
 
-    // #[test]
-    // fn test_svalue_size() {
-    //     println!("svalue size: {}", std::mem::size_of::<super::SValue>());
-    // }
+    #[test]
+    fn test_svalue_size() {
+        println!("svalue size: {}", std::mem::size_of::<super::SValue>());
+    }
 
     #[test]
     fn test_try_catch_success() {
