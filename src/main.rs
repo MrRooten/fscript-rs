@@ -50,7 +50,7 @@ fn main() {
         let module_id = FSRVM::leak_object(module);
         rt.start(module_id).unwrap();
     });
-    th.join();
+    let _ = th.join();
 
     let end = Instant::now();
     println!("{:?}", end - start);

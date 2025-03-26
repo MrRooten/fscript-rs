@@ -281,6 +281,7 @@ impl<'a> SValue<'a> {
 }
 
 pub struct ThreadContext<'a> {
+    // tracing call stack, is call stack is empty means end of this call except start of this call
     call_end: Vec<()>,
     exp: Vec<SValue<'a>>,
     ip: (usize, usize),
@@ -313,25 +314,36 @@ impl<'a> ThreadContext<'a> {
     }
 }
 
-pub struct FSRThreadRuntime<'a> {
-    cur_frame: Box<CallFrame<'a>>,
-    pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
-    frame_index: usize,
-    pub(crate) frame_free_list: FrameFreeList<'a>,
-    vm: Arc<Mutex<FSRVM<'a>>>,
-    pub(crate) thread_allocator: FSRObjectAllocator<'a>,
-    last_if_test: Vec<bool>,
-    break_line: Vec<usize>,
-    continue_line: Vec<usize>,
-    for_iter_obj: Vec<ObjId>, // for i in a , the a will call __iter__ Iterator object
-    ref_for_obj: Vec<ObjId>,  // use for ref obj, like (for i in a) ref about a variable
-    is_break: bool,
-    pub(crate) exception: ObjId,
-    pub(crate) exception_flag: bool,
-    pub(crate) closure_stack: Vec<HashMap<&'a str, ObjId>>,
+#[derive(Debug, Default)]
+struct FlowTracker {
+    pub last_if_test: Vec<bool>,
+
+    pub break_line: Vec<usize>,
+
+    pub continue_line: Vec<usize>,
+
+    pub iter_objects: Vec<ObjId>,
+
+    pub ref_for_obj: Vec<ObjId>,
+
+    pub is_break: bool,
+
+    for_iter_obj: Vec<ObjId>,
 }
 
-impl<'a> FSRThreadRuntime<'a> {
+impl FlowTracker {
+    pub fn new() -> Self {
+        Self {
+            last_if_test: Vec::new(),
+            break_line: Vec::new(),
+            continue_line: Vec::new(),
+            iter_objects: Vec::new(),
+            ref_for_obj: Vec::new(),
+            for_iter_obj: Vec::new(),
+            is_break: false,
+        }
+    }
+
     #[inline(always)]
     pub fn false_last_if_test(&mut self) {
         let l = self.last_if_test.len() - 1;
@@ -362,7 +374,22 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn pop_last_if_test(&mut self) {
         self.last_if_test.pop();
     }
+}
 
+pub struct FSRThreadRuntime<'a> {
+    cur_frame: Box<CallFrame<'a>>,
+    pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
+    frame_index: usize,
+    pub(crate) frame_free_list: FrameFreeList<'a>,
+    vm: Arc<Mutex<FSRVM<'a>>>,
+    pub(crate) thread_allocator: FSRObjectAllocator<'a>,
+    flow_tracker: FlowTracker,
+    pub(crate) exception: ObjId,
+    pub(crate) exception_flag: bool,
+    pub(crate) closure_stack: Vec<HashMap<&'a str, ObjId>>,
+}
+
+impl<'a> FSRThreadRuntime<'a> {
     pub fn get_vm(&self) -> Arc<Mutex<FSRVM<'a>>> {
         self.vm.clone()
     }
@@ -380,13 +407,8 @@ impl<'a> FSRThreadRuntime<'a> {
             frame_index: 0,
             frame_free_list: FrameFreeList::new_list(),
             thread_allocator: FSRObjectAllocator::new(),
-            last_if_test: vec![],
-            break_line: vec![],
-            continue_line: vec![],
-            for_iter_obj: vec![],
+            flow_tracker: FlowTracker::new(),
             exception: FSRObject::none_id(),
-            ref_for_obj: vec![],
-            is_break: false,
             exception_flag: false,
             closure_stack: vec![],
         }
@@ -1060,11 +1082,11 @@ impl<'a> FSRThreadRuntime<'a> {
     fn chain_get_variable(
         var: &(u64, String, bool),
         thread: &Self,
-        module: ObjId,
+        code: ObjId,
     ) -> Option<ObjId> {
         if let Some(value) = thread.get_cur_frame().get_var(&var.0) {
             Some(*value)
-        } else if let Some(value) = FSRObject::id_to_obj(module).as_code().get_object(&var.1) {
+        } else if let Some(value) = FSRObject::id_to_obj(code).as_code().get_object(&var.1) {
             Some(value)
         } else {
             thread
@@ -1159,15 +1181,10 @@ impl<'a> FSRThreadRuntime<'a> {
         //println!("{:#?}", self_obj);
         let self_id = FSRVM::register_object(self_obj);
 
-        // set self as fisrt args and call __new__ method to initialize object
-        //args.push(self_id);
         args.insert(0, self_id);
         context.is_attr = true;
-        //Self::call_process_set_args(n, self, &mut context.exp, &mut args);
-        // let state = self.get_cur_mut_stack();
-        // state.set_reverse_ip(context.ip);
 
-        // state.exp = Some(context.exp.clone());
+
         self.save_ip_to_callstate(&mut context.exp, &mut context.ip, context.code);
         let self_obj = FSRObject::id_to_obj(self_id);
         let self_new = self_obj.get_cls_attr("__new__");
@@ -1460,11 +1477,11 @@ impl<'a> FSRThreadRuntime<'a> {
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
-                self.push_last_if_test(false);
+                self.flow_tracker.push_last_if_test(false);
                 return Ok(true);
             }
         }
-        self.push_last_if_test(true);
+        self.flow_tracker.push_last_if_test(true);
         Ok(false)
     }
 
@@ -1475,7 +1492,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        self.pop_last_if_test();
+        self.flow_tracker.pop_last_if_test();
         Ok(false)
     }
 
@@ -1510,11 +1527,11 @@ impl<'a> FSRThreadRuntime<'a> {
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
-                self.false_last_if_test();
+                self.flow_tracker.false_last_if_test();
                 return Ok(true);
             }
         }
-        self.true_last_if_test();
+        self.flow_tracker.true_last_if_test();
         Ok(false)
     }
 
@@ -1525,14 +1542,14 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        if self.peek_last_if_test() {
+        if self.flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
                 return Ok(true);
             }
         }
 
-        self.false_last_if_test();
+        self.flow_tracker.false_last_if_test();
         Ok(false)
     }
 
@@ -1543,13 +1560,13 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        if self.peek_last_if_test() {
+        if self.flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + n.0 as usize + 1_usize, 0);
                 return Ok(true);
             }
         }
-        self.false_last_if_test();
+        self.flow_tracker.false_last_if_test();
         Ok(false)
     }
 
@@ -1560,9 +1577,9 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        self.is_break = true;
-        let l = self.continue_line.len();
-        let continue_line = self.continue_line[l - 1];
+        self.flow_tracker.is_break = true;
+        let l = self.flow_tracker.continue_line.len();
+        let continue_line = self.flow_tracker.continue_line[l - 1];
         context.ip = (continue_line, 0);
         Ok(true)
     }
@@ -1574,8 +1591,8 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let l = self.continue_line.len();
-        let continue_line = self.continue_line[l - 1];
+        let l = self.flow_tracker.continue_line.len();
+        let continue_line = self.flow_tracker.continue_line[l - 1];
         context.ip = (continue_line, 0);
         Ok(true)
     }
@@ -1586,7 +1603,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let obj_id = context.exp.last().unwrap().get_global_id(self)?;
         FSRObject::id_to_obj(obj_id).ref_add();
-        self.ref_for_obj.push(obj_id);
+        self.flow_tracker.ref_for_obj.push(obj_id);
         Ok(false)
     }
 
@@ -1609,10 +1626,12 @@ impl<'a> FSRThreadRuntime<'a> {
         // let v = FSRObject::id_to_obj(iter_id);
         // println!("{:#?}", v);
         if let ArgType::ForLine(n) = bytecode.get_arg() {
-            self.break_line.push(context.ip.0 + *n as usize);
-            self.continue_line.push(context.ip.0 + 1);
+            self.flow_tracker
+                .break_line
+                .push(context.ip.0 + *n as usize);
+            self.flow_tracker.continue_line.push(context.ip.0 + 1);
         }
-        self.for_iter_obj.push(iter_id);
+        self.flow_tracker.for_iter_obj.push(iter_id);
         Ok(false)
     }
 
@@ -1660,30 +1679,35 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if let ArgType::WhileTest(n) = bytecode.get_arg() {
             // Avoid repeat add break ip and continue ip
-            if let Some(s) = self.break_line.last() {
+            if let Some(s) = self.flow_tracker.break_line.last() {
                 if context.ip.0 + *n as usize + 1 != *s {
-                    self.break_line.push(context.ip.0 + *n as usize + 1);
+                    self.flow_tracker
+                        .break_line
+                        .push(context.ip.0 + *n as usize + 1);
                 }
             } else {
-                self.break_line.push(context.ip.0 + *n as usize + 1);
+                self.flow_tracker
+                    .break_line
+                    .push(context.ip.0 + *n as usize + 1);
             }
 
-            if let Some(s) = self.continue_line.last() {
+            if let Some(s) = self.flow_tracker.continue_line.last() {
                 if context.ip.0 != *s {
-                    self.continue_line.push(context.ip.0);
+                    self.flow_tracker.continue_line.push(context.ip.0);
                 }
             } else {
-                self.continue_line.push(context.ip.0);
+                self.flow_tracker.continue_line.push(context.ip.0);
             }
         }
 
-        if (test_val == FSRObject::false_id() || test_val == FSRObject::none_id()) || self.is_break
+        if (test_val == FSRObject::false_id() || test_val == FSRObject::none_id())
+            || self.flow_tracker.is_break
         {
-            self.is_break = false;
+            self.flow_tracker.is_break = false;
             if let ArgType::WhileTest(n) = bytecode.get_arg() {
                 context.ip = (context.ip.0 + *n as usize + 1, 0);
-                self.break_line.pop();
-                self.continue_line.pop();
+                self.flow_tracker.break_line.pop();
+                self.flow_tracker.continue_line.pop();
                 return Ok(true);
             }
         }
@@ -2077,7 +2101,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // context
         //     .exp
         //     .push(SValue::Global(*self.for_iter_obj.last().unwrap()));
-        let obj = self.for_iter_obj.last().cloned().unwrap();
+        let obj = self.flow_tracker.for_iter_obj.last().cloned().unwrap();
 
         let res =
             FSRObject::invoke_offset_method(BinaryOffset::NextObject, &[obj], self, context.code)?;
@@ -2087,17 +2111,17 @@ impl<'a> FSRThreadRuntime<'a> {
                 context.exp.push(SValue::BoxObject(object));
             }
             FSRRetValue::GlobalId(res_id) => {
-                if res_id == 0 || self.is_break {
-                    self.is_break = false;
-                    let break_line = self.break_line.pop().unwrap();
-                    self.continue_line.pop();
-                    let obj = self.for_iter_obj.pop().unwrap();
+                if res_id == 0 || self.flow_tracker.is_break {
+                    self.flow_tracker.is_break = false;
+                    let break_line = self.flow_tracker.break_line.pop().unwrap();
+                    self.flow_tracker.continue_line.pop();
+                    let obj = self.flow_tracker.for_iter_obj.pop().unwrap();
                     let iter_obj = FSRObject::id_to_obj(obj);
                     // iter_obj.ref_dec();
                     if iter_obj.count_ref() == 1 {
                         self.thread_allocator.free(obj);
                     }
-                    let obj_id = self.ref_for_obj.pop().unwrap();
+                    let obj_id = self.flow_tracker.ref_for_obj.pop().unwrap();
                     let for_obj = FSRObject::id_to_obj(obj_id);
                     // for_obj.ref_dec();
                     if for_obj.count_ref() == 1 {
@@ -2304,13 +2328,13 @@ impl<'a> FSRThreadRuntime<'a> {
         match (&state.exp, &state.ret_val) {
             (None, None) => {
                 return;
-            },
+            }
             (Some(_), None) => {
                 if let Some(s) = state.exp.take() {
                     *exp_stack = s;
                 }
                 return;
-            },
+            }
             (None, Some(_)) => {
                 if let Some(s) = state.ret_val.take() {
                     exp_stack.push(s);
