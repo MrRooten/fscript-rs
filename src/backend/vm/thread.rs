@@ -1925,7 +1925,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             s.replace(obj_id);
         } else {
-            fn_obj.store_cells.insert(closure.1.as_str(), Cell::new(obj_id));
+            fn_obj
+                .store_cells
+                .insert(closure.1.as_str(), Cell::new(obj_id));
         }
         Ok(())
     }
@@ -2300,29 +2302,42 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_frame();
 
         match (&state.exp, &state.ret_val) {
+            (None, None) => {
+                return;
+            },
             (Some(_), None) => {
                 if let Some(s) = state.exp.take() {
                     *exp_stack = s;
                 }
                 return;
+            },
+            (None, Some(_)) => {
+                if let Some(s) = state.ret_val.take() {
+                    exp_stack.push(s);
+                }
             }
-            (None, None) => {
-                return;
+            (Some(_), Some(_)) => {
+                if let Some(s) = state.exp.take() {
+                    *exp_stack = s;
+                }
+
+                if let Some(s) = state.ret_val.take() {
+                    exp_stack.push(s);
+                }
             }
-            _ => {}
         }
 
-        if state.exp.is_some() {
-            if let Some(s) = state.exp.take() {
-                *exp_stack = s;
-            }
-        }
+        // if state.exp.is_some() {
+        //     if let Some(s) = state.exp.take() {
+        //         *exp_stack = s;
+        //     }
+        // }
 
-        if state.ret_val.is_some() {
-            if let Some(s) = state.ret_val.take() {
-                exp_stack.push(s);
-            }
-        }
+        // if state.ret_val.is_some() {
+        //     if let Some(s) = state.ret_val.take() {
+        //         exp_stack.push(s);
+        //     }
+        // }
     }
 
     #[inline(always)]
@@ -2449,10 +2464,7 @@ impl<'a> FSRThreadRuntime<'a> {
         context.code = FSRObject::obj_to_id(main_code.unwrap());
         let mut module = FSRObject::id_to_obj(code_id).as_code();
         //self.get_cur_mut_frame().fn_obj = code_id;
-        while let Some(expr) = FSRObject::id_to_obj(context.code)
-            .as_code()
-            .get_expr(context.ip.0)
-        {
+        while let Some(expr) = module.get_expr(context.ip.0) {
             #[cfg(feature = "bytecode_trace")]
             {
                 println!(
