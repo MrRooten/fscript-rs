@@ -11,7 +11,7 @@ use ahash::AHashMap;
 
 use crate::{
     backend::{
-        memory::{gc::GarbageCollector, size_alloc::FSRObjectAllocator},
+        memory::{size_alloc::FSRObjectAllocator},
         types::{
             base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, code::FSRCode, error::FSRException, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, range::FSRRange, string::FSRString
         },
@@ -31,7 +31,6 @@ pub struct FSRVM<'a> {
     const_integer_global: RefCell<HashMap<i64, ObjId>>,
     pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, ObjId>>,
     pub allocator: FSRObjectAllocator<'a>,
-    pub garbage_collector: GarbageCollector,
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -53,7 +52,6 @@ impl<'a> FSRVM<'a> {
             const_integer_global: RefCell::new(HashMap::new()),
             const_map: Mutex::new(AHashMap::new()),
             allocator: FSRObjectAllocator::new(),
-            garbage_collector: GarbageCollector::new_gc(),
         };
         v.init();
         v
