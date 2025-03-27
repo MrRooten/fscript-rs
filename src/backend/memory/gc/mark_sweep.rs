@@ -17,7 +17,7 @@ pub struct MarkSweepGarbageCollector<'a> {
     objects: Vec<Option<Box<FSRObject<'a>>>>,
     // Free slots for objects
     free_slots: Vec<usize>,
-    // 根对象集合
+
     roots: HashSet<ObjId>,
     // Object allocator
     allocator: FSRObjectAllocator<'a>,
@@ -122,16 +122,16 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
             idx
         };
 
-        // 设置对象的garbage_id为槽位索引
+
         obj.garbage_id.store(slot_idx as u32, Ordering::Relaxed);
 
-        // 获取对象ID（内存地址）
+
         let obj_id = FSRObject::obj_to_id(&obj);
 
-        // 存储对象
+
         self.objects[slot_idx] = Some(obj);
         self.tracker.object_count += 1;
-        // 确保marks数组长度足够
+
         if self.marks.len() <= slot_idx {
             self.marks.resize(self.objects.len(), false);
         }
@@ -143,9 +143,9 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         if let Some(idx) = self.get_garbage_id(id) {
             if idx < self.objects.len() {
                 if let Some(obj) = self.objects[idx].take() {
-                    // 释放对象内存
+
                     self.allocator.free_object(obj);
-                    // 将释放的槽位添加到空闲列表
+
                     self.free_slots.push(idx);
                 }
             }
@@ -153,27 +153,20 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
     }
 
     fn collect(&mut self) {
-        // 清除之前的标记
         self.clear_marks();
 
-        // 标记阶段: 从根对象开始标记所有可达对象
         let mut work_list: Vec<ObjId> = self.roots.iter().copied().collect();
 
         while let Some(id) = work_list.pop() {
-            // 跳过已标记的对象
             if self.is_marked(id) {
                 continue;
             }
 
-            // 标记当前对象
             self.mark(id);
 
-            // 获取并标记该对象引用的所有对象
             if let Some(obj) = self.get_object(id) {
-                // 获取对象所有引用
                 let refs = obj.get_references();
 
-                // 将未标记的引用添加到工作列表
                 for ref_id in refs {
                     if !self.is_marked(ref_id) {
                         work_list.push(ref_id);
@@ -188,7 +181,6 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
             if let Some(obj) = obj_opt {
                 let id = FSRObject::obj_to_id(obj);
 
-                // 检查对象是否被标记（可达）
                 if idx >= self.marks.len() || !self.marks[idx] {
                     to_free.push(id);
                 }
@@ -216,11 +208,10 @@ mod tests {
         let _vm = FSRVM::new();
         let mut gc = MarkSweepGarbageCollector::new();
 
-        // 用于测试的类ID
+
         let integer_cls = FSRGlobalObjId::IntegerCls as ObjId;
         let list_cls = FSRGlobalObjId::ListCls as ObjId;
 
-        // 创建一些对象
         let int1 = gc.new_object(integer_cls, FSRValue::Integer(10));
         let int2 = gc.new_object(integer_cls, FSRValue::Integer(20));
         let int3 = gc.new_object(integer_cls, FSRValue::Integer(30));
