@@ -1,5 +1,5 @@
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, vm::thread::FSRThreadRuntime},
+    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::thread::FSRThreadRuntime},
     utils::error::{FSRErrCode, FSRError},
 };
 
@@ -36,14 +36,14 @@ fn next_obj<'a>(
                 return Ok(FSRRetValue::GlobalId(0));
             }
 
-            let obj = thread.thread_allocator.new_object(
+            let obj = thread.garbage_collect.new_object(
                 FSRValue::Integer((it.index as i64 + r.range.start) as i64),
                 FSRGlobalObjId::IntegerCls as ObjId,
             );
 
             it.index += 1;
 
-            return Ok(FSRRetValue::Value(obj))
+            return Ok(FSRRetValue::GlobalId(obj))
         } else if let FSRValue::ClassInst(inst) = &from_obj.value {
             let cls = from_obj.cls;
             let cls = FSRObject::id_to_obj(cls);

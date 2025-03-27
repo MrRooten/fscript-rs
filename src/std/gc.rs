@@ -25,7 +25,7 @@ pub fn fn_gc_collect<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    thread.garbage_collect.collect();
+    thread.garbage_collect.collect(&mut thread.call_frames, &thread.cur_frame ,&[]);
     Ok(FSRRetValue::GlobalId(0))
 }
 

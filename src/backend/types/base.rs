@@ -75,7 +75,7 @@ impl FSRValue<'_> {
             FSRValue::Class(fsrclass) => fsrclass.iter_values().cloned().collect(),
             FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.iter_values().cloned().collect(),
             FSRValue::List(fsrlist) => fsrlist.iter_values().cloned().collect(),
-            FSRValue::Function(_) |
+            FSRValue::Function(f) => f.get_references(),
             FSRValue::Iterator(_) |
             FSRValue::Code(_) |
             FSRValue::Range(_) |
@@ -180,10 +180,11 @@ impl<'a> FSRValue<'a> {
 
 pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
+    pub(crate) garbage_collector_id: u32,
     pub(crate) ref_count: AtomicU32,
     pub(crate) cls: ObjId,
     pub(crate) delete_flag: AtomicBool,
-    pub(crate) garbage_id: AtomicU32,
+    pub(crate) garbage_id: u32,
 }
 
 impl Debug for FSRObject<'_> {
@@ -265,7 +266,8 @@ impl<'a> FSRObject<'a> {
             cls,
             ref_count: AtomicU32::new(0),
             delete_flag: AtomicBool::new(true),
-            garbage_id: AtomicU32::new(0),
+            garbage_id: 0,
+            garbage_collector_id: 0,
         }
     }
 
@@ -302,7 +304,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn get_garbage_id(&self) -> u32 {
-        self.garbage_id.load(Ordering::Relaxed)
+        self.garbage_id
     }
 
     pub fn new() -> FSRObject<'a> {
@@ -311,7 +313,8 @@ impl<'a> FSRObject<'a> {
             cls: 0,
             ref_count: AtomicU32::new(0),
             delete_flag: AtomicBool::new(true),
-            garbage_id: AtomicU32::new(0),
+            garbage_id: 0,
+            garbage_collector_id: 0,
         }
     }
 
@@ -684,10 +687,6 @@ impl<'a> FSRObject<'a> {
             FSRValue::ClassInst(inst) => inst.iter_values(),
             _ => unimplemented!(),
         }
-    }
-
-    pub fn set_garbage_id(&self, id: u32) {
-        self.garbage_id.store(id, Ordering::Relaxed);
     }
 
     pub fn get_references(&self) -> impl Iterator<Item = ObjId> {

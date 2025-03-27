@@ -6,7 +6,10 @@ use std::{
     ops::Range,
     path::{Path, PathBuf},
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
     time::Instant,
     vec,
@@ -17,7 +20,7 @@ use std::borrow::Cow;
 use crate::{
     backend::{
         compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
-        memory::{gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator},
+        memory::{gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator, GarbageCollector},
         types::{
             base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
             class::FSRClass,
@@ -103,11 +106,11 @@ impl Iterator for IndexIterator<'_> {
 }
 
 pub struct CallFrame<'a> {
-    var_map: IndexMap,
+    pub(crate) var_map: IndexMap,
     reverse_ip: (usize, usize),
     args: Vec<ObjId>,
     cur_cls: Option<Box<FSRClass<'a>>>,
-    ret_val: Option<SValue<'a>>,
+    pub(crate) ret_val: Option<ObjId>,
     pub(crate) exp: Option<Vec<SValue<'a>>>,
     pub(crate) code: ObjId,
     catch_ends: Vec<(usize, usize)>,
@@ -147,24 +150,7 @@ impl<'a> CallFrame<'a> {
         obj_id: ObjId,
         allocator: &mut MarkSweepGarbageCollector<'a>,
     ) {
-        // if self.var_map.contains_key(&id) {
-        //     let to_be_dec = self.var_map.get(&id).unwrap();
-        //     let origin_obj = FSRObject::id_to_obj(*to_be_dec);
-        //     // origin_obj.ref_dec();
-        //     if origin_obj.count_ref() == 1 {
-        //         if let Some(rt) = allocator {
-        //             rt.free(*to_be_dec);
-        //         } else {
-        //             FSRObject::drop_object(*to_be_dec);
-        //         }
-        //     }
-        // }
-        if let Some(remove_id) = self.var_map.get(&id) {
-            allocator.remove_root(*remove_id);
-        }
-        // FSRObject::id_to_obj(obj_id).ref_add();
         self.var_map.insert(id, obj_id);
-        allocator.add_root(obj_id);
     }
 
     pub fn insert_var_no_garbage(&mut self, id: u64, obj_id: ObjId) {
@@ -300,7 +286,7 @@ pub struct ThreadContext<'a> {
 impl<'a> ThreadContext<'a> {
     pub fn new_context(vm: Arc<Mutex<FSRVM<'a>>>, code: ObjId, module: ObjId) -> Self {
         ThreadContext {
-            exp: Vec::with_capacity(10),
+            exp: Vec::with_capacity(8),
             ip: (0, 0),
             is_attr: false,
             code,
@@ -384,7 +370,7 @@ impl FlowTracker {
 }
 
 pub struct FSRThreadRuntime<'a> {
-    cur_frame: Box<CallFrame<'a>>,
+    pub(crate) cur_frame: Box<CallFrame<'a>>,
     pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
     frame_index: usize,
     pub(crate) frame_free_list: FrameFreeList<'a>,
@@ -395,6 +381,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) exception_flag: bool,
     pub(crate) closure_stack: Vec<HashMap<&'a str, ObjId>>,
     pub(crate) garbage_collect: MarkSweepGarbageCollector<'a>,
+    pub(crate) garbage_lock: Arc<AtomicBool>,
 }
 
 impl<'a> FSRThreadRuntime<'a> {
@@ -420,8 +407,10 @@ impl<'a> FSRThreadRuntime<'a> {
             exception_flag: false,
             closure_stack: vec![],
             garbage_collect: MarkSweepGarbageCollector::new(),
+            garbage_lock: Arc::new(AtomicBool::new(false)),
         }
     }
+
 
     #[inline(always)]
     pub fn get_cur_mut_frame(&mut self) -> &mut CallFrame<'a> {
@@ -511,19 +500,20 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn pop_stack(&mut self, escape: &[ObjId]) {
         let v = self.pop_frame();
-        for kv in v.var_map.iter() {
-            let obj = FSRObject::id_to_obj(kv);
+        // for kv in v.var_map.iter() {
+            // let obj = FSRObject::id_to_obj(kv);
 
-            obj.ref_dec();
-            if escape.contains(&kv) {
-                continue;
-            }
+            // obj.ref_dec();
+            // self.garbage_collect.remove_root(kv);
+            // if escape.contains(&kv) {
+            //     continue;
+            // }
 
-            if obj.count_ref() == 0 {
-                self.thread_allocator.free(kv);
-            }
+            // if obj.count_ref() == 0 {
+            //     self.thread_allocator.free(kv);
+            // }
             //vm.check_delete(kv.1);
-        }
+        // }
         self.frame_free_list.free(v);
     }
 
@@ -1074,7 +1064,6 @@ impl<'a> FSRThreadRuntime<'a> {
                     .thread_allocator
                     .new_object(FSRValue::Range(range), FSRGlobalObjId::RangeCls as ObjId);
 
-                obj.ref_add();
                 let id = FSRVM::leak_object(obj);
 
                 context.exp.push(SValue::Global(id));
@@ -1297,8 +1286,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
                 state.insert_var_no_garbage(c_id, v);
                 // keep this order in case of will_remove is same as v
-                self.garbage_collect.remove_root(will_remove);
-                self.garbage_collect.add_root(v);
+                // self.garbage_collect.remove_root(will_remove);
+                // self.garbage_collect.add_root(v);
 
                 Some(v)
             }
@@ -1471,8 +1460,8 @@ impl<'a> FSRThreadRuntime<'a> {
                     }
                     state.insert_var_no_garbage(s.0, v);
                     // keep this order in case of will_remove is same as v
-                    self.garbage_collect.remove_root(will_remove);
-                    self.garbage_collect.add_root(v);
+                    // self.garbage_collect.remove_root(will_remove);
+                    // self.garbage_collect.add_root(v);
                     Some(v)
                 }
             }
@@ -1634,7 +1623,6 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let iter_obj = context.exp.pop().unwrap();
         let iter_id = if let SValue::BoxObject(obj) = iter_obj {
-            obj.ref_add();
             FSRVM::leak_object(obj)
         } else {
             let id = iter_obj.get_global_id(self)?;
@@ -1770,7 +1758,6 @@ impl<'a> FSRThreadRuntime<'a> {
             let fn_obj = self
                 .thread_allocator
                 .new_object(fn_obj, FSRGlobalObjId::FnCls as ObjId);
-            fn_obj.ref_add();
             let fn_id = FSRVM::leak_object(fn_obj);
             let state = &mut self.cur_frame;
             if let Some(cur_cls) = &mut state.cur_cls {
@@ -1791,9 +1778,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj).as_mut_fn();
                 if let Some(s) = define_fn_obj.store_cells.get(name.1.as_str()) {
                     let origin_var = s.get();
-                    if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
-                        self.thread_allocator.free(origin_var);
-                    }
+                    // if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
+                    //     self.thread_allocator.free(origin_var);
+                    // }
                     s.replace(fn_id);
                 } else {
                     define_fn_obj
@@ -1879,10 +1866,11 @@ impl<'a> FSRThreadRuntime<'a> {
 
         self.pop_stack(&[v]);
         let cur = self.get_cur_mut_frame();
-        cur.ret_val = Some(SValue::Global(v));
+        cur.ret_val = Some(v);
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1);
         context.code = cur.code;
         context.call_end.pop();
+        self.garbage_collect.add_root(v);
         Ok(true)
     }
 
@@ -1940,9 +1928,9 @@ impl<'a> FSRThreadRuntime<'a> {
             let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
             if let Some(s) = fn_obj.store_cells.get(closure.1.as_str()) {
                 let origin_var = s.get();
-                if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
-                    self.thread_allocator.free(origin_var);
-                }
+                // if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
+                //     self.thread_allocator.free(origin_var);
+                // }
                 s.replace(obj_id);
             } else {
                 fn_obj
@@ -1962,9 +1950,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
         if let Some(s) = fn_obj.store_cells.get(closure.1.as_str()) {
             let origin_var = s.get();
-            if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
-                self.thread_allocator.free(origin_var);
-            }
+            // if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
+            //     self.thread_allocator.free(origin_var);
+            // }
             s.replace(obj_id);
         } else {
             fn_obj
@@ -2004,14 +1992,12 @@ impl<'a> FSRThreadRuntime<'a> {
             for _ in 0..n {
                 let v = context.exp.pop().unwrap();
                 let v_id = if let SValue::BoxObject(obj) = v {
-                    obj.ref_add();
                     FSRVM::leak_object(obj)
                 } else {
                     v.get_global_id(self)?
                 };
 
                 let obj = FSRObject::id_to_obj(v_id);
-                obj.ref_add();
                 list.push(v_id);
             }
 
@@ -2080,13 +2066,13 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             state.insert_var_no_garbage(*v, obj_id);
             // keep this order in case of will_remove is same as v
-            self.garbage_collect.remove_root(will_remove);
-            self.garbage_collect.add_root(obj_id);
+            // self.garbage_collect.remove_root(will_remove);
+            // self.garbage_collect.add_root(obj_id);
             FSRObject::id_to_obj(context)
                 .as_code()
                 .register_object(module_name.last().unwrap(), obj_id);
             // twice add
-            self.garbage_collect.add_root(obj_id);
+            // self.garbage_collect.add_root(obj_id);
             return Ok(false);
         }
         unimplemented!()
@@ -2114,12 +2100,12 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             state.insert_var_no_garbage(id, obj_id);
             // keep this order in case of will_remove is same as v
-            self.garbage_collect.remove_root(will_remove);
-            self.garbage_collect.add_root(obj_id);
+            // self.garbage_collect.remove_root(will_remove);
+            // self.garbage_collect.add_root(obj_id);
             FSRObject::id_to_obj(context.code)
                 .as_code()
                 .register_object(&name, obj_id);
-            self.garbage_collect.add_root(obj_id);
+            // self.garbage_collect.add_root(obj_id);
         } else {
             unimplemented!()
         }
@@ -2372,7 +2358,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             (None, Some(_)) => {
                 if let Some(s) = state.ret_val.take() {
-                    exp_stack.push(s);
+                    exp_stack.push(SValue::Global(s));
                 }
             }
             (Some(_), Some(_)) => {
@@ -2381,7 +2367,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
 
                 if let Some(s) = state.ret_val.take() {
-                    exp_stack.push(s);
+                    exp_stack.push(SValue::Global(s));
                 }
             }
         }
@@ -2442,7 +2428,9 @@ impl<'a> FSRThreadRuntime<'a> {
                     self.get_cur_mut_frame().handling_exception = self.exception;
                     self.exception = FSRObject::none_id();
                     self.exception_flag = false;
+                    let exception_handling = self.get_cur_mut_frame().handling_exception;
                     context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
+                    self.garbage_collect.add_root(exception_handling);
                     return Ok(true);
                 } else {
                     if self.call_frames.len() == 0 {
@@ -2453,15 +2441,27 @@ impl<'a> FSRThreadRuntime<'a> {
                     context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
                     context.code = cur.code;
                     context.call_end.pop();
+                    self.garbage_collect.add_root(self.exception);
                     return Ok(true);
                 }
             }
-        }
 
+            
+        }
         context.ip.0 += 1;
         context.ip.1 = 0;
         context.clear_exp(&mut self.thread_allocator);
         context.is_attr = false;
+
+        if self.garbage_collect.will_collect() {
+            let mut other = self.flow_tracker.for_iter_obj.clone();
+            other.extend(self.flow_tracker.ref_for_obj.clone());
+            
+
+
+            self.garbage_collect.collect(&self.call_frames, &self.cur_frame, &other);
+        }
+
         Ok(false)
     }
 
@@ -2583,7 +2583,7 @@ impl<'a> FSRThreadRuntime<'a> {
         args: &[ObjId],
         code: ObjId,
         module: ObjId,
-    ) -> Result<SValue, FSRError> {
+    ) -> Result<ObjId, FSRError> {
         let mut context = ThreadContext {
             exp: Vec::with_capacity(8),
             ip: fn_def.get_ip(),
@@ -2627,7 +2627,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
-            return Ok(SValue::Global(0));
+            return Ok(FSRObject::none_id());
         }
         let ret_val = cur.ret_val.take();
         // self.call_frames.pop();
@@ -2635,7 +2635,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // println!("{:#?}", v);
         match ret_val {
             Some(s) => Ok(s),
-            None => Ok(SValue::Global(0)),
+            None => Ok(0),
         }
     }
 
@@ -2645,7 +2645,7 @@ impl<'a> FSRThreadRuntime<'a> {
         args: &[ObjId],
         module: ObjId,
         context: &mut ThreadContext<'a>,
-    ) -> Result<SValue, FSRError> {
+    ) -> Result<ObjId, FSRError> {
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
             // self.call_frames
@@ -2681,7 +2681,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
-            return Ok(SValue::Global(0));
+            return Ok(FSRObject::none_id());
         }
         let ret_val = cur.ret_val.take();
         // self.call_frames.pop();
@@ -2689,7 +2689,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // println!("{:#?}", v);
         match ret_val {
             Some(s) => Ok(s),
-            None => Ok(SValue::Global(0)),
+            None => Ok(FSRObject::none_id()),
         }
     }
 }
@@ -2990,8 +2990,10 @@ mod test {
         let source_code = r#"
         a = 1 + 1
         c = a + 2
-        gc_info()
+        
         a = 1 + 3
+        a = 1
+        gc_info()
         gc_collect()
         gc_info()
         "#;

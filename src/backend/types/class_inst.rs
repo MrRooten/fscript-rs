@@ -45,10 +45,6 @@ impl<'a> FSRClassInst<'a> {
     pub fn set_attr(&mut self, name: &'a str, value: ObjId) {
         if let Some(v) = self.attrs.get_mut(name) {
             let obj = FSRObject::id_to_obj(*v);
-            obj.ref_dec();
-            if obj.count_ref() == 0 {
-                FSRObject::drop_object(*v);
-            }
             *v = value;
         } else {
             let obj = FSRObject::id_to_obj(value);
@@ -77,7 +73,6 @@ impl<'a> DropObject<'a> for FSRClassInst<'a> {
         while let Some(s) = stack.pop() {
             for key_value in &s.attrs {
                 let obj = FSRObject::id_to_obj(*key_value.1);
-                obj.ref_dec();
     
                 if obj.count_ref() == 0 {
                     allocator.free(*key_value.1);

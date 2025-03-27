@@ -86,6 +86,10 @@ impl<'a> FSRFn<'a> {
 
     }
 
+    pub fn get_references(&self) -> Vec<ObjId> {
+        self.store_cells.values().map(|s| s.get()).collect()
+    }
+
     pub fn as_str(&self) -> String {
         if let FSRnE::RustFn(r) = &self.fn_def {
             return format!("<fn {:?}>", r);
@@ -164,7 +168,8 @@ impl<'a> FSRFn<'a> {
             cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU32::new(1),
             delete_flag: AtomicBool::new(true),
-            garbage_id: AtomicU32::new(0),
+            garbage_id: 0,
+            garbage_collector_id: 0,
         }
     }
 
@@ -189,11 +194,6 @@ impl<'a> FSRFn<'a> {
                     .new_frame(self.get_name(), code, fn_id),
             );
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code, f.module)?;
-            let v = match v {
-                crate::backend::vm::thread::SValue::Global(g) => g,
-                crate::backend::vm::thread::SValue::BoxObject(o) => FSRVM::leak_object(o),
-                _ => unimplemented!(),
-            };
             return Ok(FSRRetValue::GlobalId(v));
         }
         unimplemented!()

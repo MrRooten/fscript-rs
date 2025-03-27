@@ -41,7 +41,7 @@ pub fn fsr_fn_export<'a>(
 
     let obj = args[1];
     let r_obj = FSRObject::id_to_obj(obj);
-    r_obj.ref_add();
+
     let s = module;
     let m = FSRObject::id_to_obj(s).as_code();
     m.register_object(name, obj);

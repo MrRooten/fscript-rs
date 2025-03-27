@@ -8,7 +8,6 @@ use super::FSRAllocator;
 #[derive(Debug)]
 pub struct FSRObjectAllocator<'a> {
     object_bins    : Vec<Box<FSRObject<'a>>>,
-    object_to_clear : RefCell<Vec<Box<FSRObject<'a>>>>,
     allocator_count: AtomicU32,
     free_count     : AtomicU32,
 }
@@ -16,9 +15,9 @@ pub struct FSRObjectAllocator<'a> {
 #[allow(clippy::new_without_default)]
 impl<'a> FSRObjectAllocator<'a> {
     pub fn new() -> Self {
+
         Self {
-            object_bins: Vec::new(),
-            object_to_clear: RefCell::new(vec![]),
+            object_bins: Vec::with_capacity(1000),
             allocator_count: AtomicU32::new(0),
             free_count: AtomicU32::new(0),
         }
@@ -30,7 +29,7 @@ impl<'a> FSRObjectAllocator<'a> {
         if let Some(mut s) = self.object_bins.pop() {
             s.cls = cls;
             s.value = value;
-            s.ref_count.store(0, Ordering::Relaxed);
+            //s.ref_count.store(0, Ordering::Relaxed);
             return s;
         }
         
