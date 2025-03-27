@@ -70,6 +70,10 @@ impl<'a> FSRClass<'a> {
         self.attrs.get(name).copied()
     }
 
+    pub fn iter_values(&self) -> impl Iterator<Item = &ObjId> {
+        self.attrs.values()
+    }
+
     #[inline]
     pub fn get_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
         let s = unsafe { self.offset_attrs.get_unchecked(offset as usize) };

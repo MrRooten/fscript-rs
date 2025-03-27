@@ -129,6 +129,16 @@ impl FSRList {
     pub fn get_items(&self) -> &[ObjId] {
         &self.vs
     }
+
+    pub fn new_value(vs: Vec<ObjId>) -> FSRValue<'static> {
+        FSRValue::List(Box::new(Self {
+            vs,
+        }))
+    }
+
+    pub fn iter_values(&self) -> impl Iterator<Item = &ObjId> {
+        self.vs.iter()
+    }
 }
 
 

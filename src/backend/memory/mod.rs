@@ -9,8 +9,8 @@ pub trait FSRAllocator<'a> {
     fn free(&mut self, ptr: Box<FSRObject>);
 }
 
-pub trait GarbageCollector {
-    fn new_object(&mut self, obj: Box<FSRObject>) -> Option<ObjId>;
+pub trait GarbageCollector<'a> {
+    fn new_object(&mut self, cls: ObjId, value: FSRValue<'a>) -> Option<ObjId>;
 
     fn free_object(&mut self, id: ObjId);
 

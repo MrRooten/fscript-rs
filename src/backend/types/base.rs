@@ -69,6 +69,22 @@ pub enum FSRValue<'a> {
     None,
 }
 
+impl FSRValue<'_> {
+    fn get_references(&self) -> Vec<ObjId> {
+        match self {
+            FSRValue::Class(fsrclass) => fsrclass.iter_values().cloned().collect(),
+            FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.iter_values().cloned().collect(),
+            FSRValue::List(fsrlist) => fsrlist.iter_values().cloned().collect(),
+            FSRValue::Function(_) |
+            FSRValue::Iterator(_) |
+            FSRValue::Code(_) |
+            FSRValue::Range(_) |
+            FSRValue::Any(_) |
+            _ => Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum FSRRetValue<'a> {
     Value(Box<FSRObject<'a>>),
@@ -250,6 +266,20 @@ impl<'a> FSRObject<'a> {
             ref_count: AtomicU32::new(0),
             delete_flag: AtomicBool::new(true),
             garbage_id: AtomicU32::new(0),
+        }
+    }
+
+    pub fn as_list(&self) -> &FSRList {
+        match &self.value {
+            FSRValue::List(fsrlist) => fsrlist,
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn as_mut_list(&mut self) -> &mut FSRList {
+        match &mut self.value {
+            FSRValue::List(fsrlist) => fsrlist,
+            _ => unimplemented!(),
         }
     }
 
@@ -658,6 +688,10 @@ impl<'a> FSRObject<'a> {
 
     pub fn set_garbage_id(&self, id: u32) {
         self.garbage_id.store(id, Ordering::Relaxed);
+    }
+
+    pub fn get_references(&self) -> impl Iterator<Item = ObjId> {
+        self.value.get_references().into_iter()
     }
 }
 
