@@ -5,6 +5,7 @@ use crate::backend::types::{base::{FSRObject, FSRValue, ObjId}, integer::FSRInte
 use super::FSRAllocator;
 
 #[allow(clippy::vec_box)]
+#[derive(Debug)]
 pub struct FSRObjectAllocator<'a> {
     object_bins    : Vec<Box<FSRObject<'a>>>,
     object_to_clear : RefCell<Vec<Box<FSRObject<'a>>>>,
