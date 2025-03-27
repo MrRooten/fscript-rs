@@ -11,12 +11,12 @@ use ahash::AHashMap;
 
 use crate::{
     backend::{
-        memory::{size_alloc::FSRObjectAllocator},
+        memory::size_alloc::FSRObjectAllocator,
         types::{
             base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, code::FSRCode, error::FSRException, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, range::FSRRange, string::FSRString
         },
     },
-    std::{io::init_io, utils::init_utils},
+    std::{gc::init_gc, io::init_io, utils::init_utils},
 };
 
 #[derive(Hash, Debug, Eq, PartialEq)]
@@ -160,6 +160,12 @@ impl<'a> FSRVM<'a> {
 
         let objs = init_utils();
 
+        for obj in objs {
+            let id = FSRVM::register_object(obj.1);
+            self.global.insert(obj.0.to_string(), id);
+        }
+
+        let objs = init_gc();
         for obj in objs {
             let id = FSRVM::register_object(obj.1);
             self.global.insert(obj.0.to_string(), id);

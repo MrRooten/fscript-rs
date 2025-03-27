@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 
 use crate::backend::{
@@ -18,7 +18,7 @@ pub struct MarkSweepGarbageCollector<'a> {
     // Free slots for objects
     free_slots: Vec<usize>,
 
-    roots: HashSet<ObjId>,
+    roots: HashMap<ObjId, u32>,
     // Object allocator
     allocator: FSRObjectAllocator<'a>,
     // mark bitmap
@@ -28,38 +28,49 @@ pub struct MarkSweepGarbageCollector<'a> {
 }
 
 impl<'a> MarkSweepGarbageCollector<'a> {
+    pub fn get_object_count(&self) -> u32 {
+        self.tracker.object_count
+    }
+
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),
             free_slots: Vec::new(),
-            roots: HashSet::new(),
+            roots: HashMap::new(),
             allocator: FSRObjectAllocator::new(),
             marks: Vec::new(),
             tracker: Tracker { object_count: 0 },
         }
     }
 
-
     pub fn add_root(&mut self, id: ObjId) {
-        self.roots.insert(id);
+        if let Some(s) = self.roots.get_mut(&id) {
+            *s += 1;
+        } else {
+            self.roots.insert(id, 1);
+        }
     }
-
 
     pub fn remove_root(&mut self, id: ObjId) {
-        self.roots.remove(&id);
-    }
+        if FSRObject::is_sp_object(id) {
+            return;
+        }
 
+        if let Some(count) = self.roots.get_mut(&id) {
+            *count -= 1;
+            if *count == 0 {
+                self.roots.remove(&id);
+            }
+        }
+    }
 
     fn get_garbage_id(&self, id: ObjId) -> Option<usize> {
         if FSRObject::is_sp_object(id) {
             return None;
         }
 
-
         let obj = unsafe { FSRObject::id_to_obj(id) };
         let garbage_id = obj.garbage_id.load(Ordering::Relaxed) as usize;
-
-        
 
         if garbage_id < self.objects.len() {
             Some(garbage_id)
@@ -68,12 +79,10 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         }
     }
 
-
     fn get_object(&self, id: ObjId) -> Option<&Box<FSRObject<'a>>> {
         self.get_garbage_id(id)
             .and_then(|idx| self.objects.get(idx).and_then(|slot| slot.as_ref()))
     }
-
 
     fn get_object_mut(&mut self, id: ObjId) -> Option<&mut Box<FSRObject<'a>>> {
         if let Some(idx) = self.get_garbage_id(id) {
@@ -84,7 +93,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         None
     }
 
-
     fn mark(&mut self, id: ObjId) {
         if let Some(idx) = self.get_garbage_id(id) {
             if idx >= self.marks.len() {
@@ -94,40 +102,37 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         }
     }
 
-
     fn is_marked(&self, id: ObjId) -> bool {
         self.get_garbage_id(id)
             .map(|idx| idx < self.marks.len() && self.marks[idx])
             .unwrap_or(false)
     }
 
-
     fn clear_marks(&mut self) {
         self.marks.iter_mut().for_each(|m| *m = false);
+    }
+
+    pub fn will_collect(&self) -> bool {
+        self.tracker.object_count > 100
     }
 }
 
 impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
-    fn new_object(&mut self, cls: ObjId, value: FSRValue<'a>) -> ObjId {
-
+    fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         let mut obj = self.allocator.allocate(value, cls);
 
         // Reuse free slot if available
         let slot_idx = if let Some(free_idx) = self.free_slots.pop() {
             free_idx
         } else {
-
             let idx = self.objects.len();
             self.objects.push(None);
             idx
         };
 
-
         obj.garbage_id.store(slot_idx as u32, Ordering::Relaxed);
 
-
         let obj_id = FSRObject::obj_to_id(&obj);
-
 
         self.objects[slot_idx] = Some(obj);
         self.tracker.object_count += 1;
@@ -143,7 +148,6 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         if let Some(idx) = self.get_garbage_id(id) {
             if idx < self.objects.len() {
                 if let Some(obj) = self.objects[idx].take() {
-
                     self.allocator.free_object(obj);
 
                     self.free_slots.push(idx);
@@ -155,7 +159,13 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
     fn collect(&mut self) {
         self.clear_marks();
 
-        let mut work_list: Vec<ObjId> = self.roots.iter().copied().collect();
+        let mut work_list: Vec<ObjId> = self
+            .roots
+            .iter()
+            .filter(|x| *x.1 > 0)
+            .map(|x| x.0)
+            .copied()
+            .collect();
 
         while let Some(id) = work_list.pop() {
             if self.is_marked(id) {
@@ -192,7 +202,6 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
             self.free_object(id);
         }
     }
-    
 }
 
 #[cfg(test)]
@@ -208,19 +217,17 @@ mod tests {
         let _vm = FSRVM::new();
         let mut gc = MarkSweepGarbageCollector::new();
 
-
         let integer_cls = FSRGlobalObjId::IntegerCls as ObjId;
         let list_cls = FSRGlobalObjId::ListCls as ObjId;
 
-        let int1 = gc.new_object(integer_cls, FSRValue::Integer(10));
-        let int2 = gc.new_object(integer_cls, FSRValue::Integer(20));
-        let int3 = gc.new_object(integer_cls, FSRValue::Integer(30));
+        let int1 = gc.new_object(FSRValue::Integer(10), integer_cls);
+        let int2 = gc.new_object(FSRValue::Integer(20), integer_cls);
+        let int3 = gc.new_object(FSRValue::Integer(30), integer_cls);
 
         let mut list_val = vec![];
         list_val.push(int1);
         list_val.push(int2);
-        let list = gc
-            .new_object(list_cls, FSRList::new_value(list_val));
+        let list = gc.new_object(FSRList::new_value(list_val), list_cls);
 
         assert!(gc.get_object(int1).is_some());
         assert!(gc.get_object(int2).is_some());
@@ -234,16 +241,14 @@ mod tests {
         assert!(gc.get_object(int3).is_none());
         assert!(gc.get_object(list).is_none());
 
-        let int1 = gc.new_object(integer_cls, FSRValue::Integer(10));
-        let int2 = gc.new_object(integer_cls, FSRValue::Integer(20));
-        let int3 = gc.new_object(integer_cls, FSRValue::Integer(30));
+        let int1 = gc.new_object(FSRValue::Integer(10), integer_cls);
+        let int2 = gc.new_object(FSRValue::Integer(20), integer_cls);
+        let int3 = gc.new_object(FSRValue::Integer(30), integer_cls);
 
         let mut list_val = vec![];
         list_val.push(int1);
         list_val.push(int2);
-        let list = gc
-            .new_object(list_cls, FSRList::new_value(list_val));
-
+        let list = gc.new_object(FSRList::new_value(list_val), list_cls);
 
         gc.add_root(list);
         gc.collect();
@@ -257,21 +262,16 @@ mod tests {
         gc.remove_root(list);
         gc.collect();
 
-
         assert!(gc.get_object(int1).is_none());
         assert!(gc.get_object(int2).is_none());
         assert!(gc.get_object(list).is_none());
 
-
         let before_alloc = gc.objects.len();
         let free_count = gc.free_slots.len();
 
-
-        let new_int = gc.new_object(integer_cls, FSRValue::Integer(100));
-
+        let new_int = gc.new_object(FSRValue::Integer(100), integer_cls);
 
         assert!(gc.get_object(new_int).is_some());
-
 
         assert_eq!(gc.objects.len(), before_alloc);
         assert_eq!(gc.free_slots.len(), free_count - 1);
@@ -281,50 +281,40 @@ mod tests {
 
     #[test]
     fn test_mark_sweep_gc_list() {
-
         let _vm = FSRVM::new();
         let mut gc = MarkSweepGarbageCollector::new();
-
 
         let integer_cls = FSRGlobalObjId::IntegerCls as ObjId;
         let list_cls = FSRGlobalObjId::ListCls as ObjId;
 
-
-        let int1 = gc.new_object(integer_cls, FSRValue::Integer(10));
-        let int2 = gc.new_object(integer_cls, FSRValue::Integer(20));
-        let int3 = gc.new_object(integer_cls, FSRValue::Integer(30));
-
+        let int1 = gc.new_object(FSRValue::Integer(10), integer_cls);
+        let int2 = gc.new_object(FSRValue::Integer(20), integer_cls);
+        let int3 = gc.new_object(FSRValue::Integer(30), integer_cls);
 
         let mut list_val = vec![];
         list_val.push(int1);
         list_val.push(int2);
-        let list = gc
-            .new_object(list_cls, FSRList::new_value(list_val));
-
+        let list = gc.new_object(FSRList::new_value(list_val), list_cls);
 
         assert!(gc.get_object(int1).is_some());
         assert!(gc.get_object(int2).is_some());
         assert!(gc.get_object(int3).is_some());
         assert!(gc.get_object(list).is_some());
 
-
         gc.collect();
-
 
         assert!(gc.get_object(int1).is_none());
         assert!(gc.get_object(int2).is_none());
         assert!(gc.get_object(int3).is_none());
         assert!(gc.get_object(list).is_none());
 
-
-        let int1 = gc.new_object(integer_cls, FSRValue::Integer(10));
-        let int2 = gc.new_object(integer_cls, FSRValue::Integer(20));
-        let int3 = gc.new_object(integer_cls, FSRValue::Integer(30));
+        let int1 = gc.new_object(FSRValue::Integer(10), integer_cls);
+        let int2 = gc.new_object(FSRValue::Integer(20), integer_cls);
+        let int3 = gc.new_object(FSRValue::Integer(30), integer_cls);
 
         let mut list_val = vec![];
         list_val.push(int1);
         list_val.push(int2);
-        let list = gc
-            .new_object(list_cls, FSRList::new_value(list_val));
+        let list = gc.new_object(FSRList::new_value(list_val), list_cls);
     }
 }
