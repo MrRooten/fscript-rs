@@ -8,6 +8,7 @@ use super::FSRAllocator;
 #[derive(Debug)]
 pub struct FSRObjectAllocator<'a> {
     object_bins    : Vec<Box<FSRObject<'a>>>,
+    value_bins     : Vec<FSRValue<'a>>,
     allocator_count: AtomicU32,
     free_count     : AtomicU32,
 }
@@ -15,16 +16,16 @@ pub struct FSRObjectAllocator<'a> {
 #[allow(clippy::new_without_default)]
 impl<'a> FSRObjectAllocator<'a> {
     pub fn new() -> Self {
-
         Self {
-            object_bins: Vec::with_capacity(1000),
+            object_bins: vec![],
+            value_bins: vec![],
             allocator_count: AtomicU32::new(0),
             free_count: AtomicU32::new(0),
         }
     }
 
     #[inline(always)]
-    pub fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
+    pub fn new_object(&mut self, mut value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
         // self.allocator_count.fetch_add(1, Ordering::Relaxed);
         if let Some(mut s) = self.object_bins.pop() {
             s.cls = cls;
@@ -42,52 +43,11 @@ impl<'a> FSRObjectAllocator<'a> {
         
         let obj = FSRObject::into_object(obj_id);
         self.object_bins.push(obj);
-        
-
-        // #[allow(clippy::single_match)]
-        // match &obj.value {
-        //     FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.drop_obj(self),
-        //     _ => {
-                
-        //     }
-        // }
-
-        // if obj.leak.load(Ordering::Relaxed) {
-        //     FSRObject::drop_object(obj_id);
-        // }
     }
 
     #[inline(always)]
     pub fn free_object(&mut self, obj: Box<FSRObject<'a>>) {
         self.object_bins.push(obj);
-        
-
-        // #[allow(clippy::single_match)]
-        // match &obj.value {
-        //     FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.drop_obj(self),
-        //     _ => {
-                
-        //     }
-        // }
-
-        // if obj.leak.load(Ordering::Relaxed) {
-        //     FSRObject::drop_object(obj_id);
-        // }
-    }
-
-}
-
-impl<'a> FSRAllocator<'a> for FSRObjectAllocator<'a> {
-    fn new() -> Self {
-        Self::new()
-    }
-    
-    fn allocate(&mut self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
-        let obj = FSRObject::new_inst(value, cls);
-        Box::new(obj)
-    }
-    
-    fn free(&mut self, ptr: Box<FSRObject>) {
         
     }
 
