@@ -63,22 +63,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.roots.push(id);
     }
 
-    #[inline(always)]
-    fn get_garbage_id(&self, id: ObjId) -> Option<usize> {
-        if FSRObject::is_sp_object(id) {
-            return None;
-        }
-
-        let obj = FSRObject::id_to_obj(id);
-        let garbage_id = obj.garbage_id as usize;
-
-        if garbage_id < self.objects.len() {
-            Some(garbage_id)
-        } else {
-            None
-        }
-    }
-
     fn get_object(&self, id: ObjId) -> Option<&Box<FSRObject<'a>>> {
         // self.get_garbage_id(id)
         //     .and_then(|idx| self.objects.get(idx).and_then(|slot| slot.as_ref()))
@@ -95,14 +79,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         None
     }
 
-    fn get_object_mut(&mut self, id: ObjId) -> Option<&mut Box<FSRObject<'a>>> {
-        if let Some(idx) = self.get_garbage_id(id) {
-            if idx < self.objects.len() {
-                return self.objects.get_mut(idx).and_then(|slot| slot.as_mut());
-            }
-        }
-        None
-    }
 
     fn mark(&mut self, id: ObjId) {
         let obj = FSRObject::id_to_obj(id);
@@ -140,20 +116,10 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.tracker.object_count as usize > THROLD
     }
 
-    fn free_object(&mut self, id: ObjId) {
-        if let Some(idx) = self.get_garbage_id(id) {
-            if idx < self.objects.len() {
-                if let Some(mut obj) = self.objects[idx].take() {
-                    obj.garbage_collector_id = 0;
-                    self.allocator.free_object(obj);
-                    self.free_slots.push(idx);
-                }
-            }
-        }
-    }
 }
 
 impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
+    #[inline(always)]
     fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         let mut obj = self.allocator.new_object(value, cls);
         obj.garbage_collector_id = self.self_id;

@@ -149,8 +149,8 @@ impl<'a> FSRValue<'a> {
                 let res = FSRObject::invoke_method("__str__", &[self_id], thread, module).unwrap();
                 match res {
                     FSRRetValue::Value(v) => {
-                        if let FSRValue::String(s) = v.value {
-                            return Some(s);
+                        if let FSRValue::String(s) = &v.value {
+                            return Some(s.clone());
                         }
                         return None;
                     }
@@ -175,6 +175,12 @@ impl<'a> FSRValue<'a> {
         };
 
         s
+    }
+}
+
+impl<'a> Drop for FSRValue<'a> {
+    fn drop(&mut self) {
+        
     }
 }
 

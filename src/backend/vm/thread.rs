@@ -1870,7 +1870,7 @@ impl<'a> FSRThreadRuntime<'a> {
         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1);
         context.code = cur.code;
         context.call_end.pop();
-        self.garbage_collect.add_root(v);
+        // self.garbage_collect.add_root(v);
         Ok(true)
     }
 
@@ -2065,14 +2065,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 will_remove = *s;
             }
             state.insert_var_no_garbage(*v, obj_id);
-            // keep this order in case of will_remove is same as v
-            // self.garbage_collect.remove_root(will_remove);
-            // self.garbage_collect.add_root(obj_id);
             FSRObject::id_to_obj(context)
                 .as_code()
                 .register_object(module_name.last().unwrap(), obj_id);
-            // twice add
-            // self.garbage_collect.add_root(obj_id);
             return Ok(false);
         }
         unimplemented!()
@@ -2372,17 +2367,37 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        // if state.exp.is_some() {
-        //     if let Some(s) = state.exp.take() {
-        //         *exp_stack = s;
-        //     }
-        // }
+    }
 
-        // if state.ret_val.is_some() {
-        //     if let Some(s) = state.ret_val.take() {
-        //         exp_stack.push(s);
-        //     }
-        // }
+    #[inline(always)]
+    fn exception_process(
+        &mut self,
+        context: &mut ThreadContext<'a>,
+    ) -> bool {
+        if self.exception_flag {
+            if !self.get_cur_mut_frame().catch_ends.is_empty() {
+                self.get_cur_mut_frame().handling_exception = self.exception;
+                self.exception = FSRObject::none_id();
+                self.exception_flag = false;
+                let exception_handling = self.get_cur_mut_frame().handling_exception;
+                context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
+                // self.garbage_collect.add_root(exception_handling);
+                return true
+            } else {
+                if self.call_frames.len() == 0 {
+                    panic!("No handle of error")
+                }
+                self.pop_stack(&[]);
+                let cur = self.get_cur_mut_frame();
+                context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
+                context.code = cur.code;
+                context.call_end.pop();
+                // self.garbage_collect.add_root(self.exception);
+                return true
+            }
+        }
+
+        false
     }
 
     #[inline(always)]
@@ -2423,28 +2438,31 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
 
-            if self.exception_flag {
-                if !self.get_cur_mut_frame().catch_ends.is_empty() {
-                    self.get_cur_mut_frame().handling_exception = self.exception;
-                    self.exception = FSRObject::none_id();
-                    self.exception_flag = false;
-                    let exception_handling = self.get_cur_mut_frame().handling_exception;
-                    context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
-                    self.garbage_collect.add_root(exception_handling);
-                    return Ok(true);
-                } else {
-                    if self.call_frames.len() == 0 {
-                        panic!("No handle of error")
-                    }
-                    self.pop_stack(&[]);
-                    let cur = self.get_cur_mut_frame();
-                    context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
-                    context.code = cur.code;
-                    context.call_end.pop();
-                    self.garbage_collect.add_root(self.exception);
-                    return Ok(true);
-                }
+            if Self::exception_process(self, context) {
+                return Ok(true)
             }
+            // if self.exception_flag {
+            //     if !self.get_cur_mut_frame().catch_ends.is_empty() {
+            //         self.get_cur_mut_frame().handling_exception = self.exception;
+            //         self.exception = FSRObject::none_id();
+            //         self.exception_flag = false;
+            //         let exception_handling = self.get_cur_mut_frame().handling_exception;
+            //         context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
+            //         // self.garbage_collect.add_root(exception_handling);
+            //         return Ok(true);
+            //     } else {
+            //         if self.call_frames.len() == 0 {
+            //             panic!("No handle of error")
+            //         }
+            //         self.pop_stack(&[]);
+            //         let cur = self.get_cur_mut_frame();
+            //         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
+            //         context.code = cur.code;
+            //         context.call_end.pop();
+            //         // self.garbage_collect.add_root(self.exception);
+            //         return Ok(true);
+            //     }
+            // }
 
             
         }
