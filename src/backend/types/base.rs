@@ -706,6 +706,7 @@ mod test {
     #[test]
     fn test_size_of_object() {
         use crate::backend::types::base::FSRObject;
+
         use std::mem::size_of;
         println!("Size of FSRObject: {}", size_of::<FSRObject>());
 
