@@ -3,6 +3,7 @@ use std::sync::atomic::Ordering;
 
 use ahash::AHashMap;
 
+use crate::backend::types::base::FSRGlobalObjId;
 use crate::backend::vm::thread::CallFrame;
 use crate::backend::{
     memory::{size_alloc::FSRObjectAllocator, FSRAllocator, GarbageCollector},
@@ -17,7 +18,7 @@ struct Tracker {
 #[derive(Debug)]
 pub struct MarkSweepGarbageCollector<'a> {
     // Store all objects
-    objects: Vec<Option<Box<FSRObject<'a>>>>,
+    objects: Vec<Box<FSRObject<'a>>>,
     // Free slots for objects
     free_slots: Vec<usize>,
 
@@ -74,11 +75,10 @@ impl<'a> MarkSweepGarbageCollector<'a> {
 
         let idx = obj.garbage_id as usize;
         if idx < self.objects.len() {
-            return self.objects.get(idx).and_then(|slot| slot.as_ref());
+            return self.objects.get(idx);
         }
         None
     }
-
 
     fn mark(&mut self, id: ObjId) {
         let obj = FSRObject::id_to_obj(id);
@@ -116,53 +116,23 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.tracker.object_count as usize > THROLD
     }
 
-}
-
-impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
-    #[inline(always)]
-    fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
-        let mut obj = self.allocator.new_object(value, cls);
-        obj.garbage_collector_id = self.self_id;
-        // Reuse free slot if available
-        let slot_idx = if let Some(free_idx) = self.free_slots.pop() {
-            free_idx
-        } else {
-            let idx = self.objects.len();
-            self.objects.push(None);
-            idx
-        };
-
-        obj.garbage_id = slot_idx as u32;
-
-        let obj_id = FSRObject::obj_to_id(&obj);
-
-        self.objects[slot_idx] = Some(obj);
-        self.tracker.object_count += 1;
-
-        if self.marks.len() <= slot_idx {
-            self.marks.resize(((self.objects.len() + 7) & !7), false);
-        }
-
-        obj_id
-    }
-
-    
-
-    fn collect(&mut self, frames: &Vec<Box<CallFrame<'a>>>, cur_frame: &Box<CallFrame>, others: &[ObjId]) {
-        self.clear_marks();
-
+    pub fn set_mark(
+        &mut self,
+        frames: &Vec<Box<CallFrame<'a>>>,
+        cur_frame: &Box<CallFrame>,
+        others: &[ObjId],
+    ) {
         let mut work_list = vec![];
         for it in frames {
             for obj in it.var_map.iter() {
                 work_list.push(obj);
-                
             }
 
             if let Some(s) = &it.exp {
                 for i in s {
                     let v = match i {
                         crate::backend::vm::thread::SValue::Global(i) => *i,
-                        _ => continue
+                        _ => continue,
                     };
 
                     work_list.push(v);
@@ -198,7 +168,6 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         work_list.extend(self.roots.iter());
         self.roots.clear();
 
-
         while let Some(id) = work_list.pop() {
             if self.is_marked(id) {
                 continue;
@@ -216,28 +185,76 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
                 }
             }
         }
+    }
+
+    #[inline(always)]
+    fn alloc_object(&mut self, free_idx: usize, value: FSRValue<'a>, cls: ObjId) -> ObjId {
+        debug_assert!(free_idx < self.objects.len(), "free_idx out of bounds");
+        let obj = &mut self.objects[free_idx];
+        obj.value = value;
+        obj.cls = cls;
+        obj.garbage_collector_id = self.self_id;
+        obj.garbage_id = free_idx as u32;
+        return FSRObject::obj_to_id(obj);
+    }
+
+    #[inline(always)]
+    fn alloc_when_full(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
+        let slot_idx = self.objects.len();
+        self.objects.push(
+            self.allocator
+                .new_object(FSRValue::Integer(0), FSRGlobalObjId::IntegerCls as ObjId),
+        );
+        let len = self.objects.len();
+        let obj = &mut self.objects[slot_idx];
+        obj.value = value;
+        obj.cls = cls;
+        obj.garbage_collector_id = self.self_id;
+        obj.garbage_id = slot_idx as u32;
+
+        if self.marks.len() <= slot_idx {
+            self.marks.resize(((len + 7) & !7), false);
+        }
+
+        return FSRObject::obj_to_id(obj);
+    }
+}
+
+impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
+    #[inline(always)]
+    fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
+        // Reuse free slot if available
+        self.tracker.object_count += 1;
+        if let Some(free_idx) = self.free_slots.pop() {
+            return self.alloc_object(free_idx, value, cls);
+        } else {
+            return self.alloc_when_full(value, cls);
+        };
+    }
+
+    fn collect(
+        &mut self,
+        frames: &Vec<Box<CallFrame<'a>>>,
+        cur_frame: &Box<CallFrame>,
+        others: &[ObjId],
+    ) {
+        self.clear_marks();
+
+        self.set_mark(frames, cur_frame, others);
 
         let mut i = 0;
         let mut freed_count = 0;
 
         while i < self.objects.len() {
-            let should_free = if let Some(obj) = &self.objects[i] {
-                obj.garbage_collector_id == self.self_id
-                    && (i >= self.marks.len() || !self.marks[i])
-            } else {
-                false
-            };
+            let obj = &mut self.objects[i];
+            let should_free = obj.garbage_collector_id == self.self_id
+                && (i >= self.marks.len() || !self.marks[i]);
 
             if should_free {
-                // 直接在这里获取对象ID并释放
-                if let Some(mut obj) = self.objects[i].take() {
-                    // let id = FSRObject::obj_to_id(obj);
-                    obj.garbage_collector_id = 0;
-                    self.free_slots.push(obj.garbage_id as usize);
-                    self.allocator.free_object(obj);
+                obj.garbage_collector_id = self.self_id;
+                self.free_slots.push(obj.garbage_id as usize);
 
-                    freed_count += 1;
-                }
+                freed_count += 1;
             }
             i += 1;
         }
