@@ -13,6 +13,7 @@ use crate::backend::{
 #[derive(Debug)]
 struct Tracker {
     object_count: u32,
+    throld: usize,
 }
 
 #[derive(Debug)]
@@ -47,7 +48,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             roots: vec![],
             allocator: FSRObjectAllocator::new(),
             marks: Vec::with_capacity(THROLD),
-            tracker: Tracker { object_count: 0 },
+            tracker: Tracker { object_count: 0, throld: THROLD / 10 },
             self_id: 1,
         }
     }
@@ -260,6 +261,9 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         }
 
         self.tracker.object_count -= freed_count;
+        if self.tracker.object_count as usize > self.tracker.throld * 9 / 10 {
+            self.tracker.throld *= 2;
+        }
     }
 }
 
