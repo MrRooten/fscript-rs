@@ -1,5 +1,7 @@
 use std::{borrow::Cow, collections::HashMap};
 
+use ahash::AHashMap;
+
 use crate::{backend::{compiler::bytecode::BinaryOffset, memory::size_alloc::FSRObjectAllocator, types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::{FSRErrCode, FSRError}};
 
 use super::{base::{DropObject, FSRGlobalObjId, FSRRetValue, ObjId}, class::FSRClass, fn_def::FSRFn, code::FSRCode};
@@ -97,7 +99,7 @@ impl FSRList {
     pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass {
             name: "List",
-            attrs: HashMap::new(),
+            attrs: AHashMap::new(),
             offset_attrs: vec![0;30],
         };
         let len_m = FSRFn::from_rust_fn_static(list_len, "list_len");

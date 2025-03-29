@@ -1,5 +1,5 @@
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, vm::thread::FSRThreadRuntime},
+    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::thread::FSRThreadRuntime},
     utils::error::FSRError,
 };
 
@@ -27,7 +27,11 @@ fn add<'a>(
     
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRFloat::new_inst(self_int + other_int))));
+            let obj = thread.garbage_collect.new_object(
+                FSRValue::Float(self_int + other_int),
+                FSRGlobalObjId::FloatCls as ObjId,
+            );
+            return Ok(FSRRetValue::GlobalId(obj));
         }
     }
 
@@ -48,7 +52,11 @@ fn sub<'a>(
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRFloat::new_inst(self_int - other_int))));
+            let obj = thread.garbage_collect.new_object(
+                FSRValue::Float(self_int - other_int),
+                FSRGlobalObjId::FloatCls as ObjId,
+            );
+            return Ok(FSRRetValue::GlobalId(obj));
         }
     }
 
@@ -57,7 +65,7 @@ fn sub<'a>(
 
 fn mul<'a>(
     args: &[ObjId],
-    _thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let _ = module;
@@ -68,7 +76,11 @@ fn mul<'a>(
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRFloat::new_inst(self_int * other_int))));
+            let obj = thread.garbage_collect.new_object(
+                FSRValue::Float(self_int * other_int),
+                FSRGlobalObjId::FloatCls as ObjId,
+            );
+            return Ok(FSRRetValue::GlobalId(obj));
         }
     }
 
@@ -89,7 +101,11 @@ fn div<'a>(
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRFloat::new_inst(self_int / other_int ))));
+            let obj = thread.garbage_collect.new_object(
+                FSRValue::Float(self_int / other_int),
+                FSRGlobalObjId::FloatCls as ObjId,
+            );
+            return Ok(FSRRetValue::GlobalId(obj));
         }
     }
 

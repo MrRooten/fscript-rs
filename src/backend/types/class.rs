@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use ahash::AHashMap;
+
 use crate::backend::{compiler::bytecode::BinaryOffset, vm::virtual_machine::FSRVM};
 
 use super::base::{FSRObject, FSRValue, ObjId};
@@ -8,7 +10,7 @@ use std::fmt::Debug;
 #[derive(Clone)]
 pub struct FSRClass<'a> {
     pub(crate) name: &'a str,
-    pub(crate) attrs: HashMap<&'a str, ObjId>,
+    pub(crate) attrs: AHashMap<&'a str, ObjId>,
     pub(crate) offset_attrs: Vec<ObjId>,
 }
 
@@ -47,7 +49,7 @@ impl<'a> FSRClass<'a> {
     pub fn new(name: &'a str) -> FSRClass<'a> {
         FSRClass {
             name,
-            attrs: HashMap::new(),
+            attrs: AHashMap::new(),
             offset_attrs: vec![0; 30],
         }
     }

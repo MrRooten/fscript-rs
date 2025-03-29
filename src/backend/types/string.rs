@@ -2,9 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
-        types::{base::FSRValue, integer::FSRInteger},
-        vm::thread::FSRThreadRuntime,
+        compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::{base::FSRValue, integer::FSRInteger}, vm::thread::FSRThreadRuntime
     },
     utils::error::FSRError,
 };
@@ -48,12 +46,14 @@ fn add<'a>(
 
     if let FSRValue::String(self_str) = &self_object.value {
         if let FSRValue::String(other_str) = &other_object.value {
-            return Ok(FSRRetValue::Value(
-                thread.get_vm().lock().unwrap().allocator.new_object(
+            
+                let obj_id = thread.garbage_collect.new_object(
                     FSRValue::String(Cow::Owned(format!("{}{}", self_str, other_str))),
-                    self_object.cls,
-                ),
-            ));
+                    FSRGlobalObjId::StringCls as ObjId,
+                );
+
+                return Ok(FSRRetValue::GlobalId(obj_id));
+                
         } else {
             return Err(FSRError::new(
                 "right value is not a string",

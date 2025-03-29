@@ -2525,7 +2525,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let obj = FSRObject::obj_to_id(code.1);
             self.run_with_context(FSRObject::obj_to_id(code.1), &mut context)?;
         }
-
+        self.cur_frame.code = code_id;
         context.code = FSRObject::obj_to_id(main_code.unwrap());
         let mut module = FSRObject::id_to_obj(code_id).as_code();
         //self.get_cur_mut_frame().fn_obj = code_id;

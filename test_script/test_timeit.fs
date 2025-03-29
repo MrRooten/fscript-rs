@@ -8,4 +8,4 @@ fn abc() {
 }
 
 
-timeit(abc, 3000000)
+timeit(abcd, 3000000)

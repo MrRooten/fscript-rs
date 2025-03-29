@@ -268,8 +268,8 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
             if should_free {
                 obj.garbage_collector_id = self.self_id;
                 
-                //obj.value = FSRValue::None;
-                self.free_slots.push(obj.garbage_id as usize);
+                obj.value = FSRValue::None;
+                self.free_slots.push(i);
 
                 freed_count += 1;
             }

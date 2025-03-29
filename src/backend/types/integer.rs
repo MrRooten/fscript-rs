@@ -50,7 +50,12 @@ fn sub<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(FSRValue::Integer(self_int - other_int), self_object.cls)));
+            let v = thread.garbage_collect.new_object_with_ptr();
+            let obj = FSRObject::id_to_mut_obj(v);
+            obj.value = FSRValue::Integer(self_int - other_int);
+            obj.cls = self_object.cls;
+
+            return Ok(FSRRetValue::GlobalId(v))
         }
     }
 
@@ -69,7 +74,12 @@ fn mul<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(FSRValue::Integer(self_int * other_int), self_object.cls)));
+            let v = thread.garbage_collect.new_object_with_ptr();
+            let obj = FSRObject::id_to_mut_obj(v);
+            obj.value = FSRValue::Integer(self_int * other_int);
+            obj.cls = self_object.cls;
+
+            return Ok(FSRRetValue::GlobalId(v))
         }
     }
 
@@ -88,7 +98,11 @@ fn div<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRFloat::new_inst(self_int as f64 / other_int as f64))));
+            let obj = thread.garbage_collect.new_object(
+                FSRValue::Float(self_int as f64 / other_int as f64),
+                FSRGlobalObjId::FloatCls as ObjId,
+            );
+            return Ok(FSRRetValue::GlobalId(obj));
         }
     }
 
@@ -108,7 +122,12 @@ fn left_shift<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(thread.get_vm().lock().unwrap().allocator.new_object(FSRValue::Integer(self_int << other_int), self_object.cls)));
+            let v = thread.garbage_collect.new_object_with_ptr();
+            let obj = FSRObject::id_to_mut_obj(v);
+            obj.value = FSRValue::Integer(self_int << other_int);
+            obj.cls = self_object.cls;
+
+            return Ok(FSRRetValue::GlobalId(v))
         }
     }
 
@@ -128,9 +147,12 @@ fn right_shift<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
-                self_int >> other_int,
-            ))));
+            let v = thread.garbage_collect.new_object_with_ptr();
+            let obj = FSRObject::id_to_mut_obj(v);
+            obj.value = FSRValue::Integer(self_int >> other_int);
+            obj.cls = self_object.cls;
+
+            return Ok(FSRRetValue::GlobalId(v))
         }
     }
     unimplemented!()

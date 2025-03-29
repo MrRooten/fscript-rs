@@ -2,6 +2,8 @@ use std::{
     borrow::Cow, collections::{btree_map::Values, hash_map::Keys, HashMap}, fmt::Debug
 };
 
+use ahash::AHashMap;
+
 use crate::backend::memory::size_alloc::FSRObjectAllocator;
 
 use super::base::{DropObject, FSRObject, FSRValue, ObjId};
@@ -10,7 +12,7 @@ use super::base::{DropObject, FSRObject, FSRValue, ObjId};
 pub struct FSRClassInst<'a> {
     #[allow(unused)]
     name: &'a str,
-    attrs: HashMap<&'a str, ObjId>,
+    attrs: AHashMap<&'a str, ObjId>,
 }
 
 impl Debug for FSRClassInst<'_> {
@@ -34,7 +36,7 @@ impl<'a> FSRClassInst<'a> {
     pub fn new(name: &'a str) -> FSRClassInst<'a> {
         Self {
             name,
-            attrs: HashMap::new(),
+            attrs: AHashMap::new(),
         }
     }
 
