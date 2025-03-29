@@ -61,7 +61,7 @@ pub struct FSRFn<'a> {
     fn_def: FSRnE<'a>,
     pub(crate) code: ObjId,
     pub(crate) closure_fn: Vec<ObjId>, // fn define chain
-    pub(crate) store_cells: HashMap<&'a str, Cell<ObjId>>
+    pub(crate) store_cells: HashMap<&'a str, Cell<ObjId>>,
 }
 
 impl Debug for FSRFn<'_> {
@@ -79,11 +79,10 @@ impl<'a> FSRFn<'a> {
                     Some(s) => s.get(),
                     None => continue,
                 };
-                return Some(v)
+                return Some(v);
             }
         }
         None
-
     }
 
     pub fn get_references(&self) -> Vec<ObjId> {
@@ -128,7 +127,7 @@ impl<'a> FSRFn<'a> {
         bytecode: &'a Bytecode,
         code_obj: ObjId,
         module_obj: ObjId,
-        fn_id: ObjId // Which father fn define this son fn
+        fn_id: ObjId, // Which father fn define this son fn
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
@@ -194,6 +193,29 @@ impl<'a> FSRFn<'a> {
                     .new_frame(self.get_name(), code, fn_id),
             );
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code, f.module)?;
+            return Ok(FSRRetValue::GlobalId(v));
+        }
+        unimplemented!()
+    }
+
+    #[inline(always)]
+    pub fn invoke_binary(
+        &'a self,
+        left: ObjId,
+        right: ObjId,
+        thread: &mut FSRThreadRuntime<'a>,
+        code: ObjId,
+        fn_id: ObjId,
+    ) -> Result<FSRRetValue<'a>, FSRError> {
+        if let FSRnE::RustFn(f) = &self.fn_def {
+            return f.1(&[left, right], thread, code);
+        } else if let FSRnE::FSRFn(f) = &self.fn_def {
+            thread.call_frames.push(
+                thread
+                    .frame_free_list
+                    .new_frame(self.get_name(), code, fn_id),
+            );
+            let v = FSRThreadRuntime::call_fn(thread, f, &[left, right], self.code, f.module)?;
             return Ok(FSRRetValue::GlobalId(v));
         }
         unimplemented!()

@@ -69,6 +69,7 @@ pub enum FSRValue<'a> {
     None,
 }
 
+
 impl FSRValue<'_> {
     fn get_references(&self) -> Vec<ObjId> {
         match self {
@@ -76,11 +77,11 @@ impl FSRValue<'_> {
             FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.iter_values().cloned().collect(),
             FSRValue::List(fsrlist) => fsrlist.iter_values().cloned().collect(),
             FSRValue::Function(f) => f.get_references(),
-            FSRValue::Iterator(_) |
-            FSRValue::Code(_) |
-            FSRValue::Range(_) |
-            FSRValue::Any(_) |
-            _ => Vec::new(),
+            FSRValue::Iterator(_)
+            | FSRValue::Code(_)
+            | FSRValue::Range(_)
+            | FSRValue::Any(_)
+            | _ => Vec::new(),
         }
     }
 }
@@ -179,11 +180,8 @@ impl<'a> FSRValue<'a> {
 }
 
 impl<'a> Drop for FSRValue<'a> {
-    fn drop(&mut self) {
-        
-    }
+    fn drop(&mut self) {}
 }
-
 
 pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
@@ -416,7 +414,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn as_fn(&self) -> &FSRFn {
         if let FSRValue::Function(f) = &self.value {
-            return f
+            return f;
         }
 
         unimplemented!()
@@ -424,7 +422,7 @@ impl<'a> FSRObject<'a> {
 
     pub fn as_mut_fn(&mut self) -> &mut FSRFn<'a> {
         if let FSRValue::Function(f) = &mut self.value {
-            return f
+            return f;
         }
 
         unimplemented!()
@@ -530,6 +528,37 @@ impl<'a> FSRObject<'a> {
         Ok(v)
     }
 
+    #[inline(always)]
+    pub fn invoke_binary_method(
+        offset: BinaryOffset,
+        left: ObjId,
+        right: ObjId,
+        thread: &mut FSRThreadRuntime<'a>,
+        module: ObjId,
+    ) -> Result<FSRRetValue<'a>, FSRError> {
+        let left_object = Self::id_to_obj(left);
+
+        if let Some(left_method) = left_object.get_cls_offset_attr(offset) {
+            let method_object = Self::id_to_obj(left_method).as_fn();
+            let v = method_object.invoke_binary(left, right, thread, module, left_method)?;
+            return Ok(v);
+        }
+
+        let left_method = match left_object.get_cls_attr(offset.alias_name()) {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    format!("no such a method `{}`", offset.alias_name()),
+                    FSRErrCode::NoSuchMethod,
+                ))
+            }
+        };
+
+        let method_object = Self::id_to_obj(left_method).as_fn();
+        let v = method_object.invoke(&[left, right], thread, module, left_method)?;
+        Ok(v)
+    }
+
     #[inline]
     pub fn invoke_offset_method(
         offset: BinaryOffset,
@@ -596,11 +625,19 @@ impl<'a> FSRObject<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-        fn_id: ObjId
+        fn_id: ObjId,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, module, fn_id);
         }
+        unimplemented!()
+    }
+
+    pub fn as_fn_mut(&mut self) -> &FSRFn<'a> {
+        if let FSRValue::Function(f) = &self.value {
+            return f;
+        }
+
         unimplemented!()
     }
 

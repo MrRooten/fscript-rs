@@ -667,10 +667,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        // if let SValue::Attr(_) = &v1 {
-        //     context.exp.pop();
-        //     context.is_attr = false;
-        // }
 
         let v2 = match context.exp.pop() {
             Some(s) => s,
@@ -682,22 +678,14 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        // if let SValue::Attr(_) = &v2 {
-        //     context.exp.pop();
-        //     context.is_attr = false;
-        // }
-
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
-        let res = FSRObject::invoke_offset_method(
+        let res = FSRObject::invoke_binary_method(
             BinaryOffset::Add,
-            &[v2_id, v1_id],
+            v2_id, v1_id,
             self,
             context.code,
         )?;
-
-        // v1.drop_box(&mut self.thread_allocator);
-        // v2.drop_box(&mut self.thread_allocator);
 
         match res {
             FSRRetValue::Value(object) => {
@@ -749,9 +737,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
-        let res = FSRObject::invoke_offset_method(
+        let res = FSRObject::invoke_binary_method(
             BinaryOffset::Sub,
-            &[v2_id, v1_id],
+            v2_id, v1_id,
             self,
             context.code,
         )?;
@@ -809,9 +797,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
 
-        let res = FSRObject::invoke_offset_method(
+        let res = FSRObject::invoke_binary_method(
             BinaryOffset::Mul,
-            &[v2_id, v1_id],
+            v2_id, v1_id,
             self,
             context.code,
         )?;
@@ -870,9 +858,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
 
-        let res = FSRObject::invoke_offset_method(
+        let res = FSRObject::invoke_binary_method(
             BinaryOffset::Div,
-            &[v2_id, v1_id],
+            v2_id, v1_id,
             self,
             context.code,
         )?;
