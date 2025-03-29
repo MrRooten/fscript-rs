@@ -219,6 +219,20 @@ impl<'a> MarkSweepGarbageCollector<'a> {
 
         return FSRObject::obj_to_id(obj);
     }
+
+    #[inline(always)]
+    pub fn new_object_with_ptr(&mut self) -> ObjId {
+        self.tracker.object_count += 1;
+        if let Some(free_idx) = self.free_slots.pop() {
+            let obj = &mut self.objects[free_idx];
+            // obj.garbage_collector_id = self.self_id;
+            // obj.garbage_id = free_idx as u32;
+            FSRObject::obj_to_id(obj)
+        } else {
+            let v = self.alloc_when_full(FSRValue::None, FSRGlobalObjId::None as ObjId);
+            v
+        }
+    }
 }
 
 impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
@@ -253,6 +267,8 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
 
             if should_free {
                 obj.garbage_collector_id = self.self_id;
+                
+                //obj.value = FSRValue::None;
                 self.free_slots.push(obj.garbage_id as usize);
 
                 freed_count += 1;

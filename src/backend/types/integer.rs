@@ -25,7 +25,13 @@ fn add<'a>(
     
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(FSRValue::Integer(self_int + other_int), self_object.cls)));
+            // return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(FSRValue::Integer(self_int + other_int), self_object.cls)));
+            let v = thread.garbage_collect.new_object_with_ptr();
+            let obj = FSRObject::id_to_mut_obj(v);
+            obj.value = FSRValue::Integer(self_int + other_int);
+            obj.cls = self_object.cls;
+
+            return Ok(FSRRetValue::GlobalId(v))
         }
     }
 
