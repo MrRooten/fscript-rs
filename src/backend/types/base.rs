@@ -344,6 +344,7 @@ impl<'a> FSRObject<'a> {
         self.value = value;
     }
 
+    #[inline(always)]
     pub fn set_cls(&mut self, cls: ObjId) {
         self.cls = cls
     }

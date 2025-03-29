@@ -81,6 +81,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         None
     }
 
+    #[inline(always)]
     fn mark(&mut self, id: ObjId) {
         let obj = FSRObject::id_to_obj(id);
         if obj.garbage_collector_id != self.self_id {

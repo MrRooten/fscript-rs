@@ -36,14 +36,19 @@ fn next_obj<'a>(
                 return Ok(FSRRetValue::GlobalId(0));
             }
 
-            let obj = thread.garbage_collect.new_object(
-                FSRValue::Integer((it.index as i64 + r.range.start) as i64),
-                FSRGlobalObjId::IntegerCls as ObjId,
-            );
+            // let obj = thread.garbage_collect.new_object(
+            //     FSRValue::Integer((it.index as i64 + r.range.start) as i64),
+            //     FSRGlobalObjId::IntegerCls as ObjId,
+            // );
+
+            let obj_id = thread.garbage_collect.new_object_with_ptr();
+            let obj = FSRObject::id_to_mut_obj(obj_id);
+            obj.value = FSRValue::Integer((it.index as i64 + r.range.start) as i64);
+            obj.set_cls(FSRGlobalObjId::IntegerCls as ObjId);
 
             it.index += 1;
 
-            return Ok(FSRRetValue::GlobalId(obj))
+            return Ok(FSRRetValue::GlobalId(obj_id))
         } else if let FSRValue::ClassInst(inst) = &from_obj.value {
             let cls = from_obj.cls;
             let cls = FSRObject::id_to_obj(cls);
