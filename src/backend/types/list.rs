@@ -56,7 +56,7 @@ fn list_string<'a>(
 
     s.push(']');
 
-    Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(Cow::Owned(s)))))
+    Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(Box::new(Cow::Owned(s))))))
 }
 
 fn iter<'a>(

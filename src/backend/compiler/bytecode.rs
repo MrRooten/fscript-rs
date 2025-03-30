@@ -1378,7 +1378,7 @@ impl<'a> Bytecode {
             let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
                 obj
             } else {
-                let obj = FSRString::new_inst(Cow::Owned(String::from_utf8_lossy(s).to_string()));
+                let obj = FSRString::new_inst(Box::new(Cow::Owned(String::from_utf8_lossy(s).to_string())));
                 obj.ref_add();
                 obj.set_not_delete();
                 let ptr = FSRVM::leak_object(Box::new(obj));

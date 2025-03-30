@@ -1050,7 +1050,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 let obj = self
                     .thread_allocator
-                    .new_object(FSRValue::Range(range), FSRGlobalObjId::RangeCls as ObjId);
+                    .new_object(FSRValue::Range(Box::new(range)), FSRGlobalObjId::RangeCls as ObjId);
 
                 let id = FSRVM::leak_object(obj);
 
@@ -2126,11 +2126,11 @@ impl<'a> FSRThreadRuntime<'a> {
                         self.thread_allocator.free(obj);
                     }
                     let obj_id = self.flow_tracker.ref_for_obj.pop().unwrap();
-                    let for_obj = FSRObject::id_to_obj(obj_id);
+                    // let for_obj = FSRObject::id_to_obj(obj_id);
                     // for_obj.ref_dec();
-                    if for_obj.count_ref() == 1 {
-                        self.thread_allocator.free(obj_id);
-                    }
+                    // if for_obj.count_ref() == 1 {
+                    //     self.thread_allocator.free(obj_id);
+                    // }
                     context.ip = (break_line, 0);
                     return Ok(true);
                 }

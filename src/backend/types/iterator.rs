@@ -86,7 +86,7 @@ impl FSRInnerIterator {
     pub fn new_inst<'a>(iterator: FSRInnerIterator) -> FSRObject<'a> {
         let mut object = FSRObject::new();
         object.set_cls(FSRGlobalObjId::InnerIterator as ObjId);
-        object.set_value(FSRValue::Iterator(iterator));
+        object.set_value(FSRValue::Iterator(Box::new(iterator)));
         object
     }
 }

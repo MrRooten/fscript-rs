@@ -48,7 +48,7 @@ fn add<'a>(
         if let FSRValue::String(other_str) = &other_object.value {
             
                 let obj_id = thread.garbage_collect.new_object(
-                    FSRValue::String(Cow::Owned(format!("{}{}", self_str, other_str))),
+                    FSRValue::String(Box::new(Cow::Owned(format!("{}{}", self_str, other_str)))),
                     FSRGlobalObjId::StringCls as ObjId,
                 );
 
@@ -119,7 +119,7 @@ fn get_sub_char<'a>(
             if index < self_str.len() {
                 return Ok(FSRRetValue::Value(
                     thread.get_vm().lock().unwrap().allocator.new_object(
-                        FSRValue::String(Cow::Owned(self_str[index..index + 1].to_string())),
+                        FSRValue::String(Box::new(Cow::Owned(self_str[index..index + 1].to_string()))),
                         self_object.cls,
                     ),
                 ));
@@ -165,7 +165,7 @@ impl FSRString {
         cls
     }
 
-    pub fn new_inst(s: Cow<'_, str>) -> FSRObject<'_> {
+    pub fn new_inst(s: Box<Cow<'_, str>>) -> FSRObject<'_> {
         let mut object = FSRObject::new();
         object.set_cls(FSRGlobalObjId::StringCls as ObjId);
         object.set_value(FSRValue::String(s));

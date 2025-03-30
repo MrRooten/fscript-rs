@@ -169,6 +169,7 @@ impl<'a> FSRFn<'a> {
             delete_flag: AtomicBool::new(true),
             garbage_id: 0,
             garbage_collector_id: 0,
+            free: false,
         }
     }
 

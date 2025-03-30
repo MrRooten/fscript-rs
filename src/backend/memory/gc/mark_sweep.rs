@@ -48,7 +48,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             roots: vec![],
             allocator: FSRObjectAllocator::new(),
             marks: Vec::with_capacity(THROLD),
-            tracker: Tracker { object_count: 0, throld: THROLD / 10 },
+            tracker: Tracker { object_count: 0, throld: THROLD / 5 },
             self_id: 1,
         }
     }
@@ -114,11 +114,9 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.marks.iter_mut().for_each(|m| *m = false);
     }
 
-    pub fn will_collect(&self) -> bool {
-        self.tracker.object_count as usize > THROLD
-    }
+    
 
-    pub fn set_mark(
+    fn set_mark(
         &mut self,
         frames: &Vec<Box<CallFrame<'a>>>,
         cur_frame: &Box<CallFrame>,
@@ -197,6 +195,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         obj.cls = cls;
         obj.garbage_collector_id = self.self_id;
         obj.garbage_id = free_idx as u32;
+        obj.free = false;
+        
         return FSRObject::obj_to_id(obj);
     }
 
@@ -213,6 +213,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         obj.cls = cls;
         obj.garbage_collector_id = self.self_id;
         obj.garbage_id = slot_idx as u32;
+        obj.free = false;
 
         if self.marks.len() <= slot_idx {
             self.marks.resize(((len + 7) & !7), false);
@@ -261,17 +262,28 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         let mut i = 0;
         let mut freed_count = 0;
 
-        while i < self.objects.len() {
-            let obj = &mut self.objects[i];
-            let should_free = obj.garbage_collector_id == self.self_id
-                && (i >= self.marks.len() || !self.marks[i]);
+        // while i < self.objects.len() {
+        //     let obj = &mut self.objects[i];
+        //     let should_free = obj.garbage_collector_id == self.self_id
+        //         && (i >= self.marks.len() || !self.marks[i]);
 
-            if should_free {
-                obj.garbage_collector_id = self.self_id;
+        //     if should_free {
+        //         obj.garbage_collector_id = self.self_id;
                 
-                obj.value = FSRValue::None;
-                self.free_slots.push(i);
+        //         //obj.value = FSRValue::None;
+        //         self.free_slots.push(i);
 
+        //         freed_count += 1;
+        //     }
+        //     i += 1;
+        // }
+
+        while i < self.objects.len() {
+            if !self.marks[i] {
+                let obj = &mut self.objects[i];
+                obj.garbage_collector_id = self.self_id;
+                obj.free = true;
+                self.free_slots.push(i);
                 freed_count += 1;
             }
             i += 1;
@@ -281,6 +293,10 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         if self.tracker.object_count as usize > self.tracker.throld * 9 / 10 {
             self.tracker.throld *= 2;
         }
+    }
+
+    fn will_collect(&self) -> bool {
+        self.tracker.object_count as usize > THROLD
     }
 }
 

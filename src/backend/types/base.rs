@@ -55,16 +55,16 @@ pub enum FSRGlobalObjId {
 pub enum FSRValue<'a> {
     Integer(i64),
     Float(f64),
-    String(Cow<'a, str>),
+    String(Box<Cow<'a, str>>),
     Class(Box<FSRClass<'a>>),
     ClassInst(Box<FSRClassInst<'a>>),
     Function(Box<FSRFn<'a>>),
     Bool(bool),
     List(Box<FSRList>),
-    Iterator(FSRInnerIterator),
+    Iterator(Box<FSRInnerIterator>),
     Code(Box<FSRCode<'a>>),
-    Range(FSRRange),
-    Any(Box<dyn Any + Send>),
+    Range(Box<FSRRange>),
+    // Any(Box<dyn Any + Send>),
     Module(Box<FSRModule<'a>>),
     None,
 }
@@ -80,7 +80,7 @@ impl FSRValue<'_> {
             FSRValue::Iterator(_)
             | FSRValue::Code(_)
             | FSRValue::Range(_)
-            | FSRValue::Any(_)
+            // | FSRValue::Any(_)
             | _ => Vec::new(),
         }
     }
@@ -98,7 +98,7 @@ impl<'a> FSRValue<'a> {
         self_id: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-    ) -> Option<Cow<'a, str>> {
+    ) -> Option<Box<Cow<'a, str>>> {
         let _ = inst;
         let vm = thread.get_vm();
 
@@ -118,13 +118,13 @@ impl<'a> FSRValue<'a> {
             };
 
             if let FSRRetValue::Value(v) = ret_value {
-                return Some(Cow::Owned(v.as_string().to_string()));
+                return Some(Box::new(Cow::Owned(v.as_string().to_string())));
             }
 
             if let FSRRetValue::GlobalId(id) = ret_value {
                 let obj = FSRObject::id_to_obj(id);
                 if let FSRValue::String(s) = &obj.value {
-                    return Some(Cow::Borrowed(s));
+                    return Some(Box::new(Cow::Borrowed(s)));
                 }
             }
         }
@@ -136,19 +136,19 @@ impl<'a> FSRValue<'a> {
         self_id: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-    ) -> Option<Cow<str>> {
+    ) -> Option<Box<Cow<str>>> {
         let s = match self {
-            FSRValue::Integer(e) => Some(Cow::Owned(e.to_string())),
-            FSRValue::Float(e) => Some(Cow::Owned(e.to_string())),
+            FSRValue::Integer(e) => Some(Box::new(Cow::Owned(e.to_string()))),
+            FSRValue::Float(e) => Some(Box::new(Cow::Owned(e.to_string()))),
             FSRValue::String(e) => Some(e.clone()),
             FSRValue::Class(_) => None,
             FSRValue::ClassInst(inst) => Self::inst_to_string(inst, self_id, thread, module),
             FSRValue::Function(_) => None,
-            FSRValue::None => Some(Cow::Borrowed("None")),
-            FSRValue::Bool(e) => Some(Cow::Owned(e.to_string())),
+            FSRValue::None => Some(Box::new(Cow::Borrowed("None"))),
+            FSRValue::Bool(e) => Some(Box::new(Cow::Owned(e.to_string()))),
             FSRValue::List(_) => {
                 let res = FSRObject::invoke_method("__str__", &[self_id], thread, module).unwrap();
-                match res {
+                match &res {
                     FSRRetValue::Value(v) => {
                         if let FSRValue::String(s) = &v.value {
                             return Some(s.clone());
@@ -156,7 +156,7 @@ impl<'a> FSRValue<'a> {
                         return None;
                     }
                     FSRRetValue::GlobalId(id) => {
-                        let obj = FSRObject::id_to_obj(id);
+                        let obj = FSRObject::id_to_obj(*id);
                         if let FSRValue::String(s) = &obj.value {
                             return Some(s.clone());
                         }
@@ -166,13 +166,13 @@ impl<'a> FSRValue<'a> {
                 }
             }
             FSRValue::Iterator(_) => None,
-            FSRValue::Code(fsrmodule) => Some(Cow::Owned(fsrmodule.as_string())),
-            FSRValue::Range(fsrrange) => Some(Cow::Owned(format!(
+            FSRValue::Code(fsrmodule) => Some(Box::new(Cow::Owned(fsrmodule.as_string()))),
+            FSRValue::Range(fsrrange) => Some(Box::new(Cow::Owned(format!(
                 "Range({}..{})",
                 fsrrange.range.start, fsrrange.range.end
-            ))),
-            FSRValue::Any(any) => Some(Cow::Borrowed("InnerAny")),
-            FSRValue::Module(fsrmodule) => Some(Cow::Owned(fsrmodule.as_string())),
+            )))),
+            // FSRValue::Any(any) => Some(Box::new(Cow::Borrowed("InnerAny"))),
+            FSRValue::Module(fsrmodule) => Some(Box::new(Cow::Owned(fsrmodule.as_string()))),
         };
 
         s
@@ -189,6 +189,7 @@ pub struct FSRObject<'a> {
     pub(crate) ref_count: AtomicU32,
     pub(crate) cls: ObjId,
     pub(crate) delete_flag: AtomicBool,
+    pub(crate) free: bool,
     pub(crate) garbage_id: u32,
 }
 
@@ -216,7 +217,7 @@ impl Debug for FSRObject<'_> {
                     .finish();
             }
             FSRValue::Range(fsrrange) => todo!(),
-            FSRValue::Any(any) => todo!(),
+            // FSRValue::Any(any) => todo!(),
             FSRValue::Module(fsrmodule) => todo!(),
         };
         f.debug_struct("FSRObject")
@@ -273,6 +274,7 @@ impl<'a> FSRObject<'a> {
             delete_flag: AtomicBool::new(true),
             garbage_id: 0,
             garbage_collector_id: 0,
+            free: false,
         }
     }
 
@@ -320,6 +322,7 @@ impl<'a> FSRObject<'a> {
             delete_flag: AtomicBool::new(true),
             garbage_id: 0,
             garbage_collector_id: 0,
+            free: false,
         }
     }
 
@@ -655,16 +658,16 @@ impl<'a> FSRObject<'a> {
         }
         let v = FSRObject::id_to_obj(self.cls);
         if let FSRValue::Class(c) = &v.value {
-            return FSRString::new_inst(Cow::Owned(format!(
+            return FSRString::new_inst(Box::new(Cow::Owned(format!(
                 "<`{}` Object at {:?}>",
                 c.get_name(),
                 self as *const Self
-            )));
+            ))));
         }
-        FSRString::new_inst(Cow::Owned(format!(
+        FSRString::new_inst(Box::new(Cow::Owned(format!(
             "<`{}` Object at {:?}>",
             self.cls, self as *const Self
-        )))
+        ))))
         //return self.invoke("__str__", vec![]);
     }
 
