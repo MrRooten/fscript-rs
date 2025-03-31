@@ -313,7 +313,8 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    pub fn is_module(&self) -> bool {
+    #[inline(always)]
+    pub fn is_code(&self) -> bool {
         matches!(&self.value, FSRValue::Code(_fsrmodule))
     }
 
