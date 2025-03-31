@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use crate::{
     backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::thread::FSRThreadRuntime},
     utils::error::{FSRErrCode, FSRError},
@@ -55,6 +57,7 @@ fn next_obj<'a>(
             let cls = cls.as_class();
             let v = cls.get_offset_attr(BinaryOffset::Index);
             if let Some(obj_id) = v {
+                let obj_id = obj_id.load(Ordering::Relaxed);
                 let obj = FSRObject::id_to_obj(obj_id);
                 let ret = obj.call(&[it.obj], thread, module, obj_id);
                 result = Some(ret?);

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, fs, path::Path, sync::Mutex};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, fs, path::Path, sync::{atomic::AtomicUsize, Mutex}};
 
 use ahash::AHashMap;
 
@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
+    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRValue, ObjId},
     class::FSRClass,
 };
 
@@ -17,7 +17,7 @@ pub struct FSRCode<'a> {
     name: Cow<'a, str>,
     #[allow(unused)]
     bytecode: Bytecode,
-    object_map: Mutex<AHashMap<String, ObjId>>,
+    object_map: AHashMap<String, AtomicObjId>,
 }
 
 impl<'a> FSRCode<'a> {
@@ -40,7 +40,7 @@ impl<'a> FSRCode<'a> {
             let code = Self {
                 name: Cow::Owned(code.0),
                 bytecode: code.1,
-                object_map: Mutex::new(AHashMap::new()),
+                object_map: AHashMap::new(),
             };
 
             let mut object = FSRObject::new();
@@ -74,14 +74,12 @@ impl<'a> FSRCode<'a> {
         format!("<Module `{}`>", self.name)
     }
 
-    pub fn register_object(&self, name: &'a str, obj_id: ObjId) {
+    pub fn register_object(&mut self, name: &'a str, obj_id: ObjId) {
         self.object_map
-            .lock()
-            .unwrap()
-            .insert(name.to_string(), obj_id);
+            .insert(name.to_string(), AtomicUsize::new(obj_id));
     }
 
-    pub fn get_object(&self, name: &str) -> Option<ObjId> {
-        self.object_map.lock().unwrap().get(name).copied()
-    }
+    pub fn get_object(&self, name: &str) -> Option<&AtomicObjId> {
+            self.object_map.get(name)
+        }
 }

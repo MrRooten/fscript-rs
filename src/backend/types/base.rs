@@ -72,7 +72,7 @@ pub enum FSRValue<'a> {
 impl FSRValue<'_> {
     fn get_references(&self) -> Vec<ObjId> {
         match self {
-            FSRValue::Class(fsrclass) => fsrclass.iter_values().cloned().collect(),
+            FSRValue::Class(fsrclass) => fsrclass.iter_values().map(|x| x.load(Ordering::Relaxed)).collect(),
             FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.iter_values().map(|x| x.load(Ordering::Relaxed)).collect(),
             FSRValue::List(fsrlist) => fsrlist.iter_values().cloned().collect(),
             FSRValue::Function(f) => f.get_references(),
@@ -107,6 +107,7 @@ impl<'a> FSRValue<'a> {
 
         let v = cls.get_attr("__str__");
         if let Some(obj_id) = v {
+            let obj_id = obj_id.load(Ordering::Relaxed);
             let obj = FSRObject::id_to_obj(obj_id);
             let ret = obj.call(&[self_id], thread, module, obj_id);
             let ret_value = match ret {
@@ -298,6 +299,13 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    pub fn as_mut_code(&mut self) -> &mut FSRCode<'a> {
+        match &mut self.value {
+            FSRValue::Code(fsrmodule) => fsrmodule,
+            _ => unimplemented!(),
+        }
+    }
+
     pub fn as_module(&self) -> &FSRModule<'a> {
         match &self.value {
             FSRValue::Module(fsrmodule) => fsrmodule,
@@ -380,7 +388,7 @@ impl<'a> FSRObject<'a> {
         obj as *const Self as ObjId
     }
 
-    pub fn get_cls_attr(&self, name: &str) -> Option<ObjId> {
+    pub fn get_cls_attr(&self, name: &str) -> Option<&'a AtomicObjId> {
         if let Some(btype) = FSRVM::get_base_cls(self.cls) {
             return btype.get_attr(name);
         }
@@ -398,7 +406,7 @@ impl<'a> FSRObject<'a> {
     like BinaryOffset::Add if not -> __add__
      */
     #[inline]
-    pub fn get_cls_offset_attr(&self, offset: BinaryOffset) -> Option<ObjId> {
+    pub fn get_cls_offset_attr(&self, offset: BinaryOffset) -> Option<&'a AtomicObjId> {
         let cls_obj = FSRObject::id_to_obj(self.cls);
         if let FSRValue::Class(cls) = &cls_obj.value {
             return cls.try_get_offset_attr(offset);
@@ -518,7 +526,7 @@ impl<'a> FSRObject<'a> {
     ) -> Result<FSRRetValue<'a>, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         let self_method = match self_object.get_cls_attr(name) {
-            Some(s) => s,
+            Some(s) => s.load(Ordering::Relaxed),
             None => {
                 return Err(FSRError::new(
                     format!("no such a method `{}`", name),
@@ -542,6 +550,7 @@ impl<'a> FSRObject<'a> {
         let left_object = Self::id_to_obj(left);
 
         if let Some(left_method) = left_object.get_cls_offset_attr(offset) {
+            let left_method = left_method.load(Ordering::Relaxed);
             let method_object = Self::id_to_obj(left_method).as_fn();
             let v = method_object.invoke_binary(left, right, thread, module, left_method)?;
             return Ok(v);
@@ -556,6 +565,7 @@ impl<'a> FSRObject<'a> {
                 ))
             }
         };
+        let left_method = left_method.load(Ordering::Relaxed);
 
         let method_object = Self::id_to_obj(left_method).as_fn();
         let v = method_object.invoke(&[left, right], thread, module, left_method)?;
@@ -572,6 +582,7 @@ impl<'a> FSRObject<'a> {
         let self_object = Self::id_to_obj(args[0]);
 
         if let Some(self_method) = self_object.get_cls_offset_attr(offset) {
+            let self_method = self_method.load(Ordering::Relaxed);
             let method_object = Self::id_to_obj(self_method);
             let v = method_object.call(args, thread, module, self_method)?;
             return Ok(v);
@@ -586,13 +597,14 @@ impl<'a> FSRObject<'a> {
                 ))
             }
         };
+        let self_method = self_method.load(Ordering::Relaxed);
         let method_object = Self::id_to_obj(self_method);
         let v = method_object.call(args, thread, module, self_method)?;
         Ok(v)
     }
 
     #[inline]
-    pub fn get_attr(&self, name: &str) -> Option<ObjId> {
+    pub fn get_attr(&self, name: &str) -> Option<&AtomicObjId> {
         if let Some(s) = self.get_cls_attr(name) {
             return Some(s);
         }
@@ -604,7 +616,7 @@ impl<'a> FSRObject<'a> {
                     return None;
                 }
             };
-            return Some(v.load(Ordering::Relaxed));
+            return Some(v);
         }
 
         if let FSRValue::Code(m) = &self.value {

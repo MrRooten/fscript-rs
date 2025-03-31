@@ -100,7 +100,7 @@ impl FSRList {
         let mut cls = FSRClass {
             name: "List",
             attrs: AHashMap::new(),
-            offset_attrs: vec![0;30],
+            offset_attrs: vec![],
         };
         let len_m = FSRFn::from_rust_fn_static(list_len, "list_len");
         cls.insert_attr("len", len_m);
