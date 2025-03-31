@@ -599,21 +599,35 @@ impl<'a> Bytecode {
         is_attr: bool,
         context: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>, &'a mut Vec<VarMap<'a>>) {
-        if !var_map.last_mut().unwrap().has_var(var.get_name()) {
-            let v = var.get_name();
-            var_map.last_mut().unwrap().insert_var(v);
+        if !is_attr {
+            if !var_map.last_mut().unwrap().has_var(var.get_name()) {
+                let v = var.get_name();
+                var_map.last_mut().unwrap().insert_var(v);
+            }
+        } else {
+            if !var_map.last_mut().unwrap().has_attr(var.get_name()) {
+                let v = var.get_name();
+                var_map.last_mut().unwrap().insert_attr(v);
+            }
         }
+        
 
         if !var.is_defined && context.contains_variable_in_ref_stack(var.get_name()) {
-            let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
+            
             let op_arg = match is_attr {
                 true => BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: ArgType::Attr(*arg_id, var.get_name().to_string()),
+                    arg: {
+                        let arg_id = var_map.last_mut().unwrap().get_attr(var.get_name()).unwrap();
+                        ArgType::Attr(*arg_id, var.get_name().to_string())
+                    },
                 },
                 false => BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: ArgType::ClosureVar((*arg_id, var.get_name().to_string())),
+                    arg: {
+                        let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
+                        ArgType::ClosureVar((*arg_id, var.get_name().to_string()))
+                    },
                 },
             };
             let mut ans = vec![op_arg];
@@ -627,15 +641,20 @@ impl<'a> Bytecode {
             return (ans, var_map);
         }
 
-        let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
         let op_arg = match is_attr {
             true => BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Attr(*arg_id, var.get_name().to_string()),
+                arg: {
+                    let arg_id = var_map.last_mut().unwrap().get_attr(var.get_name()).unwrap();
+                    ArgType::Attr(*arg_id, var.get_name().to_string())
+                },
             },
             false => BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::Variable((*arg_id, var.get_name().to_string(), false)),
+                arg: {
+                    let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
+                    ArgType::Variable((*arg_id, var.get_name().to_string(), false))
+                },
             },
         };
         let mut ans = vec![op_arg];

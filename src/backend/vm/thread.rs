@@ -22,7 +22,7 @@ use crate::{
         compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
         memory::{gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator, GarbageCollector},
         types::{
-            base::{self, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            base::{self, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
             code::FSRCode,
@@ -107,6 +107,7 @@ impl Iterator for IndexIterator<'_> {
 
 pub struct CallFrame<'a> {
     pub(crate) var_map: IndexMap,
+    attr_map: Vec<Vec<Option<&'a AtomicObjId>>>,
     reverse_ip: (usize, usize),
     args: Vec<ObjId>,
     cur_cls: Option<Box<FSRClass<'a>>>,
@@ -127,6 +128,7 @@ impl<'a> CallFrame<'a> {
         self.cur_cls = None;
         self.ret_val = None;
         self.exp = None;
+        self.attr_map.clear();
         self.handling_exception = FSRObject::none_id();
     }
 
@@ -178,6 +180,7 @@ impl<'a> CallFrame<'a> {
             catch_ends: vec![],
             handling_exception: FSRObject::none_id(),
             fn_obj,
+            attr_map: vec![],
         }
     }
 }
@@ -2429,29 +2432,6 @@ impl<'a> FSRThreadRuntime<'a> {
             if Self::exception_process(self, context) {
                 return Ok(true)
             }
-            // if self.exception_flag {
-            //     if !self.get_cur_mut_frame().catch_ends.is_empty() {
-            //         self.get_cur_mut_frame().handling_exception = self.exception;
-            //         self.exception = FSRObject::none_id();
-            //         self.exception_flag = false;
-            //         let exception_handling = self.get_cur_mut_frame().handling_exception;
-            //         context.ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
-            //         // self.garbage_collect.add_root(exception_handling);
-            //         return Ok(true);
-            //     } else {
-            //         if self.call_frames.len() == 0 {
-            //             panic!("No handle of error")
-            //         }
-            //         self.pop_stack(&[]);
-            //         let cur = self.get_cur_mut_frame();
-            //         context.ip = (cur.reverse_ip.0, cur.reverse_ip.1 + 1);
-            //         context.code = cur.code;
-            //         context.call_end.pop();
-            //         // self.garbage_collect.add_root(self.exception);
-            //         return Ok(true);
-            //     }
-            // }
-
             
         }
         context.ip.0 += 1;

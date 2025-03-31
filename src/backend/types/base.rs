@@ -3,7 +3,7 @@ use std::{
     borrow::Cow,
     collections::hash_map::Keys,
     fmt::Debug,
-    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
 };
 
 use crate::{
@@ -32,7 +32,7 @@ use super::{
 };
 
 pub type ObjId = usize;
-
+pub type AtomicObjId = AtomicUsize;
 pub enum FSRGlobalObjId {
     None = 0,
     True = 1,
@@ -69,12 +69,11 @@ pub enum FSRValue<'a> {
     None,
 }
 
-
 impl FSRValue<'_> {
     fn get_references(&self) -> Vec<ObjId> {
         match self {
             FSRValue::Class(fsrclass) => fsrclass.iter_values().cloned().collect(),
-            FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.iter_values().cloned().collect(),
+            FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.iter_values().map(|x| x.load(Ordering::Relaxed)).collect(),
             FSRValue::List(fsrlist) => fsrlist.iter_values().cloned().collect(),
             FSRValue::Function(f) => f.get_references(),
             FSRValue::Iterator(_)
@@ -605,7 +604,7 @@ impl<'a> FSRObject<'a> {
                     return None;
                 }
             };
-            return Some(*v);
+            return Some(v.load(Ordering::Relaxed));
         }
 
         if let FSRValue::Code(m) = &self.value {
@@ -615,7 +614,7 @@ impl<'a> FSRObject<'a> {
         None
     }
 
-    pub fn list_attrs(&self) -> Keys<&'a str, ObjId> {
+    pub fn list_attrs(&self) -> Keys<&'a str, AtomicObjId> {
         if let FSRValue::ClassInst(inst) = &self.value {
             return inst.list_attrs();
         }
@@ -730,7 +729,7 @@ impl<'a> FSRObject<'a> {
         2
     }
 
-    pub fn iter_object(&self) -> impl Iterator<Item = &ObjId> {
+    pub fn iter_object(&self) -> impl Iterator<Item = &AtomicObjId> {
         match &self.value {
             FSRValue::ClassInst(inst) => inst.iter_values(),
             _ => unimplemented!(),

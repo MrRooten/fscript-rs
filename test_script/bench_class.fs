@@ -1,15 +1,17 @@
 class Test {
     fn abc(self) {
         a = 1
+	    return a
     }
 }
 
 t = Test()
 t.abc()
-
+t.index = 1
 b = 1
-while b < 3000000 {
-    b = b + 1
-    t.abc()
+while t.index < 3000000 {
+    t.index = t.index + t.abc()
+    t.ddc = 123 + 1
 }
 
+println(t.index)

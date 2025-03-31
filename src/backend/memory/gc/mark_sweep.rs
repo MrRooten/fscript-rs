@@ -100,12 +100,12 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         //     .unwrap_or(false)
         let obj = FSRObject::id_to_obj(id);
         if obj.garbage_collector_id != self.self_id {
-            return false;
+            return true;
         }
 
         let idx = obj.garbage_id as usize;
         if idx >= self.marks.len() {
-            return false;
+            return true;
         }
         self.marks[idx]
     }

@@ -17,8 +17,8 @@ fn kind<'a>(
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
     
     if let FSRValue::ClassInst(exception) = &self_object.value {
-        let obj = match exception.get_attr("__kind__").cloned() {
-            Some(s) => s,
+        let obj = match exception.get_attr("__kind__") {
+            Some(s) => s.load(std::sync::atomic::Ordering::Relaxed),
             None => {
                 panic!("not found __kind__")
             }
@@ -40,8 +40,8 @@ fn message<'a>(
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
     
     if let FSRValue::ClassInst(exception) = &message_object.value {
-        let obj = match exception.get_attr("__msg__").cloned() {
-            Some(s) => s,
+        let obj = match exception.get_attr("__msg__") {
+            Some(s) => s.load(std::sync::atomic::Ordering::Relaxed),
             None => {
                 panic!("not found __msg__")
             }
