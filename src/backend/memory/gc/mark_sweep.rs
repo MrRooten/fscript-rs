@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 use ahash::AHashMap;
 
 use crate::backend::types::base::FSRGlobalObjId;
-use crate::backend::vm::thread::CallFrame;
+use crate::backend::vm::thread::{CallFrame, FSRThreadRuntime};
 use crate::backend::{
     memory::{size_alloc::FSRObjectAllocator, FSRAllocator, GarbageCollector},
     types::base::{FSRObject, FSRValue, ObjId},
@@ -264,22 +264,6 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
 
         let mut i = 0;
         let mut freed_count = 0;
-
-        // while i < self.objects.len() {
-        //     let obj = &mut self.objects[i];
-        //     let should_free = obj.garbage_collector_id == self.self_id
-        //         && (i >= self.marks.len() || !self.marks[i]);
-
-        //     if should_free {
-        //         obj.garbage_collector_id = self.self_id;
-                
-        //         //obj.value = FSRValue::None;
-        //         self.free_slots.push(i);
-
-        //         freed_count += 1;
-        //     }
-        //     i += 1;
-        // }
 
         while i < self.objects.len() {
             if !self.marks[i] {

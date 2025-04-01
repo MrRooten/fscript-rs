@@ -1,8 +1,8 @@
 use std::ops::Range;
 
-use crate::{backend::{compiler::bytecode::BinaryOffset, vm::thread::FSRThreadRuntime}, utils::error::FSRError};
+use crate::{backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::thread::FSRThreadRuntime}, utils::error::FSRError};
 
-use super::{base::{FSRRetValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator};
+use super::{base::{FSRGlobalObjId, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::FSRInnerIterator};
 
 #[derive(Debug, Clone)]
 pub struct FSRRange {
@@ -19,8 +19,9 @@ fn iter_obj<'a>(
         obj: self_id,
         index: 0,
     };
-
-    Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))))
+    let inner_obj = thread.garbage_collect.new_object(FSRValue::Iterator(Box::new(iterator)), FSRGlobalObjId::InnerIterator as ObjId);
+    Ok(FSRRetValue::GlobalId(inner_obj))
+    //Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))))
 }
 
 impl FSRRange {

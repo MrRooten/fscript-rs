@@ -398,7 +398,7 @@ impl<'a> ThreadContext<'a> {
 }
 
 #[derive(Debug, Default)]
-struct FlowTracker {
+pub struct FlowTracker {
     pub last_if_test: Vec<bool>,
 
     pub break_line: Vec<usize>,
@@ -411,7 +411,7 @@ struct FlowTracker {
 
     pub is_break: bool,
 
-    for_iter_obj: Vec<ObjId>,
+    pub for_iter_obj: Vec<ObjId>,
 }
 
 impl FlowTracker {
@@ -467,7 +467,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) frame_free_list: FrameFreeList<'a>,
     vm: Arc<Mutex<FSRVM<'a>>>,
     pub(crate) thread_allocator: FSRObjectAllocator<'a>,
-    flow_tracker: FlowTracker,
+    pub(crate) flow_tracker: FlowTracker,
     pub(crate) exception: ObjId,
     pub(crate) exception_flag: bool,
     pub(crate) closure_stack: Vec<HashMap<&'a str, ObjId>>,
@@ -1773,7 +1773,7 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRVM::leak_object(obj)
         } else {
             let id = iter_obj.get_global_id(self)?;
-            FSRObject::id_to_obj(id).ref_add();
+            //FSRObject::id_to_obj(id).ref_add();
             id
         };
         // let v = FSRObject::id_to_obj(iter_id);
@@ -2582,7 +2582,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if self.garbage_collect.will_collect() {
             let mut other = self.flow_tracker.for_iter_obj.clone();
             other.extend(self.flow_tracker.ref_for_obj.clone());
-
+            other.extend(self.flow_tracker.iter_objects.clone());
             self.garbage_collect
                 .collect(&self.call_frames, &self.cur_frame, &other);
         }

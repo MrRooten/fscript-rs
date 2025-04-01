@@ -1,7 +1,10 @@
-use super::{types::base::{FSRObject, FSRValue, ObjId}, vm::thread::CallFrame};
+use super::{
+    types::base::{FSRObject, FSRValue, ObjId},
+    vm::thread::{CallFrame, FSRThreadRuntime},
+};
 
-pub mod size_alloc;
 pub mod gc;
+pub mod size_alloc;
 
 pub trait FSRAllocator<'a> {
     fn new() -> Self;
@@ -12,7 +15,12 @@ pub trait FSRAllocator<'a> {
 pub trait GarbageCollector<'a> {
     fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId;
 
-    fn collect(&mut self, call_frames: &Vec<Box<CallFrame<'a>>>, cur_frame: &Box<CallFrame<'a>>,others: &[ObjId]);
-    
+    fn collect(
+        &mut self,
+        call_frames: &Vec<Box<CallFrame<'a>>>,
+        cur_frame: &Box<CallFrame<'a>>,
+        others: &[ObjId],
+    );
+
     fn will_collect(&self) -> bool;
 }

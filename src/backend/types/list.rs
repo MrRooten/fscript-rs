@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap};
 
 use ahash::AHashMap;
 
-use crate::{backend::{compiler::bytecode::BinaryOffset, memory::size_alloc::FSRObjectAllocator, types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::{FSRErrCode, FSRError}};
+use crate::{backend::{compiler::bytecode::BinaryOffset, memory::{size_alloc::FSRObjectAllocator, GarbageCollector}, types::{base::{FSRObject, FSRValue}, integer::FSRInteger, iterator::FSRInnerIterator, string::FSRString}, vm::thread::FSRThreadRuntime}, utils::error::{FSRErrCode, FSRError}};
 
 use super::{base::{DropObject, FSRGlobalObjId, FSRRetValue, ObjId}, class::FSRClass, fn_def::FSRFn, code::FSRCode};
 
@@ -13,7 +13,7 @@ pub struct FSRList {
 
 fn list_len<'a>(
     args: &[ObjId],
-    _: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -22,8 +22,14 @@ fn list_len<'a>(
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::List(self_s) = &self_object.value {
-        return Ok(FSRRetValue::Value(
-            Box::new(FSRInteger::new_inst(self_s.vs.len() as i64)),
+        // return Ok(FSRRetValue::Value(
+        //     Box::new(FSRInteger::new_inst(self_s.vs.len() as i64)),
+        // ));
+        return Ok(FSRRetValue::GlobalId(
+            thread.garbage_collect.new_object(
+                FSRValue::Integer(self_s.get_items().len() as i64),
+                FSRGlobalObjId::IntegerCls as ObjId,
+            ),
         ));
     }
 
@@ -55,13 +61,16 @@ fn list_string<'a>(
     }
 
     s.push(']');
-
-    Ok(FSRRetValue::Value(Box::new(FSRString::new_inst(Box::new(Cow::Owned(s))))))
+    let obj_id = thread.garbage_collect.new_object(
+        FSRValue::String(Box::new(Cow::Owned(s))),
+        FSRGlobalObjId::StringCls as ObjId,
+    );
+    Ok(FSRRetValue::GlobalId(obj_id))
 }
 
 fn iter<'a>(
     args: &[ObjId],
-    _: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'a>,
     __module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_id = args[0];
@@ -70,7 +79,10 @@ fn iter<'a>(
         index: 0,
     };
 
-    Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))))
+    let inner_obj = thread.garbage_collect.new_object(FSRValue::Iterator(Box::new(iterator)), FSRGlobalObjId::InnerIterator as ObjId);
+    Ok(FSRRetValue::GlobalId(inner_obj))
+
+    // Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))))
 }
 
 fn get_item<'a>(

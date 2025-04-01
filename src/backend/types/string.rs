@@ -17,7 +17,7 @@ pub struct FSRString {}
 
 fn string_len<'a>(
     args: &[ObjId],
-    _thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -26,9 +26,15 @@ fn string_len<'a>(
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::String(self_s) = &self_object.value {
-        return Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
-            self_s.len() as i64,
-        ))));
+        // return Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
+        //     self_s.len() as i64,
+        // ))));
+        return Ok(FSRRetValue::GlobalId(
+            thread.garbage_collect.new_object(
+                FSRValue::Integer(self_s.len() as i64),
+                FSRGlobalObjId::IntegerCls as ObjId,
+            ),
+        ));
     }
 
     unimplemented!()
@@ -117,12 +123,17 @@ fn get_sub_char<'a>(
         if let FSRValue::Integer(index) = &index.value {
             let index = *index as usize;
             if index < self_str.len() {
-                return Ok(FSRRetValue::Value(
-                    thread.get_vm().lock().unwrap().allocator.new_object(
-                        FSRValue::String(Box::new(Cow::Owned(self_str[index..index + 1].to_string()))),
-                        self_object.cls,
-                    ),
-                ));
+                // return Ok(FSRRetValue::Value(
+                //     thread.get_vm().lock().unwrap().allocator.new_object(
+                //         FSRValue::String(Box::new(Cow::Owned(self_str[index..index + 1].to_string()))),
+                //         self_object.cls,
+                //     ),
+                // ));
+                let obj_id = thread.garbage_collect.new_object(
+                    FSRValue::String(Box::new(Cow::Owned(self_str[index..index + 1].to_string()))),
+                    FSRGlobalObjId::StringCls as ObjId,
+                );
+                return Ok(FSRRetValue::GlobalId(obj_id));
             } else {
                 return Err(FSRError::new(
                     "index out of range",
