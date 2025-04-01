@@ -230,6 +230,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.tracker.object_count += 1;
         if let Some(free_idx) = self.free_slots.pop() {
             let obj = &mut self.objects[free_idx];
+            obj.free = false;
             // obj.garbage_collector_id = self.self_id;
             // obj.garbage_id = free_idx as u32;
             FSRObject::obj_to_id(obj)
@@ -266,8 +267,8 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         let mut freed_count = 0;
 
         while i < self.objects.len() {
-            if !self.marks[i] {
-                let obj = &mut self.objects[i];
+            let obj = &mut self.objects[i];
+            if !self.marks[i] && !obj.free {
                 obj.garbage_collector_id = self.self_id;
                 obj.free = true;
                 self.free_slots.push(i);

@@ -1,17 +1,17 @@
-fn abc3() {
-    a = 1
-    fn ddc() {
-        a = a + 1
-        println(a)
-        return a
-    }
-    a = 3
-    fn abcd() {
-        return ddc
-    }
-
-    return abcd()
+i = 0
+while i < 3000 {
+    i = i + 1
 }
 
-a = abc3()
-println(a())
+gc_info()
+gc_collect()
+gc_info()
+
+for i in 0..2 {
+    if i == 1 {
+        gc_info()
+    }
+}
+
+gc_collect()
+gc_info()
