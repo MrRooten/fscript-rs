@@ -219,7 +219,7 @@ mod test {
 
 }"#;
         let meta = super::FSRPosition::new();
-        let mut context = super::ASTContext::new();
+        let mut context = super::ASTContext::new_context();
         let if_token = super::FSRIf::parse(soruce.as_bytes(), meta, &mut context).unwrap();
         assert_eq!(if_token.get_len(), soruce.len());
     }

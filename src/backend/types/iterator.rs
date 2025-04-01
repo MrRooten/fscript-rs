@@ -45,7 +45,7 @@ fn next_obj<'a>(
 
             let obj_id = thread.garbage_collect.new_object_with_ptr();
             let obj = FSRObject::id_to_mut_obj(obj_id);
-            obj.value = FSRValue::Integer((it.index as i64 + r.range.start) as i64);
+            obj.value = FSRValue::Integer(it.index as i64 + r.range.start);
             obj.set_cls(FSRGlobalObjId::IntegerCls as ObjId);
 
             it.index += 1;

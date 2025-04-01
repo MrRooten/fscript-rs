@@ -29,3 +29,21 @@ assert(a() == 1)
 a = abc()
 
 assert(a() == 2)
+
+fn abc3() {
+    a = 1
+    fn ddc() {
+        a = a + 1
+        println(a)
+        return a
+    }
+
+    fn abcd() {
+        return ddc
+    }
+
+    return abcd()
+}
+
+a = abc3()
+println(a())

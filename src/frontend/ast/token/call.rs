@@ -99,16 +99,11 @@ impl<'a> FSRCall<'a> {
                     },
                     _ => {}
                 }
-            } else {
-                match &mut expr.0 {
-                    FSRToken::Variable(v) => {
-                        if context.is_variable_defined_in_curr(v.get_name()) {
-                            v.is_defined = true
-                        } else {
-                            context.ref_variable(v.get_name());
-                        }
-                    },
-                    _ => {}
+            } else if let FSRToken::Variable(v) = &mut expr.0 {
+                if context.is_variable_defined_in_curr(v.get_name()) {
+                    v.is_defined = true
+                } else {
+                    context.ref_variable(v.get_name());
                 }
             }
             

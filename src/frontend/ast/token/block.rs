@@ -245,7 +245,7 @@ mod test {
         } #absdfsdf
         ";
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new();
+        let mut context = ASTContext::new_context();
         let b = FSRBlock::parse(s.as_bytes(), meta, &mut context).unwrap();
         println!("{:#?}", b);
     }

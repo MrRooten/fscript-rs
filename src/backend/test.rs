@@ -178,8 +178,8 @@ pub mod tests {
         }
         
         ";
-        let mut v = FSRCode::from_code("main", &source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let mut v = FSRCode::from_code("main", source_code).unwrap();
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         let mut vm = Arc::new(Mutex::new(FSRVM::new()));
         let mut runtime = FSRThreadRuntime::new(vm);
@@ -240,7 +240,7 @@ dump(a)
             let mut source_code = String::new();
             f.read_to_string(&mut source_code).unwrap();
             let mut v = FSRCode::from_code("main", &source_code).unwrap();
-            let obj = Box::new(FSRModule::new("main", v));
+            let obj = Box::new(FSRModule::new_module("main", v));
             let obj_id = FSRVM::leak_object(obj);
             let mut vm = Arc::new(Mutex::new(FSRVM::new()));
             let mut runtime = FSRThreadRuntime::new(vm);
@@ -294,8 +294,8 @@ dump(a)
 
         abc()
         "#;
-        let mut v = FSRCode::from_code("main", &module1).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let mut v = FSRCode::from_code("main", module1).unwrap();
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         let mut vm = Arc::new(Mutex::new(FSRVM::new()));
         let mut runtime = FSRThreadRuntime::new(vm);

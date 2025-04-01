@@ -13,7 +13,7 @@ impl<'a> FSRModule<'a> {
         format!("Module: {}", self.name)
     }
 
-    pub fn new(name: &str, fn_map: HashMap<String, FSRObject<'a>>) -> FSRObject<'a> {
+    pub fn new_module(name: &str, fn_map: HashMap<String, FSRObject<'a>>) -> FSRObject<'a> {
         let module = FSRModule {
             name: name.to_string(),
             fn_map,

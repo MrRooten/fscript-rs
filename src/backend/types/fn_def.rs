@@ -72,6 +72,10 @@ impl Debug for FSRFn<'_> {
 
 impl<'a> FSRFn<'a> {
     pub fn get_closure_var(&self, name: &str) -> Option<ObjId> {
+        let obj = self.store_cells.get(name);
+        if let Some(s) = obj {
+            return Some(s.get());
+        }
         for i in self.closure_fn.iter().rev() {
             let obj = FSRObject::id_to_obj(*i);
             if let FSRValue::Function(f) = &obj.value {

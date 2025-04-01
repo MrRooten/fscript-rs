@@ -1,7 +1,17 @@
-fn test() {
-    println('abc')
-    dump(println)
+fn abc3() {
+    a = 1
+    fn ddc() {
+        a = a + 1
+        println(a)
+        return a
+    }
+    a = 3
+    fn abcd() {
+        return ddc
+    }
+
+    return abcd()
 }
 
-i = 0
-test()
+a = abc3()
+println(a())

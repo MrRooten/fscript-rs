@@ -275,7 +275,6 @@ pub enum SValue<'a> {
     Reference(&'a AtomicObjId, bool), // call_method
 }
 
-
 impl<'a> SValue<'a> {
     #[inline(always)]
     pub fn is_object(&self) -> bool {
@@ -286,6 +285,29 @@ impl<'a> SValue<'a> {
         false
     }
 
+    fn get_chains(
+        &self,
+        thread: &FSRThreadRuntime,
+        state: &CallFrame<'_>,
+        var: &(u64, String, bool),
+    ) -> Option<ObjId> {
+        let fn_id = state.fn_obj;
+        if fn_id != 0 {
+            let obj = FSRObject::id_to_obj(fn_id).as_fn();
+            if let Some(s) = obj.get_closure_var(var.1.as_str()) {
+                return Some(s);
+            }
+        }
+        let module = FSRObject::id_to_obj(state.code).as_code();
+        let vm = thread.get_vm();
+        let v = match module.get_object(&var.1) {
+            Some(s) => s.load(Ordering::Relaxed),
+            None => *vm.lock().unwrap().get_global_obj_by_name(&var.1).unwrap(),
+        };
+
+        Some(v)
+    }
+
     #[inline(always)]
     pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> Result<ObjId, FSRError> {
         Ok(match self {
@@ -294,23 +316,24 @@ impl<'a> SValue<'a> {
                 if let Some(id) = state.get_var(&s.0) {
                     *id
                 } else {
-                    let module = FSRObject::id_to_obj(state.code).as_code();
-                    let vm = thread.get_vm();
-                    let v = match module.get_object(&s.1) {
-                        Some(s) => s.load(Ordering::Relaxed),
-                        None => *vm.lock().unwrap().get_global_obj_by_name(&s.1).unwrap(),
-                    };
+                    Self::get_chains(self, thread, state, s).unwrap()
+                    // let fn_id = state.fn_obj;
+                    // if fn_id != 0 {}
 
-                    v
+                    // let module = FSRObject::id_to_obj(state.code).as_code();
+                    // let vm = thread.get_vm();
+                    // let v = match module.get_object(&s.1) {
+                    //     Some(s) => s.load(Ordering::Relaxed),
+                    //     None => *vm.lock().unwrap().get_global_obj_by_name(&s.1).unwrap(),
+                    // };
+
+                    // v
                 }
             }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
-            SValue::Reference(atomic_usize, _) => {
-                let id = atomic_usize.load(Ordering::Relaxed);
-                id
-            }
+            SValue::Reference(atomic_usize, _) => atomic_usize.load(Ordering::Relaxed),
         })
     }
 
@@ -350,7 +373,7 @@ pub struct ThreadContext<'a> {
 impl<'a> ThreadContext<'a> {
     pub fn new_context(vm: Arc<Mutex<FSRVM<'a>>>, code: ObjId, module: ObjId) -> Self {
         ThreadContext {
-            exp: Vec::with_capacity(8),
+            exp: Vec::with_capacity(12),
             ip: (0, 0),
             is_attr: false,
             code,
@@ -436,6 +459,7 @@ impl FlowTracker {
     }
 }
 
+#[allow(clippy::vec_box)]
 pub struct FSRThreadRuntime<'a> {
     pub(crate) cur_frame: Box<CallFrame<'a>>,
     pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
@@ -473,7 +497,7 @@ impl<'a> FSRThreadRuntime<'a> {
             exception: FSRObject::none_id(),
             exception_flag: false,
             closure_stack: vec![],
-            garbage_collect: MarkSweepGarbageCollector::new(),
+            garbage_collect: MarkSweepGarbageCollector::new_gc(),
             garbage_lock: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -597,10 +621,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
-            SValue::Reference(atomic_usize, _) => {
-                let id = atomic_usize.load(Ordering::Relaxed);
-                id
-            }
+            SValue::Reference(atomic_usize, _) => atomic_usize.load(Ordering::Relaxed),
         };
 
         let list_obj = match context.exp.get(context.exp.len() - 2).unwrap() {
@@ -611,10 +632,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
-            SValue::Reference(atomic_usize, _) => {
-                let id = atomic_usize.load(Ordering::Relaxed);
-                id
-            }
+            SValue::Reference(atomic_usize, _) => atomic_usize.load(Ordering::Relaxed),
         };
 
         let res = FSRObject::invoke_offset_method(
@@ -625,9 +643,13 @@ impl<'a> FSRThreadRuntime<'a> {
         )?;
 
         // pop after finish invoke
-        context.exp.pop().map(|x| x.drop_box(&mut self.thread_allocator));
+        if let Some(x) = context.exp.pop() {
+            x.drop_box(&mut self.thread_allocator)
+        }
 
-        context.exp.pop().map(|x| x.drop_box(&mut self.thread_allocator));
+        if let Some(x) = context.exp.pop() {
+            x.drop_box(&mut self.thread_allocator)
+        }
 
         match res {
             FSRRetValue::Value(object) => {
@@ -671,6 +693,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let state = &mut self.cur_frame;
             state.insert_var(var_id, obj_id, &mut self.garbage_collect);
             svalue.drop_box(&mut self.thread_allocator);
+            state.attr_map.clear_var(var_id as usize);
             return Ok(false);
         }
 
@@ -710,18 +733,16 @@ impl<'a> FSRThreadRuntime<'a> {
                 let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
                 self.thread_allocator.free_box_attr(args);
                 id
-            },
-            SValue::BoxObject(fsrobject) => FSRVM::leak_object(fsrobject),
-            SValue::Reference(atomic_usize, _) => {
-                let id = atomic_usize.load(Ordering::Relaxed);
-                id
             }
+            SValue::BoxObject(fsrobject) => FSRVM::leak_object(fsrobject),
+            SValue::Reference(atomic_usize, _) => atomic_usize.load(Ordering::Relaxed),
         };
 
         match assign_id {
             SValue::Stack(v) => {
                 let state = &mut self.cur_frame;
                 state.insert_var(v.0, to_assign_obj_id, &mut self.garbage_collect);
+                state.attr_map.clear_var(v.0 as usize);
                 //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
             }
             SValue::Attr(attr) => {
@@ -808,7 +829,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-
         let v2 = match context.exp.pop() {
             Some(s) => s,
             None => {
@@ -818,7 +838,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
-
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
@@ -864,7 +883,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
-
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
@@ -993,7 +1011,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let name = attr_id.name;
-        
+
         let id = if let SValue::Stack(s) = dot_father_svalue {
             let state = self.get_cur_mut_frame();
             if let Some(s) = state.get_attr(s.0 as usize, attr_id.attr_id as usize) {
@@ -1008,13 +1026,15 @@ impl<'a> FSRThreadRuntime<'a> {
             // let obj = FSRObject::id_to_obj(id);
             // println!("{:#?}", obj);
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr(self.thread_allocator.new_box_attr(
-                attr_id.attr_id,
-                dot_father,
-                Some(id),
-                name,
-                true,
-            )));
+            context
+                .exp
+                .push(SValue::Attr(self.thread_allocator.new_box_attr(
+                    attr_id.attr_id,
+                    dot_father,
+                    Some(id),
+                    name,
+                    true,
+                )));
             if let SValue::Stack(s) = dot_father_svalue {
                 let state = self.get_cur_mut_frame();
                 state
@@ -1023,13 +1043,15 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         } else {
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr(self.thread_allocator.new_box_attr(
-                attr_id.attr_id,
-                dot_father,
-                attr_id.attr_object_id,
-                name,
-                true,
-            )));
+            context
+                .exp
+                .push(SValue::Attr(self.thread_allocator.new_box_attr(
+                    attr_id.attr_id,
+                    dot_father,
+                    attr_id.attr_object_id,
+                    name,
+                    true,
+                )));
             if let SValue::Stack(s) = dot_father_svalue {
                 let state = self.get_cur_mut_frame();
                 state.attr_map.insert(
@@ -1097,22 +1119,26 @@ impl<'a> FSRThreadRuntime<'a> {
             // let obj = FSRObject::id_to_obj(id);
             // println!("{:#?}", obj);
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr(self.thread_allocator.new_box_attr(
-                attr_id.attr_id,
-                dot_father,
-                Some(id),
-                name,
-                false,
-            )));
+            context
+                .exp
+                .push(SValue::Attr(self.thread_allocator.new_box_attr(
+                    attr_id.attr_id,
+                    dot_father,
+                    Some(id),
+                    name,
+                    false,
+                )));
         } else {
             //context.exp.push(SValue::Global(dot_father));
-            context.exp.push(SValue::Attr(self.thread_allocator.new_box_attr(
-                attr_id.attr_id,
-                dot_father,
-                attr_id.attr_object_id,
-                name,
-                false,
-            )));
+            context
+                .exp
+                .push(SValue::Attr(self.thread_allocator.new_box_attr(
+                    attr_id.attr_id,
+                    dot_father,
+                    attr_id.attr_object_id,
+                    name,
+                    false,
+                )));
         }
         self.thread_allocator.free_box_attr(attr_id);
 
@@ -1150,7 +1176,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let lhs_id = lhs.get_global_id(self)?;
         let rhs_id = rhs.get_global_id(self)?;
-
 
         let start = FSRObject::id_to_obj(lhs_id);
         let end = FSRObject::id_to_obj(rhs_id);
@@ -1217,10 +1242,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 SValue::Global(g) => g,
                 SValue::BoxObject(obj) => FSRVM::leak_object(obj),
                 SValue::Attr(a) => a.attr_object_id.unwrap().load(Ordering::Relaxed),
-                SValue::Reference(atomic_usize, _) => {
-                    let id = atomic_usize.load(Ordering::Relaxed);
-                    id
-                }
+                SValue::Reference(atomic_usize, _) => atomic_usize.load(Ordering::Relaxed),
             };
             args.push(a_id);
             i += 1;
@@ -1442,8 +1464,8 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::BoxObject(_) => todo!(),
             SValue::Reference(atomic_usize, is_object) => {
                 call_method = is_object;
-                let id = atomic_usize.load(Ordering::Relaxed);
-                id
+
+                atomic_usize.load(Ordering::Relaxed)
             }
         };
 
@@ -1538,7 +1560,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let end = self.get_cur_mut_frame().catch_ends.pop().unwrap();
-        context.ip = (end.1 as usize, 0);
+        context.ip = (end.1, 0);
         Ok(true)
     }
 
@@ -1766,7 +1788,6 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-
     #[inline(always)]
     fn while_test_process(
         self: &mut FSRThreadRuntime<'a>,
@@ -1934,9 +1955,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 .get_global_id(self)?;
             let v = Self::compare(left, right, op, self, context)?;
 
-            context.exp.pop().map(|x| x.drop_box(&mut self.thread_allocator));
+            if let Some(x) = context.exp.pop() {
+                x.drop_box(&mut self.thread_allocator)
+            }
 
-            context.exp.pop().map(|x| x.drop_box(&mut self.thread_allocator));
+            if let Some(x) = context.exp.pop() {
+                x.drop_box(&mut self.thread_allocator)
+            }
 
             if v {
                 context.exp.push(SValue::Global(FSRObject::true_id()))
@@ -1974,12 +1999,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
                 self.thread_allocator.free_box_attr(args);
                 id
-            },
-            SValue::BoxObject(obj) => FSRVM::leak_object(obj),
-            SValue::Reference(atomic_usize, _) => {
-                let id = atomic_usize.load(Ordering::Relaxed);
-                id
             }
+            SValue::BoxObject(obj) => FSRVM::leak_object(obj),
+            SValue::Reference(atomic_usize, _) => atomic_usize.load(Ordering::Relaxed),
         };
 
         self.pop_stack(&[v]);
@@ -2175,13 +2197,13 @@ impl<'a> FSRThreadRuntime<'a> {
             let code = Self::read_code_from_module(module_name)?;
 
             let mut module = FSRCode::from_code(&module_name.join("."), &code)?;
-            let module = FSRModule::new(&module_name.join("."), module);
+            let module = FSRModule::new_module(&module_name.join("."), module);
             let module_obj = FSRVM::leak_object(Box::new(module));
             let obj_id = { self.load(module_obj)? };
 
             let state = self.get_cur_mut_frame();
             let mut will_remove = 0;
-            if let Some(s) = state.get_var(&v) {
+            if let Some(s) = state.get_var(v) {
                 will_remove = *s;
             }
             state.insert_var_no_garbage(*v, obj_id);
@@ -2324,7 +2346,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut target = false;
         target = FSRObject::none_id() == v1_id || FSRObject::false_id() == v1_id;
 
-        context.exp.pop().map(|x| x.drop_box(&mut self.thread_allocator));
+        if let Some(x) = context.exp.pop() {
+            x.drop_box(&mut self.thread_allocator)
+        }
 
         if target {
             context.exp.push(SValue::Global(FSRObject::true_id()));
@@ -2432,7 +2456,10 @@ impl<'a> FSRThreadRuntime<'a> {
         } else if let ArgType::ConstString(_, obj) = arg.get_arg() {
             exp_stack.push(SValue::Global(*obj));
         } else if let ArgType::Attr(attr_id, name) = arg.get_arg() {
-            exp_stack.push(SValue::Attr(self.thread_allocator.new_box_attr(*attr_id, 0, None, name, true)));
+            exp_stack.push(SValue::Attr(
+                self.thread_allocator
+                    .new_box_attr(*attr_id, 0, None, name, true),
+            ));
         } else if let ArgType::ClosureVar(v) = arg.get_arg() {
             let fn_id = self.get_cur_frame().fn_obj;
             if fn_id == 0 {
@@ -2454,14 +2481,11 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_frame();
 
         match (&state.exp, &state.ret_val) {
-            (None, None) => {
-                return;
-            }
+            (None, None) => {}
             (Some(_), None) => {
                 if let Some(s) = state.exp.take() {
                     *exp_stack = s;
                 }
-                return;
             }
             (None, Some(_)) => {
                 if let Some(s) = state.ret_val.take() {
@@ -2492,7 +2516,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 // self.garbage_collect.add_root(exception_handling);
                 return true;
             } else {
-                if self.call_frames.len() == 0 {
+                if self.call_frames.is_empty() {
                     panic!("No handle of error")
                 }
                 self.pop_stack(&[]);
@@ -2691,7 +2715,7 @@ impl<'a> FSRThreadRuntime<'a> {
             is_attr: false,
             code,
             call_end: vec![()],
-            module: module,
+            module,
         };
         {
             //self.save_ip_to_callstate(args.len(), &mut context.exp, &mut args, &mut context.ip);
@@ -2816,7 +2840,7 @@ mod test {
         export('abc', abc)
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -2836,7 +2860,7 @@ mod test {
         dump(i + b)
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -2912,7 +2936,7 @@ mod test {
         println(c)
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -2938,7 +2962,7 @@ mod test {
         println('ok')
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -2963,7 +2987,7 @@ mod test {
         println('ok')
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -2992,7 +3016,7 @@ mod test {
         println('ok')
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -3025,7 +3049,7 @@ mod test {
         println('ok')
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -3047,7 +3071,7 @@ mod test {
         }
         "#;
         let mut v = FSRCode::from_code("main", range).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -3073,7 +3097,7 @@ mod test {
         a()
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
@@ -3095,7 +3119,7 @@ mod test {
         gc_info()
         "#;
         let mut v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new("main", v));
+        let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));

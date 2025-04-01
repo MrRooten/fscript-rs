@@ -76,11 +76,7 @@ impl FSRValue<'_> {
             FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst.iter_values().map(|x| x.load(Ordering::Relaxed)).collect(),
             FSRValue::List(fsrlist) => fsrlist.iter_values().cloned().collect(),
             FSRValue::Function(f) => f.get_references(),
-            FSRValue::Iterator(_)
-            | FSRValue::Code(_)
-            | FSRValue::Range(_)
-            // | FSRValue::Any(_)
-            | _ => Vec::new(),
+            _ => vec![],
         }
     }
 }
@@ -179,7 +175,7 @@ impl<'a> FSRValue<'a> {
     }
 }
 
-impl<'a> Drop for FSRValue<'a> {
+impl Drop for FSRValue<'_> {
     fn drop(&mut self) {}
 }
 

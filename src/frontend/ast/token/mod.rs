@@ -30,13 +30,19 @@ pub struct ASTContext {
 }
 
 impl ASTContext {
-    pub fn new() -> Self {
+    pub fn new_context() -> Self {
         Self {
             variable_define: vec![Rc::new(RefCell::new(HashMap::new()))]
         }
     }
 
     pub fn add_variable(&self, name: &str) {
+        if let Some(s) = self.variable_define.last() {
+            if s.borrow().contains_key(name) {
+                // variable already defined, keep closure ref
+                return ;
+            }
+        }
         self.variable_define.last().unwrap().borrow_mut().insert(name.to_string(), false);
     }
 

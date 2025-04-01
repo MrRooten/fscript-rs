@@ -67,7 +67,12 @@ impl<'a> FSRClass<'a> {
     }
 
     pub fn insert_attr_id(&mut self, name: &'a str, obj_id: ObjId) {
-        self.attrs.insert(name, AtomicUsize::new(obj_id));
+        if let Some(v) = self.attrs.get_mut(name) {
+            v.store(obj_id, Ordering::Relaxed);
+        } else {
+            self.attrs.insert(name, AtomicUsize::new(obj_id));
+        }
+        
     }
 
     pub fn get_attr(&self, name: &str) -> Option<&AtomicObjId> {

@@ -1,3 +1,5 @@
+#![allow(clippy::vec_box)]
+
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 
@@ -15,6 +17,7 @@ struct Tracker {
     object_count: u32,
     throld: usize,
 }
+
 
 #[derive(Debug)]
 pub struct MarkSweepGarbageCollector<'a> {
@@ -41,7 +44,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.tracker.object_count
     }
 
-    pub fn new() -> Self {
+    pub fn new_gc() -> Self {
         Self {
             objects: Vec::with_capacity(THROLD),
             free_slots: Vec::with_capacity(THROLD),
@@ -119,7 +122,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     fn set_mark(
         &mut self,
         frames: &Vec<Box<CallFrame<'a>>>,
-        cur_frame: &Box<CallFrame>,
+        cur_frame: &CallFrame,
         others: &[ObjId],
     ) {
         let mut work_list = vec![];
@@ -197,7 +200,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         obj.garbage_id = free_idx as u32;
         obj.free = false;
         
-        return FSRObject::obj_to_id(obj);
+        FSRObject::obj_to_id(obj)
     }
 
     #[inline(always)]
@@ -219,7 +222,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             self.marks.resize(((len + 7) & !7), false);
         }
 
-        return FSRObject::obj_to_id(obj);
+        FSRObject::obj_to_id(obj)
     }
 
     #[inline(always)]
@@ -231,8 +234,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             // obj.garbage_id = free_idx as u32;
             FSRObject::obj_to_id(obj)
         } else {
-            let v = self.alloc_when_full(FSRValue::None, FSRGlobalObjId::None as ObjId);
-            v
+            
+            self.alloc_when_full(FSRValue::None, FSRGlobalObjId::None as ObjId)
         }
     }
 }
@@ -243,10 +246,10 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         // Reuse free slot if available
         self.tracker.object_count += 1;
         if let Some(free_idx) = self.free_slots.pop() {
-            return self.alloc_object(free_idx, value, cls);
+            self.alloc_object(free_idx, value, cls)
         } else {
-            return self.alloc_when_full(value, cls);
-        };
+            self.alloc_when_full(value, cls)
+        }
     }
 
     fn collect(

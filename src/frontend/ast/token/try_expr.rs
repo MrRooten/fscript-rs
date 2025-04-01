@@ -183,7 +183,7 @@ mod test {
  b = 2 
 }"#;
         let meta = FSRPosition::new();
-        let mut context = super::ASTContext::new();
+        let mut context = super::ASTContext::new_context();
         let try_expr = FSRTryBlock::parse(source.as_bytes(), meta, &mut context).unwrap();
         println!("{:#?}", try_expr);
 

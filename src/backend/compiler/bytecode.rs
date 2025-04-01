@@ -341,12 +341,24 @@ impl BytecodeContext {
 
     pub fn contains_variable_in_ref_stack(&self, name: &str) -> bool {
         for i in &self.ref_map_stack {
-            if i.contains_key(name) {
-                return true;
+            if let Some(v) = i.get(name) {
+                if *v {
+                    return true;
+                }
             }
         }
 
-        return false;
+        false
+    }
+
+    pub fn contains_in_cur_ref(&self, name: &str) -> bool {
+        if let Some(ref_map) = self.ref_map_stack.last() {
+            if let Some(v) = ref_map.get(name) {
+                return *v;
+            }
+        
+        }
+        false
     }
 }
 
@@ -604,16 +616,14 @@ impl<'a> Bytecode {
                 let v = var.get_name();
                 var_map.last_mut().unwrap().insert_var(v);
             }
-        } else {
-            if !var_map.last_mut().unwrap().has_attr(var.get_name()) {
-                let v = var.get_name();
-                var_map.last_mut().unwrap().insert_attr(v);
-            }
+        } else if !var_map.last_mut().unwrap().has_attr(var.get_name()) {
+            let v = var.get_name();
+            var_map.last_mut().unwrap().insert_attr(v);
         }
         
 
-        if !var.is_defined && context.contains_variable_in_ref_stack(var.get_name()) {
-            
+        // if !var.is_defined && context.contains_variable_in_ref_stack(var.get_name()) {
+        if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined{
             let op_arg = match is_attr {
                 true => BytecodeArg {
                     operator: BytecodeOperator::Load,
@@ -1792,21 +1802,20 @@ a.abc(0)
     #[test]
     fn lambda_closure_test() {
         let expr = "
-        fn abc(qwe) {
+        fn abc3() {
+            a = 1
             fn ddc() {
-                return qwe
+                a = a + 1
+                println(a)
+                return a
             }
 
             fn abcd() {
-                ddc()
+                return ddc
             }
 
-            return ddc
+            return abcd()
         }
-
-        a = abc(1)
-
-        dump(a)
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
@@ -1817,17 +1826,24 @@ a.abc(0)
     #[test]
     fn lambda_closure_test2() {
         let expr = "
-        fn abc() {
+        fn abc3() {
             a = 1
-            b = 1
-            
+            fn ddc() {
+                a = a + 1
+                println(a)
+                return a
+            }
+            a = 2
 
-            return ddc
+            fn abcd() {
+                return ddc
+            }
+
+            return abcd()
         }
 
-        a = abc()
-
-        dump(a)
+        a = abc3()
+        println(a())
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

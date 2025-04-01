@@ -98,7 +98,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             lambda_define_lines: vec![],
         };
 
-        let mut context = ASTContext::new();
+        let mut context = ASTContext::new_context();
         loop {
             if start + length >= source.len() {
                 break;

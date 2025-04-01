@@ -106,7 +106,7 @@ impl<'a> FSRFnDef<'a> {
             // check arg is valid variable name
             for arg in args_define {
                 let arg = arg.trim();
-                if arg.len() == 0 {
+                if arg.is_empty() {
                     let mut sub_meta = meta.from_offset(0);
                     let err = SyntaxError::new(&sub_meta, "Invalid lambda function, empty arg");
                     return Err(err);
@@ -164,7 +164,7 @@ impl<'a> FSRFnDef<'a> {
             context,
         )?;
         let scope = context.pop_scope();
-        return Ok(Self {
+        Ok(Self {
             name: name.to_string(),
             args: arg_collect,
             body: Rc::new(fn_block),
@@ -172,7 +172,7 @@ impl<'a> FSRFnDef<'a> {
             meta,
             lambda: true,
             ref_map: scope,
-        });
+        })
     }
 
     pub fn parse(
@@ -267,11 +267,8 @@ impl<'a> FSRFnDef<'a> {
         )?;
 
         for args in fn_call.get_args_mut() {
-            match args {
-                FSRToken::Variable(v) => {
-                    v.is_defined = true;
-                }
-                _ => {}
+            if let FSRToken::Variable(v) = args {
+                v.is_defined = true;
             }
         }
         let cur = context.pop_scope();
@@ -295,9 +292,11 @@ mod test {
     fn test_lambda() {
         let source = b"|a,b|{a+b}";
         let meta = FSRPosition::new();
-        let mut context = super::ASTContext::new();
+        let mut context = super::ASTContext::new_context();
         let result = super::FSRFnDef::parse_lambda(source, meta, "lambda_xxxx", &mut context);
         assert!(result.is_ok());
         println!("{:#?}", result.unwrap());
     }
+
+    
 }
