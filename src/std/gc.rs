@@ -20,9 +20,15 @@ pub fn fn_gc_info<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    println!(
-        "gc_info_track: {}",
+    print!(
+        "gc_info_track: {}, ",
         thread.garbage_collect.get_object_count()
+    );
+
+    print!("gc_speed: {:.2}/ms, ", thread.garbage_collect.get_speed());
+    println!(
+        "stw_time: {:?} ms",
+        thread.garbage_collect.get_stop_time() / 1000
     );
     Ok(FSRRetValue::GlobalId(0))
 }
@@ -35,11 +41,9 @@ pub fn fn_gc_collect<'a>(
     let mut other = thread.flow_tracker.for_iter_obj.clone();
     other.extend(thread.flow_tracker.ref_for_obj.clone());
     other.extend(thread.flow_tracker.iter_objects.clone());
-    thread.garbage_collect.collect(
-        &thread.call_frames,
-        &thread.cur_frame,
-        &other,
-    );
+    thread
+        .garbage_collect
+        .collect(&thread.call_frames, &thread.cur_frame, &other);
     Ok(FSRRetValue::GlobalId(0))
 }
 

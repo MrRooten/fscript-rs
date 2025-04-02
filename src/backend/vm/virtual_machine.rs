@@ -192,7 +192,6 @@ impl<'a> FSRVM<'a> {
             value,
             cls: 0,
             ref_count: AtomicU32::new(0),
-            delete_flag: AtomicBool::new(true),
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,

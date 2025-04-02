@@ -1756,7 +1756,7 @@ impl<'a> FSRThreadRuntime<'a> {
         context: &mut ThreadContext<'a>,
     ) -> Result<bool, FSRError> {
         let obj_id = context.exp.last().unwrap().get_global_id(self)?;
-        FSRObject::id_to_obj(obj_id).ref_add();
+        // FSRObject::id_to_obj(obj_id).ref_add();
         self.flow_tracker.ref_for_obj.push(obj_id);
         Ok(false)
     }
@@ -1898,9 +1898,12 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             state.insert_var(name.0, fn_id, &mut self.garbage_collect);
-            FSRObject::id_to_mut_obj(context.code)
-                .as_mut_code()
-                .register_object(&name.1, fn_id);
+            let define_fn_obj = self.get_cur_frame().fn_obj;
+            if define_fn_obj == FSRObject::none_id() {
+                FSRObject::id_to_mut_obj(context.code)
+                    .as_mut_code()
+                    .register_object(&name.1, fn_id);
+            }
             if name.2 {
                 let define_fn_obj = self.get_cur_frame().fn_obj;
                 if define_fn_obj == FSRObject::none_id() {
@@ -2058,7 +2061,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let SValue::BoxObject(obj) = svalue {
             //let state = self.get_cur_mut_frame();
             let state = &mut self.cur_frame;
-            obj.ref_add();
+            // obj.ref_add();
             let obj_id = FSRVM::leak_object(obj);
             // println!("{:#?}", obj);
             let fn_obj = self.get_cur_frame().fn_obj;
@@ -2082,7 +2085,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let obj_id = svalue.get_global_id(self)?;
-        FSRObject::id_to_obj(obj_id).ref_add();
+        // FSRObject::id_to_obj(obj_id).ref_add();
         let fn_obj = self.get_cur_frame().fn_obj;
         if fn_obj == FSRObject::none_id() {
             panic!("closure var must in closure");
@@ -2446,7 +2449,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn load_var(&mut self, exp_stack: &mut Vec<SValue<'a>>, arg: &'a BytecodeArg, module: ObjId) {
+    fn load_var(&mut self, exp_stack: &mut Vec<SValue<'a>>, arg: &'a BytecodeArg, module: ObjId) -> Result<bool, FSRError> {
         if let ArgType::Variable(var) = arg.get_arg() {
             exp_stack.push(SValue::Stack(var));
         } else if let ArgType::ConstInteger(_, obj) = arg.get_arg() {
@@ -2472,6 +2475,8 @@ impl<'a> FSRThreadRuntime<'a> {
             println!("{:?}", exp_stack);
             unimplemented!()
         }
+
+        Ok(false)
     }
 
     fn restore_exp_stack(&mut self, exp_stack: &mut Vec<SValue<'a>>) {}
@@ -2541,10 +2546,9 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let mut v;
 
+        self.set_exp_stack_ret(&mut context.exp);
         while let Some(arg) = expr.get(context.ip.1) {
             context.ip.1 += 1;
-
-            self.set_exp_stack_ret(&mut context.exp);
             // let arg = &expr[context.ip.1];
             #[cfg(feature = "bytecode_trace")]
             {

@@ -1,4 +1,11 @@
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, fs, path::Path, sync::{atomic::AtomicUsize, Mutex}};
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    collections::HashMap,
+    fs,
+    path::Path,
+    sync::{atomic::AtomicUsize, Mutex},
+};
 
 use ahash::AHashMap;
 
@@ -80,6 +87,6 @@ impl<'a> FSRCode<'a> {
     }
 
     pub fn get_object(&self, name: &str) -> Option<&AtomicObjId> {
-            self.object_map.get(name)
-        }
+        self.object_map.get(name)
+    }
 }

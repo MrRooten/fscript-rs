@@ -436,4 +436,28 @@ try {
         let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
     }
+
+    #[test]
+    fn test_nested_call() {
+        let code = r#"
+        fn abc() {
+            fn fib(n) {
+                if n == 1 or n == 2 {
+                    return 1
+                } else {
+                    return fib(n - 1) + fib(n - 2)
+                }
+            }
+            result = fib(30)
+            println(result)
+
+            gc_info()
+        }
+
+        abc()
+        "#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
 }

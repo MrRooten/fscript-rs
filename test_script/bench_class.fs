@@ -15,3 +15,5 @@ while t.index < 3000000 {
 }
 
 println(t.index)
+
+gc_info()

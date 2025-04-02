@@ -46,6 +46,16 @@ impl ASTContext {
         self.variable_define.last().unwrap().borrow_mut().insert(name.to_string(), false);
     }
 
+    pub fn add_variable_prev_one(&self, name: &str) {
+        if let Some(s) = self.variable_define.get(self.variable_define.len() - 2) {
+            if s.borrow().contains_key(name) {
+                // variable already defined, keep closure ref
+                return ;
+            }
+        }
+        self.variable_define.get(self.variable_define.len() - 2).unwrap().borrow_mut().insert(name.to_string(), false);
+    }
+
     pub fn ref_variable(&self, name: &str) {
         for scope in self.variable_define.iter().rev() {
             if scope.borrow().contains_key(name) {

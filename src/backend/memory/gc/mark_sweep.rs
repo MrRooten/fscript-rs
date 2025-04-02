@@ -16,8 +16,9 @@ use crate::backend::{
 struct Tracker {
     object_count: u32,
     throld: usize,
+    collect_time: u64, // in microseconds
+    count_free: u64,
 }
-
 
 #[derive(Debug)]
 pub struct MarkSweepGarbageCollector<'a> {
@@ -40,6 +41,18 @@ pub struct MarkSweepGarbageCollector<'a> {
 const THROLD: usize = 10240;
 
 impl<'a> MarkSweepGarbageCollector<'a> {
+    pub fn get_stop_time(&self) -> u64 {
+        self.tracker.collect_time
+    }
+
+    pub fn get_speed(&self) -> f64 {
+        if self.tracker.collect_time == 0 {
+            return 0.0;
+        }
+        let speed = (self.tracker.count_free * 1000) as f64 / self.tracker.collect_time as f64;
+        speed
+    }
+
     pub fn get_object_count(&self) -> u32 {
         self.tracker.object_count
     }
@@ -51,7 +64,12 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             roots: vec![],
             allocator: FSRObjectAllocator::new(),
             marks: Vec::with_capacity(THROLD),
-            tracker: Tracker { object_count: 0, throld: THROLD / 5 },
+            tracker: Tracker {
+                object_count: 0,
+                throld: THROLD / 5,
+                collect_time: 0,
+                count_free: 0,
+            },
             self_id: 1,
         }
     }
@@ -116,8 +134,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     fn clear_marks(&mut self) {
         self.marks.iter_mut().for_each(|m| *m = false);
     }
-
-    
 
     fn set_mark(
         &mut self,
@@ -199,7 +215,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         obj.garbage_collector_id = self.self_id;
         obj.garbage_id = free_idx as u32;
         obj.free = false;
-        
+
         FSRObject::obj_to_id(obj)
     }
 
@@ -235,7 +251,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             // obj.garbage_id = free_idx as u32;
             FSRObject::obj_to_id(obj)
         } else {
-            
             self.alloc_when_full(FSRValue::None, FSRGlobalObjId::None as ObjId)
         }
     }
@@ -259,6 +274,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         cur_frame: &Box<CallFrame>,
         others: &[ObjId],
     ) {
+        let st = std::time::Instant::now();
         self.clear_marks();
 
         self.set_mark(frames, cur_frame, others);
@@ -281,6 +297,8 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         if self.tracker.object_count as usize > self.tracker.throld * 9 / 10 {
             self.tracker.throld *= 2;
         }
+        self.tracker.collect_time += st.elapsed().as_micros() as u64;
+        self.tracker.count_free += freed_count as u64;
     }
 
     fn will_collect(&self) -> bool {

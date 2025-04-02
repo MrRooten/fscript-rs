@@ -1,17 +1,15 @@
-i = 0
-while i < 3000 {
-    i = i + 1
-}
-
-gc_info()
-gc_collect()
-gc_info()
-
-for i in 0..2 {
-    if i == 1 {
-        gc_info()
+fn abc() {
+    fn fib(n) {
+        if n == 1 or n == 2 {
+            return 1
+        } else {
+            return fib(n - 1) + fib(n - 2)
+        }
     }
+    result = fib(3)
+    println(result)
+
+    gc_info()
 }
 
-gc_collect()
-gc_info()
+abc()

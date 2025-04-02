@@ -184,7 +184,6 @@ pub struct FSRObject<'a> {
     pub(crate) garbage_collector_id: u32,
     pub(crate) ref_count: AtomicU32,
     pub(crate) cls: ObjId,
-    pub(crate) delete_flag: AtomicBool,
     pub(crate) free: bool,
     pub(crate) garbage_id: u32,
 }
@@ -267,7 +266,6 @@ impl<'a> FSRObject<'a> {
             value,
             cls,
             ref_count: AtomicU32::new(0),
-            delete_flag: AtomicBool::new(true),
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
@@ -323,7 +321,6 @@ impl<'a> FSRObject<'a> {
             value: FSRValue::None,
             cls: 0,
             ref_count: AtomicU32::new(0),
-            delete_flag: AtomicBool::new(true),
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
@@ -457,10 +454,6 @@ impl<'a> FSRObject<'a> {
         self.ref_count.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub fn set_not_delete(&self) {
-        self.delete_flag.store(false, Ordering::Relaxed);
-    }
-
     #[inline]
     pub fn ref_dec(&self) {
         self.ref_count.fetch_sub(1, Ordering::Relaxed);
@@ -468,20 +461,6 @@ impl<'a> FSRObject<'a> {
 
     pub fn into_object(id: ObjId) -> Box<FSRObject<'a>> {
         unsafe { Box::from_raw(id as *mut Self) }
-    }
-
-    pub fn drop_object(id: ObjId) {
-        let obj = FSRObject::id_to_obj(id);
-        if !(obj.delete_flag.load(Ordering::Relaxed)) {
-            return;
-        }
-
-        #[cfg(feature = "alloc_trace")]
-        HEAP_TRACE.dec_object();
-        //let _cleanup = unsafe { Box::from_raw(id as *mut Self) };
-        unsafe {
-            let _cleanup = Box::from_raw(id as *mut Self);
-        };
     }
 
     #[inline(always)]

@@ -561,7 +561,8 @@ impl<'a> Bytecode {
                 }
                 let id = var_map_ref.last_mut().unwrap().get_var(name).unwrap();
 
-                if !call.is_defined && const_map.contains_variable_in_ref_stack(call.get_name()) {
+                // if !call.is_defined && const_map.contains_variable_in_ref_stack(call.get_name()) {
+                if const_map.contains_variable_in_ref_stack(call.get_name()) {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: ArgType::ClosureVar((*id, name.to_string())),
@@ -622,8 +623,8 @@ impl<'a> Bytecode {
         }
         
 
-        // if !var.is_defined && context.contains_variable_in_ref_stack(var.get_name()) {
-        if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined{
+        if  context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined {
+        // if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined{
             let op_arg = match is_attr {
                 true => BytecodeArg {
                     operator: BytecodeOperator::Load,
@@ -1392,8 +1393,7 @@ impl<'a> Bytecode {
                 obj
             } else {
                 let obj = FSRInteger::new_inst(i);
-                obj.ref_add();
-                obj.set_not_delete();
+                // obj.ref_add();
                 let ptr = FSRVM::leak_object(Box::new(obj));
                 const_map.insert_table(id as usize, ptr);
                 ptr
@@ -1408,8 +1408,7 @@ impl<'a> Bytecode {
                 obj
             } else {
                 let obj = FSRString::new_inst(Box::new(Cow::Owned(String::from_utf8_lossy(s).to_string())));
-                obj.ref_add();
-                obj.set_not_delete();
+                // obj.ref_add();
                 let ptr = FSRVM::leak_object(Box::new(obj));
                 const_map.insert_table(id as usize, ptr);
                 ptr
@@ -1424,8 +1423,7 @@ impl<'a> Bytecode {
                 obj
             } else {
                 let obj = FSRFloat::new_inst(*f);
-                obj.ref_add();
-                obj.set_not_delete();
+                // obj.ref_add();
                 let ptr = FSRVM::leak_object(Box::new(obj));
                 const_map.insert_table(id as usize, ptr);
                 ptr
@@ -1809,7 +1807,7 @@ a.abc(0)
                 println(a)
                 return a
             }
-
+            a = 2
             fn abcd() {
                 return ddc
             }
@@ -1826,24 +1824,21 @@ a.abc(0)
     #[test]
     fn lambda_closure_test2() {
         let expr = "
-        fn abc3() {
-            a = 1
-            fn ddc() {
-                a = a + 1
-                println(a)
-                return a
+        fn abc() {
+            fn fib(n) {
+                if n == 1 or n == 2 {
+                    return 1
+                } else {
+                    return fib(n - 1) + fib(n - 2)
+                }
             }
-            a = 2
+            result = fib(30)
+            println(result)
 
-            fn abcd() {
-                return ddc
-            }
-
-            return abcd()
+            gc_info()
         }
 
-        a = abc3()
-        println(a())
+        abc()
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();

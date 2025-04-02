@@ -249,10 +249,12 @@ impl<'a> FSRFnDef<'a> {
         let fn_args = &source[2..2 + len];
         let mut sub_meta = meta.from_offset(2);
         
+        
         context.push_scope();
         let mut fn_call = FSRCall::parse(fn_args, sub_meta, context, true)?;
 
         let name = fn_call.get_name();
+        context.add_variable_prev_one(name);
         
         let fn_block_start = 2 + len;
         let mut sub_meta = meta.from_offset(fn_block_start);
@@ -272,7 +274,7 @@ impl<'a> FSRFnDef<'a> {
             }
         }
         let cur = context.pop_scope();
-        context.add_variable(name);
+        
         Ok(Self {
             name: name.to_string(),
             args: fn_call.get_args().clone(),

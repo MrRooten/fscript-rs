@@ -170,7 +170,6 @@ impl<'a> FSRFn<'a> {
             value: FSRValue::Function(Box::new(v)),
             cls: FSRGlobalObjId::FnCls as ObjId,
             ref_count: AtomicU32::new(1),
-            delete_flag: AtomicBool::new(true),
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,

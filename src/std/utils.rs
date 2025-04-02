@@ -2,15 +2,14 @@ use std::{borrow::Cow, collections::HashMap, ops::Range};
 
 use crate::{
     backend::{
-        types::{
+        memory::GarbageCollector, types::{
             base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
             code::FSRCode,
             fn_def::FSRFn,
             integer::FSRInteger,
             range::FSRRange,
             string::FSRString,
-        },
-        vm::thread::FSRThreadRuntime,
+        }, vm::thread::FSRThreadRuntime
     },
     utils::error::{FSRErrCode, FSRError},
 };
@@ -85,7 +84,7 @@ pub fn fsr_fn_range<'a>(
                 range: Range { start, end },
             };
 
-            return Ok(FSRRetValue::Value(thread.thread_allocator.new_object(
+            return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRValue::Range(Box::new(range)),
                 FSRGlobalObjId::RangeCls as ObjId,
             )));
