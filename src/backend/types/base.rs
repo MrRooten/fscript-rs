@@ -20,15 +20,7 @@ use crate::{
 };
 
 use super::{
-    class::FSRClass,
-    class_inst::FSRClassInst,
-    code::{self, FSRCode},
-    fn_def::FSRFn,
-    iterator::FSRInnerIterator,
-    list::FSRList,
-    module::FSRModule,
-    range::FSRRange,
-    string::FSRString,
+    any::AnyType, class::FSRClass, class_inst::FSRClassInst, code::{self, FSRCode}, fn_def::FSRFn, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, range::FSRRange, string::FSRString
 };
 
 pub type ObjId = usize;
@@ -49,6 +41,7 @@ pub enum FSRGlobalObjId {
     Exception = 12,
     RangeCls = 13,
     ModuleCls = 14,
+    ThreadCls = 15
 }
 
 #[derive(Debug)]
@@ -64,7 +57,7 @@ pub enum FSRValue<'a> {
     Iterator(Box<FSRInnerIterator>),
     Code(Box<FSRCode<'a>>),
     Range(Box<FSRRange>),
-    // Any(Box<dyn Any + Send>),
+    Any(Box<AnyType>),
     Module(Box<FSRModule<'a>>),
     None,
 }
@@ -143,32 +136,32 @@ impl<'a> FSRValue<'a> {
             FSRValue::None => Some(Box::new(Cow::Borrowed("None"))),
             FSRValue::Bool(e) => Some(Box::new(Cow::Owned(e.to_string()))),
             FSRValue::List(_) => {
-                let res = FSRObject::invoke_method("__str__", &[self_id], thread, module).unwrap();
-                match &res {
-                    FSRRetValue::Value(v) => {
-                        if let FSRValue::String(s) = &v.value {
-                            return Some(s.clone());
-                        }
-                        return None;
-                    }
-                    FSRRetValue::GlobalId(id) => {
-                        let obj = FSRObject::id_to_obj(*id);
-                        if let FSRValue::String(s) = &obj.value {
-                            return Some(s.clone());
-                        }
+                        let res = FSRObject::invoke_method("__str__", &[self_id], thread, module).unwrap();
+                        match &res {
+                            FSRRetValue::Value(v) => {
+                                if let FSRValue::String(s) = &v.value {
+                                    return Some(s.clone());
+                                }
+                                return None;
+                            }
+                            FSRRetValue::GlobalId(id) => {
+                                let obj = FSRObject::id_to_obj(*id);
+                                if let FSRValue::String(s) = &obj.value {
+                                    return Some(s.clone());
+                                }
 
-                        return None;
+                                return None;
+                            }
+                        }
                     }
-                }
-            }
             FSRValue::Iterator(_) => None,
             FSRValue::Code(fsrmodule) => Some(Box::new(Cow::Owned(fsrmodule.as_string()))),
             FSRValue::Range(fsrrange) => Some(Box::new(Cow::Owned(format!(
-                "Range({}..{})",
-                fsrrange.range.start, fsrrange.range.end
-            )))),
-            // FSRValue::Any(any) => Some(Box::new(Cow::Borrowed("InnerAny"))),
+                        "Range({}..{})",
+                        fsrrange.range.start, fsrrange.range.end
+                    )))),
             FSRValue::Module(fsrmodule) => Some(Box::new(Cow::Owned(fsrmodule.as_string()))),
+            FSRValue::Any(any_type) => Some(Box::new(Cow::Borrowed("AnyType"))),
         };
 
         s
@@ -182,7 +175,6 @@ impl Drop for FSRValue<'_> {
 pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
     pub(crate) garbage_collector_id: u32,
-    pub(crate) ref_count: AtomicU32,
     pub(crate) cls: ObjId,
     pub(crate) free: bool,
     pub(crate) mark: bool,
@@ -205,20 +197,18 @@ impl Debug for FSRObject<'_> {
             FSRValue::Iterator(_) => todo!(),
             FSRValue::Code(_) => todo!(),
             FSRValue::None => {
-                return f
-                    .debug_struct("FSRObject")
-                    .field("value", &self.value)
-                    .field("ref_count", &self.ref_count)
-                    .field("cls", &"None".to_string())
-                    .finish();
-            }
+                        return f
+                            .debug_struct("FSRObject")
+                            .field("value", &self.value)
+                            .field("cls", &"None".to_string())
+                            .finish();
+                    }
             FSRValue::Range(fsrrange) => todo!(),
-            // FSRValue::Any(any) => todo!(),
             FSRValue::Module(fsrmodule) => todo!(),
+            FSRValue::Any(any_type) => todo!(),
         };
         f.debug_struct("FSRObject")
             .field("value", &self.value)
-            .field("ref_count", &self.ref_count)
             .field("cls", &cls.name.to_string())
             .finish()
     }
@@ -266,7 +256,6 @@ impl<'a> FSRObject<'a> {
         FSRObject {
             value,
             cls,
-            ref_count: AtomicU32::new(0),
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
@@ -322,7 +311,6 @@ impl<'a> FSRObject<'a> {
         FSRObject {
             value: FSRValue::None,
             cls: 0,
-            ref_count: AtomicU32::new(0),
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
@@ -452,24 +440,24 @@ impl<'a> FSRObject<'a> {
         id < 1000
     }
 
-    #[inline]
-    pub fn ref_add(&self) {
-        self.ref_count.fetch_add(1, Ordering::Relaxed);
-    }
+    // #[inline]
+    // pub fn ref_add(&self) {
+    //     self.ref_count.fetch_add(1, Ordering::Relaxed);
+    // }
 
-    #[inline]
-    pub fn ref_dec(&self) {
-        self.ref_count.fetch_sub(1, Ordering::Relaxed);
-    }
+    // #[inline]
+    // pub fn ref_dec(&self) {
+    //     self.ref_count.fetch_sub(1, Ordering::Relaxed);
+    // }
 
     pub fn into_object(id: ObjId) -> Box<FSRObject<'a>> {
         unsafe { Box::from_raw(id as *mut Self) }
     }
 
-    #[inline(always)]
-    pub fn count_ref(&self) -> u32 {
-        unsafe { *self.ref_count.as_ptr() }
-    }
+    // #[inline(always)]
+    // pub fn count_ref(&self) -> u32 {
+    //     unsafe { *self.ref_count.as_ptr() }
+    // }
 
     #[inline(always)]
     pub fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {

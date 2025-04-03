@@ -173,9 +173,9 @@ pub fn fsr_timeit<'a>(
                         continue;
                     }
                     let obj = FSRObject::id_to_obj(id);
-                    if obj.count_ref() == 0 {
-                        thread.thread_allocator.free(id);
-                    }
+                    // if obj.count_ref() == 0 {
+                    //     thread.thread_allocator.free(id);
+                    // }
                 }
             };
         }

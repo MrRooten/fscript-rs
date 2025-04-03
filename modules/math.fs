@@ -11,5 +11,12 @@ class Div {
         self.denominator = denominator
         return self
     }
+
+    fn dump(self) {
+        println("numerator: ")
+        println(self.numerator)
+        println("denominator: ")
+        println(self.denominator)
+    }
 }
 

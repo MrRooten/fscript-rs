@@ -4,9 +4,7 @@ use crate::{
     backend::{
         memory::GarbageCollector,
         types::{
-            base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
-            code::FSRCode,
-            fn_def::FSRFn,
+            any::FSRThreadHandle, base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, code::FSRCode, fn_def::FSRFn
         },
         vm::thread::FSRThreadRuntime,
     },
@@ -50,10 +48,11 @@ pub fn fsr_new_thread<'a>(
         //     fn_obj.call(&args, x, module, fn_id);
         // });
     });
+    let handle = FSRThreadHandle::new(th);
     
-
+    let thread_obj = thread.garbage_collect.new_object(handle.to_any_type(), FSRGlobalObjId::ThreadCls as ObjId);
     
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(thread_obj))
 }
 
 pub fn init_thread<'a>() -> HashMap<&'static str, FSRObject<'a>> {

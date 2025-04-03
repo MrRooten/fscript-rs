@@ -161,9 +161,9 @@ impl DropObject<'_> for FSRList {
         for id in &self.vs {
             let obj = FSRObject::id_to_obj(*id);
             // obj.ref_dec();
-            if obj.count_ref() == 1 {
-                allocator.free(*id);
-            }
+            // if obj.count_ref() == 1 {
+            //     allocator.free(*id);
+            // }
         }
     }
 }

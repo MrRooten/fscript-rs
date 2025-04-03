@@ -301,7 +301,13 @@ impl<'a> SValue<'a> {
         let vm = thread.get_vm();
         let v = match module.get_object(&var.1) {
             Some(s) => s.load(Ordering::Relaxed),
-            None => *vm.get_global_obj_by_name(&var.1).unwrap(),
+            None => match vm.get_global_obj_by_name(&var.1) {
+                Some(s) => *s,
+                None => {
+                    
+                    unimplemented!("not found var: {}", var.1);
+                }
+            },
         };
 
         Some(v)
@@ -1371,6 +1377,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().args.push(*arg);
             }
             let offset = fn_obj.get_fsr_offset().1;
+            if let FSRValue::Function(obj) = &fn_obj.value {
+                //println!("{:#?}", FSRObject::id_to_obj(obj.module).as_module().as_string());
+                context.code = obj.code;
+            }
             context.ip = (offset.0, 0);
             return Ok(true);
         } else {
@@ -2280,9 +2290,9 @@ impl<'a> FSRThreadRuntime<'a> {
                     let obj = self.flow_tracker.for_iter_obj.pop().unwrap();
                     let iter_obj = FSRObject::id_to_obj(obj);
                     // iter_obj.ref_dec();
-                    if iter_obj.count_ref() == 1 {
-                        self.thread_allocator.free(obj);
-                    }
+                    // if iter_obj.count_ref() == 1 {
+                    //     self.thread_allocator.free(obj);
+                    // }
                     let obj_id = self.flow_tracker.ref_for_obj.pop().unwrap();
 
                     context.ip = (break_line, 0);

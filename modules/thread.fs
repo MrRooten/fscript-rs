@@ -1,10 +1,11 @@
 class Thread {
     fn __new__(self, f) {
-        self.f = f
+        self.handle = __new_thread(f)
+        dump(self.handle)
         return self
     }
 
-    fn start(self) {
-        __new_thread(self.f)
+    fn join(self) {
+        self.handle.join()
     }
 }

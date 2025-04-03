@@ -52,9 +52,6 @@ impl<'a> FSRCode<'a> {
 
             let mut object = FSRObject::new();
             // object.delete_flag.store(false, std::sync::atomic::Ordering::Relaxed);
-            object
-                .ref_count
-                .store(1, std::sync::atomic::Ordering::Relaxed);
             let tmp = code.name.to_string();
             object.value = FSRValue::Code(Box::new(code));
             object.cls = FSRGlobalObjId::CodeCls as ObjId;

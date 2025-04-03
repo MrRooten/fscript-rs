@@ -15,6 +15,7 @@ use crate::{
     backend::{
         memory::size_alloc::FSRObjectAllocator,
         types::{
+            any::FSRThreadHandle,
             base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
             bool::FSRBool,
             class::FSRClass,
@@ -110,17 +111,17 @@ impl<'a> FSRVM<'a> {
         1
     }
 
+    pub fn check_collect_garbage(&self) -> bool {
+        unimplemented!()
+    }
+
     pub fn stop_all_threads(&self) {
         for i in 0..self.thread_len.load(Ordering::SeqCst) {
             let pair = self.thread_stop.lock().unwrap()[i].clone();
-            self.threads
-                .lock()
-                .unwrap()
-                .get(i)
-                .unwrap()
-                .lock()
-                .unwrap()
-                .stop(pair.clone());
+            if let Some(thread) = self.threads.lock().unwrap().get(i) {
+                let mut thread_guard = thread.lock().unwrap();
+                thread_guard.stop(pair.clone());
+            }
             *pair.0.lock().unwrap() = true;
         }
     }
@@ -206,6 +207,10 @@ impl<'a> FSRVM<'a> {
                     FSRGlobalObjId::ModuleCls as ObjId,
                     FSRValue::Class(Box::new(FSRModule::get_class())),
                 ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::ThreadCls as ObjId,
+                    FSRValue::Class(Box::new(FSRThreadHandle::thread_cls())),
+                ));
             }
         }
     }
@@ -268,7 +273,6 @@ impl<'a> FSRVM<'a> {
         FSRObject {
             value,
             cls: 0,
-            ref_count: AtomicU32::new(0),
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
