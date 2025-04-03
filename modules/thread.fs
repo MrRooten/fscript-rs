@@ -1,7 +1,6 @@
 class Thread {
     fn __new__(self, f) {
         self.handle = __new_thread(f)
-        dump(self.handle)
         return self
     }
 
