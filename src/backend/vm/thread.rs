@@ -42,7 +42,7 @@ use crate::{
     utils::error::{FSRErrCode, FSRError},
 };
 
-use super::{free_list::FrameFreeList, virtual_machine::FSRVM};
+use super::{free_list::FrameFreeList, virtual_machine::{FSRVM, VM}};
 
 #[derive(Debug)]
 pub struct IndexMap {
@@ -462,7 +462,6 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
     frame_index: usize,
     pub(crate) frame_free_list: FrameFreeList<'a>,
-    vm: Arc<FSRVM<'a>>,
     pub(crate) thread_allocator: FSRObjectAllocator<'a>,
     pub(crate) flow_tracker: FlowTracker,
     pub(crate) exception: ObjId,
@@ -479,20 +478,19 @@ impl<'a> FSRThreadRuntime<'a> {
         self.stop = Some(pair);
     }
 
-    pub fn get_vm(&self) -> Arc<FSRVM<'a>> {
-        self.vm.clone()
+    pub fn get_vm(&self) -> Arc<FSRVM<'static>> {
+        unsafe { VM.as_ref().unwrap().clone() }
     }
 
     // pub fn get_mut_vm(&mut self) -> &'a mut FSRVM<'a> {
     //     unsafe { &mut *self.vm_ptr.unwrap() }
     // }
 
-    pub fn new(vm: Arc<FSRVM<'a>>) -> FSRThreadRuntime<'a> {
+    pub fn new() -> FSRThreadRuntime<'a> {
         let frame = Box::new(CallFrame::new("base", 0, 0));
         Self {
             cur_frame: frame,
             call_frames: vec![],
-            vm,
             frame_index: 0,
             frame_free_list: FrameFreeList::new_list(),
             thread_allocator: FSRObjectAllocator::new(),
@@ -2853,7 +2851,7 @@ mod test {
 
     #[test]
     fn test_export() {
-        let vm = FSRVM::new();
+        FSRVM::single();
         let source_code = r#"
         i = 0
         export("i", i)
@@ -2869,8 +2867,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
 
         // println!("{:?}", FSRObject::id_to_obj(v.get_object("abc").unwrap()));
@@ -2878,7 +2876,7 @@ mod test {
 
     #[test]
     fn test_float() {
-        let vm = FSRVM::new();
+        FSRVM::single();
         let source_code = r#"
         i = 1.1
         b = 1.2
@@ -2889,8 +2887,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
@@ -2965,8 +2963,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
@@ -2991,8 +2989,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
@@ -3016,8 +3014,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
@@ -3045,8 +3043,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
@@ -3078,8 +3076,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
@@ -3100,8 +3098,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
@@ -3126,8 +3124,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
@@ -3148,8 +3146,8 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 }

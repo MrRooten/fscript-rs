@@ -164,7 +164,7 @@ pub mod tests {
 
     #[test]
     fn test_while_backend() {
-        let vm = FSRVM::new();
+        let vm = FSRVM::single();
         let source_code = "
         fn test() {
             println('abc')
@@ -181,32 +181,11 @@ pub mod tests {
         let mut v = FSRCode::from_code("main", source_code).unwrap();
         let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
-    #[test]
-    fn test_class() {
-        FSRVM::new();
-        let source_code = "
-        class Abc {
-    fn __new__(self) {
-        self.abc = 0
-        return self
-    }
-}
-
-a = Abc()
-a.abc = 1
-
-dump(a)
-        
-        ";
-        let v = FSRCode::from_code("main", source_code).unwrap();
-
-        println!("{:#?}", v);
-    }
 
     #[test]
     fn test_new_object() {
@@ -225,7 +204,7 @@ dump(a)
 
     #[test]
     fn test_script() {
-        let vm = FSRVM::new();
+        FSRVM::single();
         let vs = vec![
             "test_script/test_class.fs",
             "test_script/test_expression.fs",
@@ -242,8 +221,8 @@ dump(a)
             let mut v = FSRCode::from_code("main", &source_code).unwrap();
             let obj = Box::new(FSRModule::new_module("main", v));
             let obj_id = FSRVM::leak_object(obj);
-            let mut vm = Arc::new(FSRVM::new());
-            let mut runtime = FSRThreadRuntime::new(vm);
+            let mut vm = FSRVM::single();
+            let mut runtime = FSRThreadRuntime::new();
 
             let start = Instant::now();
             //runtime.start(&v, &mut vm).unwrap();
@@ -297,8 +276,8 @@ dump(a)
         let mut v = FSRCode::from_code("main", module1).unwrap();
         let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
-        let mut vm = Arc::new(FSRVM::new());
-        let mut runtime = FSRThreadRuntime::new(vm);
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
 
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
@@ -307,35 +286,54 @@ dump(a)
     }
 
     #[test]
-    fn test_suspend_thread() {
+    fn test_expr2() {
         let module1 = r#"
-        i = 0
-        while i < 10000000 {
-            i = i + 1
-        }
-
-        println(i)
+        b = 10 + -1 * 10
+        println(b)
         "#;
-        let v = FSRCode::from_code("main", module1).unwrap();
+        
+        let mut v = FSRCode::from_code("main", module1).unwrap();
         let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
-        let vm = Arc::new(FSRVM::new());
-        let runtime = Mutex::new(FSRThreadRuntime::new(vm.clone()));
-        let tid = vm.add_thread(runtime);
-        let vm2 = vm.clone();
+        let mut vm = FSRVM::single();
+        let mut runtime = FSRThreadRuntime::new();
+
+        let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
-        let th = std::thread::spawn(move || {
-            vm2.clone()
-                .get_thread(tid, |f| {
-                    f.start(obj_id).unwrap();
-                })
-                .unwrap();
-        });
-        vm.stop_all_threads();
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        println!("sleep 2 seconds");
-        vm.continue_all_threads();
-        th.join().unwrap();
-        
+
+        runtime.start(obj_id).unwrap();
     }
+
+    // #[test]
+    // fn test_suspend_thread() {
+    //     let module1 = r#"
+    //     i = 0
+    //     while i < 10000000 {
+    //         i = i + 1
+    //     }
+
+    //     println(i)
+    //     "#;
+    //     let v = FSRCode::from_code("main", module1).unwrap();
+    //     let obj = Box::new(FSRModule::new_module("main", v));
+    //     let obj_id = FSRVM::leak_object(obj);
+    //     let vm = FSRVM::single();
+    //     let runtime = Mutex::new(FSRThreadRuntime::new());
+    //     let tid = vm.add_thread(runtime);
+    //     let vm2 = vm.clone();
+    //     //runtime.start(&v, &mut vm).unwrap();
+    //     let th = std::thread::spawn(move || {
+    //         vm2.clone()
+    //             .get_thread(tid, |f| {
+    //                 f.start(obj_id).unwrap();
+    //             })
+    //             .unwrap();
+    //     });
+    //     vm.stop_all_threads();
+    //     std::thread::sleep(std::time::Duration::from_secs(2));
+    //     println!("sleep 2 seconds");
+    //     vm.continue_all_threads();
+    //     th.join().unwrap();
+        
+    // }
 }

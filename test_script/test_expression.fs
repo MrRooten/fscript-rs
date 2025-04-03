@@ -32,3 +32,9 @@ assert(true)
 false = 1 != 1
 
 assert(!false)
+
+a = -1 * 10
+assert(a == -10)
+
+b = 10 + -1 * 10
+assert(b == 0)

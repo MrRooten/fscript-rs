@@ -6,6 +6,7 @@ use std::{
         atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
         Arc, Condvar, Mutex, MutexGuard,
     },
+    thread::JoinHandle,
 };
 
 use ahash::AHashMap;
@@ -43,11 +44,13 @@ pub enum ConstType<'a> {
 pub struct FSRVM<'a> {
     global: HashMap<String, ObjId>,
     global_modules: HashMap<&'a str, ObjId>,
-    threads: Mutex<Vec<Mutex<FSRThreadRuntime<'a>>>>,
+    threads: Mutex<Vec<Arc<Mutex<FSRThreadRuntime<'a>>>>>,
     thread_stop: Mutex<Vec<Arc<(Mutex<bool>, Condvar)>>>,
-    thread_id_up : AtomicUsize,
-    thread_len: AtomicUsize
+    thread_id_up: AtomicUsize,
+    thread_len: AtomicUsize,
 }
+
+pub static mut VM: Option<Arc<FSRVM<'static>>> = None;
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
 // pub static mut TRUE_OBJECT: Option<FSRObject> = None;
@@ -60,7 +63,7 @@ impl Default for FSRVM<'_> {
 }
 
 impl<'a> FSRVM<'a> {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::init_static_object();
         let mut v = Self {
             global: HashMap::new(),
@@ -68,32 +71,28 @@ impl<'a> FSRVM<'a> {
             threads: Mutex::new(vec![]),
             thread_stop: Mutex::new(vec![]),
             thread_id_up: AtomicUsize::new(0),
-            thread_len: AtomicUsize::new(0)
+            thread_len: AtomicUsize::new(0),
         };
         v.init();
         v
     }
 
-    pub fn get_thread<F, R>(&self, thread_id: usize, f: F) -> Option<R>
-    where
-        F: FnOnce(&mut FSRThreadRuntime<'a>) -> R,
-    {
-        let threads = self.threads.lock().unwrap();
-        // threads.iter().find(|x| x.).map(|thread| {
-        //     let mut t = thread.lock().unwrap();
-        //     f(&mut t)
-        // })
-        if thread_id < threads.len() {
-            let thread = &threads[thread_id];
-            let mut thread_guard = thread.lock().unwrap();
-            Some(f(&mut thread_guard))
-        } else {
-            None
+    pub fn single() -> Arc<FSRVM<'static>> {
+        unsafe {
+            if VM.is_none() {
+                VM = Some(Arc::new(FSRVM::new()))
+            }
+
+            VM.as_ref().unwrap().clone()
         }
     }
 
-    pub fn add_thread(&self, thread: Mutex<FSRThreadRuntime<'a>>) -> usize {
-        let len = self.threads.lock().unwrap().len();
+    pub fn get_thread(&self, thread_id: usize) -> Option<Arc<Mutex<FSRThreadRuntime<'a>>>> {
+        self.threads.lock().unwrap().get(thread_id).cloned()
+    }
+
+    pub fn add_thread(&self, thread: Arc<Mutex<FSRThreadRuntime<'a>>>) -> usize {
+        let len = self.thread_len.load(Ordering::Relaxed);
         thread.lock().unwrap().thread_id = len;
         let id = len;
         self.threads.lock().unwrap().push(thread);
@@ -102,7 +101,7 @@ impl<'a> FSRVM<'a> {
             .unwrap()
             .push(Arc::new((Mutex::new(false), Condvar::new())));
         self.thread_id_up.fetch_add(1, Ordering::SeqCst);
-        self.thread_len.store(self.threads.lock().unwrap().len(), Ordering::Relaxed);
+        self.thread_len.store(len + 1, Ordering::Relaxed);
         id
     }
 
@@ -114,12 +113,17 @@ impl<'a> FSRVM<'a> {
     pub fn stop_all_threads(&self) {
         for i in 0..self.thread_len.load(Ordering::SeqCst) {
             let pair = self.thread_stop.lock().unwrap()[i].clone();
-            self.threads.lock().unwrap().get(i).unwrap().lock().unwrap().stop(pair.clone());
+            self.threads
+                .lock()
+                .unwrap()
+                .get(i)
+                .unwrap()
+                .lock()
+                .unwrap()
+                .stop(pair.clone());
             *pair.0.lock().unwrap() = true;
         }
-        
     }
-
 
     pub fn continue_all_threads(&self) {
         for i in 0..self.thread_len.load(Ordering::SeqCst) {
@@ -308,5 +312,15 @@ impl<'a> FSRVM<'a> {
 
     pub fn get_module(&self, name: &str) -> Option<ObjId> {
         self.global_modules.get(name).copied()
+    }
+
+    pub fn start_thread<F>(&self, f: F, tid: usize) -> usize
+    where
+        F: FnOnce(&mut FSRThreadRuntime<'a>),
+    {
+        // std::thread::spawn(move || {
+        //     let rt =
+        // });
+        unimplemented!()
     }
 }

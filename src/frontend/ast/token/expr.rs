@@ -632,7 +632,7 @@ impl<'a> FSRExpr<'a> {
         let mut sub_meta = meta.from_offset(ctx.start);
         let c = if is_float {
             let f = ps.parse::<f64>().unwrap();
-            FSRConstant::from_float(f as f64, sub_meta, ps)
+            FSRConstant::from_float(f as f64, sub_meta, ps, ctx.single_op)
         } else {
             let i = ps.parse::<i64>().unwrap();
             FSRConstant::from_int(i, sub_meta, ps, ctx.single_op)

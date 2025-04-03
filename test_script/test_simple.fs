@@ -1,15 +1,6 @@
-fn abc() {
-    fn fib(n) {
-        if n == 1 or n == 2 {
-            return 1
-        } else {
-            return fib(n - 1) + fib(n - 2)
-        }
-    }
-    result = fib(3)
-    println(result)
+import math
 
-    gc_info()
-}
+d = math::Div(123, 456)
+dump(d)
 
-abc()
+t = math::Test(1)

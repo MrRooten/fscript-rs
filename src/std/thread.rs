@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 use crate::{
     backend::{
@@ -34,31 +34,33 @@ pub fn fsr_new_thread<'a>(
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let fn_id = args[0];
-    let args = &args[1..];
-    let vm = thread.get_vm();
+    let args = args[1..].to_vec();
     
-    let runtime = Mutex::new(FSRThreadRuntime::new(vm.clone()));
-    let thread_id = vm.add_thread(runtime);
-    let obj = thread.garbage_collect.new_object(
-        FSRValue::Integer(thread_id as i64),
-        FSRGlobalObjId::IntegerCls as ObjId,
-    );
+    let vm = thread.get_vm();
+    let vm2 = vm.clone();
     let th = std::thread::spawn(move || {
-        //vm
-        // vm.get_thread(thread_id, |f| {
-        //     let fn_def = FSRObject::id_to_obj(args[0]);
-        //     fn_def.call(args, f, module, fn_id).unwrap();
-        // })
-        // .unwrap();
+        
+        let runtime = Mutex::new(FSRThreadRuntime::new());
+        let thread_id = vm.add_thread(Arc::new(runtime));
+        let th = vm.get_thread(thread_id).unwrap();
+        let fn_obj = FSRObject::id_to_obj(fn_id);
+        fn_obj.call(&args, &mut th.lock().unwrap(), module, fn_id);
+        // vm2.get_thread(thread_id, |x| {
+        //     let fn_obj = FSRObject::id_to_obj(fn_id);
+        //     fn_obj.call(&args, x, module, fn_id);
+        // });
     });
+    
 
     
-    Ok(FSRRetValue::GlobalId(obj))
+    Ok(FSRRetValue::GlobalId(0))
 }
 
 pub fn init_thread<'a>() -> HashMap<&'static str, FSRObject<'a>> {
-    let print_fn = FSRFn::from_rust_fn_static(fsr_get_cur_thread_id, "__get_cur_thread_id");
+    let get_cur_thread_id_fn = FSRFn::from_rust_fn_static(fsr_get_cur_thread_id, "__get_cur_thread_id");
+    let new_thread_fn = FSRFn::from_rust_fn_static(fsr_new_thread, "__new_thread");
     let mut m = HashMap::new();
-    m.insert("__get_cur_thread_id", print_fn);
+    m.insert("__get_cur_thread_id", get_cur_thread_id_fn);
+    m.insert("__new_thread", new_thread_fn);
     m
 }

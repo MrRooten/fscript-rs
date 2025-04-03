@@ -35,7 +35,7 @@ pub struct FSRConstant<'a> {
     const_str: FSROrinStr<'a>,
     constant: FSRConstantType,
     pub(crate) len: usize,
-    pub(crate) single_op: Option<&'static str>,
+    pub(crate) single_op: Option<&'a str>,
     meta: FSRPosition,
 }
 
@@ -62,11 +62,11 @@ impl<'a> FSRConstant<'a> {
         }
     }
 
-    pub fn from_float(f: f64, meta: FSRPosition, s: &'a str) -> Self {
+    pub fn from_float(f: f64, meta: FSRPosition, s: &'a str, op: Option<&'a str>) -> Self {
         FSRConstant {
             constant: FSRConstantType::Float(f),
             len: 0,
-            single_op: None,
+            single_op: op,
             meta,
             const_str: FSROrinStr::Float(s)
         }
@@ -76,7 +76,7 @@ impl<'a> FSRConstant<'a> {
         FSRConstant {
             constant: FSRConstantType::Integer(i),
             len: 0,
-            single_op: None,
+            single_op: op,
             meta,
             const_str: FSROrinStr::Integer(s, op)
         }

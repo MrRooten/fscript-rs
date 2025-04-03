@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, ops::Range};
+use std::{borrow::Cow, collections::HashMap, ops::Range, time::Duration};
 
 use crate::{
     backend::{
@@ -199,18 +199,30 @@ pub fn fsr_try<'a>(
     unimplemented!()
 }
 
+pub fn fsr_sleep<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    if let FSRValue::Integer(i) = &FSRObject::id_to_obj(args[0]).value {
+        std::thread::sleep(Duration::from_millis(*i as u64));
+    }
+
+    Ok(FSRRetValue::GlobalId(0))
+}
+
 pub fn init_utils<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
     let export_fn = FSRFn::from_rust_fn_static(fsr_fn_export, "export");
     // let ref_count = FSRFn::from_rust_fn_static(fsr_fn_ref_count, "ref_count");
-    // let type_fn = FSRFn::from_rust_fn_static(fsr_fn_type, "type");
+    let sleep_fn = FSRFn::from_rust_fn_static(fsr_sleep, "sleep");
     let time_it = FSRFn::from_rust_fn_static(fsr_timeit, "timeit");
     let range = FSRFn::from_rust_fn_static(fsr_fn_range, "range");
     let mut m = HashMap::new();
     m.insert("assert", assert_fn);
     m.insert("export", export_fn);
     // m.insert("ref_count", ref_count);
-    // m.insert("type", type_fn);
+    m.insert("sleep", sleep_fn);
     m.insert("timeit", time_it);
     m.insert("range", range);
     m

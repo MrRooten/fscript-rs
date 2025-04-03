@@ -1861,4 +1861,15 @@ a.abc(0)
         let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);
     }
+
+    #[test]
+    fn test_c() {
+        let expr = "
+        b = 10 + -1 * 10";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
 }

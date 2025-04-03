@@ -10,14 +10,14 @@ use fscript_rs::backend::{
     vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
 };
 mod test {
-    use std::sync::{Arc, Mutex};
+    use std::{
+        clone,
+        sync::{Arc, Mutex},
+    };
 
     use fscript_rs::backend::{
         types::{code::FSRCode, module::FSRModule},
-        vm::{
-            thread::FSRThreadRuntime,
-            virtual_machine::FSRVM,
-        },
+        vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
     };
 
     pub fn bench() {
@@ -36,37 +36,23 @@ mod test {
         let v = FSRCode::from_code("main", module1).unwrap();
         let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
-        let vm = Arc::new(FSRVM::new());
-        let runtime = Mutex::new(FSRThreadRuntime::new(vm.clone()));
-        let tid = vm.add_thread(runtime);
-        let runtime2 = Mutex::new(FSRThreadRuntime::new(vm.clone()));
-        let tid2 = vm.add_thread(runtime2);
+        let vm = FSRVM::single();
         let vm2 = vm.clone();
         //runtime.start(&v, &mut vm).unwrap();
         let th = std::thread::spawn(move || {
+            let runtime = Arc::new(Mutex::new(FSRThreadRuntime::new()));
+            let tid = vm2.add_thread(runtime);
             println!("thread 1: {}", tid);
-            vm2.clone()
-                .get_thread(tid, |f| {
-                    f.start(obj_id).unwrap();
-                })
-                .unwrap();
+            let th = vm2.clone().get_thread(tid).unwrap();
+            th.lock().unwrap().start(obj_id);
         });
-        let vm3 = vm.clone();
-        let th2 = std::thread::spawn(move || {
-            println!("thread 2: {}", tid2);
-            vm3.clone()
-                .get_thread(tid2, |f| {
-                    f.start(obj_id).unwrap();
-                })
-                .unwrap();
-        });
+
         vm.stop_all_threads();
         // vm.wait_all_threads();
         std::thread::sleep(std::time::Duration::from_secs(2));
         println!("sleep 2 seconds");
         vm.continue_all_threads();
         th.join().unwrap();
-        th2.join().unwrap();
     }
 }
 
@@ -84,14 +70,13 @@ fn main() {
         println!("Usage: {} ${{file}}", vs[0]);
         return;
     }
-    let vm = FSRVM::new();
+    let vm = FSRVM::single();
     let file = &vs[1];
     let mut f = std::fs::File::open(file).unwrap();
     let mut source_code = String::new();
     f.read_to_string(&mut source_code).unwrap();
 
-    let vm = Arc::new(vm);
-    let rt = Mutex::new(FSRThreadRuntime::new(vm.clone()));
+    let rt = Arc::new(Mutex::new(FSRThreadRuntime::new()));
     let tid = vm.add_thread(rt);
     // let runtime = Arc::new(rt);
 
@@ -99,14 +84,12 @@ fn main() {
     let vm2 = vm.clone();
     //runtime.start(&v, &mut vm).unwrap();
     let th = std::thread::spawn(move || {
-        vm2.clone()
-            .get_thread(tid, |f| {
-                let v = FSRCode::from_code("main", &source_code).unwrap();
-                let module = Box::new(FSRModule::new_module("main", v));
-                let module_id = FSRVM::leak_object(module);
-                f.start(module_id).unwrap();
-            })
-            .unwrap();
+        let thread = vm2.clone().get_thread(tid).unwrap();
+
+        let v = FSRCode::from_code("main", &source_code).unwrap();
+        let module = Box::new(FSRModule::new_module("main", v));
+        let module_id = FSRVM::leak_object(module);
+        thread.lock().unwrap().start(module_id).unwrap();
     });
     let _ = th.join();
 
