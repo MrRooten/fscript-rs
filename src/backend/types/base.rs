@@ -185,6 +185,7 @@ pub struct FSRObject<'a> {
     pub(crate) ref_count: AtomicU32,
     pub(crate) cls: ObjId,
     pub(crate) free: bool,
+    pub(crate) mark: bool,
     pub(crate) garbage_id: u32,
 }
 
@@ -269,6 +270,7 @@ impl<'a> FSRObject<'a> {
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
+            mark: false,
         }
     }
 
@@ -324,6 +326,7 @@ impl<'a> FSRObject<'a> {
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
+            mark: false,
         }
     }
 

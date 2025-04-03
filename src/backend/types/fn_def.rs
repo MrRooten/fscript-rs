@@ -3,7 +3,7 @@ use std::{
     cell::Cell,
     collections::HashMap,
     fmt::{Debug, Formatter},
-    sync::atomic::{AtomicBool, AtomicU32, AtomicU64},
+    sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
 };
 
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
 };
 
@@ -50,18 +50,17 @@ impl FSRFnInner<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum FSRnE<'a> {
     RustFn((Cow<'a, str>, FSRRustFn)),
     FSRFn(FSRFnInner<'a>),
 }
 
-#[derive(Clone)]
 pub struct FSRFn<'a> {
     fn_def: FSRnE<'a>,
     pub(crate) code: ObjId,
     pub(crate) closure_fn: Vec<ObjId>, // fn define chain
-    pub(crate) store_cells: HashMap<&'a str, Cell<ObjId>>,
+    pub(crate) store_cells: HashMap<&'a str, AtomicObjId>,
 }
 
 impl Debug for FSRFn<'_> {
@@ -74,13 +73,13 @@ impl<'a> FSRFn<'a> {
     pub fn get_closure_var(&self, name: &str) -> Option<ObjId> {
         let obj = self.store_cells.get(name);
         if let Some(s) = obj {
-            return Some(s.get());
+            return Some(s.load(Ordering::Relaxed));
         }
         for i in self.closure_fn.iter().rev() {
             let obj = FSRObject::id_to_obj(*i);
             if let FSRValue::Function(f) = &obj.value {
                 let v = match f.store_cells.get(name) {
-                    Some(s) => s.get(),
+                    Some(s) => s.load(Ordering::Relaxed),
                     None => continue,
                 };
                 return Some(v);
@@ -90,7 +89,7 @@ impl<'a> FSRFn<'a> {
     }
 
     pub fn get_references(&self) -> Vec<ObjId> {
-        self.store_cells.values().map(|s| s.get()).collect()
+        self.store_cells.values().map(|s| s.load(Ordering::Relaxed)).collect()
     }
 
     pub fn as_str(&self) -> String {
@@ -173,6 +172,7 @@ impl<'a> FSRFn<'a> {
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
+            mark: false,
         }
     }
 

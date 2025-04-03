@@ -1,7 +1,7 @@
 #![allow(clippy::vec_box)]
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use ahash::AHashMap;
 
@@ -30,12 +30,14 @@ pub struct MarkSweepGarbageCollector<'a> {
     roots: Vec<ObjId>,
     // Object allocator
     allocator: FSRObjectAllocator<'a>,
-    // mark bitmap
-    marks: Vec<bool>,
+    // // mark bitmap
+    // marks: Vec<bool>,
 
     tracker: Tracker,
 
     self_id: u32,
+
+    check: AtomicBool
 }
 
 const THROLD: usize = 10240;
@@ -63,7 +65,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             free_slots: Vec::with_capacity(THROLD),
             roots: vec![],
             allocator: FSRObjectAllocator::new(),
-            marks: Vec::with_capacity(THROLD),
+            // marks: Vec::with_capacity(THROLD),
             tracker: Tracker {
                 object_count: 0,
                 throld: THROLD / 5,
@@ -71,6 +73,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
                 count_free: 0,
             },
             self_id: 1,
+            check: AtomicBool::new(false),
         }
     }
 
@@ -104,15 +107,16 @@ impl<'a> MarkSweepGarbageCollector<'a> {
 
     #[inline(always)]
     fn mark(&mut self, id: ObjId) {
-        let obj = FSRObject::id_to_obj(id);
-        if obj.garbage_collector_id != self.self_id {
-            return;
-        }
-        let idx = obj.garbage_id as usize;
-        if idx >= self.marks.len() {
-            self.marks.resize(((self.objects.len() + 7) & !7), false);
-        }
-        self.marks[idx] = true;
+        let obj = FSRObject::id_to_mut_obj(id);
+        obj.mark = true;
+        // if obj.garbage_collector_id != self.self_id {
+        //     return;
+        // }
+        // let idx = obj.garbage_id as usize;
+        // if idx >= self.marks.len() {
+        //     self.marks.resize(((self.objects.len() + 7) & !7), false);
+        // }
+        // self.marks[idx] = true;
     }
 
     fn is_marked(&self, id: ObjId) -> bool {
@@ -120,19 +124,21 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         //     .map(|idx| idx < self.marks.len() && self.marks[idx])
         //     .unwrap_or(false)
         let obj = FSRObject::id_to_obj(id);
-        if obj.garbage_collector_id != self.self_id {
-            return true;
-        }
+        obj.mark
+        // if obj.garbage_collector_id != self.self_id {
+        //     return true;
+        // }
 
-        let idx = obj.garbage_id as usize;
-        if idx >= self.marks.len() {
-            return true;
-        }
-        self.marks[idx]
+        // let idx = obj.garbage_id as usize;
+        // if idx >= self.marks.len() {
+        //     return true;
+        // }
+        // self.marks[idx]
     }
 
     fn clear_marks(&mut self) {
-        self.marks.iter_mut().for_each(|m| *m = false);
+        // self.marks.iter_mut().for_each(|m| *m = false);
+        self.objects.iter_mut().for_each(|m| m.mark = false);
     }
 
     fn set_mark(
@@ -234,9 +240,9 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         obj.garbage_id = slot_idx as u32;
         obj.free = false;
 
-        if self.marks.len() <= slot_idx {
-            self.marks.resize(((len + 7) & !7), false);
-        }
+        // if self.marks.len() <= slot_idx {
+        //     self.marks.resize(((len + 7) & !7), false);
+        // }
 
         FSRObject::obj_to_id(obj)
     }
@@ -284,7 +290,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
 
         while i < self.objects.len() {
             let obj = &mut self.objects[i];
-            if !self.marks[i] && !obj.free {
+            if !obj.mark && !obj.free {
                 obj.garbage_collector_id = self.self_id;
                 obj.free = true;
                 self.free_slots.push(i);

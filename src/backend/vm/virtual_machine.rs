@@ -1,9 +1,10 @@
 use std::{
     cell::RefCell,
-    collections::HashMap,
+    collections::{HashMap, LinkedList},
+    os::unix::thread,
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        Mutex,
+        atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
+        Arc, Condvar, Mutex, MutexGuard,
     },
 };
 
@@ -13,11 +14,25 @@ use crate::{
     backend::{
         memory::size_alloc::FSRObjectAllocator,
         types::{
-            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, code::FSRCode, error::FSRException, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, range::FSRRange, string::FSRString
+            base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
+            bool::FSRBool,
+            class::FSRClass,
+            code::FSRCode,
+            error::FSRException,
+            float::FSRFloat,
+            fn_def::FSRFn,
+            integer::FSRInteger,
+            iterator::FSRInnerIterator,
+            list::FSRList,
+            module::FSRModule,
+            range::FSRRange,
+            string::FSRString,
         },
     },
-    std::{gc::init_gc, io::init_io, utils::init_utils},
+    std::{gc::init_gc, io::init_io, thread::init_thread, utils::init_utils},
 };
+
+use super::thread::FSRThreadRuntime;
 
 #[derive(Hash, Debug, Eq, PartialEq)]
 pub enum ConstType<'a> {
@@ -28,9 +43,10 @@ pub enum ConstType<'a> {
 pub struct FSRVM<'a> {
     global: HashMap<String, ObjId>,
     global_modules: HashMap<&'a str, ObjId>,
-    const_integer_global: RefCell<HashMap<i64, ObjId>>,
-    pub(crate) const_map: Mutex<AHashMap<ConstType<'a>, ObjId>>,
-    pub allocator: FSRObjectAllocator<'a>,
+    threads: Mutex<Vec<Mutex<FSRThreadRuntime<'a>>>>,
+    thread_stop: Mutex<Vec<Arc<(Mutex<bool>, Condvar)>>>,
+    thread_id_up : AtomicUsize,
+    thread_len: AtomicUsize
 }
 
 // pub static mut NONE_OBJECT: Option<FSRObject> = None;
@@ -49,17 +65,68 @@ impl<'a> FSRVM<'a> {
         let mut v = Self {
             global: HashMap::new(),
             global_modules: HashMap::new(),
-            const_integer_global: RefCell::new(HashMap::new()),
-            const_map: Mutex::new(AHashMap::new()),
-            allocator: FSRObjectAllocator::new(),
+            threads: Mutex::new(vec![]),
+            thread_stop: Mutex::new(vec![]),
+            thread_id_up: AtomicUsize::new(0),
+            thread_len: AtomicUsize::new(0)
         };
         v.init();
         v
     }
 
+    pub fn get_thread<F, R>(&self, thread_id: usize, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut FSRThreadRuntime<'a>) -> R,
+    {
+        let threads = self.threads.lock().unwrap();
+        // threads.iter().find(|x| x.).map(|thread| {
+        //     let mut t = thread.lock().unwrap();
+        //     f(&mut t)
+        // })
+        if thread_id < threads.len() {
+            let thread = &threads[thread_id];
+            let mut thread_guard = thread.lock().unwrap();
+            Some(f(&mut thread_guard))
+        } else {
+            None
+        }
+    }
+
+    pub fn add_thread(&self, thread: Mutex<FSRThreadRuntime<'a>>) -> usize {
+        let len = self.threads.lock().unwrap().len();
+        thread.lock().unwrap().thread_id = len;
+        let id = len;
+        self.threads.lock().unwrap().push(thread);
+        self.thread_stop
+            .lock()
+            .unwrap()
+            .push(Arc::new((Mutex::new(false), Condvar::new())));
+        self.thread_id_up.fetch_add(1, Ordering::SeqCst);
+        self.thread_len.store(self.threads.lock().unwrap().len(), Ordering::Relaxed);
+        id
+    }
+
     #[inline(always)]
     pub fn get_true_id(&self) -> ObjId {
         1
+    }
+
+    pub fn stop_all_threads(&self) {
+        for i in 0..self.thread_len.load(Ordering::SeqCst) {
+            let pair = self.thread_stop.lock().unwrap()[i].clone();
+            self.threads.lock().unwrap().get(i).unwrap().lock().unwrap().stop(pair.clone());
+            *pair.0.lock().unwrap() = true;
+        }
+        
+    }
+
+
+    pub fn continue_all_threads(&self) {
+        for i in 0..self.thread_len.load(Ordering::SeqCst) {
+            let pair = self.thread_stop.lock().unwrap().get(i).unwrap().clone();
+            *pair.0.lock().unwrap() = false;
+            pair.1.notify_all();
+        }
     }
 
     #[inline(always)]
@@ -171,6 +238,12 @@ impl<'a> FSRVM<'a> {
             self.global.insert(obj.0.to_string(), id);
         }
 
+        let objs = init_thread();
+        for obj in objs {
+            let id = FSRVM::register_object(obj.1);
+            self.global.insert(obj.0.to_string(), id);
+        }
+
         self.init_global_object();
     }
 
@@ -195,6 +268,7 @@ impl<'a> FSRVM<'a> {
             garbage_id: 0,
             garbage_collector_id: 0,
             free: false,
+            mark: false,
         }
     }
 

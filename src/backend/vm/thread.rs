@@ -7,11 +7,10 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        atomic::{AtomicBool, Ordering}, Arc, Condvar, Mutex, MutexGuard
     },
     thread,
-    time::Instant,
+    time::{Duration, Instant},
     vec,
 };
 
@@ -302,7 +301,7 @@ impl<'a> SValue<'a> {
         let vm = thread.get_vm();
         let v = match module.get_object(&var.1) {
             Some(s) => s.load(Ordering::Relaxed),
-            None => *vm.lock().unwrap().get_global_obj_by_name(&var.1).unwrap(),
+            None => *vm.get_global_obj_by_name(&var.1).unwrap(),
         };
 
         Some(v)
@@ -389,9 +388,6 @@ impl<'a> ThreadContext<'a> {
         }
 
         while let Some(s) = self.exp.pop() {
-            // if let SValue::Attr(b) = s {
-            //     allocator.free_box_attr(b);
-            // }
             s.drop_box(allocator);
         }
     }
@@ -461,11 +457,12 @@ impl FlowTracker {
 
 #[allow(clippy::vec_box)]
 pub struct FSRThreadRuntime<'a> {
+    pub(crate) thread_id: usize,
     pub(crate) cur_frame: Box<CallFrame<'a>>,
     pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
     frame_index: usize,
     pub(crate) frame_free_list: FrameFreeList<'a>,
-    vm: Arc<Mutex<FSRVM<'a>>>,
+    vm: Arc<FSRVM<'a>>,
     pub(crate) thread_allocator: FSRObjectAllocator<'a>,
     pub(crate) flow_tracker: FlowTracker,
     pub(crate) exception: ObjId,
@@ -473,10 +470,16 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) closure_stack: Vec<HashMap<&'a str, ObjId>>,
     pub(crate) garbage_collect: MarkSweepGarbageCollector<'a>,
     pub(crate) garbage_lock: Arc<AtomicBool>,
+    pub(crate) stop: Option<Arc<(Mutex<bool>, Condvar)>>,
 }
 
 impl<'a> FSRThreadRuntime<'a> {
-    pub fn get_vm(&self) -> Arc<Mutex<FSRVM<'a>>> {
+    pub fn stop(&mut self, pair: Arc<(Mutex<bool>, Condvar)>) {
+        println!("stop thread");
+        self.stop = Some(pair);
+    }
+
+    pub fn get_vm(&self) -> Arc<FSRVM<'a>> {
         self.vm.clone()
     }
 
@@ -484,7 +487,7 @@ impl<'a> FSRThreadRuntime<'a> {
     //     unsafe { &mut *self.vm_ptr.unwrap() }
     // }
 
-    pub fn new(vm: Arc<Mutex<FSRVM<'a>>>) -> FSRThreadRuntime<'a> {
+    pub fn new(vm: Arc<FSRVM<'a>>) -> FSRThreadRuntime<'a> {
         let frame = Box::new(CallFrame::new("base", 0, 0));
         Self {
             cur_frame: frame,
@@ -499,7 +502,13 @@ impl<'a> FSRThreadRuntime<'a> {
             closure_stack: vec![],
             garbage_collect: MarkSweepGarbageCollector::new_gc(),
             garbage_lock: Arc::new(AtomicBool::new(false)),
+            stop: None,
+            thread_id: 0,
         }
+    }
+
+    pub fn get_thread_id(&self) -> usize {
+        self.thread_id
     }
 
     #[inline(always)]
@@ -722,7 +731,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     let vm = self.get_vm();
                     let v = match module.get_object(&s.1) {
                         Some(s) => s.load(Ordering::Relaxed),
-                        None => *vm.lock().unwrap().get_global_obj_by_name(&s.1).unwrap(),
+                        None => *vm.get_global_obj_by_name(&s.1).unwrap(),
                     };
 
                     v
@@ -1211,8 +1220,6 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             thread
                 .get_vm()
-                .lock()
-                .unwrap()
                 .get_global_obj_by_name(&var.1)
                 .copied()
         }
@@ -1404,8 +1411,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 // Cache global object in call frame
                 let v = self
                     .get_vm()
-                    .lock()
-                    .unwrap()
                     .get_global_obj_by_name(name)
                     .cloned()?;
 
@@ -1592,8 +1597,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 } else {
                     let v = self
                         .get_vm()
-                        .lock()
-                        .unwrap()
                         .get_global_obj_by_name(name)
                         .cloned()
                         .unwrap();
@@ -1911,15 +1914,15 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
                 let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj).as_mut_fn();
                 if let Some(s) = define_fn_obj.store_cells.get(name.1.as_str()) {
-                    let origin_var = s.get();
+                    let origin_var = s.load(Ordering::Relaxed);
                     // if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
                     //     self.thread_allocator.free(origin_var);
                     // }
-                    s.replace(fn_id);
+                    s.store(fn_id, Ordering::Relaxed);
                 } else {
                     define_fn_obj
                         .store_cells
-                        .insert(name.1.as_str(), Cell::new(fn_id));
+                        .insert(name.1.as_str(), AtomicObjId::new(fn_id));
                 }
             }
             context.ip = (context.ip.0 + *n as usize + 2, 0);
@@ -1992,7 +1995,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     let vm = self.get_vm();
                     let v = match module.get_object(&s.1) {
                         Some(s) => s.load(Ordering::Relaxed),
-                        None => *vm.lock().unwrap().get_global_obj_by_name(&s.1).unwrap(),
+                        None => *vm.get_global_obj_by_name(&s.1).unwrap(),
                     };
                     v
                 }
@@ -2070,15 +2073,15 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
             if let Some(s) = fn_obj.store_cells.get(closure.1.as_str()) {
-                let origin_var = s.get();
+                let origin_var = s.load(Ordering::Relaxed);
                 // if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
                 //     self.thread_allocator.free(origin_var);
                 // }
-                s.replace(obj_id);
+                s.store(obj_id, Ordering::Relaxed);
             } else {
                 fn_obj
                     .store_cells
-                    .insert(closure.1.as_str(), Cell::new(obj_id));
+                    .insert(closure.1.as_str(), AtomicObjId::new(obj_id));
             }
 
             return Ok(());
@@ -2092,15 +2095,15 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
         if let Some(s) = fn_obj.store_cells.get(closure.1.as_str()) {
-            let origin_var = s.get();
+            let origin_var = s.load(Ordering::Relaxed);
             // if FSRObject::id_to_obj(origin_var).count_ref() == 1 {
             //     self.thread_allocator.free(origin_var);
             // }
-            s.replace(obj_id);
+            s.store(obj_id, Ordering::Relaxed);
         } else {
             fn_obj
                 .store_cells
-                .insert(closure.1.as_str(), Cell::new(obj_id));
+                .insert(closure.1.as_str(), AtomicObjId::new(obj_id));
         }
 
         Ok(())
@@ -2449,7 +2452,12 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn load_var(&mut self, exp_stack: &mut Vec<SValue<'a>>, arg: &'a BytecodeArg, module: ObjId) -> Result<bool, FSRError> {
+    fn load_var(
+        &mut self,
+        exp_stack: &mut Vec<SValue<'a>>,
+        arg: &'a BytecodeArg,
+        module: ObjId,
+    ) -> Result<bool, FSRError> {
         if let ArgType::Variable(var) = arg.get_arg() {
             exp_stack.push(SValue::Stack(var));
         } else if let ArgType::ConstInteger(_, obj) = arg.get_arg() {
@@ -2576,6 +2584,19 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if Self::exception_process(self, context) {
                 return Ok(true);
+            }
+
+            if let Some(s) = &self.stop {
+                let (lock, cvar) = &*s.clone();
+                
+                cvar.notify_one();
+                let mut started = lock.lock().unwrap();
+
+                while *started {
+                    started = cvar.wait(started).unwrap();
+                }
+
+                self.stop = None;
             }
         }
         context.ip.0 += 1;
@@ -2848,7 +2869,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
 
@@ -2868,7 +2889,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -2944,7 +2965,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -2970,7 +2991,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -2995,7 +3016,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -3024,7 +3045,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -3057,7 +3078,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -3079,7 +3100,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -3105,7 +3126,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -3127,7 +3148,7 @@ mod test {
         let obj_id = FSRVM::leak_object(obj);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }

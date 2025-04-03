@@ -181,7 +181,7 @@ pub mod tests {
         let mut v = FSRCode::from_code("main", source_code).unwrap();
         let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
         runtime.start(obj_id).unwrap();
     }
@@ -242,7 +242,7 @@ dump(a)
             let mut v = FSRCode::from_code("main", &source_code).unwrap();
             let obj = Box::new(FSRModule::new_module("main", v));
             let obj_id = FSRVM::leak_object(obj);
-            let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+            let mut vm = Arc::new(FSRVM::new());
             let mut runtime = FSRThreadRuntime::new(vm);
 
             let start = Instant::now();
@@ -297,12 +297,45 @@ dump(a)
         let mut v = FSRCode::from_code("main", module1).unwrap();
         let obj = Box::new(FSRModule::new_module("main", v));
         let obj_id = FSRVM::leak_object(obj);
-        let mut vm = Arc::new(Mutex::new(FSRVM::new()));
+        let mut vm = Arc::new(FSRVM::new());
         let mut runtime = FSRThreadRuntime::new(vm);
 
         let start = Instant::now();
         //runtime.start(&v, &mut vm).unwrap();
 
         runtime.start(obj_id).unwrap();
+    }
+
+    #[test]
+    fn test_suspend_thread() {
+        let module1 = r#"
+        i = 0
+        while i < 10000000 {
+            i = i + 1
+        }
+
+        println(i)
+        "#;
+        let v = FSRCode::from_code("main", module1).unwrap();
+        let obj = Box::new(FSRModule::new_module("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        let vm = Arc::new(FSRVM::new());
+        let runtime = Mutex::new(FSRThreadRuntime::new(vm.clone()));
+        let tid = vm.add_thread(runtime);
+        let vm2 = vm.clone();
+        //runtime.start(&v, &mut vm).unwrap();
+        let th = std::thread::spawn(move || {
+            vm2.clone()
+                .get_thread(tid, |f| {
+                    f.start(obj_id).unwrap();
+                })
+                .unwrap();
+        });
+        vm.stop_all_threads();
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        println!("sleep 2 seconds");
+        vm.continue_all_threads();
+        th.join().unwrap();
+        
     }
 }
