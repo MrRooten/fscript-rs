@@ -75,8 +75,8 @@ impl FSRValue<'_> {
 }
 
 #[derive(Debug)]
-pub enum FSRRetValue<'a> {
-    Value(Box<FSRObject<'a>>),
+pub enum FSRRetValue {
+    // Value(Box<FSRObject<'a>>),
     GlobalId(ObjId),
 }
 
@@ -106,9 +106,9 @@ impl<'a> FSRValue<'a> {
                 }
             };
 
-            if let FSRRetValue::Value(v) = ret_value {
-                return Some(Box::new(Cow::Owned(v.as_string().to_string())));
-            }
+            // if let FSRRetValue::Value(v) = ret_value {
+            //     return Some(Box::new(Cow::Owned(v.as_string().to_string())));
+            // }
 
             if let FSRRetValue::GlobalId(id) = ret_value {
                 let obj = FSRObject::id_to_obj(id);
@@ -138,12 +138,12 @@ impl<'a> FSRValue<'a> {
             FSRValue::List(_) => {
                         let res = FSRObject::invoke_method("__str__", &[self_id], thread, module).unwrap();
                         match &res {
-                            FSRRetValue::Value(v) => {
-                                if let FSRValue::String(s) = &v.value {
-                                    return Some(s.clone());
-                                }
-                                return None;
-                            }
+                            // FSRRetValue::Value(v) => {
+                            //     if let FSRValue::String(s) = &v.value {
+                            //         return Some(s.clone());
+                            //     }
+                            //     return None;
+                            // }
                             FSRRetValue::GlobalId(id) => {
                                 let obj = FSRObject::id_to_obj(*id);
                                 if let FSRValue::String(s) = &obj.value {
@@ -490,7 +490,7 @@ impl<'a> FSRObject<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         let self_method = match self_object.get_cls_attr(name) {
             Some(s) => s.load(Ordering::Relaxed),
@@ -513,7 +513,7 @@ impl<'a> FSRObject<'a> {
         right: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         let left_object = Self::id_to_obj(left);
 
         if let Some(left_method) = left_object.get_cls_offset_attr(offset) {
@@ -545,7 +545,7 @@ impl<'a> FSRObject<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
 
         if let Some(self_method) = self_object.get_cls_offset_attr(offset) {
@@ -608,7 +608,7 @@ impl<'a> FSRObject<'a> {
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
         fn_id: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, module, fn_id);
         }

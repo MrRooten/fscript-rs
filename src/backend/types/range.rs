@@ -13,7 +13,7 @@ fn iter_obj<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_id = args[0];
     let iterator = FSRInnerIterator {
         obj: self_id,

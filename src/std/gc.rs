@@ -19,7 +19,7 @@ pub fn fn_gc_info<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     print!(
         "gc_info_track: {}, ",
         thread.garbage_collect.get_object_count()
@@ -37,7 +37,7 @@ pub fn fn_gc_collect<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let mut other = thread.flow_tracker.for_iter_obj.clone();
     other.extend(thread.flow_tracker.ref_for_obj.clone());
     other.extend(thread.flow_tracker.iter_objects.clone());

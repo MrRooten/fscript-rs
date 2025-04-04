@@ -19,7 +19,7 @@ fn join<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_mut_obj(args[0]);
     
     if let FSRValue::Any(any) = &mut self_object.value {
@@ -39,7 +39,7 @@ fn is_finish<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_mut_obj(args[0]);
     
     let done = if let FSRValue::Any(any) = &mut self_object.value {

@@ -15,7 +15,7 @@ fn list_len<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -40,7 +40,7 @@ fn list_string<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let mut s = String::new();
     s.push('[');
     let obj_id = args[0];
@@ -72,7 +72,7 @@ fn iter<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     __module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_id = args[0];
     let iterator = FSRInnerIterator {
         obj: self_id,
@@ -89,7 +89,7 @@ fn get_item<'a>(
     args: &[ObjId],
     _: &mut FSRThreadRuntime<'a>,
     _module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError>  {
+) -> Result<FSRRetValue, FSRError>  {
     let self_id = args[0];
     let index_id = args[1];
     let obj = FSRObject::id_to_obj(self_id);

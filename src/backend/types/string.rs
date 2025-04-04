@@ -19,7 +19,7 @@ fn string_len<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -44,7 +44,7 @@ fn add<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -80,7 +80,7 @@ fn eq<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -113,7 +113,7 @@ fn get_sub_char<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let index = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();

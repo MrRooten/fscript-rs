@@ -10,10 +10,7 @@ use fscript_rs::backend::{
     vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
 };
 mod test {
-    use std::{
-        clone,
-        sync::{Arc, Mutex},
-    };
+    use std::sync::{Arc, Mutex};
 
     use fscript_rs::backend::{
         types::{code::FSRCode, module::FSRModule},
@@ -44,7 +41,7 @@ mod test {
             let tid = vm2.add_thread(runtime);
             println!("thread 1: {}", tid);
             let th = vm2.clone().get_thread(tid).unwrap();
-            th.lock().unwrap().start(obj_id);
+            let _ = th.lock().unwrap().start(obj_id);
         });
 
         vm.stop_all_threads();

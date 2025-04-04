@@ -665,10 +665,10 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         match res {
-            FSRRetValue::Value(object) => {
-                let res_id = FSRVM::leak_object(object);
-                context.exp.push(SValue::Global(res_id));
-            }
+            // FSRRetValue::Value(object) => {
+            //     let res_id = FSRVM::leak_object(object);
+            //     context.exp.push(SValue::Global(res_id));
+            // }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
             }
@@ -814,9 +814,9 @@ impl<'a> FSRThreadRuntime<'a> {
         v2.drop_box(&mut self.thread_allocator);
 
         match res {
-            FSRRetValue::Value(object) => {
-                context.exp.push(SValue::BoxObject(object));
-            }
+            // FSRRetValue::Value(object) => {
+            //     context.exp.push(SValue::BoxObject(object));
+            // }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
             }
@@ -859,9 +859,9 @@ impl<'a> FSRThreadRuntime<'a> {
         v1.drop_box(&mut self.thread_allocator);
         v2.drop_box(&mut self.thread_allocator);
         match res {
-            FSRRetValue::Value(object) => {
-                context.exp.push(SValue::BoxObject(object));
-            }
+            // FSRRetValue::Value(object) => {
+            //     context.exp.push(SValue::BoxObject(object));
+            // }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
             }
@@ -907,9 +907,9 @@ impl<'a> FSRThreadRuntime<'a> {
         v2.drop_box(&mut self.thread_allocator);
 
         match res {
-            FSRRetValue::Value(object) => {
-                context.exp.push(SValue::BoxObject(object));
-            }
+            // FSRRetValue::Value(object) => {
+            //     context.exp.push(SValue::BoxObject(object));
+            // }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
             }
@@ -960,9 +960,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let res =
             FSRObject::invoke_binary_method(BinaryOffset::Div, v2_id, v1_id, self, context.code)?;
         match res {
-            FSRRetValue::Value(object) => {
-                context.exp.push(SValue::BoxObject(object));
-            }
+            // FSRRetValue::Value(object) => {
+            //     context.exp.push(SValue::BoxObject(object));
+            // }
             FSRRetValue::GlobalId(res_id) => {
                 context.exp.push(SValue::Global(res_id));
             }
@@ -1388,10 +1388,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 .call(args, self, context.code, FSRObject::obj_to_id(fn_obj))
                 .unwrap();
 
-            if let FSRRetValue::Value(v) = v {
-                let id = FSRVM::leak_object(v);
-                context.exp.push(SValue::Global(id));
-            } else if let FSRRetValue::GlobalId(id) = v {
+            // if let FSRRetValue::Value(v) = v {
+            //     let id = FSRVM::leak_object(v);
+            //     context.exp.push(SValue::Global(id));
+            // } else 
+            if let FSRRetValue::GlobalId(id) = v {
                 context.exp.push(SValue::Global(id));
             }
         }
@@ -1533,11 +1534,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            if let FSRRetValue::Value(v) = v {
-                let id = FSRVM::leak_object(v);
+            // if let FSRRetValue::Value(v) = v {
+            //     let id = FSRVM::leak_object(v);
 
-                context.exp.push(SValue::Global(id));
-            } else if let FSRRetValue::GlobalId(id) = v {
+            //     context.exp.push(SValue::Global(id));
+            // } else 
+            if let FSRRetValue::GlobalId(id) = v {
                 context.exp.push(SValue::Global(id));
             }
         }
@@ -2279,9 +2281,9 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRObject::invoke_offset_method(BinaryOffset::NextObject, &[obj], self, context.code)?;
 
         match res {
-            FSRRetValue::Value(object) => {
-                context.exp.push(SValue::BoxObject(object));
-            }
+            // FSRRetValue::Value(object) => {
+            //     context.exp.push(SValue::BoxObject(object));
+            // }
             FSRRetValue::GlobalId(res_id) => {
                 if res_id == 0 || self.flow_tracker.is_break {
                     self.flow_tracker.is_break = false;

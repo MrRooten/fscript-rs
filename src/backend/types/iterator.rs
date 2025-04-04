@@ -22,7 +22,7 @@ fn next_obj<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_obj = FSRObject::id_to_mut_obj(args[0]);
     let mut result = None;
     if let FSRValue::Iterator(it) = &mut self_obj.value {

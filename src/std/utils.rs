@@ -18,7 +18,7 @@ pub fn fsr_fn_assert<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     if value.is_false() {
         panic!("assert error")
@@ -30,7 +30,7 @@ pub fn fsr_fn_export<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let name = match &FSRObject::id_to_obj(args[0]).value {
         FSRValue::String(cow) => cow,
         _ => {
@@ -52,7 +52,7 @@ pub fn fsr_fn_export<'a>(
 //     args: &[ObjId],
 //     _thread: &mut FSRThreadRuntime<'a>,
 //     module: ObjId,
-// ) -> Result<FSRRetValue<'a>, FSRError> {
+// ) -> Result<FSRRetValue, FSRError> {
 //     if args.len() != 1 {
 //         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
 //     }
@@ -70,7 +70,7 @@ pub fn fsr_fn_range<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -98,7 +98,7 @@ pub fn fsr_fn_range<'a>(
 //     args: &[ObjId],
 //     _thread: &mut FSRThreadRuntime<'a>,
 //     module: ObjId,
-// ) -> Result<FSRRetValue<'a>, FSRError> {
+// ) -> Result<FSRRetValue, FSRError> {
 //     if args.len() != 1 {
 //         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
 //     }
@@ -155,7 +155,7 @@ pub fn fsr_timeit<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -165,9 +165,9 @@ pub fn fsr_timeit<'a>(
         let start = std::time::Instant::now();
         for _ in 0..*count {
             let res = match fn_def.call(&[], thread, module, args[0])? {
-                FSRRetValue::Value(fsrobject) => {
-                    thread.thread_allocator.free_object(fsrobject);
-                }
+                // FSRRetValue::Value(fsrobject) => {
+                //     thread.thread_allocator.free_object(fsrobject);
+                // }
                 FSRRetValue::GlobalId(id) => {
                     if FSRObject::is_sp_object(id) {
                         continue;
@@ -195,7 +195,7 @@ pub fn fsr_try<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     unimplemented!()
 }
 
@@ -203,7 +203,7 @@ pub fn fsr_sleep<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if let FSRValue::Integer(i) = &FSRObject::id_to_obj(args[0]).value {
         std::thread::sleep(Duration::from_millis(*i as u64));
     }

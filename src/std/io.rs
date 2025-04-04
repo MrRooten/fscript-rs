@@ -17,7 +17,7 @@ pub fn fsr_fn_print<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     let obj = value.to_string(thread, module);
     if let FSRValue::String(s) = &obj.value {
@@ -30,7 +30,7 @@ pub fn fsr_fn_println<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     let obj = value.to_string(thread, module);
     if let FSRValue::String(s) = &obj.value {
@@ -43,7 +43,7 @@ pub fn fsr_fn_dump<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
     Ok(FSRRetValue::GlobalId(0))
@@ -53,7 +53,7 @@ pub fn fsr_fn_format<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
@@ -64,7 +64,7 @@ pub fn fsr_fn_throw_error<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.is_empty() || args[0] == 0 {
         thread.exception = FSRObject::none_id();
     } else {
@@ -77,7 +77,7 @@ pub fn fsr_fn_get_error<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let ret = thread.get_cur_mut_frame().handling_exception;
     Ok(FSRRetValue::GlobalId(ret))
 }

@@ -26,7 +26,7 @@ type FSRRustFn = for<'a> fn(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError>;
+) -> Result<FSRRetValue, FSRError>;
 
 #[derive(Debug, Clone)]
 pub struct FSRFnInner<'a> {
@@ -186,7 +186,7 @@ impl<'a> FSRFn<'a> {
         thread: &mut FSRThreadRuntime<'a>,
         code: ObjId,
         fn_id: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f.1(args, thread, code);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
@@ -209,7 +209,7 @@ impl<'a> FSRFn<'a> {
         thread: &mut FSRThreadRuntime<'a>,
         code: ObjId,
         fn_id: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             return f.1(&[left, right], thread, code);
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
