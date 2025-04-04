@@ -22,7 +22,7 @@ use super::{
     class::FSRClass,
 };
 
-type FSRRustFn = for<'a> fn(
+pub type FSRRustFn = for<'a> fn(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,

@@ -13,7 +13,7 @@ use super::{
 
 pub struct FSRInteger {}
 
-fn add<'a>(
+pub fn add<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
@@ -158,7 +158,7 @@ fn right_shift<'a>(
     unimplemented!()
 }
 
-fn greater<'a>(
+pub fn greater<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
@@ -180,7 +180,7 @@ fn greater<'a>(
     unimplemented!()
 }
 
-fn less<'a>(
+pub fn less<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
@@ -202,7 +202,7 @@ fn less<'a>(
     unimplemented!()
 }
 
-fn greater_equal<'a>(
+pub fn greater_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
@@ -224,7 +224,7 @@ fn greater_equal<'a>(
     unimplemented!()
 }
 
-fn less_equal<'a>(
+pub fn less_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
@@ -246,7 +246,7 @@ fn less_equal<'a>(
     unimplemented!()
 }
 
-fn equal<'a>(
+pub fn equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId
@@ -268,7 +268,7 @@ fn equal<'a>(
     unimplemented!()
 }
 
-fn not_equal<'a>(
+pub fn not_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId

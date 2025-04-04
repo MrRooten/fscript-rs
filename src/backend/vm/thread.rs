@@ -7,7 +7,8 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, Ordering}, Arc, Condvar, Mutex, MutexGuard
+        atomic::{AtomicBool, Ordering},
+        Arc, Condvar, Mutex, MutexGuard,
     },
     thread,
     time::{Duration, Instant},
@@ -30,7 +31,7 @@ use crate::{
             code::FSRCode,
             error::FSRException,
             float::FSRFloat,
-            fn_def::{FSRFn, FSRFnInner},
+            fn_def::{FSRFn, FSRFnInner, FSRRustFn},
             integer::FSRInteger,
             list::FSRList,
             module::FSRModule,
@@ -42,7 +43,10 @@ use crate::{
     utils::error::{FSRErrCode, FSRError},
 };
 
-use super::{free_list::FrameFreeList, virtual_machine::{FSRVM, VM}};
+use super::{
+    free_list::FrameFreeList,
+    virtual_machine::{FSRVM, VM},
+};
 
 #[derive(Debug)]
 pub struct IndexMap {
@@ -304,7 +308,6 @@ impl<'a> SValue<'a> {
             None => match vm.get_global_obj_by_name(&var.1) {
                 Some(s) => *s,
                 None => {
-                    
                     unimplemented!("not found var: {}", var.1);
                 }
             },
@@ -461,6 +464,80 @@ impl FlowTracker {
     }
 }
 
+const OP_LEN: usize = 30;
+
+pub struct Ops {
+    pub(crate) add: [[Option<FSRRustFn>; OP_LEN]; OP_LEN],
+    pub(crate) less: [[Option<FSRRustFn>; OP_LEN]; OP_LEN],
+    pub(crate) greater: [[Option<FSRRustFn>; OP_LEN]; OP_LEN],
+}
+
+impl Ops {
+    pub fn new_init() -> Self {
+        let mut add = [[None; OP_LEN]; OP_LEN];
+        Self::insert(
+            FSRGlobalObjId::IntegerCls as usize,
+            FSRGlobalObjId::IntegerCls as usize,
+            &mut add,
+            crate::backend::types::integer::add,
+        );
+
+        let mut less = [[None; OP_LEN]; OP_LEN];
+        Self::insert(
+            FSRGlobalObjId::IntegerCls as usize,
+            FSRGlobalObjId::IntegerCls as usize,
+            &mut less,
+            crate::backend::types::integer::less,
+        );
+
+        let mut greater = [[None; OP_LEN]; OP_LEN];
+        Self::insert(
+            FSRGlobalObjId::IntegerCls as usize,
+            FSRGlobalObjId::IntegerCls as usize,
+            &mut greater,
+            crate::backend::types::integer::greater,
+        );
+
+        Self { add, less, greater }
+    }
+
+    pub fn insert(
+        i: usize,
+        j: usize,
+        ops: &mut [[Option<FSRRustFn>; OP_LEN]; OP_LEN],
+        op: FSRRustFn,
+    ) {
+        ops[i][j] = Some(op);
+    }
+
+    #[inline(always)]
+    pub fn get_add(&self, i: usize, j: usize) -> Option<FSRRustFn> {
+        // is the square matrix, so self.add len is the same as self.add[i].len()
+        if i < OP_LEN && j < OP_LEN {
+            return self.add[i][j];
+        }
+        None
+    }
+
+    #[inline(always)]
+    pub fn get_less(&self, i: usize, j: usize) -> Option<FSRRustFn> {
+        // is the square matrix, so self.add len is the same as self.add[i].len()
+        if i < OP_LEN && j < OP_LEN {
+            return self.less[i][j];
+        }
+        None
+    }
+
+    #[inline(always)]
+    pub fn get_greater(&self, i: usize, j: usize) -> Option<FSRRustFn> {
+        // is the square matrix, so self.add len is the same as self.add[i].len()
+        if i < OP_LEN && j < OP_LEN {
+            return self.greater[i][j];
+        }
+        None
+    }
+}
+
 #[allow(clippy::vec_box)]
 pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_id: usize,
@@ -476,6 +553,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) garbage_collect: MarkSweepGarbageCollector<'a>,
     pub(crate) garbage_lock: Arc<AtomicBool>,
     pub(crate) stop: Option<Arc<(Mutex<bool>, Condvar)>>,
+    pub(crate) op_quick: Box<Ops>,
 }
 
 impl<'a> FSRThreadRuntime<'a> {
@@ -508,6 +586,7 @@ impl<'a> FSRThreadRuntime<'a> {
             garbage_lock: Arc::new(AtomicBool::new(false)),
             stop: None,
             thread_id: 0,
+            op_quick: Box::new(Ops::new_init()),
         }
     }
 
@@ -548,19 +627,39 @@ impl<'a> FSRThreadRuntime<'a> {
         let res;
 
         if op.eq(">") {
-            res = FSRObject::invoke_offset_method(
-                BinaryOffset::Greater,
-                &[left, right],
-                thread,
-                context.code,
-            )?;
+            let left_obj = FSRObject::id_to_obj(left);
+            let right_obj = FSRObject::id_to_obj(right);
+
+            res = if let Some(less) = thread.op_quick.get_greater(
+                right_obj.cls as ObjId,
+                left_obj.cls as ObjId,
+            ) {
+                less(&[left, right], thread, context.code)?
+            } else {
+                FSRObject::invoke_offset_method(
+                    BinaryOffset::Greater,
+                    &[left, right],
+                    thread,
+                    context.code,
+                )?
+            };
         } else if op.eq("<") {
-            res = FSRObject::invoke_offset_method(
-                BinaryOffset::Less,
-                &[left, right],
-                thread,
-                context.code,
-            )?;
+            let left_obj = FSRObject::id_to_obj(left);
+            let right_obj = FSRObject::id_to_obj(right);
+
+            res = if let Some(less) = thread.op_quick.get_less(
+                right_obj.cls as ObjId,
+                left_obj.cls as ObjId,
+            ) {
+                less(&[left, right], thread, context.code)?
+            } else {
+                FSRObject::invoke_offset_method(
+                    BinaryOffset::Less,
+                    &[left, right],
+                    thread,
+                    context.code,
+                )?
+            };
         } else if op.eq(">=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::GreatEqual,
@@ -595,10 +694,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRErrCode::NotSupportOperator,
             ));
         }
-        if let FSRRetValue::GlobalId(id) = &res {
-            return Ok(id == &1);
-        }
-        Err(FSRError::new("not a object", FSRErrCode::NotValidArgs))
+        // if let FSRRetValue::GlobalId(id) = &res {
+        //     return Ok(id == &1);
+        // }
+
+        let FSRRetValue::GlobalId(id) = res;
+        return Ok(id == 1);
     }
 
     fn pop_stack(&mut self, escape: &[ObjId]) {
@@ -807,6 +908,29 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
+
+        let v1_obj = FSRObject::id_to_obj(v1_id);
+        let v2_obj = FSRObject::id_to_obj(v2_id);
+        if let Some(op_quick) = self
+            .op_quick
+            .get_add(v2_obj.cls as ObjId, v1_obj.cls as ObjId)
+        {
+            let res = op_quick(&[v2_id, v1_id], self, context.code)?;
+            v1.drop_box(&mut self.thread_allocator);
+            v2.drop_box(&mut self.thread_allocator);
+
+            match res {
+                // FSgRRetValue::Value(object) => {
+                //     context.exp.push(SValue::BoxObject(object));
+                // }
+                FSRRetValue::GlobalId(res_id) => {
+                    context.exp.push(SValue::Global(res_id));
+                }
+            };
+
+            return Ok(false);
+        }
+
         let res =
             FSRObject::invoke_binary_method(BinaryOffset::Add, v2_id, v1_id, self, context.code)?;
 
@@ -1222,10 +1346,7 @@ impl<'a> FSRThreadRuntime<'a> {
         } else if let Some(value) = FSRObject::id_to_obj(code).as_code().get_object(&var.1) {
             Some(value.load(Ordering::Relaxed))
         } else {
-            thread
-                .get_vm()
-                .get_global_obj_by_name(&var.1)
-                .copied()
+            thread.get_vm().get_global_obj_by_name(&var.1).copied()
         }
     }
 
@@ -1388,13 +1509,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 .call(args, self, context.code, FSRObject::obj_to_id(fn_obj))
                 .unwrap();
 
-            // if let FSRRetValue::Value(v) = v {
-            //     let id = FSRVM::leak_object(v);
-            //     context.exp.push(SValue::Global(id));
-            // } else 
-            if let FSRRetValue::GlobalId(id) = v {
-                context.exp.push(SValue::Global(id));
-            }
+            let FSRRetValue::GlobalId(id) = v;
+            context.exp.push(SValue::Global(id));
         }
         Ok(false)
     }
@@ -1418,10 +1534,7 @@ impl<'a> FSRThreadRuntime<'a> {
             Some(s) => Some(s.load(Ordering::Relaxed)),
             None => {
                 // Cache global object in call frame
-                let v = self
-                    .get_vm()
-                    .get_global_obj_by_name(name)
-                    .cloned()?;
+                let v = self.get_vm().get_global_obj_by_name(name).cloned()?;
 
                 let state = self.get_cur_mut_frame();
                 let mut will_remove = 0;
@@ -1534,14 +1647,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            // if let FSRRetValue::Value(v) = v {
-            //     let id = FSRVM::leak_object(v);
-
-            //     context.exp.push(SValue::Global(id));
-            // } else 
-            if let FSRRetValue::GlobalId(id) = v {
-                context.exp.push(SValue::Global(id));
-            }
+            let FSRRetValue::GlobalId(id) = v;
+            context.exp.push(SValue::Global(id));
         }
 
         Ok(false)
@@ -1605,11 +1712,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(id) = state.get_var(&s.0) {
                     Some(*id)
                 } else {
-                    let v = self
-                        .get_vm()
-                        .get_global_obj_by_name(name)
-                        .cloned()
-                        .unwrap();
+                    let v = self.get_vm().get_global_obj_by_name(name).cloned().unwrap();
                     let state = self.get_cur_mut_frame();
                     let mut will_remove = 0;
                     if let Some(s) = state.get_var(&s.0) {
@@ -2598,7 +2701,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if let Some(s) = &self.stop {
                 let (lock, cvar) = &*s.clone();
-                
+
                 cvar.notify_one();
                 let mut started = lock.lock().unwrap();
 
