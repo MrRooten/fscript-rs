@@ -470,6 +470,7 @@ pub struct Ops {
     pub(crate) add: [[Option<FSRRustFn>; OP_LEN]; OP_LEN],
     pub(crate) less: [[Option<FSRRustFn>; OP_LEN]; OP_LEN],
     pub(crate) greater: [[Option<FSRRustFn>; OP_LEN]; OP_LEN],
+    pub(crate) next: [Option<FSRRustFn>; OP_LEN],
 }
 
 impl Ops {
@@ -498,7 +499,11 @@ impl Ops {
             crate::backend::types::integer::greater,
         );
 
-        Self { add, less, greater }
+        let mut next = [None; OP_LEN];
+        next[FSRGlobalObjId::InnerIterator as usize] =
+            Some(crate::backend::types::iterator::next_obj as FSRRustFn);
+
+        Self { add, less, greater, next }
     }
 
     pub fn insert(
@@ -533,6 +538,14 @@ impl Ops {
         // is the square matrix, so self.add len is the same as self.add[i].len()
         if i < OP_LEN && j < OP_LEN {
             return self.greater[i][j];
+        }
+        None
+    }
+
+    #[inline(always)]
+    pub fn get_next(&self, i: usize) -> Option<FSRRustFn> {
+        if i < OP_LEN {
+            return self.next[i];
         }
         None
     }
@@ -2379,9 +2392,13 @@ impl<'a> FSRThreadRuntime<'a> {
         //     .exp
         //     .push(SValue::Global(*self.for_iter_obj.last().unwrap()));
         let obj = self.flow_tracker.for_iter_obj.last().cloned().unwrap();
-
-        let res =
-            FSRObject::invoke_offset_method(BinaryOffset::NextObject, &[obj], self, context.code)?;
+        let obj_value = FSRObject::id_to_obj(obj);
+        let res = if let Some(next_obj) = self.op_quick.get_next(obj_value.cls) {
+            next_obj(&[obj], self, context.code)?
+        } else {
+            FSRObject::invoke_offset_method(BinaryOffset::NextObject, &[obj], self, context.code)?
+        };
+            
 
         match res {
             // FSRRetValue::Value(object) => {

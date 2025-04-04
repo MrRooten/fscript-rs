@@ -18,7 +18,7 @@ pub struct FSRInnerIterator {
     pub(crate) index: usize,
 }
 
-fn next_obj<'a>(
+pub fn next_obj<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
