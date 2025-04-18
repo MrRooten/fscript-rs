@@ -79,7 +79,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         // self.marks.iter_mut().for_each(|m| *m = false);
         self.objects.iter_mut().for_each(|m| {
             if let Some(obj) = m {
-                obj.mark.store(false, Ordering::Relaxed);
+                obj.mark = false;
             }
         });
     }

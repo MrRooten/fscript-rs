@@ -177,7 +177,7 @@ impl<'a> FSRFn<'a> {
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,
-            mark: AtomicBool::new(false),
+            mark: false,
             area: Area::Global,
             write_barrier: AtomicBool::new(true),
         }

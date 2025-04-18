@@ -253,7 +253,7 @@ pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
     pub(crate) cls: ObjId,
     pub(crate) free: bool,
-    pub(crate) mark: AtomicBool,
+    pub(crate) mark: bool,
     pub(crate) area: Area,
     pub(crate) write_barrier: AtomicBool,
     // pub(crate) garbage_id: u32,
@@ -326,7 +326,7 @@ impl<'a> FSRObject<'a> {
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,
-            mark: AtomicBool::new(false),
+            mark: false,
             area: Area::Global,
             write_barrier: AtomicBool::new(false),
         }
@@ -399,7 +399,7 @@ impl<'a> FSRObject<'a> {
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,
-            mark: AtomicBool::new(false),
+            mark: false,
             area: Area::Global,
             write_barrier: AtomicBool::new(false),
         }
@@ -407,12 +407,12 @@ impl<'a> FSRObject<'a> {
 
     #[inline(always)]
     pub fn is_marked(&self) -> bool {
-        self.mark.load(Ordering::Relaxed)
+        self.mark
     }
 
     #[inline(always)]
     pub fn mark(&mut self) {
-        self.mark.store(true, Ordering::Relaxed);
+        self.mark = true
     }
 
     pub fn is_true_id(&self) -> ObjId {
