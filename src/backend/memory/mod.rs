@@ -16,7 +16,7 @@ pub trait FSRAllocator<'a> {
 pub trait GarbageCollector<'a> {
     fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId;
 
-    fn collect(&mut self);
+    fn collect(&mut self, full: bool);
 
     fn will_collect(&self) -> bool;
 }

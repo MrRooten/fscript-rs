@@ -232,11 +232,30 @@ pub enum MemType {
     ThreadLocate = 0,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Area {
+    Minjor,
+    Marjor,
+    Global
+}
+
+impl Area {
+    pub fn is_long(&self) -> bool {
+        match self {
+            Area::Minjor => false,
+            Area::Marjor => true,
+            Area::Global => true,
+        }
+    }
+}
+
 pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
     pub(crate) cls: ObjId,
     pub(crate) free: bool,
     pub(crate) mark: AtomicBool,
+    pub(crate) area: Area,
+    pub(crate) write_barrier: AtomicBool,
     // pub(crate) garbage_id: u32,
 }
 
@@ -258,6 +277,8 @@ impl Debug for FSRObject<'_> {
         f.debug_struct("FSRObject")
             .field("value", &self.value)
             .field("cls", &cls.name.to_string())
+            .field("area", &self.area)
+            .field("write_barrier", &self.write_barrier.load(Ordering::Relaxed))
             .finish()
     }
 }
@@ -306,6 +327,8 @@ impl<'a> FSRObject<'a> {
             // garbage_collector_id: 0,
             free: false,
             mark: AtomicBool::new(false),
+            area: Area::Global,
+            write_barrier: AtomicBool::new(false),
         }
     }
 
@@ -318,6 +341,14 @@ impl<'a> FSRObject<'a> {
             FSRValue::List(fsrlist) => fsrlist,
             _ => unimplemented!(),
         }
+    }
+
+    pub fn set_write_barrier(&self, value: bool) {
+        self.write_barrier.store(value, Ordering::Relaxed);
+    }
+
+    pub fn get_write_barrier(&self) -> bool {
+        self.write_barrier.load(Ordering::Relaxed)
     }
 
     pub fn as_mut_list(&mut self) -> &mut FSRList {
@@ -369,6 +400,8 @@ impl<'a> FSRObject<'a> {
             // garbage_collector_id: 0,
             free: false,
             mark: AtomicBool::new(false),
+            area: Area::Global,
+            write_barrier: AtomicBool::new(false),
         }
     }
 

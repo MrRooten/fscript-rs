@@ -2,23 +2,17 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::backend::types::base::FSRGlobalObjId;
+use crate::backend::types::base::{Area, FSRGlobalObjId};
 
 use crate::backend::{
     memory::{size_alloc::FSRObjectAllocator, GarbageCollector},
     types::base::{FSRObject, FSRValue, ObjId},
 };
 
-#[derive(Debug)]
-pub struct Tracker {
-    object_count: u32,
-    throld: usize,
-    pub(crate) collect_time: u64, // in microseconds
-    count_free: u64,
-    collect_count: u64,
-}
+use super::Tracker;
 
 pub struct MarkSweepGarbageCollector<'a> {
+    marjor_arena: Vec<Option<Box<FSRObject<'a>>>>,
     // Store all objects
     objects: Vec<Option<Box<FSRObject<'a>>>>,
     // Free slots for objects
@@ -75,6 +69,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             },
             self_id: 1,
             check: AtomicBool::new(false),
+            marjor_arena: Vec::with_capacity(THROLD),
         }
     }
 
@@ -95,12 +90,13 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             obj.value = value;
             obj.cls = cls;
             obj.free = false;
-
+            obj.area = Area::Minjor;
             return FSRObject::obj_to_id(obj);
         } else {
             let mut obj = self.allocator.new_object(value, cls);
             obj.cls = cls;
             obj.free = false;
+            obj.area = Area::Minjor;
             self.objects[free_idx] = Some(obj);
             return FSRObject::obj_to_id(self.objects[free_idx].as_ref().unwrap());
         }
@@ -109,20 +105,36 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     #[inline(always)]
     fn alloc_when_full(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         let slot_idx = self.objects.len();
-        self.objects.push(Some(
-            self.allocator
-                .new_object(FSRValue::None, FSRGlobalObjId::None as ObjId),
-        ));
+        let mut obj = self
+            .allocator
+            .new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
+
+        self.objects.push(Some(obj));
         let obj = &mut self.objects[slot_idx];
         if let Some(obj) = obj {
             obj.value = value;
             obj.cls = cls;
             obj.free = false;
+            obj.area = Area::Minjor;
 
             return FSRObject::obj_to_id(obj);
         }
 
         unimplemented!()
+    }
+
+    pub fn shrink(&mut self) {
+        self.free_slots.clear();
+        self.objects.retain(|obj| {
+            if let Some(obj) = obj {
+                if obj.free {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+            false
+        });
     }
 }
 
@@ -138,19 +150,25 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         }
     }
 
-    fn collect(&mut self) {
+    fn collect(&mut self, full: bool) {
         let mut i = 0;
         let mut freed_count = 0;
 
         while i < self.objects.len() {
             let obj = &mut self.objects[i];
+            let mut is_mark = false;
             if let Some(obj) = obj {
-                if !obj.is_marked() && !obj.free {
-                    // println!("Freeing object: {:?}", obj);
-                    // obj.garbage_collector_id = self.self_id;
-                    obj.free = true;
-                    self.free_slots.push(i);
-                    freed_count += 1;
+                is_mark = obj.is_marked();
+                if !is_mark && !obj.free {
+                    if (!full && obj.area == Area::Minjor) || full {
+                        obj.free = true;
+                        self.free_slots.push(i);
+                        freed_count += 1;
+                    }
+                }
+
+                if is_mark {
+                    obj.area = Area::Marjor;
                 }
             }
 
@@ -160,7 +178,9 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         self.tracker.object_count -= freed_count;
         if self.tracker.object_count as usize > self.tracker.throld * 9 / 10 {
             self.tracker.throld *= 20;
-        } else if self.tracker.throld / 20 > self.tracker.object_count as usize && self.tracker.throld / 5 > THROLD {
+        } else if self.tracker.throld / 20 > self.tracker.object_count as usize
+            && self.tracker.throld / 5 > THROLD
+        {
             self.tracker.throld /= 5;
         }
         self.tracker.count_free += freed_count as u64;

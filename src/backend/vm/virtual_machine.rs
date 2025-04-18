@@ -7,7 +7,7 @@ use std::{
 use crate::{
     backend::types::{
         any::FSRThreadHandle,
-        base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
+        base::{Area, FSRGlobalObjId, FSRObject, FSRValue, ObjId},
         bool::FSRBool,
         class::FSRClass,
         code::FSRCode,
@@ -278,6 +278,8 @@ impl<'a> FSRVM<'a> {
             // garbage_collector_id: 0,
             free: false,
             mark: AtomicBool::new(false),
+            area: Area::Global,
+            write_barrier: AtomicBool::new(true),
         }
     }
 

@@ -22,7 +22,7 @@ use crate::{
 };
 
 use super::{
-    base::{AtomicObjId, DropObject, FSRGlobalObjId, FSRRetValue, ObjId},
+    base::{Area, AtomicObjId, DropObject, FSRGlobalObjId, FSRRetValue, ObjId},
     class::FSRClass,
     code::FSRCode,
     fn_def::FSRFn,
@@ -290,6 +290,9 @@ pub fn push<'a>(
     }
     let self_id = args[0];
     let obj = FSRObject::id_to_mut_obj(self_id);
+    if obj.area.is_long() && FSRObject::id_to_obj(args[1]).area == Area::Minjor {
+        obj.set_write_barrier(true);
+    }
     if let FSRValue::List(l) = &mut obj.value {
         l.vs.push(AtomicObjId::new(args[1]));
     }

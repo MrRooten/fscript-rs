@@ -1,7 +1,5 @@
 use std::{
-    any::Any,
-    collections::HashMap,
-    sync::atomic::{AtomicUsize, Ordering},
+    any::Any, collections::HashMap, fmt::{Debug, Formatter}, sync::atomic::{AtomicUsize, Ordering}
 };
 
 use ahash::AHashMap;
@@ -11,16 +9,24 @@ use crate::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
         types::{
-            any::{AnyDebugSend, AnyType, GetReference}, base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, error::FSRException, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, list::FSRList
+            any::{AnyDebugSend, AnyType, GetReference}, base::{Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, error::FSRException, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, list::FSRList
         },
         vm::thread::FSRThreadRuntime,
     },
     utils::error::FSRError,
 };
 
-#[derive(Debug)]
+
 pub struct FSRHashMap {
     inner_map: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
+}
+
+impl Debug for FSRHashMap {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FSRHashMap")
+            .field("inner_map", &"{...}")
+            .finish()
+    }
 }
 
 impl AnyDebugSend for FSRHashMap {
@@ -132,7 +138,17 @@ pub fn fsr_fn_hashmap_insert<'a>(
     let hashmap = FSRObject::id_to_mut_obj(args[0]);
     let key = args[1];
     let value = args[2];
+    if hashmap.area.is_long() {
+        let key_obj = FSRObject::id_to_obj(key);
+        if key_obj.area == Area::Minjor {
+            hashmap.set_write_barrier(true);
+        }
 
+        let value_obj = FSRObject::id_to_obj(value);
+        if value_obj.area == Area::Minjor {
+            hashmap.set_write_barrier(true);
+        }
+    }
     if let FSRValue::Any(any) = &mut hashmap.value {
         if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
             hashmap.insert(key, value, thread)?;

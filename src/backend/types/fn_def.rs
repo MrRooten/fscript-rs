@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+    base::{Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
 };
 
@@ -178,6 +178,8 @@ impl<'a> FSRFn<'a> {
             // garbage_collector_id: 0,
             free: false,
             mark: AtomicBool::new(false),
+            area: Area::Global,
+            write_barrier: AtomicBool::new(true),
         }
     }
 
