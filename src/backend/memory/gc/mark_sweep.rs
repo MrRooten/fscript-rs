@@ -154,7 +154,60 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             }
             false
         });
-        self.tracker.object_count = self.objects.len() as u32;
+        self.tracker.object_count = self.objects.len() as u32 + self.marjor_arena.len() as u32;
+    }
+
+    fn process_object(&mut self, i: usize, full: bool, freed_count: &mut u32) {
+        let obj = &mut self.objects[i];
+        let mut is_mark = false;
+        let mut count = 0;
+        if let Some(obj) = obj {
+            is_mark = obj.is_marked();
+            if !is_mark && !obj.free {
+                if (!full && obj.area == Area::Minjor) || full {
+                    if obj.area == Area::Minjor {
+                        self.tracker.minjar_object_count -= 1;
+                    } else {
+                        self.tracker.marjor_object_count -= 1;
+                    }
+                    obj.free = true;
+                    self.free_slots.push(i);
+                    *freed_count += 1;
+                }
+            }
+
+            if is_mark {
+                obj.gc_count += 1;
+                count = obj.gc_count;
+            }
+        }
+
+        // if is_mark && count > ESCAPE_COUNT {
+        if is_mark {
+            let mut obj = obj.take().unwrap();
+            obj.area = Area::Marjor;
+            self.tracker.marjor_object_count += 1;
+            self.tracker.minjar_object_count -= 1;
+            self.marjor_arena.push(Some(obj));
+        }
+    }
+
+    fn tracker_process(&mut self, freed_count: u32) {
+        self.tracker.object_count -= freed_count;
+        if self.tracker.object_count as usize > self.tracker.throld * 9 / 10 {
+            self.tracker.throld *= 20;
+        } else if self.tracker.throld / 20 > self.tracker.object_count as usize
+            && self.tracker.throld / 5 > THROLD
+        {
+            self.tracker.throld /= 5;
+        }
+
+        if self.tracker.collect_count % 50 == 0 {
+            self.shrink();
+        }
+
+        self.tracker.count_free += freed_count as u64;
+        self.tracker.collect_count += 1;
     }
 }
 
@@ -175,57 +228,11 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         let mut freed_count = 0;
 
         while i < self.objects.len() {
-            let obj = &mut self.objects[i];
-            let mut is_mark = false;
-            let mut count = 0;
-            if let Some(obj) = obj {
-                is_mark = obj.is_marked();
-                if !is_mark && !obj.free {
-                    if (!full && obj.area == Area::Minjor) || full {
-                        if obj.area == Area::Minjor {
-                            self.tracker.minjar_object_count -= 1;
-                        } else {
-                            self.tracker.marjor_object_count -= 1;
-                        }
-                        obj.free = true;
-                        self.free_slots.push(i);
-                        freed_count += 1;
-                    }
-                }
-
-                if is_mark {
-                    obj.gc_count += 1;
-                    count = obj.gc_count;
-                }
-            }
-
-            // if is_mark && count > ESCAPE_COUNT {
-            if is_mark {
-                let mut obj = obj.take().unwrap();
-                obj.area = Area::Marjor;
-                self.tracker.marjor_object_count += 1;
-                self.tracker.minjar_object_count -= 1;
-                self.marjor_arena.push(Some(obj));
-            }
-
+            self.process_object(i, full, &mut freed_count);
             i += 1;
         }
 
-        self.tracker.object_count -= freed_count;
-        if self.tracker.object_count as usize > self.tracker.throld * 9 / 10 {
-            self.tracker.throld *= 20;
-        } else if self.tracker.throld / 20 > self.tracker.object_count as usize
-            && self.tracker.throld / 5 > THROLD
-        {
-            self.tracker.throld /= 5;
-        }
-
-        if self.tracker.collect_count % 50 == 0 {
-            self.shrink();
-        }
-
-        self.tracker.count_free += freed_count as u64;
-        self.tracker.collect_count += 1;
+        self.tracker_process(freed_count);
     }
 
     fn will_collect(&self) -> bool {
