@@ -66,6 +66,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
                 collect_time: 0,
                 count_free: 0,
                 collect_count: 0,
+                minjar_object_count: 0,
+                marjor_object_count: 0,
             },
             self_id: 1,
             check: AtomicBool::new(false),
@@ -91,12 +93,14 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
+            self.tracker.minjar_object_count += 1;
             return FSRObject::obj_to_id(obj);
         } else {
             let mut obj = self.allocator.new_object(value, cls);
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
+            self.tracker.minjar_object_count += 1;
             self.objects[free_idx] = Some(obj);
             return FSRObject::obj_to_id(self.objects[free_idx].as_ref().unwrap());
         }
@@ -116,6 +120,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
+            self.tracker.minjar_object_count += 1;
 
             return FSRObject::obj_to_id(obj);
         }
@@ -161,14 +166,21 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
                 is_mark = obj.is_marked();
                 if !is_mark && !obj.free {
                     if (!full && obj.area == Area::Minjor) || full {
+                        if obj.area == Area::Minjor {
+                            self.tracker.minjar_object_count -= 1;
+                        } else {
+                            self.tracker.marjor_object_count -= 1;
+                        }
                         obj.free = true;
                         self.free_slots.push(i);
                         freed_count += 1;
                     }
                 }
 
-                if is_mark {
+                if is_mark && obj.area != Area::Marjor {
                     obj.area = Area::Marjor;
+                    self.tracker.marjor_object_count += 1;
+                    self.tracker.minjar_object_count -= 1;
                 }
             }
 
@@ -183,6 +195,11 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         {
             self.tracker.throld /= 5;
         }
+
+        if self.tracker.collect_count % 50 == 0 {
+            self.shrink();
+        }
+
         self.tracker.count_free += freed_count as u64;
         self.tracker.collect_count += 1;
     }

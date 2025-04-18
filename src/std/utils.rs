@@ -57,24 +57,6 @@ pub fn fsr_fn_export<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-// pub fn fsr_fn_ref_count<'a>(
-//     args: &[ObjId],
-//     _thread: &mut FSRThreadRuntime<'a>,
-//     module: ObjId,
-// ) -> Result<FSRRetValue<'a>, FSRError> {
-//     if args.len() != 1 {
-//         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
-//     }
-
-//     if FSRObject::is_sp_object(args[0]) {
-//         return Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(0))));
-//     }
-
-//     Ok(FSRRetValue::Value(Box::new(FSRInteger::new_inst(
-//         FSRObject::id_to_obj(args[0]).count_ref() as i64,
-//     ))))
-// }
-
 pub fn fsr_fn_range<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,

@@ -18,17 +18,14 @@ pub fn fn_gc_info<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    print!(
-        "gc_info_track: {}, ",
-        thread.garbage_collect.get_object_count()
-    );
-
     print!("gc_speed: {:.2}/ms, ", thread.garbage_collect.get_speed());
-    print!("gc_collect_count: {}, ", thread.garbage_collect.get_collect_count());
+    println!("{:#?}", thread.garbage_collect.tracker);
     println!(
         "stw_time: {:?} ms",
         thread.garbage_collect.get_stop_time() / 1000
     );
+
+
     Ok(FSRRetValue::GlobalId(0))
 }
 

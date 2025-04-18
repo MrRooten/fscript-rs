@@ -82,9 +82,9 @@ pub fn fsr_fn_hashmap_iter<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
-    if let FSRValue::Any(any) = &mut hashmap.value {
-        if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
+    let hashmap = FSRObject::id_to_obj(args[0]);
+    if let FSRValue::Any(any) = &hashmap.value {
+        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             let iter = hashmap.inner_map.iter().flat_map(|(k, v)| {
                 v.iter().map(move |(key, value)| {
                     (key.load(Ordering::Relaxed), value.load(Ordering::Relaxed))
@@ -166,11 +166,11 @@ pub fn fsr_fn_hashmap_get<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    let hashmap = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
-    if let FSRValue::Any(any) = &mut hashmap.value {
-        if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
+    if let FSRValue::Any(any) = &hashmap.value {
+        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             if let Some(value) = hashmap.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(
                     value.load(std::sync::atomic::Ordering::Relaxed),
@@ -190,11 +190,11 @@ pub fn fsr_fn_hashmap_contains<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    let hashmap = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
-    if let FSRValue::Any(any) = &mut hashmap.value {
-        if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
+    if let FSRValue::Any(any) = &hashmap.value {
+        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             if hashmap.get(key, thread).is_some() {
                 return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             }

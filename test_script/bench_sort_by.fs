@@ -8,4 +8,6 @@ a.sort_by(|x, y| {
     return x > y
 })
 println(a[299999])
+a = none
+gc_collect()
 gc_info()

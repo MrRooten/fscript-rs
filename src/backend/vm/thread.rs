@@ -1858,7 +1858,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn try_process(
         self: &mut FSRThreadRuntime<'a>,
-
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let catch_line = match bytecode.get_arg() {
@@ -2018,7 +2017,6 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     fn else_if_match(
         self: &mut FSRThreadRuntime<'a>,
-
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
@@ -2036,7 +2034,6 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     fn break_process(
         self: &mut FSRThreadRuntime<'a>,
-
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {

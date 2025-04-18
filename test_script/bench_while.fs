@@ -6,5 +6,7 @@ while i < 3000000 { # while test
 println(i)
 
 dump(i)
-gc_info()
+
 i = 0
+gc_collect()
+gc_info()
