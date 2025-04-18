@@ -280,6 +280,7 @@ impl<'a> FSRVM<'a> {
             mark: false,
             area: Area::Global,
             write_barrier: AtomicBool::new(true),
+            gc_count: 0,
         }
     }
 

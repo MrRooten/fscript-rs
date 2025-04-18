@@ -1,10 +1,7 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    ops::Range,
-    path::PathBuf,
-    str::FromStr,
-    sync::{atomic::Ordering, Arc, Condvar, Mutex},
+    collections::HashSet, ops::Range, path::PathBuf, str::FromStr, sync::{atomic::Ordering, Arc, Condvar, Mutex}
 };
 
 use crate::{
@@ -444,6 +441,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) exception: ObjId,
     pub(crate) exception_flag: bool,
     pub(crate) garbage_collect: MarkSweepGarbageCollector<'a>,
+    pub(crate) remembered_set: HashSet<ObjId>,
     pub(crate) op_quick: Box<Ops>,
     pub(crate) counter: usize,
     pub(crate) last_counter: usize,
@@ -522,112 +520,22 @@ impl<'a> FSRThreadRuntime<'a> {
             last_counter: 0,
             thread_context_stack: Vec::with_capacity(8),
             thread_context: None,
+            remembered_set: HashSet::new(),
         }
+    }
+
+    pub fn add_object_to_remembered_set(&mut self, id: ObjId) {
+        self.remembered_set.insert(id);
+    }
+
+    pub fn remove_object_from_remembered_set(&mut self, id: ObjId) {
+        self.remembered_set.remove(&id);
     }
 
     pub fn clear_marks(&mut self) {
         self.garbage_collect.clear_marks();
     }
 
-    pub fn get_referers(&self) -> Vec<ObjId> {
-        let mut result = vec![];
-        let mut others = self.flow_tracker.for_iter_obj.clone();
-        others.extend(self.flow_tracker.ref_for_obj.clone());
-        let frames = &self.call_frames;
-        let cur_frame = self.get_cur_frame();
-        let mut work_list = vec![];
-        for it in frames {
-            for obj in it.var_map.iter() {
-                work_list.push(obj.load(Ordering::Relaxed));
-            }
-
-            if let Some(s) = &it.exp {
-                for i in s {
-                    let id = match i.get_global_id(self) {
-                        Ok(id) => id,
-                        Err(_) => {
-                            continue;
-                        }
-                    };
-
-                    work_list.push(id);
-                }
-            }
-
-            if let Some(ret_val) = it.ret_val {
-                work_list.push(ret_val);
-            }
-
-            if it.handling_exception != 0 {
-                work_list.push(it.handling_exception);
-            }
-        }
-
-        let it = cur_frame;
-        for obj in it.var_map.iter() {
-            work_list.push(obj.load(Ordering::Relaxed));
-        }
-
-        if let Some(ret_val) = it.ret_val {
-            work_list.push(ret_val);
-        }
-
-        if it.handling_exception != 0 {
-            work_list.push(it.handling_exception);
-        }
-
-        for obj in others {
-            work_list.push(obj);
-        }
-
-        for context in self.thread_context_stack.iter() {
-            for obj in context.exp.iter() {
-                let id = match obj.get_global_id(self) {
-                    Ok(id) => id,
-                    Err(_) => {
-                        continue;
-                    }
-                };
-
-                work_list.push(id);
-            }
-        }
-
-        for obj in self.get_context().exp.iter() {
-            let id = match obj.get_global_id(self) {
-                Ok(id) => id,
-                Err(_) => {
-                    continue;
-                }
-            };
-
-            work_list.push(id);
-        }
-
-        // work_list.extend(self.roots.iter());
-        // self.roots.clear();
-
-        while let Some(id) = work_list.pop() {
-            if self.is_marked(id) {
-                continue;
-            }
-
-            result.push(id);
-
-            self.mark(id);
-
-            let obj = FSRObject::id_to_obj(id);
-            let refs = obj.get_references();
-
-            for ref_id in refs {
-                if !self.is_marked(ref_id) {
-                    work_list.push(ref_id);
-                }
-            }
-        }
-
-        result
-    }
 
     pub fn get_thread_id(&self) -> usize {
         self.thread_id
@@ -787,7 +695,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         while let Some(id) = work_list.pop() {
             let obj = FSRObject::id_to_obj(id);
-            // println!("Cur Process: {:?}", obj);
+            //println!("Cur Process: {:?}", obj);
             if self.is_marked(id) {
                 continue;
             }
@@ -803,9 +711,23 @@ impl<'a> FSRThreadRuntime<'a> {
             };
 
             let obj = FSRObject::id_to_obj(id);
+            
+
+            
             if !full && obj.area.is_long() && !obj.get_write_barrier() {
                 continue;
             }
+
+            // if let FSRValue::Integer(i) = &obj.value {
+            //     if *i == 715321 {
+            //         println!("Cur Process: {:?}", obj);
+            //     }
+            // }
+
+            // if let FSRValue::Any(any) = &obj.value {
+            //     println!("Cur Process: {:?}", any);
+            // }
+
             let refs = obj.get_references();
             obj.set_write_barrier(false);
             for ref_id in refs {

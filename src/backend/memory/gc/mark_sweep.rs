@@ -11,6 +11,14 @@ use crate::backend::{
 
 use super::Tracker;
 
+#[derive(PartialEq, Debug)]
+pub enum GcReason {
+    Full,
+    Minjor,
+}
+
+const ESCAPE_COUNT: u32 = 5;
+
 pub struct MarkSweepGarbageCollector<'a> {
     marjor_arena: Vec<Option<Box<FSRObject<'a>>>>,
     // Store all objects
@@ -78,6 +86,12 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     pub fn clear_marks(&mut self) {
         // self.marks.iter_mut().for_each(|m| *m = false);
         self.objects.iter_mut().for_each(|m| {
+            if let Some(obj) = m {
+                obj.mark = false;
+            }
+        });
+
+        self.marjor_arena.iter_mut().for_each(|m| {
             if let Some(obj) = m {
                 obj.mark = false;
             }
@@ -163,6 +177,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         while i < self.objects.len() {
             let obj = &mut self.objects[i];
             let mut is_mark = false;
+            let mut count = 0;
             if let Some(obj) = obj {
                 is_mark = obj.is_marked();
                 if !is_mark && !obj.free {
@@ -178,11 +193,19 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
                     }
                 }
 
-                if is_mark && obj.area != Area::Marjor {
-                    obj.area = Area::Marjor;
-                    self.tracker.marjor_object_count += 1;
-                    self.tracker.minjar_object_count -= 1;
+                if is_mark {
+                    obj.gc_count += 1;
+                    count = obj.gc_count;
                 }
+            }
+
+            // if is_mark && count > ESCAPE_COUNT {
+            if is_mark {
+                let mut obj = obj.take().unwrap();
+                obj.area = Area::Marjor;
+                self.tracker.marjor_object_count += 1;
+                self.tracker.minjar_object_count -= 1;
+                self.marjor_arena.push(Some(obj));
             }
 
             i += 1;

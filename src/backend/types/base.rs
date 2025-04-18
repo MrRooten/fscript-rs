@@ -254,6 +254,7 @@ pub struct FSRObject<'a> {
     pub(crate) cls: ObjId,
     pub(crate) free: bool,
     pub(crate) mark: bool,
+    pub(crate) gc_count: u32,
     pub(crate) area: Area,
     pub(crate) write_barrier: AtomicBool,
     // pub(crate) garbage_id: u32,
@@ -329,6 +330,7 @@ impl<'a> FSRObject<'a> {
             mark: false,
             area: Area::Global,
             write_barrier: AtomicBool::new(false),
+            gc_count: 0,
         }
     }
 
@@ -402,6 +404,7 @@ impl<'a> FSRObject<'a> {
             mark: false,
             area: Area::Global,
             write_barrier: AtomicBool::new(false),
+            gc_count: 0,
         }
     }
 
