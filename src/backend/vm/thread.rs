@@ -2926,7 +2926,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn collect_gc(&mut self, full: bool) {
-        self.garbage_collect.collect(true);
+        self.garbage_collect.collect(full);
     }
 
     pub fn load(&mut self, main_fn: ObjId) -> Result<ObjId, FSRError> {

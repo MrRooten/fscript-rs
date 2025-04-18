@@ -140,6 +140,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             }
             false
         });
+        self.tracker.object_count = self.objects.len() as u32;
     }
 }
 

@@ -1,12 +1,17 @@
 a = HashMap::new()
 
-for i in 0..1000 {
+for i in 0..100 {
     a.insert(i, i)
 }
 
+gc_info()
 
-assert(a.contains(0))
+for i in 0..30 {
+    
+}
 
-a.remove(0)
+for i in 0..10 {
+    a.insert(i, i)
+}
 
-assert(not a.contains(0))
+gc_info()

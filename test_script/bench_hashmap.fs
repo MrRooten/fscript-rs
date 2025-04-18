@@ -10,5 +10,4 @@ for i in 0..3000000 {
     
 }
 
-gc_collect()
 gc_info()
