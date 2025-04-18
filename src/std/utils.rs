@@ -51,7 +51,7 @@ pub fn fsr_fn_export<'a>(
     let obj = args[1];
 
     let s = module;
-    let m = FSRObject::id_to_mut_obj(s).as_mut_code();
+    let m = FSRObject::id_to_mut_obj(s).expect("not a module object").as_mut_code();
     m.register_object(name.as_str(), obj);
 
     Ok(FSRRetValue::GlobalId(0))

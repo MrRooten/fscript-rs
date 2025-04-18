@@ -36,7 +36,7 @@ pub fn next_obj<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let self_obj = FSRObject::id_to_mut_obj(args[0]);
+    let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
     let mut result = None;
     if let FSRValue::Iterator(it) = &mut self_obj.value {
         let from_obj = FSRObject::id_to_obj(it.obj);

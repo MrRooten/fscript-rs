@@ -168,7 +168,7 @@ pub fn sort<'a>(
         ));
     }
     let obj_id = args[0];
-    let obj = FSRObject::id_to_mut_obj(obj_id);
+    let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
     if let FSRValue::List(l) = &mut obj.value {
         l.vs.sort_by(|a, b| {
             let l_id = a.load(Ordering::Relaxed);
@@ -196,7 +196,7 @@ pub fn sort_by<'a>(
         ));
     }
     let obj_id = args[0];
-    let obj = FSRObject::id_to_mut_obj(obj_id);
+    let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");;
     let compare_fn_id = args[1];
     let compare_fn = FSRObject::id_to_obj(compare_fn_id);
     if let FSRValue::List(l) = &mut obj.value {
@@ -225,7 +225,7 @@ pub fn reverse<'a>(
     _module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let obj_id = args[0];
-    let obj = FSRObject::id_to_mut_obj(obj_id);
+    let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");;
     if let FSRValue::List(l) = &mut obj.value {
         l.vs.reverse();
     } else {
@@ -249,7 +249,7 @@ pub fn sort_key<'a>(
         ));
     }
     let obj_id = args[0];
-    let obj = FSRObject::id_to_mut_obj(obj_id);
+    let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
     let key_fn_id = args[1];
     let key_fn = FSRObject::id_to_obj(key_fn_id);
     if let FSRValue::List(l) = &mut obj.value {
@@ -289,7 +289,7 @@ pub fn push<'a>(
         return Err(FSRError::new("push args error", FSRErrCode::RuntimeError));
     }
     let self_id = args[0];
-    let obj = FSRObject::id_to_mut_obj(self_id);
+    let obj = FSRObject::id_to_mut_obj(self_id).expect("msg: not a list");;
     if obj.area.is_long() && FSRObject::id_to_obj(args[1]).area == Area::Minjor {
         obj.set_write_barrier(true);
     }

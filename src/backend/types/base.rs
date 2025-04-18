@@ -561,13 +561,13 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
-    pub fn id_to_mut_obj(id: ObjId) -> &'a mut FSRObject<'a> {
+    pub fn id_to_mut_obj(id: ObjId) -> Option<&'a mut FSRObject<'a>> {
         if id < 1000 {
-            panic!("Invalid special object ID: {}", id);
+            return None
         }
         unsafe {
             let ptr = id as *mut FSRObject;
-            &mut *ptr
+            Some(&mut *ptr)
         }
     }
 

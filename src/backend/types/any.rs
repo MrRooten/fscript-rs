@@ -53,7 +53,7 @@ fn join<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let self_object = FSRObject::id_to_mut_obj(args[0]);
+    let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     
     if let FSRValue::Any(any) = &mut self_object.value {
         if let Some(handle) = any.value.as_any_mut().downcast_mut::<FSRThreadHandle>() {

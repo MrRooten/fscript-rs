@@ -82,7 +82,7 @@ pub fn fsr_fn_hashmap_iter<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let hashmap = FSRObject::id_to_mut_obj(args[0]);
+    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     if let FSRValue::Any(any) = &mut hashmap.value {
         if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
             let iter = hashmap.inner_map.iter().flat_map(|(k, v)| {
@@ -135,7 +135,7 @@ pub fn fsr_fn_hashmap_insert<'a>(
     if args.len() != 3 {
         return Err(FSRError::new("not valid args", crate::utils::error::FSRErrCode::RuntimeError));
     }
-    let hashmap = FSRObject::id_to_mut_obj(args[0]);
+    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
     let value = args[2];
     if hashmap.area.is_long() {
@@ -166,7 +166,7 @@ pub fn fsr_fn_hashmap_get<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let hashmap = FSRObject::id_to_mut_obj(args[0]);
+    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
 
     if let FSRValue::Any(any) = &mut hashmap.value {
@@ -190,7 +190,7 @@ pub fn fsr_fn_hashmap_contains<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let hashmap = FSRObject::id_to_mut_obj(args[0]);
+    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
 
     if let FSRValue::Any(any) = &mut hashmap.value {
@@ -212,7 +212,7 @@ pub fn fsr_fn_hashmap_remove<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    let hashmap = FSRObject::id_to_mut_obj(args[0]);
+    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
 
     if let FSRValue::Any(any) = &mut hashmap.value {

@@ -698,9 +698,10 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn mark(&self, id: ObjId) {
-        let obj = FSRObject::id_to_mut_obj(id);
+    fn mark(&self, id: ObjId) -> Option<()> {
+        let obj = FSRObject::id_to_mut_obj(id)?;
         obj.mark();
+        Some(())
     }
 
     fn is_marked(&self, id: ObjId) -> bool {
@@ -794,7 +795,12 @@ impl<'a> FSRThreadRuntime<'a> {
             if FSRObject::is_sp_object(id) {
                 continue;
             }
-            self.mark(id);
+            match self.mark(id) {
+                Some(_) => {}
+                None => {
+                    continue;
+                }
+            };
 
             let obj = FSRObject::id_to_obj(id);
             if !full && obj.area.is_long() && !obj.get_write_barrier() {
@@ -1041,7 +1047,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(s) = attr.attr_object_id {
                     s.store(to_assign_obj_id, Ordering::Relaxed);
                 } else {
-                    let father_obj = FSRObject::id_to_mut_obj(attr.father);
+                    let father_obj = FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
                     if father_obj.area.is_long()
                         && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
                     {
@@ -2225,7 +2231,7 @@ impl<'a> FSRThreadRuntime<'a> {
             // }
             // ``````
             if define_fn_obj == FSRObject::none_id() {
-                FSRObject::id_to_mut_obj(self.get_context().code)
+                FSRObject::id_to_mut_obj(self.get_context().code).expect("not a code object")
                     .as_mut_code()
                     .register_object(&name.1, fn_id);
             }
@@ -2234,7 +2240,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 if define_fn_obj == FSRObject::none_id() {
                     panic!("closure var must in closure");
                 }
-                let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj).as_mut_fn();
+                let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj).expect("not a fn obj").as_mut_fn();
                 if let Some(s) = define_fn_obj.store_cells.get(name.1.as_str()) {
                     s.store(fn_id, Ordering::Relaxed);
                 } else {
@@ -2384,7 +2390,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if fn_obj == FSRObject::none_id() {
             panic!("closure var must in closure");
         }
-        let fn_obj = FSRObject::id_to_mut_obj(fn_obj).as_mut_fn();
+        let fn_obj = FSRObject::id_to_mut_obj(fn_obj).expect("not a fn object").as_mut_fn();
         if let Some(s) = fn_obj.store_cells.get(closure.1.as_str()) {
             s.store(obj_id, Ordering::Relaxed);
         } else {
@@ -2490,7 +2496,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //self.rt_lock();
             let state = self.get_cur_mut_frame();
             state.insert_var_no_garbage(*v, obj_id);
-            FSRObject::id_to_mut_obj(context)
+            FSRObject::id_to_mut_obj(context).expect("not a code object")
                 .as_mut_code()
                 .register_object(module_name.last().unwrap(), obj_id);
             return Ok(false);
@@ -2517,7 +2523,7 @@ impl<'a> FSRThreadRuntime<'a> {
             // keep this order in case of will_remove is same as v
             // self.garbage_collect.remove_root(will_remove);
             // self.garbage_collect.add_root(obj_id);
-            FSRObject::id_to_mut_obj(self.get_context().code)
+            FSRObject::id_to_mut_obj(self.get_context().code).expect("not a code object")
                 .as_mut_code()
                 .register_object(&name, obj_id);
             // self.garbage_collect.add_root(obj_id);
