@@ -151,6 +151,22 @@ impl<'a> Node<'a> {
         }
     }
 
+    pub fn get_single_op_level(op: &str) -> i32 {
+        if op.eq("not") || op.eq("!") {
+            return 1;
+        }
+
+        if op.eq("-") {
+            return 2;
+        }
+
+        if op.eq("~") {
+            return 2;
+        }
+
+        -1
+    }
+
     pub fn get_op_level(op: &str) -> i32 {
         if op.eq("..") {
             return 0;
@@ -224,9 +240,9 @@ struct StmtContext<'a> {
     bracket_count: i32,
     candidates: Vec<FSRToken<'a>>,
     operators: Vec<(&'static str, usize)>,
-    single_op: Option<&'static str>,
+    single_op: Option<&'a str>,
     last_loop: bool,
-    is_high_prio_single_op: bool,
+    single_op_level: Option<i32>,
 }
 
 impl StmtContext<'_> {
@@ -242,7 +258,7 @@ impl StmtContext<'_> {
             operators: vec![],
             single_op: None,
             last_loop: false,
-            is_high_prio_single_op: false,
+            single_op_level: None,
         }
     }
 }
@@ -410,7 +426,7 @@ impl<'a> FSRExpr<'a> {
     }
 
     #[inline]
-    fn end_of_char(
+    fn end_of_operator(
         source: &'a [u8],
         ignore_nline: bool,
         meta: &FSRPosition,
@@ -447,6 +463,60 @@ impl<'a> FSRExpr<'a> {
             ctx.start += ctx.length;
             ctx.length = 0;
         } else {
+            if ctx.single_op.is_some() && Node::get_single_op_level(ctx.single_op.as_ref().unwrap()) > Node::get_op_level(op) {
+                ctx.candidates[0].set_single_op(ctx.single_op.unwrap());
+                ctx.single_op = None;
+            }
+            ctx.operators.push((op, ctx.start));
+            ctx.states.pop_state();
+            ctx.start += ctx.length;
+            ctx.length = 0;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn process_operator(
+        source: &'a [u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext<'a>,
+    ) -> Result<(), SyntaxError> {
+        let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+        let op = ASTParser::get_static_op(op);
+        if ctx.start + ctx.length >= source.len() {
+            let mut sub_meta = meta.from_offset(ctx.start);
+            return Err(SyntaxError::new(
+                &sub_meta,
+                format!("{} must follow a expr or variable", op),
+            ));
+        }
+
+        if op.eq("-") && (source[ctx.start + ctx.length] as char).is_ascii_digit() {
+            ctx.single_op = Some(op);
+            ctx.states.pop_state();
+            ctx.start += ctx.length;
+            ctx.length = 0;
+            return Ok(());
+        }
+
+        if Self::is_single_op(op) && !op.eq("-") {
+            if ctx.single_op.is_some()
+                && (ctx.single_op.unwrap().eq("not") || ctx.single_op.unwrap().eq("!"))
+            {
+                ctx.single_op = None;
+            } else {
+                ctx.single_op = Some(op);
+            }
+
+            ctx.states.pop_state();
+            ctx.start += ctx.length;
+            ctx.length = 0;
+        } else {
+            if ctx.single_op.is_some() && Node::get_single_op_level(ctx.single_op.as_ref().unwrap()) < Node::get_op_level(op) {
+                println!("sdfsdf");
+                
+            }
             ctx.operators.push((op, ctx.start));
             ctx.states.pop_state();
             ctx.start += ctx.length;
@@ -571,9 +641,14 @@ impl<'a> FSRExpr<'a> {
             let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
             if name.eq("and") || name.eq("or") || name.eq("not") {
                 if name.eq("not") {
-                    ctx.is_high_prio_single_op = true;
+                    ctx.single_op_level = Some(Node::get_single_op_level(name));
+                    ctx.single_op = Some(name);
+                    ctx.start += ctx.length;
+                    ctx.length = 0;
+                    ctx.states.pop_state();
+                    return Ok(())
                 }
-                Self::end_of_char(source, ignore_nline, meta, ctx)?;
+                Self::end_of_operator(source, ignore_nline, meta, ctx)?;
                 return Ok(());
                 //ctx.states.pop_state();
             }
@@ -584,8 +659,8 @@ impl<'a> FSRExpr<'a> {
             } else {
                 context.ref_variable(variable.get_name());
             }
-            variable.single_op = ctx.single_op;
-            ctx.single_op = None;
+            // variable.single_op = ctx.single_op;
+            // ctx.single_op = None;
             ctx.candidates.push(FSRToken::Variable(variable));
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -730,47 +805,11 @@ impl<'a> FSRExpr<'a> {
             }
 
             if ctx.states.eq_peek(&ExprState::Operator) && !Self::is_op_one_char(t_c) {
-                Self::end_of_char(source, ignore_nline, meta, ctx)?;
+                Self::end_of_operator(source, ignore_nline, meta, ctx)?;
                 continue;
             }
 
-            if ctx.is_high_prio_single_op && ctx.states.eq_peek(&ExprState::WaitToken) {
-                let mut sub_expr = FSRExpr::parse(
-                    &source[ctx.start..],
-                    false,
-                    meta.from_offset(ctx.start),
-                    context,
-                )?;
-                ctx.start += sub_expr.1;
-                if let FSRToken::Expr(e) = &mut sub_expr.0 {
-                    e.single_op = ctx.single_op;
-                }
-                if let FSRToken::Call(c) = &mut sub_expr.0 {
-                    if context.is_variable_defined_in_curr(c.get_name()) {
-                        c.is_defined = true;
-                    } else {
-                        context.ref_variable(c.get_name());
-                    }
-                    c.single_op = ctx.single_op;
-                }
-
-                if let FSRToken::Variable(v) = &mut sub_expr.0 {
-                    if context.is_variable_defined_in_curr(v.get_name()) {
-                        v.is_defined = true;
-                    } else {
-                        context.ref_variable(v.get_name());
-                    }
-                    v.single_op = ctx.single_op;
-                }
-
-                if let FSRToken::Constant(v) = &mut sub_expr.0 {
-                    v.single_op = ctx.single_op;
-                }
-
-                ctx.is_high_prio_single_op = false;
-                ctx.candidates.push(sub_expr.0);
-                continue;
-            }
+            
             if t_i as char == '('
                 && (ctx.states.eq_peek(&ExprState::Bracket)
                     || ctx.states.eq_peek(&ExprState::WaitToken))
@@ -845,7 +884,6 @@ impl<'a> FSRExpr<'a> {
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && ASTParser::is_name_letter_first(ord) {
                 Self::variable_process(source, ignore_nline, meta, ctx, context)?;
-
                 continue;
             }
 
@@ -883,6 +921,7 @@ impl<'a> FSRExpr<'a> {
                     ctx.candidates.push(FSRToken::Call(call));
                     ctx.single_op = None;
                 }
+
 
                 // escape blank char, case like a[1] (1 + 2)
                 while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]) {
@@ -958,9 +997,9 @@ impl<'a> FSRExpr<'a> {
 
                 if name.eq("and") || name.eq("or") || name.eq("not") {
                     if name.eq("not") {
-                        ctx.is_high_prio_single_op = true;
+                        ctx.single_op_level = Some(Node::get_single_op_level("not"));
                     }
-                    Self::end_of_char(source, ignore_nline, meta, ctx)?;
+                    Self::end_of_operator(source, ignore_nline, meta, ctx)?;
                     continue;
                 }
 
@@ -984,6 +1023,11 @@ impl<'a> FSRExpr<'a> {
             if ctx.states.eq_peek(&ExprState::Slice) && !FSRGetter::is_valid_char(t_c as u8) {
                 unimplemented!()
             }
+        }
+
+        if let Some(s_op) = ctx.single_op {
+            ctx.candidates.last_mut().unwrap().set_single_op(s_op);
+            ctx.single_op = None;
         }
 
         if ctx.states.eq_peek(&ExprState::Operator) {
@@ -1164,154 +1208,3 @@ impl<'a> FSRExpr<'a> {
     }
 }
 
-// mod test {
-//     use crate::frontend::ast::token::base::FSRPosition;
-
-//     use super::FSRExpr;
-
-//     #[test]
-//     fn test_binary_str() {
-//         let v = "v and c";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_binary_str2() {
-//         let v = "not c and d";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_binary_str3() {
-//         let v = "not false";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_binary_str4() {
-//         let v = "(not 1 == 1) or 1 == 1";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_float() {
-//         let v = "1.0 + 1.0";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_float_div() {
-//         let v = "1.0 / 1.0";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_class() {
-//         let v = "Abc::test";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_square_bracket() {
-//         let v = "a[1]";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_bracket() {
-//         let v = "a(1)(1) + a(1)(1)";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_square_bracket2() {
-//         let case = vec!["a[1][1]", "a[1][1] + 1", "a[1][1] + 1 + 1",  "a[1][2][3]", "a[1] (1 + 2)"];
-//         for c in case {
-//             let v = c;
-//             let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//             println!("{:#?}", p.0);
-//         }
-//     }
-
-//     #[test]
-//     fn test_list() {
-//         let v = "[1, 2, 3]";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_class_getter() {
-//         let v = "Test::abc()";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_expr_error1() {
-//         let v = "1 + 1 +";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
-//         println!("{:#?}", p);
-//     }
-
-//     /// test error case
-//     /// this test case is for abc(
-//     /// it should be abc() or abc(1)
-//     #[test]
-//     fn test_expr_error2() {
-//         let v = "abc(";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new());
-//         println!("{:#?}", p);
-//     }
-
-//     #[test]
-//     fn test_single_quote_string() {
-//         let v = "println('ab, c')";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_range() {
-//         let v = "0..4+3";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_getter_expr() {
-//         let v = "a.abc.ddc[0]";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_call_expr() {
-//         let v = "a.abc(0)";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_lambda() {
-//         let v = "a = |a, b| { a + b }";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-
-//     #[test]
-//     fn test_lambda2() {
-//         let v = "|a, b| { a + b }";
-//         let p = FSRExpr::parse(v.as_bytes(), true, FSRPosition::new()).unwrap();
-//         println!("{:#?}", p.0);
-//     }
-// }

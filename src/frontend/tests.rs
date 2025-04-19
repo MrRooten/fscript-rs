@@ -487,7 +487,7 @@ try {
 
     #[test]
     fn not_attr() {
-        let c = r#"not a.contains(0) && abc"#;
+        let c = r#"true and not false"#;
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
         println!("{:#?}", i);

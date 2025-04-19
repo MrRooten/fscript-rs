@@ -1,96 +1,19 @@
-a = HashMap::new()
+true = 1 == 1
 
-for i in 0..1000000 {
-    a.insert(i, i)
-}
+assert(true)
 
-gc_info()
+false = 1 != 1
 
-for i in 0..1000000 {
-    b = a.get(i)
-    if b != i {
-        assert(false)
-    }
-}
+assert(!false, "false is not false")
 
-println("test")
-gc_shrink()
-for i in 0..1000000 {
-    
-}
+a = -1 * 10
+assert(a == -10, "a is not -10")
 
-for i in 0..1000000 {
-    
-}
+b = 10 + -1 * 10
+assert(b == 0, "b is not 0")
 
+assert(true and not false, "true and not false is not true")
 
-for i in 0..1000000 {
-    
-}
+assert(true or false, "true or false is not true")
 
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-for i in 0..1000000 {
-    
-}
-
-gc_info()
+assert(not (true and false), "not (true and false) is not true")

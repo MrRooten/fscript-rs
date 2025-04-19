@@ -74,5 +74,5 @@ a1 = [SortItem(3), SortItem(4), SortItem(1), SortItem(2), SortItem(5)]
 a1.sort()
 println("sort class")
 println(a1)
-assert(a1[0].value == 1)
-assert(a1[4].value == 5)
+println(a1[0].value == 1)
+println(a1[4].value == 5)

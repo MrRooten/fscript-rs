@@ -39,7 +39,7 @@ assert(a == -10)
 b = 10 + -1 * 10
 assert(b == 0)
 
-assert(not true and false)
+assert(true and not false)
 
 assert(true or false)
 

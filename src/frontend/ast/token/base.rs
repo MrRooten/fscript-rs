@@ -38,6 +38,19 @@ pub enum FSRToken<'a> {
 }
 
 impl<'a> FSRToken<'a> {
+    pub fn set_single_op(&mut self, op: &'a str) {
+        match self {
+            FSRToken::Expr(e) => e.single_op = Some(op),
+            FSRToken::StackExpr(e) => e.0 = Some(op),
+            FSRToken::Call(e) => e.single_op = Some(op),
+            FSRToken::Getter(e) => e.single_op = Some(op),
+            FSRToken::Variable(e) => e.single_op = Some(op),
+            FSRToken::Constant(e) => e.single_op = Some(op),
+            _ => panic!("Not an expression"),
+        }
+
+    }
+
     pub fn get_meta(&self) -> &FSRPosition {
         match self {
             FSRToken::FunctionDef(e) => e.get_meta(),

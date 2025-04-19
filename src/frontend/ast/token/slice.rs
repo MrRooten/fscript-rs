@@ -18,7 +18,7 @@ pub struct FSRGetter<'a> {
     name: &'a str,
     getter: Box<FSRToken<'a>>,
     len: usize,
-    single_op: Option<&'a str>,
+    pub(crate)single_op: Option<&'a str>,
     meta: FSRPosition,
     pub(crate) is_defined: bool,
 }
