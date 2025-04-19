@@ -15,6 +15,11 @@ use super::Tracker;
 pub enum GcReason {
     Full,
     Minjor,
+    AllocationFailure,
+    ThresholdBased,
+    ManulTrigger,
+    TimeBased,
+    SafePointTrigger
 }
 
 const ESCAPE_COUNT: u32 = 2;

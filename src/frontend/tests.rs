@@ -487,7 +487,7 @@ try {
 
     #[test]
     fn not_attr() {
-        let c = r#"true and not false"#;
+        let c = r#"1 + -1"#;
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
