@@ -1,5 +1,4 @@
-import math
+import math_2
 
-d = math::Div(123, 456)
-
-d.dump()
+math_2.abc()
+println("still here")

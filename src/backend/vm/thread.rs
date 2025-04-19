@@ -2887,9 +2887,10 @@ impl<'a> FSRThreadRuntime<'a> {
         let frame = self.frame_free_list.new_frame("load_module", code_id, 0);
         self.push_frame(frame);
         //self.unlock_and_lock();
-        let module = FSRObject::id_to_obj(code_id).as_code();
-        while let Some(expr) = module.get_expr(self.get_context().ip.0) {
-            self.run_expr_wrapper(expr, module.get_bytecode())?;
+        let mut code = FSRObject::id_to_obj(code_id).as_code();
+        while let Some(expr) = code.get_expr(self.get_context().ip.0) {
+            self.run_expr_wrapper(expr, code.get_bytecode())?;
+            code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
         //self.rt_unlock();
         self.pop_frame();
@@ -2922,9 +2923,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
         self.cur_frame.code = code_id;
         self.get_cur_mut_context().code = FSRObject::obj_to_id(main_code.unwrap());
-        let mut module = FSRObject::id_to_obj(code_id).as_code();
+        let mut code = FSRObject::id_to_obj(code_id).as_code();
         //self.get_cur_mut_frame().fn_obj = code_id;
-        while let Some(expr) = module.get_expr(self.get_context().ip.0) {
+        while let Some(expr) = code.get_expr(self.get_context().ip.0) {
             #[cfg(feature = "bytecode_trace")]
             {
                 println!(
@@ -2934,8 +2935,8 @@ impl<'a> FSRThreadRuntime<'a> {
                         .as_string()
                 )
             }
-            self.run_expr_wrapper(expr, module.get_bytecode())?;
-            module = FSRObject::id_to_obj(self.get_context().code).as_code();
+            self.run_expr_wrapper(expr, code.get_bytecode())?;
+            code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
 
         println!("count: {}", self.counter);
@@ -2981,8 +2982,8 @@ impl<'a> FSRThreadRuntime<'a> {
             let offset = fn_def.get_ip();
             self.get_cur_mut_context().ip = (offset.0, 0);
         }
-
-        while let Some(expr) = fn_def.get_bytecode().get(self.get_context().ip.0) {
+        let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
+        while let Some(expr) = code.get_expr(self.get_context().ip.0) {
             let v = self.run_expr_wrapper(expr, fn_def.get_bytecode())?;
             if self.exception_flag {
                 // If this is last function call, in this call_fn
@@ -3000,6 +3001,8 @@ impl<'a> FSRThreadRuntime<'a> {
             if v {
                 break;
             }
+
+            code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
 
         let cur = self.get_cur_mut_frame();
