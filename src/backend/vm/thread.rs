@@ -729,11 +729,21 @@ impl<'a> FSRThreadRuntime<'a> {
             // }
 
             let refs = obj.get_references();
-            obj.set_write_barrier(false);
+            let mut is_add = false;
             for ref_id in refs {
-                if !self.is_marked(ref_id) {
+                let obj = FSRObject::id_to_obj(ref_id);
+                if obj.area == Area::Minjor {
+                    is_add = true;
+                }
+                
+                if !obj.is_marked() {
                     work_list.push(ref_id);
                 }
+            }
+
+            if !is_add && obj.get_write_barrier() {
+                //println!("Set write barrier: {:?}", obj);
+                obj.set_write_barrier(false);
             }
         }
     }

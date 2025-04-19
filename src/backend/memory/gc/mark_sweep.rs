@@ -17,7 +17,7 @@ pub enum GcReason {
     Minjor,
 }
 
-const ESCAPE_COUNT: u32 = 5;
+const ESCAPE_COUNT: u32 = 2;
 
 pub struct MarkSweepGarbageCollector<'a> {
     marjor_arena: Vec<Option<Box<FSRObject<'a>>>>,
@@ -183,7 +183,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         }
 
         // if is_mark && count > ESCAPE_COUNT {
-        if is_mark {
+        if is_mark && count > ESCAPE_COUNT {
             let mut obj = obj.take().unwrap();
             obj.area = Area::Marjor;
             self.tracker.marjor_object_count += 1;

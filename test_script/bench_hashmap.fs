@@ -13,4 +13,15 @@ for i in 0..1000000 {
     }
 }
 
+println("test")
+
+for i in 0..1000000 {
+    
+}
+
+
+for i in 0..1000000 {
+    
+}
+
 gc_info()

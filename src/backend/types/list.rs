@@ -1,7 +1,5 @@
 use std::{
-    borrow::Cow,
-    collections::HashMap,
-    sync::{atomic::Ordering, Arc},
+    borrow::Cow, collections::HashMap, fmt::{Debug, Formatter}, sync::{atomic::Ordering, Arc}
 };
 
 use ahash::AHashMap;
@@ -51,9 +49,17 @@ impl FSRIterator for FSRListIterator<'_> {
     }
 }
 
-#[derive(Debug)]
+
 pub struct FSRList {
     vs: Vec<AtomicObjId>,
+}
+
+impl Debug for FSRList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FSRList")
+            .field("vs", &"[...]")
+            .finish()
+    }
 }
 
 fn list_len<'a>(

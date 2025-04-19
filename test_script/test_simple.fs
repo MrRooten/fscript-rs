@@ -4,15 +4,46 @@ for i in 0..1000000 {
     a.insert(i, i)
 }
 
-dump(a)
+gc_info()
 
 for i in 0..1000000 {
-    #println(i)
     b = a.get(i)
-    
     if b != i {
         assert(false)
     }
 }
+
+println("test")
+
+for i in 0..1000000 {
+    
+}
+
+for i in 0..1000000 {
+    
+}
+
+
+for i in 0..1000000 {
+    
+}
+
+
+for i in 0..1000000 {
+    
+}
+
+for i in 0..1000000 {
+    
+}
+
+for i in 0..1000000 {
+    
+}
+
+for i in 0..1000000 {
+    
+}
+
 
 gc_info()
