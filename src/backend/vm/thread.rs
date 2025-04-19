@@ -1,7 +1,11 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    collections::HashSet, ops::Range, path::PathBuf, str::FromStr, sync::{atomic::Ordering, Arc, Condvar, Mutex}
+    collections::HashSet,
+    ops::Range,
+    path::PathBuf,
+    str::FromStr,
+    sync::{atomic::Ordering, Arc, Condvar, Mutex},
 };
 
 use crate::{
@@ -536,7 +540,6 @@ impl<'a> FSRThreadRuntime<'a> {
         self.garbage_collect.clear_marks();
     }
 
-
     pub fn get_thread_id(&self) -> usize {
         self.thread_id
     }
@@ -617,7 +620,7 @@ impl<'a> FSRThreadRuntime<'a> {
         obj.is_marked()
     }
 
-    pub fn set_ref_objects_mark(&self, full: bool) {
+    fn add_worklist(&self) -> Vec<ObjId> {
         let mut others = self.flow_tracker.for_iter_obj.clone();
         others.extend(self.flow_tracker.ref_for_obj.clone());
         let frames = &self.call_frames;
@@ -690,19 +693,43 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(id);
         }
 
-        // work_list.extend(self.roots.iter());
-        // self.roots.clear();
+        work_list
+    }
 
-        while let Some(id) = work_list.pop() {
-            let obj = FSRObject::id_to_obj(id);
-            //println!("Cur Process: {:?}", obj);
-            if self.is_marked(id) {
+    fn process_refs(&self, work_list: &mut Vec<ObjId>, obj: &FSRObject, full: bool) {
+        let refs = obj.get_references();
+        let mut is_add = false;
+        for ref_id in refs {
+            let obj = FSRObject::id_to_obj(ref_id);
+            if obj.area == Area::Minjor {
+                is_add = true;
+            } else if !full {
                 continue;
             }
 
+            if !obj.is_marked() {
+                work_list.push(ref_id);
+            }
+        }
+
+        if !is_add && obj.get_write_barrier() {
+            obj.set_write_barrier(false);
+        }
+    }
+
+    pub fn set_ref_objects_mark(&self, full: bool) {
+        let mut work_list = self.add_worklist();
+
+        while let Some(id) = work_list.pop() {
             if FSRObject::is_sp_object(id) {
                 continue;
             }
+
+            let obj = FSRObject::id_to_obj(id);
+            if obj.is_marked() {
+                continue;
+            }
+
             match self.mark(id) {
                 Some(_) => {}
                 None => {
@@ -710,41 +737,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            let obj = FSRObject::id_to_obj(id);
-            
+            //let obj = FSRObject::id_to_obj(id);
 
-            
             if !full && obj.area.is_long() && !obj.get_write_barrier() {
                 continue;
             }
 
-            // if let FSRValue::Integer(i) = &obj.value {
-            //     if *i == 715321 {
-            //         println!("Cur Process: {:?}", obj);
-            //     }
-            // }
-
-            // if let FSRValue::Any(any) = &obj.value {
-            //     println!("Cur Process: {:?}", any);
-            // }
-
-            let refs = obj.get_references();
-            let mut is_add = false;
-            for ref_id in refs {
-                let obj = FSRObject::id_to_obj(ref_id);
-                if obj.area == Area::Minjor {
-                    is_add = true;
-                }
-                
-                if !obj.is_marked() {
-                    work_list.push(ref_id);
-                }
-            }
-
-            if !is_add && obj.get_write_barrier() {
-                //println!("Set write barrier: {:?}", obj);
-                obj.set_write_barrier(false);
-            }
+            self.process_refs(&mut work_list, obj, full);
         }
     }
 
@@ -979,7 +978,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(s) = attr.attr_object_id {
                     s.store(to_assign_obj_id, Ordering::Relaxed);
                 } else {
-                    let father_obj = FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
+                    let father_obj =
+                        FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
                     if father_obj.area.is_long()
                         && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
                     {
@@ -2160,7 +2160,8 @@ impl<'a> FSRThreadRuntime<'a> {
             // }
             // ``````
             if define_fn_obj == FSRObject::none_id() {
-                FSRObject::id_to_mut_obj(self.get_context().code).expect("not a code object")
+                FSRObject::id_to_mut_obj(self.get_context().code)
+                    .expect("not a code object")
                     .as_mut_code()
                     .register_object(&name.1, fn_id);
             }
@@ -2169,7 +2170,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 if define_fn_obj == FSRObject::none_id() {
                     panic!("closure var must in closure");
                 }
-                let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj).expect("not a fn obj").as_mut_fn();
+                let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj)
+                    .expect("not a fn obj")
+                    .as_mut_fn();
                 if let Some(s) = define_fn_obj.store_cells.get(name.1.as_str()) {
                     s.store(fn_id, Ordering::Relaxed);
                 } else {
@@ -2319,7 +2322,9 @@ impl<'a> FSRThreadRuntime<'a> {
         if fn_obj == FSRObject::none_id() {
             panic!("closure var must in closure");
         }
-        let fn_obj = FSRObject::id_to_mut_obj(fn_obj).expect("not a fn object").as_mut_fn();
+        let fn_obj = FSRObject::id_to_mut_obj(fn_obj)
+            .expect("not a fn object")
+            .as_mut_fn();
         if let Some(s) = fn_obj.store_cells.get(closure.1.as_str()) {
             s.store(obj_id, Ordering::Relaxed);
         } else {
@@ -2425,7 +2430,8 @@ impl<'a> FSRThreadRuntime<'a> {
             //self.rt_lock();
             let state = self.get_cur_mut_frame();
             state.insert_var_no_garbage(*v, obj_id);
-            FSRObject::id_to_mut_obj(context).expect("not a code object")
+            FSRObject::id_to_mut_obj(context)
+                .expect("not a code object")
                 .as_mut_code()
                 .register_object(module_name.last().unwrap(), obj_id);
             return Ok(false);
@@ -2452,7 +2458,8 @@ impl<'a> FSRThreadRuntime<'a> {
             // keep this order in case of will_remove is same as v
             // self.garbage_collect.remove_root(will_remove);
             // self.garbage_collect.add_root(obj_id);
-            FSRObject::id_to_mut_obj(self.get_context().code).expect("not a code object")
+            FSRObject::id_to_mut_obj(self.get_context().code)
+                .expect("not a code object")
                 .as_mut_code()
                 .register_object(&name, obj_id);
             // self.garbage_collect.add_root(obj_id);

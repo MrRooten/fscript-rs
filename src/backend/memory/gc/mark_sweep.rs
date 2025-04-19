@@ -33,8 +33,6 @@ pub struct MarkSweepGarbageCollector<'a> {
     // marks: Vec<bool>,
     pub(crate) tracker: Tracker,
 
-    self_id: u32,
-
     check: AtomicBool,
 }
 
@@ -77,7 +75,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
                 minjar_object_count: 0,
                 marjor_object_count: 0,
             },
-            self_id: 1,
             check: AtomicBool::new(false),
             marjor_arena: Vec::with_capacity(THROLD),
         }
@@ -183,7 +180,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         }
 
         // if is_mark && count > ESCAPE_COUNT {
-        if is_mark && count > ESCAPE_COUNT {
+        if is_mark && count >= ESCAPE_COUNT {
             let mut obj = obj.take().unwrap();
             obj.area = Area::Marjor;
             self.tracker.marjor_object_count += 1;

@@ -1,5 +1,8 @@
 use std::{
-    any::Any, collections::HashMap, fmt::{Debug, Formatter}, sync::atomic::{AtomicUsize, Ordering}
+    any::Any,
+    collections::HashMap,
+    fmt::{Debug, Formatter},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use ahash::AHashMap;
@@ -9,13 +12,18 @@ use crate::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
         types::{
-            any::{AnyDebugSend, AnyType, GetReference}, base::{Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, error::FSRException, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, list::FSRList
+            any::{AnyDebugSend, AnyType, GetReference},
+            base::{Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            class::FSRClass,
+            error::FSRException,
+            fn_def::FSRFn,
+            iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences},
+            list::FSRList,
         },
         vm::thread::FSRThreadRuntime,
     },
     utils::error::FSRError,
 };
-
 
 pub struct FSRHashMap {
     inner_map: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
@@ -133,7 +141,10 @@ pub fn fsr_fn_hashmap_insert<'a>(
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     if args.len() != 3 {
-        return Err(FSRError::new("not valid args", crate::utils::error::FSRErrCode::RuntimeError));
+        return Err(FSRError::new(
+            "not valid args",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
     }
     let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
@@ -178,6 +189,26 @@ pub fn fsr_fn_hashmap_get<'a>(
             }
         } else {
             unimplemented!()
+        }
+    } else {
+        unimplemented!()
+    }
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
+}
+
+pub fn fsr_fn_hashmap_get_reference<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let hashmap_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    let key = args[1];
+    let mut flag = false;
+    if let FSRValue::Any(any) = &hashmap_obj.value {
+        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
+            if let Some(value) = hashmap.get(key, thread) {
+                return Ok(FSRRetValue::Reference(value));
+            }
         }
     } else {
         unimplemented!()
@@ -238,6 +269,67 @@ impl FSRHashMap {
         FSRValue::Any(Box::new(AnyType {
             value: Box::new(self),
         }))
+    }
+
+    pub fn try_insert_if_not_exist(
+        &mut self,
+        key: ObjId,
+        value: ObjId,
+        thread: &mut FSRThreadRuntime,
+    ) -> Result<(), FSRError> {
+        let key_obj = FSRObject::id_to_obj(key);
+        let hash_fn_id = key_obj
+            .get_cls_offset_attr(BinaryOffset::Hash)
+            .unwrap()
+            .load(std::sync::atomic::Ordering::Relaxed);
+
+        let hash_fn = FSRObject::id_to_obj(hash_fn_id);
+        let hash = hash_fn.call(&[key], thread, 0, hash_fn_id)?;
+        let hash_id = FSRObject::id_to_obj(hash.get_id());
+        let hash = if let FSRValue::Integer(i) = &hash_id.value {
+            *i as u64
+        } else {
+            unimplemented!()
+        };
+
+        if let None = self.inner_map.get(&hash) {
+            self.inner_map
+                .insert(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
+            return Ok(());
+        }
+        let res = {
+            let res = self.inner_map.get_mut(&hash).unwrap();
+            for save_item in res.iter() {
+                let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
+                if save_key == key {
+                    // save_item
+                    //     .1
+                    //     .store(value, std::sync::atomic::Ordering::Relaxed);
+                    return Ok(());
+                }
+
+                let eq_fn_id = FSRObject::id_to_obj(save_key)
+                    .get_cls_offset_attr(BinaryOffset::Equal)
+                    .unwrap()
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                let eq_fn = FSRObject::id_to_obj(eq_fn_id);
+                let is_same = eq_fn
+                    .call(&[save_key, value], thread, 0, eq_fn_id)?
+                    .get_id();
+
+                if is_same == FSRObject::true_id() {
+                    // save_item
+                    //     .1
+                    //     .store(value, std::sync::atomic::Ordering::Relaxed);
+                    return Ok(());
+                }
+            }
+            res
+        };
+
+        res.push((AtomicObjId::new(key), AtomicObjId::new(value)));
+
+        Ok(())
     }
 
     pub fn insert(
@@ -362,14 +454,14 @@ impl FSRHashMap {
         };
 
         if let None = self.inner_map.get(&hash) {
-            return ;
+            return;
         }
 
         let res = self.inner_map.get(&hash).unwrap();
         let len = res.len();
         if len == 1 {
             self.inner_map.remove(&hash);
-            return ;
+            return;
         }
         let res = self.inner_map.get_mut(&hash).unwrap();
         for i in 0..len {
@@ -377,7 +469,7 @@ impl FSRHashMap {
             let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
             if save_key == key {
                 res.remove(i);
-                return ;
+                return;
             }
 
             let eq_fn_id = FSRObject::id_to_obj(save_key)
@@ -391,7 +483,7 @@ impl FSRHashMap {
                 .get_id();
             if is_same == FSRObject::true_id() {
                 res.remove(i);
-                return ;
+                return;
             }
         }
     }
@@ -417,6 +509,9 @@ impl FSRHashMap {
         cls.insert_attr("contains", contains);
         let remove = FSRFn::from_rust_fn_static(fsr_fn_hashmap_remove, "remove");
         cls.insert_attr("remove", remove);
+        let get_item_ref =
+            FSRFn::from_rust_fn_static(fsr_fn_hashmap_get_reference, "__getitem__ref");
+        cls.insert_offset_attr(BinaryOffset::GetItem, get_item_ref);
 
         cls
     }
