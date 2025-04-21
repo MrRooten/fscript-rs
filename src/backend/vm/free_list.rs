@@ -1,6 +1,5 @@
 // use for reused object
 
-use std::{borrow::Cow, collections::{LinkedList, VecDeque}};
 
 use crate::backend::types::base::ObjId;
 
@@ -18,7 +17,7 @@ impl<'a> FrameFreeList<'a> {
     }
 
     #[inline]
-    pub fn free(&mut self, mut frame: Box<CallFrame<'a>>) {
+    pub fn free(&mut self, frame: Box<CallFrame<'a>>) {
         self.list.push(frame);
     }
 

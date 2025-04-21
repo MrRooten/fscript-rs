@@ -335,8 +335,6 @@ impl<'a> FSRInteger {
         cls.insert_offset_attr(BinaryOffset::Div, div_fn);
 
         let mul_fn = FSRFn::from_rust_fn_static(mul, "integer_mul");
-        
-        
         //cls.insert_attr("__mul__", mul_fn);
         cls.insert_offset_attr(BinaryOffset::Mul, mul_fn);
         let gt_fn = FSRFn::from_rust_fn_static(greater, "integer_gt");

@@ -1,17 +1,14 @@
 use std::{
-    borrow::Cow,
-    collections::hash_map::Keys,
-    fmt::Debug,
-    sync::{
+    borrow::Cow, collections::hash_map::Keys, fmt::Debug, sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
-    },
+    }
 };
 
 use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
-        memory::{size_alloc::FSRObjectAllocator, GarbageCollector},
+        memory::size_alloc::FSRObjectAllocator,
         types::fn_def::FSRnE,
         vm::{
             thread::FSRThreadRuntime,
@@ -77,26 +74,6 @@ pub enum FSRValue<'a> {
 }
 
 impl<'a> FSRValue<'a> {
-    fn get_references(&self) -> Vec<ObjId> {
-        match self {
-            FSRValue::Class(fsrclass) => fsrclass
-                .iter_values()
-                .map(|x| x.load(Ordering::Relaxed))
-                .collect(),
-            FSRValue::ClassInst(fsrclass_inst) => fsrclass_inst
-                .iter_values()
-                .map(|x| x.load(Ordering::Relaxed))
-                .collect(),
-            FSRValue::List(fsrlist) => fsrlist
-                .iter_values()
-                .map(|x| x.load(Ordering::Relaxed))
-                .collect(),
-            FSRValue::Function(f) => f.get_references(),
-            FSRValue::Iterator(iterator) => iterator.get_references(),
-            _ => vec![],
-        }
-    }
-
     pub fn get_size(&self) -> usize {
         match self {
             FSRValue::Class(_) => std::mem::size_of::<FSRClass>(),
@@ -308,6 +285,7 @@ impl HeapTrace {
 pub(crate) static HEAP_TRACE: HeapTrace = HeapTrace {
     total_object: AtomicI64::new(0),
 };
+
 
 impl Default for FSRObject<'_> {
     fn default() -> Self {
@@ -728,7 +706,7 @@ impl<'a> FSRObject<'a> {
             return FSRString::new_inst_with_inner(s);
         }
         let v = FSRObject::id_to_obj(self.cls);
-        if let FSRValue::Class(c) = &v.value {
+        if let FSRValue::Class(_) = &v.value {
             return FSRString::new_value(&format!(
                 "<`{}` Class Object at {:?}>",
                 self.cls, self as *const Self
@@ -752,7 +730,6 @@ impl<'a> FSRObject<'a> {
             return false;
         };
 
-        // 检查函数类型
         matches!(fn_def.get_def(), FSRnE::FSRFn(_))
     }
 

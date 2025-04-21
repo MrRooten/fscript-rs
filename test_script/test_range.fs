@@ -4,4 +4,4 @@ for i in 0..10000 {
     
 }
 
-println(a)
+assert(i == 9999, "range iter error")

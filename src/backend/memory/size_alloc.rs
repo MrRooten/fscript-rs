@@ -1,7 +1,6 @@
 
 use crate::backend::{
-    types::{
-        base::{AtomicObjId, FSRObject, FSRValue, ObjId}, code::FSRCode}
+    types::base::{AtomicObjId, FSRObject, FSRValue, ObjId}
     ,
     vm::thread::{AttrArgs, FSCodeContext},
 };

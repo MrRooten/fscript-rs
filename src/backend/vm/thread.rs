@@ -35,6 +35,12 @@ use super::{
     virtual_machine::{FSRVM, VM},
 };
 
+macro_rules! obj_cls {
+    ($a:expr) => {
+        FSRObject::id_to_obj($a).cls
+    };
+}
+
 #[derive(Debug)]
 pub struct IndexMap {
     vs: Vec<Option<AtomicObjId>>,
@@ -615,11 +621,6 @@ impl<'a> FSRThreadRuntime<'a> {
         Some(())
     }
 
-    fn is_marked(&self, id: ObjId) -> bool {
-        let obj = FSRObject::id_to_obj(id);
-        obj.is_marked()
-    }
-
     fn add_worklist(&self) -> Vec<ObjId> {
         let mut others = self.flow_tracker.for_iter_obj.clone();
         others.extend(self.flow_tracker.ref_for_obj.clone());
@@ -1034,12 +1035,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let v1_id = v1.get_global_id(self)?;
         let v2_id = v2.get_global_id(self)?;
 
-        let v1_obj = FSRObject::id_to_obj(v1_id);
-        let v2_obj = FSRObject::id_to_obj(v2_id);
-        if let Some(op_quick) = self
-            .op_quick
-            .get_add(v2_obj.cls as ObjId, v1_obj.cls as ObjId)
-        {
+        let v1_cls = obj_cls!(v1_id);
+        let v2_cls = obj_cls!(v2_id);
+        if let Some(op_quick) = self.op_quick.get_add(v1_cls, v2_cls) {
             let res = op_quick(&[v2_id, v1_id], self, self.get_context().code)?;
             v1.drop_box(&mut self.thread_allocator);
             v2.drop_box(&mut self.thread_allocator);
@@ -1048,7 +1046,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRRetValue::GlobalId(res_id) => {
                     self.get_cur_mut_context().exp.push(SValue::Global(res_id));
                 }
-                FSRRetValue::Reference(atomic_usize) => {
+                FSRRetValue::Reference(_) => {
                     panic!("not support reference return, in add process")
                 }
             };
@@ -1068,13 +1066,10 @@ impl<'a> FSRThreadRuntime<'a> {
         v2.drop_box(&mut self.thread_allocator);
 
         match res {
-            // FSRRetValue::Value(object) => {
-            //     context.exp.push(SValue::BoxObject(object));
-            // }
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_context().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(atomic_usize) => {
+            FSRRetValue::Reference(_) => {
                 panic!("not support reference return, in add process")
             }
         };
@@ -1124,7 +1119,7 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_context().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(atomic_usize) => {
+            FSRRetValue::Reference(_) => {
                 panic!("not support reference return, in sub process")
             }
         };
@@ -1180,7 +1175,7 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_context().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(atomic_usize) => {
+            FSRRetValue::Reference(_) => {
                 panic!("not support reference return, in mul process")
             }
         };
@@ -1230,7 +1225,7 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_context().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(atomic_usize) => {
+            FSRRetValue::Reference(_) => {
                 panic!("not support reference return, in div process")
             }
         };
@@ -1658,7 +1653,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline]
-    fn try_get_obj_by_name(&mut self, c_id: u64, name: &str, module: &FSRCode) -> Option<ObjId> {
+    fn try_get_obj_by_name(&mut self, c_id: u64, name: &str, code: &FSRCode) -> Option<ObjId> {
         {
             let state = self.get_cur_mut_frame();
             if let Some(id) = state.get_var(&c_id) {
@@ -1666,7 +1661,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        match module.get_object(name) {
+        match code.get_object(name) {
             Some(s) => Some(s.load(Ordering::Relaxed)),
             None => {
                 // Cache global object in call frame
@@ -1740,10 +1735,15 @@ impl<'a> FSRThreadRuntime<'a> {
         } else if fn_obj.is_fsr_function() {
             self.get_cur_mut_context().call_end += 1;
             self.save_ip_to_callstate();
-            if let FSRValue::Function(f) = &fn_obj.value {
-                let frame = self.frame_free_list.new_frame("tmp2", f.code, fn_id);
-                self.push_frame(frame);
-            }
+            // if let FSRValue::Function(f) = &fn_obj.value {
+            //     let frame = self.frame_free_list.new_frame("tmp2", f.code, fn_id);
+            //     self.push_frame(frame);
+            // } else {
+            //     panic!("not a function")
+            // }
+            let f = fn_obj.as_fn();
+            let frame = self.frame_free_list.new_frame("tmp2", f.code, fn_id);
+            self.push_frame(frame);
 
             if call_method {
                 let self_obj = self
@@ -1836,18 +1836,17 @@ impl<'a> FSRThreadRuntime<'a> {
         let test_val = match &v {
             SValue::Stack(s) => {
                 name = &s.1;
-                let state = self.get_cur_mut_frame();
-                if let Some(id) = state.get_var(&s.0) {
-                    Some(id.load(Ordering::Relaxed))
-                } else {
-                    let v = self.get_vm().get_global_obj_by_name(name).cloned().unwrap();
-                    let state = self.get_cur_mut_frame();
-                    state.insert_var_no_garbage(s.0, v);
-                    // keep this order in case of will_remove is same as v
-                    // self.garbage_collect.remove_root(will_remove);
-                    // self.garbage_collect.add_root(v);
-                    Some(v)
-                }
+                let module = FSRObject::id_to_obj(self.get_context().code).as_code();
+                self.try_get_obj_by_name(s.0, name, module)
+                // let state = self.get_cur_mut_frame();
+                // if let Some(id) = state.get_var(&s.0) {
+                //     Some(id.load(Ordering::Relaxed))
+                // } else {
+                //     let v = self.get_vm().get_global_obj_by_name(name).cloned().unwrap();
+                //     let state = self.get_cur_mut_frame();
+                //     state.insert_var_no_garbage(s.0, v);
+                //     Some(v)
+                // }
             }
             SValue::Global(id) => Some(*id),
             _ => {
@@ -2909,7 +2908,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .get_fn("__main__")
                 .unwrap(),
         );
-        let mut context = self.thread_allocator.new_code_context(code_id, module);
+        let context = self.thread_allocator.new_code_context(code_id, module);
         self.push_context(context);
         let mut main_code = None;
         for code in FSRObject::id_to_obj(module).as_module().iter_fn() {

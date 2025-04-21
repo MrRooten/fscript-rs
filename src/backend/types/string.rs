@@ -1,10 +1,10 @@
-use std::{any::Any, borrow::Cow, fmt, hash::{DefaultHasher, Hash, Hasher}, str::Chars, sync::Arc};
+use std::{fmt, hash::{DefaultHasher, Hash, Hasher}, str::Chars, sync::Arc};
 
 use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
-        types::{base::FSRValue, integer::FSRInteger},
+        types::base::FSRValue,
         vm::thread::FSRThreadRuntime,
     },
     utils::error::FSRError,
@@ -196,6 +196,37 @@ fn eq<'a>(
     unimplemented!()
 }
 
+fn neq<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
+    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
+    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
+
+    if let FSRValue::String(self_str) = &self_object.value {
+        if let FSRValue::String(other_str) = &other_object.value {
+            if self_str.eq(other_str) {
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+            } else {
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+            }
+        } else {
+            return Err(FSRError::new(
+                "right value is not a string for eq string",
+                crate::utils::error::FSRErrCode::NotValidArgs,
+            ));
+        }
+    } else {
+        return Err(FSRError::new(
+            "left value is not a string for eq string",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
+    }
+}
+
 fn get_sub_char<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
@@ -236,7 +267,6 @@ fn get_sub_char<'a>(
         ));
     }
 
-    unimplemented!()
 }
 
 fn hash_string<'a>(
@@ -274,6 +304,9 @@ impl FSRString {
         //cls.insert_attr("__add__", add_fn);
         cls.insert_offset_attr(BinaryOffset::Equal, eq_fn);
 
+        let neq_fn = FSRFn::from_rust_fn_static(neq, "string_neq");
+        cls.insert_offset_attr(BinaryOffset::NotEqual, neq_fn);
+
         cls.insert_offset_attr(
             BinaryOffset::GetItem,
             FSRFn::from_rust_fn_static(get_sub_char, "string_get_sub_char"),
@@ -285,7 +318,7 @@ impl FSRString {
         let hash = FSRFn::from_rust_fn_static(hash_string, "string_hash");
         cls.insert_offset_attr(
             BinaryOffset::Hash,
-            FSRFn::from_rust_fn_static(hash_string, "string_hash"),
+            hash,
         );
         cls
     }

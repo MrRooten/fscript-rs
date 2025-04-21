@@ -1,13 +1,13 @@
 a = HashMap::new()
 
 for i in 0..1000000 {
-    a.insert(i, i)
+    a.insert(i, "abc")
 }
 
 
 for i in 0..1000000 {
     b = a.get(i)
-    if b != i {
+    if b != "abc" {
         assert(false)
     }
 }

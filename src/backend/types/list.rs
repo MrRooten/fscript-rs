@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, collections::HashMap, fmt::{Debug, Formatter}, sync::{atomic::Ordering, Arc}
+    fmt::{Debug, Formatter}, sync::{atomic::Ordering, Arc}
 };
 
 use ahash::AHashMap;
@@ -7,12 +7,10 @@ use ahash::AHashMap;
 use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
-        memory::{size_alloc::FSRObjectAllocator, GarbageCollector},
+        memory::GarbageCollector,
         types::{
             base::{FSRObject, FSRValue},
-            integer::FSRInteger,
             iterator::FSRInnerIterator,
-            string::FSRString,
         },
         vm::thread::FSRThreadRuntime,
     },
@@ -20,9 +18,8 @@ use crate::{
 };
 
 use super::{
-    base::{Area, AtomicObjId, DropObject, FSRGlobalObjId, FSRRetValue, ObjId},
+    base::{Area, AtomicObjId, FSRGlobalObjId, FSRRetValue, ObjId},
     class::FSRClass,
-    code::FSRCode,
     fn_def::FSRFn,
     iterator::{FSRIterator, FSRIteratorReferences},
     string::FSRInnerString,

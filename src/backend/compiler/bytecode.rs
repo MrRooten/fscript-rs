@@ -1,7 +1,6 @@
 use std::{
-    borrow::Cow,
     collections::HashMap,
-    sync::{atomic::{AtomicU64, Ordering}, Arc},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use crate::{
@@ -203,6 +202,7 @@ impl FSRByteInfo {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub struct BytecodeArg {
     operator: BytecodeOperator,
     arg: ArgType,
@@ -392,6 +392,7 @@ impl BytecodeContext {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct VarMap<'a> {
     var_map: HashMap<&'a str, u64>,
@@ -466,6 +467,7 @@ impl<'a> VarMap<'a> {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct Bytecode {
     #[allow(unused)]
@@ -635,17 +637,6 @@ impl<'a> Bytecode {
         (result, var_map_ref)
     }
 
-    fn search_var_map_name_id(name: &'a str, var_map: &mut Vec<VarMap<'a>>) -> Option<u64> {
-        for v in var_map.iter_mut().rev() {
-            if v.has_var(name) {
-                let id = *v.get_var(name).unwrap();
-                return Some(id);
-            }
-        }
-
-        None
-    }
-
     fn load_variable(
         var: &'a FSRVariable<'a>,
         var_map: &'a mut Vec<VarMap<'a>>,
@@ -688,11 +679,26 @@ impl<'a> Bytecode {
             };
             let mut ans = vec![op_arg];
             if let Some(single_op) = var.single_op {
-                ans.push(BytecodeArg {
-                    operator: BytecodeOperator::NotOperator,
-                    arg: ArgType::None,
-                    info: FSRByteInfo::new(var.get_meta().clone()),
-                });
+                match single_op {
+                    "!" => {
+                        ans.push(BytecodeArg {
+                            operator: BytecodeOperator::NotOperator,
+                            arg: ArgType::None,
+                            info: FSRByteInfo::new(var.get_meta().clone()),
+                        });
+                    },
+                    "not" => {
+                        ans.push(BytecodeArg {
+                            operator: BytecodeOperator::NotOperator,
+                            arg: ArgType::None,
+                            info: FSRByteInfo::new(var.get_meta().clone()),
+                        });
+                    },
+                    _ => {
+                        panic!("not support single op {}", single_op);
+                    }
+                }
+                
             }
 
             return (ans, var_map);
@@ -722,11 +728,25 @@ impl<'a> Bytecode {
         };
         let mut ans = vec![op_arg];
         if let Some(single_op) = var.single_op {
-            ans.push(BytecodeArg {
-                operator: BytecodeOperator::NotOperator,
-                arg: ArgType::None,
-                info: FSRByteInfo::new(var.get_meta().clone()),
-            });
+            match single_op {
+                "!" => {
+                    ans.push(BytecodeArg {
+                        operator: BytecodeOperator::NotOperator,
+                        arg: ArgType::None,
+                        info: FSRByteInfo::new(var.get_meta().clone()),
+                    });
+                },
+                "not" => {
+                    ans.push(BytecodeArg {
+                        operator: BytecodeOperator::NotOperator,
+                        arg: ArgType::None,
+                        info: FSRByteInfo::new(var.get_meta().clone()),
+                    });
+                },
+                _ => {
+                    panic!("not support single op {}", single_op);
+                }
+            }
         }
 
         (ans, var_map)
@@ -1281,7 +1301,6 @@ impl<'a> Bytecode {
     ) -> (Vec<Vec<BytecodeArg>>, &'a mut Vec<VarMap<'a>>) {
         let name = import.module_name.last().unwrap();
         if !var_map.last_mut().unwrap().has_var(name) {
-            let v = name;
             var_map.last_mut().unwrap().insert_var(name);
         }
 
@@ -1609,7 +1628,7 @@ impl<'a> Bytecode {
         };
         let mut load_args = Vec::new();
 
-        let mut fn_var_map = VarMap::new(fn_def.get_name());
+        let fn_var_map = VarMap::new(fn_def.get_name());
         var_map.push(fn_var_map);
         const_map.ref_map_stack.push(fn_def.clone_ref_map());
         let args = fn_def.get_args();
@@ -1707,7 +1726,7 @@ impl<'a> Bytecode {
             info: FSRByteInfo::new(class_def.get_meta().clone()),
         };
 
-        let mut class_var_map = VarMap::new(class_def.get_name());
+        let class_var_map = VarMap::new(class_def.get_name());
         var_map.push(class_var_map);
         let v = Self::load_block(class_def.get_block(), var_map, const_map);
         var_map = v.1;
@@ -1745,7 +1764,7 @@ impl<'a> Bytecode {
         v.0
     }
 
-    pub fn load_ast(name: &str, token: FSRToken<'a>) -> HashMap<String, Bytecode> {
+    pub fn load_ast(_name: &str, token: FSRToken<'a>) -> HashMap<String, Bytecode> {
         let mut const_table = BytecodeContext::new();
         let vs = Self::load_isolate_block(&token, &mut const_table);
         let mut result = vec![];
@@ -1786,6 +1805,7 @@ impl<'a> Bytecode {
     }
 }
 
+#[allow(unused)]
 mod test {
     use crate::{
         backend::compiler::bytecode::Bytecode,

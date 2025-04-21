@@ -154,8 +154,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
             };
 
             if t == &NodeType::Root {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + start;
+                let mut sub_meta = meta.from_offset(start);
                 let expr = FSRExpr::parse(&source[start..], false, sub_meta, &mut context)?;
                 length += expr.1;
                 module.tokens.push(expr.0);
@@ -163,8 +162,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 length = 0;
                 continue;
             } else if t == &NodeType::IfState {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + start;
+                let mut sub_meta = meta.from_offset(start);
                 let if_block = FSRIf::parse(&source[start..], sub_meta, &mut context)?;
                 length += if_block.get_len();
                 module.tokens.push(FSRToken::IfExp(if_block));

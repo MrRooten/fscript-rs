@@ -19,7 +19,7 @@ pub enum GcReason {
     ThresholdBased,
     ManulTrigger,
     TimeBased,
-    SafePointTrigger
+    SafePointTrigger,
 }
 
 const ESCAPE_COUNT: u32 = 2;
@@ -30,8 +30,6 @@ pub struct MarkSweepGarbageCollector<'a> {
     objects: Vec<Option<Box<FSRObject<'a>>>>,
     // Free slots for objects
     free_slots: Vec<usize>,
-
-    roots: Vec<ObjId>,
     // Object allocator
     allocator: FSRObjectAllocator<'a>,
     // // mark bitmap
@@ -68,7 +66,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         Self {
             objects: Vec::with_capacity(THROLD),
             free_slots: Vec::with_capacity(THROLD),
-            roots: vec![],
             allocator: FSRObjectAllocator::new(),
             // marks: Vec::with_capacity(THROLD),
             tracker: Tracker {
@@ -125,7 +122,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     #[inline(always)]
     fn alloc_when_full(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         let slot_idx = self.objects.len();
-        let mut obj = self
+        let obj = self
             .allocator
             .new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
 
@@ -165,17 +162,18 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         let mut count = 0;
         if let Some(obj) = obj {
             is_mark = obj.is_marked();
-            if !is_mark && !obj.free {
-                if (!full && obj.area == Area::Minjor) || full {
-                    if obj.area == Area::Minjor {
-                        self.tracker.minjar_object_count -= 1;
-                    } else {
-                        self.tracker.marjor_object_count -= 1;
-                    }
-                    obj.free = true;
-                    self.free_slots.push(i);
-                    *freed_count += 1;
+            if (!is_mark && !obj.free) && 
+                ((!full && obj.area == Area::Minjor) || full) {
+                // if (!full && obj.area == Area::Minjor) || full {
+                if obj.area == Area::Minjor {
+                    self.tracker.minjar_object_count -= 1;
+                } else {
+                    self.tracker.marjor_object_count -= 1;
                 }
+                obj.free = true;
+                self.free_slots.push(i);
+                *freed_count += 1;
+                //}
             }
 
             if is_mark {

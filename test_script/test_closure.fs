@@ -46,4 +46,4 @@ fn abc3() {
 }
 
 a = abc3()
-println(a())
+assert(a() == 2, "a() == 2 error")

@@ -1,7 +1,6 @@
-use super::{
-    types::base::{FSRObject, FSRValue, ObjId},
-    vm::thread::{CallFrame, FSRThreadRuntime},
-};
+use super::
+    types::base::{FSRObject, FSRValue, ObjId}
+;
 
 pub mod gc;
 pub mod mempool;
