@@ -6,7 +6,7 @@ for i in 0..1000000 {
 
 
 for i in 0..1000000 {
-    b = a.get(i)
+    b = a[i]
     if b != "abc" {
         assert(false)
     }
