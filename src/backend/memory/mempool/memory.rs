@@ -6,9 +6,7 @@ pub struct TCMemoryManager<'a> {
 
 impl<'a> TCMemoryManager<'a> {
     pub fn new() -> Self {
-        TCMemoryManager {
-            object: Vec::new(),
-        }
+        TCMemoryManager { object: Vec::new() }
     }
 
     pub fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
@@ -22,5 +20,23 @@ impl<'a> TCMemoryManager<'a> {
     pub fn shrink(&mut self) {
         self.object
             .retain(|obj| if obj.free { false } else { true });
+    }
+
+    pub fn mark_unused<F>(&mut self, callback: F)
+    where
+        F: Fn(&FSRObject<'a>) -> bool,
+    {
+        for obj in self.object.iter_mut() {
+            obj.free = callback(obj);
+        }
+    }
+
+    pub fn process_objects<F>(&mut self, callback: F)
+    where
+        F: Fn(&mut FSRObject<'a>),
+    {
+        for obj in self.object.iter_mut() {
+            callback(obj);
+        }
     }
 }

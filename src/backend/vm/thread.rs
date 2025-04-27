@@ -2808,7 +2808,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if self.counter - self.last_counter > 200 {
             self.rt_yield();
             //if self.counter - self.last_counter > 5000 {
-            if self.garbage_collect.get_time_delta() > 100 {
+            //if self.garbage_collect.get_time_delta() > 50 {
                 if self.garbage_collect.will_collect() {
                     let st = std::time::Instant::now();
                     self.clear_marks();
@@ -2817,7 +2817,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                     self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
                 }
-            }
+            //}
             //}
         }
 

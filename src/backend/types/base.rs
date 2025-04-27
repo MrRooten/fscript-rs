@@ -216,6 +216,13 @@ pub enum Area {
     Global
 }
 
+#[derive(Debug, PartialEq)]
+pub enum TripleColor {
+    White,
+    Gray,
+    Black
+}
+
 impl Area {
     pub fn is_long(&self) -> bool {
         match self {
@@ -234,6 +241,7 @@ pub struct FSRObject<'a> {
     pub(crate) gc_count: u32,
     pub(crate) area: Area,
     pub(crate) write_barrier: AtomicBool,
+    pub(crate) color: TripleColor
     // pub(crate) garbage_id: u32,
 }
 
@@ -309,6 +317,7 @@ impl<'a> FSRObject<'a> {
             area: Area::Global,
             write_barrier: AtomicBool::new(false),
             gc_count: 0,
+            color: TripleColor::White,
         }
     }
 
@@ -383,6 +392,7 @@ impl<'a> FSRObject<'a> {
             area: Area::Global,
             write_barrier: AtomicBool::new(false),
             gc_count: 0,
+            color: TripleColor::White
         }
     }
 
