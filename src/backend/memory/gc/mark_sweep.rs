@@ -1,7 +1,9 @@
 #![allow(clippy::vec_box)]
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
+use crate::backend::memory::mempool::memory::TCMemoryManager;
 use crate::backend::types::base::{Area, FSRGlobalObjId};
 
 use crate::backend::{
@@ -25,13 +27,14 @@ pub enum GcReason {
 const ESCAPE_COUNT: u32 = 2;
 
 pub struct MarkSweepGarbageCollector<'a> {
-    marjor_arena: Vec<Option<Box<FSRObject<'a>>>>,
+    marjor_arena: Vec<Option<ObjId>>,
     // Store all objects
-    objects: Vec<Option<Box<FSRObject<'a>>>>,
+    objects: Vec<Option<ObjId>>,
     // Free slots for objects
     free_slots: Vec<usize>,
     // Object allocator
-    allocator: FSRObjectAllocator<'a>,
+    //allocator: FSRObjectAllocator<'a>,
+    memory: TCMemoryManager<'a>,
     // // mark bitmap
     // marks: Vec<bool>,
     pub(crate) tracker: Tracker,
@@ -42,6 +45,10 @@ pub struct MarkSweepGarbageCollector<'a> {
 const THROLD: usize = 10240 * 2;
 
 impl<'a> MarkSweepGarbageCollector<'a> {
+    pub fn get_time_delta(&self) -> u128 {
+        self.tracker.last_collect_time.elapsed().as_millis() as u128
+    }
+
     pub fn get_stop_time(&self) -> u64 {
         self.tracker.collect_time
     }
@@ -66,7 +73,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         Self {
             objects: Vec::with_capacity(THROLD),
             free_slots: Vec::with_capacity(THROLD),
-            allocator: FSRObjectAllocator::new(),
+            memory: TCMemoryManager::new(),
             // marks: Vec::with_capacity(THROLD),
             tracker: Tracker {
                 object_count: 0,
@@ -76,6 +83,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
                 collect_count: 0,
                 minjar_object_count: 0,
                 marjor_object_count: 0,
+                last_collect_time: Instant::now(),
             },
             check: AtomicBool::new(false),
             marjor_arena: Vec::with_capacity(THROLD),
@@ -86,12 +94,14 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         // self.marks.iter_mut().for_each(|m| *m = false);
         self.objects.iter_mut().for_each(|m| {
             if let Some(obj) = m {
+                let obj = FSRObject::id_to_mut_obj(*obj).unwrap();
                 obj.mark = false;
             }
         });
 
         self.marjor_arena.iter_mut().for_each(|m| {
             if let Some(obj) = m {
+                let obj = FSRObject::id_to_mut_obj(*obj).unwrap();
                 obj.mark = false;
             }
         });
@@ -100,8 +110,9 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     #[inline(always)]
     fn alloc_object(&mut self, free_idx: usize, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         debug_assert!(free_idx < self.objects.len(), "free_idx out of bounds");
-        let obj = &mut self.objects[free_idx];
-        if let Some(obj) = obj {
+        let obj = &self.objects[free_idx];
+        if let Some(obj_id) = obj {
+            let obj = FSRObject::id_to_mut_obj(*obj_id).unwrap();
             obj.value = value;
             obj.cls = cls;
             obj.free = false;
@@ -109,13 +120,14 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             self.tracker.minjar_object_count += 1;
             return FSRObject::obj_to_id(obj);
         } else {
-            let mut obj = self.allocator.new_object(value, cls);
+            let mut obj_id = self.memory.new_object(value, cls);
+            let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
             self.tracker.minjar_object_count += 1;
-            self.objects[free_idx] = Some(obj);
-            return FSRObject::obj_to_id(self.objects[free_idx].as_ref().unwrap());
+            self.objects[free_idx] = Some(obj_id);
+            return obj_id
         }
     }
 
@@ -123,19 +135,20 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     fn alloc_when_full(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         let slot_idx = self.objects.len();
         let obj = self
-            .allocator
+            .memory
             .new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
 
         self.objects.push(Some(obj));
         let obj = &mut self.objects[slot_idx];
-        if let Some(obj) = obj {
+        if let Some(obj_id) = obj {
+            let obj = FSRObject::id_to_mut_obj(*obj_id).unwrap();
             obj.value = value;
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
             self.tracker.minjar_object_count += 1;
 
-            return FSRObject::obj_to_id(obj);
+            return *obj_id
         }
 
         unimplemented!()
@@ -144,7 +157,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     pub fn shrink(&mut self) {
         self.free_slots.clear();
         self.objects.retain(|obj| {
-            if let Some(obj) = obj {
+            if let Some(obj_id) = obj {
+                let obj = FSRObject::id_to_obj(*obj_id);
                 if obj.free {
                     return false;
                 } else {
@@ -153,6 +167,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             }
             false
         });
+
+        self.memory.shrink();
         self.tracker.object_count = self.objects.len() as u32 + self.marjor_arena.len() as u32;
     }
 
@@ -160,7 +176,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         let obj = &mut self.objects[i];
         let mut is_mark = false;
         let mut count = 0;
-        if let Some(obj) = obj {
+        if let Some(obj_id) = obj {
+            let obj = FSRObject::id_to_mut_obj(*obj_id).unwrap();
             is_mark = obj.is_marked();
             if (!is_mark && !obj.free) && 
                 ((!full && obj.area == Area::Minjor) || full) {
@@ -184,11 +201,12 @@ impl<'a> MarkSweepGarbageCollector<'a> {
 
         // if is_mark && count > ESCAPE_COUNT {
         if is_mark && count >= ESCAPE_COUNT {
-            let mut obj = obj.take().unwrap();
+            let mut obj_id = obj.take().unwrap();
+            let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
             obj.area = Area::Marjor;
             self.tracker.marjor_object_count += 1;
             self.tracker.minjar_object_count -= 1;
-            self.marjor_arena.push(Some(obj));
+            self.marjor_arena.push(Some(obj_id));
         }
     }
 
@@ -233,6 +251,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         }
 
         self.tracker_process(freed_count);
+        self.tracker.last_collect_time = Instant::now();
     }
 
     fn will_collect(&self) -> bool {

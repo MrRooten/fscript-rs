@@ -6,10 +6,12 @@ pub struct TCMemoryManager<'a> {
 
 impl<'a> TCMemoryManager<'a> {
     pub fn new() -> Self {
-        unimplemented!()
+        TCMemoryManager {
+            object: Vec::new(),
+        }
     }
 
-    pub fn new_object(&mut self, cls: ObjId, value: FSRValue<'a>) -> ObjId {
+    pub fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         let obj = Box::new(FSRObject::new_inst(value, cls));
 
         let id = FSRObject::obj_to_id(&obj);
