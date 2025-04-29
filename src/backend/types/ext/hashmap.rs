@@ -49,7 +49,7 @@ impl AnyDebugSend for FSRHashMap {
 
 impl GetReference for FSRHashMap {
     fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = &'a AtomicObjId> + 'a> {
-        let mut v = vec![];
+        let mut v = Vec::with_capacity(self.inner_map.len() * 2);
         for (_, vec) in self.inner_map.iter() {
             for (key, value) in vec.iter() {
                 v.push(key);

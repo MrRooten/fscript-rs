@@ -2807,18 +2807,14 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         if self.counter - self.last_counter > 200 {
             self.rt_yield();
-            //if self.counter - self.last_counter > 5000 {
-            //if self.garbage_collect.get_time_delta() > 50 {
-                if self.garbage_collect.will_collect() {
-                    let st = std::time::Instant::now();
-                    self.clear_marks();
-                    self.set_ref_objects_mark(false);
-                    self.collect_gc(false);
+            if self.garbage_collect.will_collect() {
+                let st = std::time::Instant::now();
+                self.clear_marks();
+                self.set_ref_objects_mark(false);
+                self.collect_gc(false);
 
-                    self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
-                }
-            //}
-            //}
+                self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
+            }
         }
 
         self.run_expr(expr, bc)

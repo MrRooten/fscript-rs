@@ -20,14 +20,14 @@ impl<'a> TripleColorGarbageCollector<'a> {
     }
 
     pub fn mark_roots(&mut self, root_indices: &[ObjId]) {
-        for obj_id in root_indices {
-            if let Some(obj) = FSRObject::id_to_mut_obj(*obj_id) {
-                if obj.color == TripleColor::White {
-                    obj.color = TripleColor::Gray;
-                    self.gray.push(Some(*obj_id));
-                }
-            }
-        }
+        // for obj_id in root_indices {
+        //     if let Some(obj) = FSRObject::id_to_mut_obj(*obj_id) {
+        //         if obj.color == TripleColor::White {
+        //             obj.color = TripleColor::Gray;
+        //             self.gray.push(Some(*obj_id));
+        //         }
+        //     }
+        // }
     }
 
     pub fn mark(&mut self) {
@@ -37,7 +37,7 @@ impl<'a> TripleColorGarbageCollector<'a> {
                     Some(obj) => obj,
                     None => continue,
                 };
-                obj.color = TripleColor::Black;
+                //obj.color = TripleColor::Black;
                 let references = obj.get_references();
                 
                 
@@ -57,7 +57,7 @@ impl<'a> TripleColorGarbageCollector<'a> {
 
     pub fn white_objects(&mut self) {
         self.memory.process_objects(|x| {
-            x.color = TripleColor::White;
+            //x.color = TripleColor::White;
         });
     }
 

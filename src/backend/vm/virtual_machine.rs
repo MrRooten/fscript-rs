@@ -281,7 +281,7 @@ impl<'a> FSRVM<'a> {
             area: Area::Global,
             write_barrier: AtomicBool::new(true),
             gc_count: 0,
-            color: TripleColor::White,
+            //color: TripleColor::White,
         }
     }
 
