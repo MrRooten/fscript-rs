@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 pub mod mark_sweep;
 pub mod triple_color;
 
@@ -10,4 +12,5 @@ pub struct Tracker {
     collect_count: u64,
     minjar_object_count: u32,
     marjor_object_count: u32,
+    last_collect_time: Instant, // in microseconds
 }

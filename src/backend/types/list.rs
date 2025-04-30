@@ -46,6 +46,10 @@ impl FSRIterator for FSRListIterator<'_> {
     }
 }
 
+pub struct ListDirtyCard {
+    pub(crate) dirty: bool,
+    pub(crate) store: Vec<AtomicObjId>,
+}
 
 pub struct FSRList {
     vs: Vec<AtomicObjId>,
