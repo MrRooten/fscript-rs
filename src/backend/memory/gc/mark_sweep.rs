@@ -93,13 +93,13 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         // self.marks.iter_mut().for_each(|m| *m = false);
         self.objects.iter_mut().for_each(|m| {
             if let Some(obj) = m {
-                obj.mark = false;
+                obj.unmark();
             }
         });
 
         self.marjor_arena.iter_mut().for_each(|m| {
             if let Some(obj) = m {
-                obj.mark = false;
+                obj.unmark();
             }
         });
     }

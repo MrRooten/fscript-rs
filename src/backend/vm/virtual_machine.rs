@@ -277,7 +277,7 @@ impl<'a> FSRVM<'a> {
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,
-            mark: false,
+            mark: AtomicBool::new(false),
             area: Area::Global,
             write_barrier: AtomicBool::new(true),
             gc_count: 0,

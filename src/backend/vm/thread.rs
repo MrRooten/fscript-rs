@@ -720,7 +720,7 @@ impl<'a> FSRThreadRuntime<'a> {
         work_list
     }
 
-    fn process_refs(&mut self, obj: &FSRObject, full: bool) {
+    fn process_refs(&mut self, id: ObjId, obj: &FSRObject, full: bool) {
         let work_list = &mut self.gc_context.worklist;
         let refs = obj.get_references(full);
         let mut is_add = false;
@@ -762,20 +762,14 @@ impl<'a> FSRThreadRuntime<'a> {
                 continue;
             }
 
-            match self.mark(id) {
-                Some(_) => {}
-                None => {
-                    continue;
-                }
-            };
+            obj.mark();
 
-            //let obj = FSRObject::id_to_obj(id);
 
             if !full && obj.area.is_long() && !obj.get_write_barrier() {
                 continue;
             }
 
-            self.process_refs(obj, full);
+            self.process_refs(id, obj, full);
         }
     }
 

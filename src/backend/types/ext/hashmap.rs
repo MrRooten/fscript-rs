@@ -101,13 +101,97 @@ impl AnyDebugSend for FSRHashMap {
     }
 }
 
+struct FSRHashMapRefIterator<'a> {
+    hashmap: &'a FSRHashMap,
+    segment_idx: usize,
+    vec_iter: Option<std::slice::Iter<'a, (AtomicObjId, AtomicObjId)>>,
+    hash_iter: Option<std::collections::hash_map::Iter<'a, u64, Vec<(AtomicObjId, AtomicObjId)>>>,
+    current_pair: Option<&'a (AtomicObjId, AtomicObjId)>,
+    yield_key: bool,
+}
+
+impl<'a> FSRHashMapRefIterator<'a> {
+    fn new(hashmap: &'a FSRHashMap) -> Self {
+        let mut iter = Self {
+            hashmap,
+            segment_idx: 0,
+            vec_iter: None,
+            hash_iter: None,
+            current_pair: None,
+            yield_key: true,
+        };
+        
+        // 初始化第一个segment的迭代器
+        if !hashmap.segment_map.is_empty() {
+            iter.hash_iter = Some(hashmap.segment_map[0].hashmap.iter());
+        }
+        
+        // 初始化第一个vec迭代器
+        iter.advance_hash_iterator();
+        
+        iter
+    }
+    
+    fn advance_hash_iterator(&mut self) -> bool {
+        if let Some(hash_iter) = &mut self.hash_iter {
+            if let Some((_, vec)) = hash_iter.next() {
+                self.vec_iter = Some(vec.iter());
+                self.advance_vec_iterator();
+                return true;
+            }
+        }
+        
+        // 尝试移动到下一个segment
+        self.segment_idx += 1;
+        if self.segment_idx < self.hashmap.segment_map.len() {
+            self.hash_iter = Some(self.hashmap.segment_map[self.segment_idx].hashmap.iter());
+            self.advance_hash_iterator()
+        } else {
+            self.vec_iter = None;
+            self.current_pair = None;
+            false
+        }
+    }
+    
+    fn advance_vec_iterator(&mut self) -> bool {
+        if let Some(vec_iter) = &mut self.vec_iter {
+            if let Some(pair) = vec_iter.next() {
+                self.current_pair = Some(pair);
+                self.yield_key = true;
+                return true;
+            }
+        }
+        
+        // 尝试移动到下一个hashmap条目
+        self.advance_hash_iterator()
+    }
+}
+
+impl<'a> Iterator for FSRHashMapRefIterator<'a> {
+    type Item = ObjId;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(pair) = self.current_pair {
+            if self.yield_key {
+                // 返回键
+                self.yield_key = false;
+                return Some(pair.0.load(Ordering::Relaxed));
+            } else {
+                // 返回值，并进入下一对
+                let value = pair.1.load(Ordering::Relaxed);
+                self.advance_vec_iterator();
+                return Some(value);
+            }
+        }
+        
+        None
+    }
+}
+
 impl GetReference for FSRHashMap {
     fn get_reference<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         let mut v = Vec::with_capacity(self.len() * 2);
         for segment in self.segment_map.iter() {
-            // if !segment.is_dirty() {
-            //     continue;
-            // }
             for (_, vec) in segment.hashmap.iter() {
                 for (key, value) in vec.iter() {
                     v.push(key.load(Ordering::Relaxed));
@@ -117,9 +201,9 @@ impl GetReference for FSRHashMap {
         }
 
         Box::new(v.into_iter())
-
+        
     }
-    
+
     fn set_undirty(&mut self) {
         // for segment in self.segment_map.iter_mut() {
         //     segment.is_dirty = false;
@@ -514,8 +598,6 @@ impl FSRHashMap {
 
         Ok(())
     }
-
-    
 
     pub fn get(&self, key: ObjId, thread: &mut FSRThreadRuntime) -> Option<&AtomicObjId> {
         let key_obj = FSRObject::id_to_obj(key);
