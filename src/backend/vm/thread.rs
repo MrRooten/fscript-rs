@@ -447,7 +447,7 @@ pub enum GcState {
 
 pub struct GcContext {
     worklist: Vec<ObjId>,
-    gc_state: GcState
+    gc_state: GcState,
 }
 
 impl GcContext {

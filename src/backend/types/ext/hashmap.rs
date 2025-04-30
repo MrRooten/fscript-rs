@@ -25,8 +25,52 @@ use crate::{
     utils::error::FSRError,
 };
 
+const MAX_SEGMENT_SIZE: usize = 204800;
+
+struct SegmentHashMap {
+    is_dirty: bool,
+    hashmap: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
+}
+
+impl SegmentHashMap {
+    pub fn new() -> Self {
+        Self {
+            is_dirty: false,
+            hashmap: AHashMap::new(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.hashmap.len()
+    }
+
+    pub fn get(&self, key: u64) -> Option<&Vec<(AtomicObjId, AtomicObjId)>> {
+        self.hashmap.get(&key)
+    }
+
+    pub fn get_mut(&mut self, key: u64) -> Option<&mut Vec<(AtomicObjId, AtomicObjId)>> {
+        self.hashmap.get_mut(&key)
+    }
+
+    pub fn insert(&mut self, key: u64, value: Vec<(AtomicObjId, AtomicObjId)>) {
+        self.hashmap.insert(key, value);
+    }
+
+    pub fn remove(&mut self, key: u64) {
+        self.hashmap.remove(&key);
+    }
+
+    pub fn clear(&mut self) {
+        self.hashmap.clear();
+    }
+    pub fn is_dirty(&self) -> bool {
+        self.is_dirty
+    }
+}
+
 pub struct FSRHashMap {
-    inner_map: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
+    // inner_map: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
+    segment_map: Vec<SegmentHashMap>,
 }
 
 impl Debug for FSRHashMap {
@@ -49,14 +93,32 @@ impl AnyDebugSend for FSRHashMap {
 
 impl GetReference for FSRHashMap {
     fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        let mut v = vec![];
-        for (_, vec) in self.inner_map.iter() {
-            for (key, value) in vec.iter() {
-                v.push(key.load(Ordering::Relaxed));
-                v.push(value.load(Ordering::Relaxed));
+        let mut v = Vec::with_capacity(self.len() * 2);
+        for segment in self.segment_map.iter() {
+            for (_, vec) in segment.hashmap.iter() {
+                for (key, value) in vec.iter() {
+                    v.push(key.load(Ordering::Relaxed));
+                    v.push(value.load(Ordering::Relaxed));
+                }
             }
         }
+        // for (_, vec) in self.inner_map.iter() {
+        //     for (key, value) in vec.iter() {
+        //         v.push(key.load(Ordering::Relaxed));
+        //         v.push(value.load(Ordering::Relaxed));
+        //     }
+        // }
         Box::new(v.into_iter())
+        // Box::new(
+        //     self.inner_map
+        //         .iter()
+        //         .flat_map(|(_, vec)| {
+        //             vec.iter().flat_map(|(key, value)| {
+        //                 std::iter::once(key.load(Ordering::Relaxed))
+        //                     .chain(std::iter::once(value.load(Ordering::Relaxed)))
+        //             })
+        //         })
+        // )
     }
 }
 
@@ -93,11 +155,20 @@ pub fn fsr_fn_hashmap_iter<'a>(
     let hashmap = FSRObject::id_to_obj(args[0]);
     if let FSRValue::Any(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
-            let iter = hashmap.inner_map.iter().flat_map(|(k, v)| {
-                v.iter().map(move |(key, value)| {
-                    (key.load(Ordering::Relaxed), value.load(Ordering::Relaxed))
-                })
-            });
+            // let iter = hashmap.segment_map.iter().flat_map(|(k, v)| {
+            //     v.iter().map(move |(key, value)| {
+            //         (key.load(Ordering::Relaxed), value.load(Ordering::Relaxed))
+            //     })
+            // });
+            let iter = hashmap
+                .segment_map
+                .iter()
+                .flat_map(|s| s.hashmap.iter())
+                .flat_map(|(k, v)| {
+                    v.iter().map(move |(key, value)| {
+                        (key.load(Ordering::Relaxed), value.load(Ordering::Relaxed))
+                    })
+                });
             let iter_obj = FSRHashMapIterator {
                 list_obj: args[0],
                 iter: Box::new(iter),
@@ -261,7 +332,7 @@ pub fn fsr_fn_hashmap_remove<'a>(
 impl FSRHashMap {
     pub fn new() -> Self {
         Self {
-            inner_map: AHashMap::new(),
+            segment_map: vec![SegmentHashMap::new()],
         }
     }
 
@@ -269,6 +340,46 @@ impl FSRHashMap {
         FSRValue::Any(Box::new(AnyType {
             value: Box::new(self),
         }))
+    }
+
+    pub fn len(&self) -> usize {
+        self.segment_map.iter().map(|s| s.len()).sum()
+    }
+
+    pub fn get_item(&self, key: u64) -> Option<&Vec<(AtomicObjId, AtomicObjId)>> {
+        for segment in self.segment_map.iter() {
+            if let Some(value) = segment.get(key) {
+                return Some(value);
+            }
+        }
+        None
+    }
+
+    pub fn get_mut(&mut self, key: u64) -> Option<&mut Vec<(AtomicObjId, AtomicObjId)>> {
+        for segment in self.segment_map.iter_mut() {
+            if let Some(value) = segment.get_mut(key) {
+                return Some(value);
+            }
+        }
+        None
+    }
+
+    pub fn insert_item(&mut self, key: u64, value: Vec<(AtomicObjId, AtomicObjId)>) {
+        for segment in self.segment_map.iter_mut() {
+            if segment.len() < MAX_SEGMENT_SIZE {
+                segment.insert(key, value);
+                return;
+            }
+        }
+        let mut new_segment = SegmentHashMap::new();
+        new_segment.insert(key, value);
+        self.segment_map.push(new_segment);
+    }
+
+    pub fn remove_item(&mut self, key: u64) {
+        for segment in self.segment_map.iter_mut() {
+            segment.remove(key);
+        }
     }
 
     pub fn try_insert_if_not_exist(
@@ -292,13 +403,12 @@ impl FSRHashMap {
             unimplemented!()
         };
 
-        if let None = self.inner_map.get(&hash) {
-            self.inner_map
-                .insert(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
+        if let None = self.get_item(hash) {
+            self.insert_item(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
             return Ok(());
         }
         let res = {
-            let res = self.inner_map.get_mut(&hash).unwrap();
+            let res = self.get_mut(hash).unwrap();
             for save_item in res.iter() {
                 let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
                 if save_key == key {
@@ -353,13 +463,12 @@ impl FSRHashMap {
             unimplemented!()
         };
 
-        if let None = self.inner_map.get(&hash) {
-            self.inner_map
-                .insert(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
+        if let None = self.get_item(hash) {
+            self.insert_item(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
             return Ok(());
         }
         let res = {
-            let res = self.inner_map.get_mut(&hash).unwrap();
+            let res = self.get_mut(hash).unwrap();
             for save_item in res.iter() {
                 let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
                 if save_key == key {
@@ -393,6 +502,8 @@ impl FSRHashMap {
         Ok(())
     }
 
+    
+
     pub fn get(&self, key: ObjId, thread: &mut FSRThreadRuntime) -> Option<&AtomicObjId> {
         let key_obj = FSRObject::id_to_obj(key);
         let hash_fn_id = key_obj
@@ -409,11 +520,11 @@ impl FSRHashMap {
             unimplemented!()
         };
 
-        if let None = self.inner_map.get(&hash) {
+        if let None = self.get_item(hash) {
             return None;
         }
 
-        let res = self.inner_map.get(&hash).unwrap();
+        let res = self.get_item(hash).unwrap();
         for save_item in res.iter() {
             let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
             if save_key == key {
@@ -453,17 +564,17 @@ impl FSRHashMap {
             unimplemented!()
         };
 
-        if let None = self.inner_map.get(&hash) {
+        if let None = self.get_item(hash) {
             return;
         }
 
-        let res = self.inner_map.get(&hash).unwrap();
+        let res = self.get_item(hash).unwrap();
         let len = res.len();
         if len == 1 {
-            self.inner_map.remove(&hash);
+            self.remove_item(hash);
             return;
         }
-        let res = self.inner_map.get_mut(&hash).unwrap();
+        let res = self.get_mut(hash).unwrap();
         for i in 0..len {
             let save_item = &res[i];
             let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
