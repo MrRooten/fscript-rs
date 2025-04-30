@@ -48,12 +48,12 @@ impl AnyDebugSend for FSRHashMap {
 }
 
 impl GetReference for FSRHashMap {
-    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = &'a AtomicObjId> + 'a> {
+    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         let mut v = vec![];
         for (_, vec) in self.inner_map.iter() {
             for (key, value) in vec.iter() {
-                v.push(key);
-                v.push(value);
+                v.push(key.load(Ordering::Relaxed));
+                v.push(value.load(Ordering::Relaxed));
             }
         }
         Box::new(v.into_iter())

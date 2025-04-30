@@ -1,5 +1,5 @@
 pub mod mark_sweep;
-pub mod triple_color;
+// pub mod triple_color;
 
 #[derive(Debug)]
 pub struct Tracker {

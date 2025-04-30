@@ -5,7 +5,7 @@ use crate::{backend::{types::base::FSRObject, vm::thread::FSRThreadRuntime}, uti
 use super::{base::{AtomicObjId, FSRRetValue, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn};
 
 pub trait GetReference {
-    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = &'a AtomicObjId> + 'a>;
+    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a>;
 }
 
 pub trait AnyDebugSend: Any + Debug + Send + GetReference {
@@ -22,7 +22,7 @@ pub struct AnyType {
 }
 
 impl AnyType {
-    pub fn iter_values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a AtomicObjId> + 'a> {
+    pub fn iter_values<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         self.value.get_reference()
     }
 }
@@ -43,7 +43,7 @@ impl AnyDebugSend for FSRThreadHandle {
 }
 
 impl GetReference for FSRThreadHandle {
-    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = &'a AtomicObjId> + 'a> {
+    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         Box::new(std::iter::empty())
     }
 }

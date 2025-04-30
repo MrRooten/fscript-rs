@@ -802,7 +802,7 @@ impl<'a> FSRObject<'a> {
                 .map(|x| x.load(Ordering::Relaxed))),
             FSRValue::Function(f) => Box::new(f.get_references().into_iter()),
             FSRValue::Iterator(iterator) => Box::new(iterator.get_references().into_iter()),
-            FSRValue::Any(any) => Box::new(any.iter_values().map(|x| x.load(Ordering::Relaxed))),
+            FSRValue::Any(any) => Box::new(any.iter_values()),
             _ => Box::new(std::iter::empty()),
         }
         //Box::new(self.value.get_references().into_iter())
