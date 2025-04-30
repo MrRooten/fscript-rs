@@ -37,6 +37,8 @@ pub struct MarkSweepGarbageCollector<'a> {
     pub(crate) tracker: Tracker,
 
     check: AtomicBool,
+
+    gc_reason: Option<GcReason>
 }
 
 const THROLD: usize = 10240 * 2;
@@ -79,7 +81,12 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             },
             check: AtomicBool::new(false),
             marjor_arena: Vec::with_capacity(THROLD),
+            gc_reason: None,
         }
+    }
+
+    pub fn set_reason(&mut self, reason: GcReason) {
+        self.gc_reason = Some(reason);
     }
 
     pub fn clear_marks(&mut self) {
@@ -237,6 +244,6 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
 
     fn will_collect(&self) -> bool {
         self.tracker.object_count as usize > self.tracker.throld
-            || self.check.load(Ordering::SeqCst)
+            || self.gc_reason.is_some()
     }
 }

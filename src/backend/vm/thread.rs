@@ -439,6 +439,27 @@ impl ThreadLockerState {
     }
 }
 
+#[derive(PartialEq)]
+pub enum GcState {
+    Running,
+    Stop
+}
+
+pub struct GcContext {
+    worklist: Vec<ObjId>,
+    gc_state: GcState
+}
+
+impl GcContext {
+    pub fn new() -> Self {
+        Self {
+            worklist: Vec::new(),
+            gc_state: GcState::Stop
+        }
+    }
+
+}
+
 #[allow(clippy::vec_box)]
 pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_id: usize,
@@ -458,6 +479,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) til: ThreadLockerState,
     pub(crate) thread_context_stack: Vec<Box<FSCodeContext<'a>>>,
     pub(crate) thread_context: Option<Box<FSCodeContext<'a>>>,
+    pub(crate) gc_context: GcContext,
 }
 
 impl<'a> FSRThreadRuntime<'a> {
@@ -531,6 +553,7 @@ impl<'a> FSRThreadRuntime<'a> {
             thread_context_stack: Vec::with_capacity(8),
             thread_context: None,
             remembered_set: HashSet::new(),
+            gc_context: GcContext::new(),
         }
     }
 
@@ -697,7 +720,8 @@ impl<'a> FSRThreadRuntime<'a> {
         work_list
     }
 
-    fn process_refs(&self, work_list: &mut Vec<ObjId>, obj: &FSRObject, full: bool) {
+    fn process_refs(&mut self, obj: &FSRObject, full: bool) {
+        let work_list = &mut self.gc_context.worklist;
         let refs = obj.get_references();
         let mut is_add = false;
         for ref_id in refs {
@@ -718,10 +742,17 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    pub fn set_ref_objects_mark(&self, full: bool) {
-        let mut work_list = self.add_worklist();
+    pub fn add_workitem(&mut self, obj: ObjId) {
+        self.gc_context.worklist.push(obj);
+    }
 
-        while let Some(id) = work_list.pop() {
+    pub fn set_ref_objects_mark(&mut self, full: bool) {
+        if self.gc_context.gc_state == GcState::Stop {
+            self.gc_context.worklist = self.add_worklist();
+        }
+        self.gc_context.gc_state = GcState::Running;
+
+        while let Some(id) = self.gc_context.worklist.pop() {
             if FSRObject::is_sp_object(id) {
                 continue;
             }
@@ -744,7 +775,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 continue;
             }
 
-            self.process_refs(&mut work_list, obj, full);
+            self.process_refs(obj, full);
         }
     }
 
@@ -2854,9 +2885,15 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if self.garbage_collect.will_collect() {
             let st = std::time::Instant::now();
-            self.clear_marks();
+            if self.gc_context.gc_state == GcState::Stop {
+                self.clear_marks();
+            }
             self.set_ref_objects_mark(false);
-            self.collect_gc(false);
+            if self.gc_context.worklist.is_empty() {
+                self.collect_gc(false);
+                self.gc_context.gc_state = GcState::Stop;
+            }
+            
 
             self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
         }
