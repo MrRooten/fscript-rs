@@ -193,6 +193,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         if is_mark && count >= ESCAPE_COUNT {
             let mut obj = obj.take().unwrap();
             obj.area = Area::Marjor;
+            obj.undirty_object();
             self.tracker.marjor_object_count += 1;
             self.tracker.minjar_object_count -= 1;
             self.marjor_arena.push(Some(obj));

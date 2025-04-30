@@ -5,7 +5,9 @@ use crate::{backend::{types::base::FSRObject, vm::thread::FSRThreadRuntime}, uti
 use super::{base::{AtomicObjId, FSRRetValue, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn};
 
 pub trait GetReference {
-    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a>;
+    fn get_reference<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a>;
+
+    fn set_undirty(&mut self);
 }
 
 pub trait AnyDebugSend: Any + Debug + Send + GetReference {
@@ -22,8 +24,12 @@ pub struct AnyType {
 }
 
 impl AnyType {
-    pub fn iter_values<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        self.value.get_reference()
+    pub fn iter_values<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+        self.value.get_reference(full)
+    }
+
+    pub fn undirty(&mut self) {
+        self.value.set_undirty();
     }
 }
 
@@ -43,9 +49,15 @@ impl AnyDebugSend for FSRThreadHandle {
 }
 
 impl GetReference for FSRThreadHandle {
-    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+    fn get_reference<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         Box::new(std::iter::empty())
     }
+    
+    fn set_undirty(&mut self) {
+        
+    }
+
+    
 }
 
 fn join<'a>(

@@ -29,14 +29,24 @@ const MAX_SEGMENT_SIZE: usize = 204800;
 
 struct SegmentHashMap {
     is_dirty: bool,
+    area: Area,
     hashmap: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
+}
+
+impl Debug for SegmentHashMap {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SegmentHashMap")
+            .field("is_dirty", &self.is_dirty)
+            .finish()
+    }
 }
 
 impl SegmentHashMap {
     pub fn new() -> Self {
         Self {
-            is_dirty: false,
+            is_dirty: true,
             hashmap: AHashMap::new(),
+            area: Area::Minjor,
         }
     }
 
@@ -76,7 +86,7 @@ pub struct FSRHashMap {
 impl Debug for FSRHashMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FSRHashMap")
-            .field("inner_map", &"{...}")
+            .field("inner_map", &self.segment_map)
             .finish()
     }
 }
@@ -92,9 +102,12 @@ impl AnyDebugSend for FSRHashMap {
 }
 
 impl GetReference for FSRHashMap {
-    fn get_reference<'a>(&'a self) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+    fn get_reference<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         let mut v = Vec::with_capacity(self.len() * 2);
         for segment in self.segment_map.iter() {
+            if !segment.is_dirty() {
+                continue;
+            }
             for (_, vec) in segment.hashmap.iter() {
                 for (key, value) in vec.iter() {
                     v.push(key.load(Ordering::Relaxed));
@@ -102,23 +115,15 @@ impl GetReference for FSRHashMap {
                 }
             }
         }
-        // for (_, vec) in self.inner_map.iter() {
-        //     for (key, value) in vec.iter() {
-        //         v.push(key.load(Ordering::Relaxed));
-        //         v.push(value.load(Ordering::Relaxed));
-        //     }
-        // }
+
         Box::new(v.into_iter())
-        // Box::new(
-        //     self.inner_map
-        //         .iter()
-        //         .flat_map(|(_, vec)| {
-        //             vec.iter().flat_map(|(key, value)| {
-        //                 std::iter::once(key.load(Ordering::Relaxed))
-        //                     .chain(std::iter::once(value.load(Ordering::Relaxed)))
-        //             })
-        //         })
-        // )
+
+    }
+    
+    fn set_undirty(&mut self) {
+        for segment in self.segment_map.iter_mut() {
+            segment.is_dirty = false;
+        }
     }
 }
 
@@ -368,16 +373,24 @@ impl FSRHashMap {
         for segment in self.segment_map.iter_mut() {
             if segment.len() < MAX_SEGMENT_SIZE {
                 segment.insert(key, value);
+                segment.is_dirty = true;
                 return;
             }
         }
+
         let mut new_segment = SegmentHashMap::new();
         new_segment.insert(key, value);
+        new_segment.is_dirty = true;
         self.segment_map.push(new_segment);
     }
 
     pub fn remove_item(&mut self, key: u64) {
         for segment in self.segment_map.iter_mut() {
+            if segment.hashmap.contains_key(&key) {
+                segment.is_dirty = true;
+            } else {
+                continue;
+            }
             segment.remove(key);
         }
     }
