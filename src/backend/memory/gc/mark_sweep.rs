@@ -48,14 +48,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.tracker.collect_time
     }
 
-    pub fn get_speed(&self) -> f64 {
-        if self.tracker.collect_time == 0 {
-            return 0.0;
-        }
-        let speed = (self.tracker.count_free * 1000) as f64 / self.tracker.collect_time as f64;
-        speed
-    }
-
     pub fn get_collect_count(&self) -> u64 {
         self.tracker.collect_count
     }
@@ -133,6 +125,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             .allocator
             .new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
 
+
         self.objects.push(Some(obj));
         let obj = &mut self.objects[slot_idx];
         if let Some(obj) = obj {
@@ -146,6 +139,17 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         }
 
         unimplemented!()
+    }
+
+    pub fn preserve(&mut self) {
+        let extend_size = self.objects.len() / 2;
+        let last = self.objects.len();
+        for i in 0..extend_size {
+            let obj = self.allocator.new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
+            let slot = last + i;
+            self.objects.push(Some(obj));
+            self.free_slots.push(slot);
+        }
     }
 
     pub fn shrink(&mut self) {
@@ -217,6 +221,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.tracker.count_free += freed_count as u64;
         self.tracker.collect_count += 1;
     }
+
+    
 }
 
 impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
@@ -224,11 +230,17 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
     fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         // Reuse free slot if available
         self.tracker.object_count += 1;
-        if let Some(free_idx) = self.free_slots.pop() {
-            self.alloc_object(free_idx, value, cls)
-        } else {
-            self.alloc_when_full(value, cls)
+        if self.free_slots.is_empty() {
+            self.preserve();
         }
+        if let Some(free_idx) = self.free_slots.pop() {
+            return self.alloc_object(free_idx, value, cls)
+        }
+
+        unimplemented!()
+        // else {
+        //     self.alloc_when_full(value, cls)
+        // }
     }
 
     fn collect(&mut self, full: bool) {

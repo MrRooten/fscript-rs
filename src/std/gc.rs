@@ -18,7 +18,6 @@ pub fn fn_gc_info<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
-    print!("gc_speed: {:.2}/ms, ", thread.garbage_collect.get_speed());
     println!("{:#?}", thread.garbage_collect.tracker);
     println!(
         "stw_time: {:?} ms",
