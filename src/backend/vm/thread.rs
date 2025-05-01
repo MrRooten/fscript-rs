@@ -1702,7 +1702,8 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let mut args = if let ArgType::CallArgsNumber(n) = *bytecode.get_arg() {
-            let mut args = Vec::with_capacity(n);
+            // in case of method call like `obj.method()`, reserve the first arg for `self`
+            let mut args = Vec::with_capacity(n + 1);
             let args_num = n;
             Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
             args.reverse();
