@@ -38,7 +38,7 @@ pub struct MarkSweepGarbageCollector<'a> {
 
     check: AtomicBool,
 
-    gc_reason: Option<GcReason>
+    gc_reason: Option<GcReason>,
 }
 
 const THROLD: usize = 10240 * 2;
@@ -125,7 +125,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             .allocator
             .new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
 
-
         self.objects.push(Some(obj));
         let obj = &mut self.objects[slot_idx];
         if let Some(obj) = obj {
@@ -142,19 +141,25 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     }
 
     pub fn preserve(&mut self) {
-        let extend_size = if self.objects.len()/2 == 0 {
+        let extend_size = if self.objects.len() / 2 == 0 {
             4096
         } else {
             self.objects.len() / 2
         };
         //let extend_size = self.objects.len() / 2;
         let last = self.objects.len();
+        self.objects.extend(
+            (0..extend_size).map(|_| {
+                let mut obj = Box::new(FSRObject::new_inst(FSRValue::None, FSRGlobalObjId::None as ObjId));
+                obj.free = true;
+                Some(obj)
+            })
+        );
+
         for i in 0..extend_size {
-            let obj = self.allocator.new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
             let slot = last + i;
-            self.objects.push(Some(obj));
             self.free_slots.push(slot);
-        }
+        }   
     }
 
     pub fn shrink(&mut self) {
@@ -178,8 +183,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         let mut count = 0;
         if let Some(obj) = obj {
             is_mark = obj.is_marked();
-            if (!is_mark && !obj.free) && 
-                ((!full && obj.area == Area::Minjor) || full) {
+            if (!is_mark && !obj.free) && ((!full && obj.area == Area::Minjor) || full) {
                 // if (!full && obj.area == Area::Minjor) || full {
                 if obj.area == Area::Minjor {
                     self.tracker.minjar_object_count -= 1;
@@ -226,8 +230,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.tracker.count_free += freed_count as u64;
         self.tracker.collect_count += 1;
     }
-
-    
 }
 
 impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
@@ -239,7 +241,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
             self.preserve();
         }
         if let Some(free_idx) = self.free_slots.pop() {
-            return self.alloc_object(free_idx, value, cls)
+            return self.alloc_object(free_idx, value, cls);
         }
 
         unimplemented!()
@@ -265,7 +267,6 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
     }
 
     fn will_collect(&self) -> bool {
-        self.tracker.object_count as usize > self.tracker.throld * 2
-            || self.gc_reason.is_some()
+        self.tracker.object_count as usize > self.tracker.throld * 2 || self.gc_reason.is_some()
     }
 }
