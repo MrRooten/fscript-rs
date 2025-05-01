@@ -3,14 +3,23 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::float::FSRFloat, vm::{thread::{CallFrame, FSRThreadRuntime}, virtual_machine::FSRVM}},
+    backend::{
+        compiler::bytecode::BinaryOffset,
+        memory::GarbageCollector,
+        types::float::FSRFloat,
+        vm::{
+            thread::{CallFrame, FSRThreadRuntime},
+            virtual_machine::FSRVM,
+        },
+    },
     utils::error::FSRError,
 };
 
 use super::{
     base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
-    fn_def::FSRFn, code::FSRCode,
+    code::FSRCode,
+    fn_def::FSRFn,
 };
 
 pub struct FSRInteger {}
@@ -18,22 +27,21 @@ pub struct FSRInteger {}
 pub fn add<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
-    
+
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
             // return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(FSRValue::Integer(self_int + other_int), self_object.cls)));
-            let v = thread.garbage_collect.new_object(
-                FSRValue::Integer(self_int + other_int),
-                self_object.cls,
-            );
+            let v = thread
+                .garbage_collect
+                .new_object(FSRValue::Integer(self_int + other_int), self_object.cls);
 
-            return Ok(FSRRetValue::GlobalId(v))
+            return Ok(FSRRetValue::GlobalId(v));
         }
     }
 
@@ -43,7 +51,7 @@ pub fn add<'a>(
 fn sub<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -52,12 +60,11 @@ fn sub<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let v = thread.garbage_collect.new_object(
-                FSRValue::Integer(self_int - other_int),
-                self_object.cls,
-            );
+            let v = thread
+                .garbage_collect
+                .new_object(FSRValue::Integer(self_int - other_int), self_object.cls);
 
-            return Ok(FSRRetValue::GlobalId(v))
+            return Ok(FSRRetValue::GlobalId(v));
         }
     }
 
@@ -67,7 +74,7 @@ fn sub<'a>(
 fn mul<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -76,12 +83,11 @@ fn mul<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let v = thread.garbage_collect.new_object(
-                FSRValue::Integer(self_int * other_int),
-                self_object.cls,
-            );
+            let v = thread
+                .garbage_collect
+                .new_object(FSRValue::Integer(self_int * other_int), self_object.cls);
 
-            return Ok(FSRRetValue::GlobalId(v))
+            return Ok(FSRRetValue::GlobalId(v));
         }
     }
 
@@ -91,7 +97,7 @@ fn mul<'a>(
 fn div<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -111,11 +117,10 @@ fn div<'a>(
     unimplemented!()
 }
 
-
 fn left_shift<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -124,23 +129,21 @@ fn left_shift<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let v = thread.garbage_collect.new_object(
-                FSRValue::Integer(self_int << other_int),
-                self_object.cls,
-            );
+            let v = thread
+                .garbage_collect
+                .new_object(FSRValue::Integer(self_int << other_int), self_object.cls);
 
-            return Ok(FSRRetValue::GlobalId(v))
+            return Ok(FSRRetValue::GlobalId(v));
         }
     }
 
     unimplemented!()
 }
 
-
 fn right_shift<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -149,12 +152,11 @@ fn right_shift<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let v = thread.garbage_collect.new_object(
-                FSRValue::Integer(self_int >> other_int),
-                self_object.cls,
-            );
+            let v = thread
+                .garbage_collect
+                .new_object(FSRValue::Integer(self_int >> other_int), self_object.cls);
 
-            return Ok(FSRRetValue::GlobalId(v))
+            return Ok(FSRRetValue::GlobalId(v));
         }
     }
     unimplemented!()
@@ -163,7 +165,7 @@ fn right_shift<'a>(
 pub fn greater<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -185,7 +187,7 @@ pub fn greater<'a>(
 pub fn less<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -207,7 +209,7 @@ pub fn less<'a>(
 pub fn greater_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -229,7 +231,7 @@ pub fn greater_equal<'a>(
 pub fn less_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -249,7 +251,7 @@ pub fn less_equal<'a>(
 pub fn equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -263,13 +265,14 @@ pub fn equal<'a>(
             }
         }
     }
-    unimplemented!()
+
+    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
 pub fn not_equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -283,13 +286,14 @@ pub fn not_equal<'a>(
             }
         }
     }
-    unimplemented!()
+    
+    Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
 }
 
 pub fn sorted_value<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId
+    module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
@@ -330,7 +334,7 @@ impl<'a> FSRInteger {
         let sub_fn = FSRFn::from_rust_fn_static(sub, "integer_sub");
         //cls.insert_attr("__sub__", sub_fn);
         cls.insert_offset_attr(BinaryOffset::Sub, sub_fn);
-        
+
         let div_fn = FSRFn::from_rust_fn_static(div, "integer_div");
         cls.insert_offset_attr(BinaryOffset::Div, div_fn);
 

@@ -180,20 +180,10 @@ fn eq<'a>(
             } else {
                 return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
-        } else {
-            return Err(FSRError::new(
-                "right value is not a string for eq string",
-                crate::utils::error::FSRErrCode::NotValidArgs,
-            ));
         }
-    } else {
-        return Err(FSRError::new(
-            "left value is not a string for eq string",
-            crate::utils::error::FSRErrCode::NotValidArgs,
-        ));
     }
 
-    unimplemented!()
+    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
 fn neq<'a>(
@@ -213,18 +203,10 @@ fn neq<'a>(
             } else {
                 return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             }
-        } else {
-            return Err(FSRError::new(
-                "right value is not a string for eq string",
-                crate::utils::error::FSRErrCode::NotValidArgs,
-            ));
         }
-    } else {
-        return Err(FSRError::new(
-            "left value is not a string for eq string",
-            crate::utils::error::FSRErrCode::NotValidArgs,
-        ));
     }
+
+    Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
 }
 
 fn get_sub_char<'a>(

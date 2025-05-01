@@ -120,18 +120,18 @@ impl<'a> FSRHashMapRefIterator<'a> {
             current_pair: None,
             yield_key: true,
         };
-        
+
         // 初始化第一个segment的迭代器
         if !hashmap.segment_map.is_empty() {
             iter.hash_iter = Some(hashmap.segment_map[0].hashmap.iter());
         }
-        
+
         // 初始化第一个vec迭代器
         iter.advance_hash_iterator();
-        
+
         iter
     }
-    
+
     fn advance_hash_iterator(&mut self) -> bool {
         if let Some(hash_iter) = &mut self.hash_iter {
             if let Some((_, vec)) = hash_iter.next() {
@@ -140,7 +140,7 @@ impl<'a> FSRHashMapRefIterator<'a> {
                 return true;
             }
         }
-        
+
         // 尝试移动到下一个segment
         self.segment_idx += 1;
         if self.segment_idx < self.hashmap.segment_map.len() {
@@ -152,7 +152,7 @@ impl<'a> FSRHashMapRefIterator<'a> {
             false
         }
     }
-    
+
     fn advance_vec_iterator(&mut self) -> bool {
         if let Some(vec_iter) = &mut self.vec_iter {
             if let Some(pair) = vec_iter.next() {
@@ -161,7 +161,7 @@ impl<'a> FSRHashMapRefIterator<'a> {
                 return true;
             }
         }
-        
+
         // 尝试移动到下一个hashmap条目
         self.advance_hash_iterator()
     }
@@ -169,7 +169,7 @@ impl<'a> FSRHashMapRefIterator<'a> {
 
 impl<'a> Iterator for FSRHashMapRefIterator<'a> {
     type Item = ObjId;
-    
+
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(pair) = self.current_pair {
             if self.yield_key {
@@ -183,7 +183,7 @@ impl<'a> Iterator for FSRHashMapRefIterator<'a> {
                 return Some(value);
             }
         }
-        
+
         None
     }
 }
@@ -201,7 +201,6 @@ impl GetReference for FSRHashMap {
         }
 
         Box::new(v.into_iter())
-        
     }
 
     fn set_undirty(&mut self) {
@@ -244,11 +243,6 @@ pub fn fsr_fn_hashmap_iter<'a>(
     let hashmap = FSRObject::id_to_obj(args[0]);
     if let FSRValue::Any(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
-            // let iter = hashmap.segment_map.iter().flat_map(|(k, v)| {
-            //     v.iter().map(move |(key, value)| {
-            //         (key.load(Ordering::Relaxed), value.load(Ordering::Relaxed))
-            //     })
-            // });
             let iter = hashmap
                 .segment_map
                 .iter()
