@@ -142,7 +142,12 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     }
 
     pub fn preserve(&mut self) {
-        let extend_size = self.objects.len() / 2;
+        let extend_size = if self.objects.len()/2 == 0 {
+            4096
+        } else {
+            self.objects.len() / 2
+        };
+        //let extend_size = self.objects.len() / 2;
         let last = self.objects.len();
         for i in 0..extend_size {
             let obj = self.allocator.new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
