@@ -8,6 +8,4 @@ a.sort_key(|x| {
     return x
 })
 
-a = none
-gc_collect()
 gc_info()

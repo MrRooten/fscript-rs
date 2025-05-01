@@ -22,7 +22,7 @@ pub enum GcReason {
     SafePointTrigger,
 }
 
-const ESCAPE_COUNT: u32 = 2;
+const ESCAPE_COUNT: u32 = 1;
 
 pub struct MarkSweepGarbageCollector<'a> {
     marjor_arena: Vec<Option<Box<FSRObject<'a>>>>,

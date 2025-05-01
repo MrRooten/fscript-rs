@@ -442,7 +442,7 @@ impl ThreadLockerState {
 #[derive(PartialEq)]
 pub enum GcState {
     Running,
-    Stop
+    Stop,
 }
 
 pub struct GcContext {
@@ -454,10 +454,9 @@ impl GcContext {
     pub fn new() -> Self {
         Self {
             worklist: Vec::new(),
-            gc_state: GcState::Stop
+            gc_state: GcState::Stop,
         }
     }
-
 }
 
 #[allow(clippy::vec_box)]
@@ -760,7 +759,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
             obj.mark();
 
-
             if !full && obj.area.is_long() && !obj.get_write_barrier() {
                 continue;
             }
@@ -997,16 +995,16 @@ impl<'a> FSRThreadRuntime<'a> {
                 //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
             }
             SValue::Attr(attr) => {
+                let father_obj =
+                    FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
+                if father_obj.area.is_long()
+                    && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
+                {
+                    father_obj.set_write_barrier(true);
+                }
                 if let Some(s) = attr.attr_object_id {
                     s.store(to_assign_obj_id, Ordering::Relaxed);
                 } else {
-                    let father_obj =
-                        FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
-                    if father_obj.area.is_long()
-                        && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
-                    {
-                        father_obj.set_write_barrier(true);
-                    }
                     father_obj.set_attr(attr.name, to_assign_obj_id);
                 }
 
@@ -1333,6 +1331,15 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
             if let SValue::Stack(s) = dot_father_svalue {
                 let state = self.get_cur_mut_frame();
+                // let father_id = state.get_var(&s.0).unwrap().load(Ordering::Relaxed);
+                // let father_obj = FSRObject::id_to_obj(father_id);
+                // let id_obj = FSRObject::id_to_obj(id.load(Ordering::Relaxed));
+                // if father_obj.area.is_long()
+                //     && id_obj.area == Area::Minjor
+                //     && father_obj.get_write_barrier()
+                // {
+                //     father_obj.set_write_barrier(true);
+                // }
                 state
                     .attr_map
                     .insert(s.0 as usize, attr_id.attr_id as usize, Some(id));
@@ -1559,27 +1566,32 @@ impl<'a> FSRThreadRuntime<'a> {
         let cls = FSRObject::id_to_obj(cls_id);
         if let FSRValue::Class(c) = &cls.value {
             if c.get_attr("__new__").is_none() {
-                let mut self_obj = FSRObject::new();
-                self_obj.set_cls(cls_id);
-                self_obj.set_value(FSRValue::ClassInst(Box::new(FSRClassInst::new(
-                    c.get_name(),
-                ))));
+                // let mut self_obj = FSRObject::new();
+                // self_obj.set_cls(cls_id);
+                // self_obj.set_value();
 
-                let self_id = FSRVM::register_object(self_obj);
+                let self_id = self.garbage_collect.new_object(
+                    FSRValue::ClassInst(Box::new(FSRClassInst::new(c.get_name()))),
+                    cls_id,
+                );
+
+                //let self_id = FSRVM::register_object(self_obj);
                 self.get_cur_mut_context().exp.push(SValue::Global(self_id));
 
                 return Ok(false);
             }
         }
 
-        let mut self_obj = FSRObject::new();
-        self_obj.set_cls(cls_id);
         let fn_obj = FSRObject::id_to_obj(cls_id);
-        self_obj.set_value(FSRValue::ClassInst(Box::new(FSRClassInst::new(
-            fn_obj.get_fsr_class_name(),
-        ))));
-        //println!("{:#?}", self_obj);
-        let self_id = FSRVM::register_object(self_obj);
+        let self_id = self.garbage_collect.new_object(
+            FSRValue::ClassInst(Box::new(FSRClassInst::new(fn_obj.get_fsr_class_name()))),
+            cls_id,
+        );
+        // self_obj.set_value(FSRValue::ClassInst(Box::new(FSRClassInst::new(
+        //     fn_obj.get_fsr_class_name(),
+        // ))));
+        // //println!("{:#?}", self_obj);
+        // let self_id = FSRVM::register_object(self_obj);
 
         args.insert(0, self_id);
 
@@ -2884,7 +2896,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.collect_gc(false);
                 self.gc_context.gc_state = GcState::Stop;
             }
-            
 
             self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
         }
