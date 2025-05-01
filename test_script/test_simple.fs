@@ -1,4 +1,48 @@
-import math_2
+a = HashMap::new()
 
-math_2.abc()
-println("still here")
+for i in 0..1000000 {
+    a.insert(i, "abc")
+}
+
+println("abc")
+
+for i in 0..1000000 {
+    a.get(i)
+}
+
+for i in 0..1000000 {
+    a.get(i)
+}
+
+
+for i in 0..1000000 {
+    a.get(i)
+}
+
+
+for i in 0..1000000 {
+    a.get(i)
+}
+
+
+for i in 0..1000000 {
+    a.get(i)
+}
+
+
+for i in 0..1000000 {
+    a.get(i)
+}
+
+
+for i in 0..1000000 {
+    a.get(i)
+}
+
+
+for i in 0..1000000 {
+    a.get(i)
+}
+
+
+gc_info()

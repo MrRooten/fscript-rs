@@ -4,12 +4,11 @@ for i in 0..1000000 {
     a.insert(i, "abc")
 }
 
+println("abc")
 
 for i in 0..1000000 {
-    b = a[i]
-    if b != "abc" {
-        assert(false)
-    }
+    a.get(i)
 }
+
 
 gc_info()

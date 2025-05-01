@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     backend::{
-        types::{base::{FSRGlobalObjId, FSRObject, ObjId}, float::FSRFloat, integer::FSRInteger, string::FSRString},
+        types::{base::{Area, FSRGlobalObjId, FSRObject, ObjId}, float::FSRFloat, integer::FSRInteger, string::FSRString},
         vm::virtual_machine::FSRVM,
     },
     frontend::ast::token::{
@@ -1507,8 +1507,9 @@ impl<'a> Bytecode {
             let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
                 obj
             } else {
-                let obj = FSRInteger::new_inst(i);
+                let mut obj = FSRInteger::new_inst(i);
                 // obj.ref_add();
+                obj.area = Area::Global;
                 let ptr = FSRVM::leak_object(Box::new(obj));
                 const_map.insert_table(id as usize, ptr);
                 ptr
@@ -1542,8 +1543,9 @@ impl<'a> Bytecode {
             let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
                 obj
             } else {
-                let obj = FSRFloat::new_inst(*f);
+                let mut obj = FSRFloat::new_inst(*f);
                 // obj.ref_add();
+                obj.area = Area::Global;
                 let ptr = FSRVM::leak_object(Box::new(obj));
                 const_map.insert_table(id as usize, ptr);
                 ptr

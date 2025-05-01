@@ -742,10 +742,6 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    pub fn add_workitem(&mut self, obj: ObjId) {
-        self.gc_context.worklist.push(obj);
-    }
-
     pub fn set_ref_objects_mark(&mut self, full: bool) {
         if self.gc_context.gc_state == GcState::Stop {
             self.gc_context.worklist = self.add_worklist();

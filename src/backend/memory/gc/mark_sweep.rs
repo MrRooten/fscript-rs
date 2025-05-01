@@ -235,6 +235,10 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         let mut i = 0;
         let mut freed_count = 0;
 
+        // if self.objects.len() > self.tracker.minjar_object_count as usize * 10 {
+        //     self.shrink();
+        // }
+
         while i < self.objects.len() {
             self.process_object(i, full, &mut freed_count);
             i += 1;
@@ -244,7 +248,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
     }
 
     fn will_collect(&self) -> bool {
-        self.tracker.object_count as usize > self.tracker.throld
+        self.tracker.object_count as usize > self.tracker.throld * 2
             || self.gc_reason.is_some()
     }
 }
