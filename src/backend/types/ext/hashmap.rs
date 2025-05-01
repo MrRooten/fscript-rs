@@ -1,9 +1,9 @@
 use std::{
     any::Any,
-    collections::HashMap,
     fmt::{Debug, Formatter},
     sync::atomic::{AtomicUsize, Ordering},
 };
+
 
 use ahash::AHashMap;
 
@@ -45,7 +45,7 @@ impl SegmentHashMap {
     pub fn new() -> Self {
         Self {
             // is_dirty: true,
-            hashmap: AHashMap::new(),
+            hashmap: AHashMap::new()
             // area: Area::Minjor,
         }
     }
