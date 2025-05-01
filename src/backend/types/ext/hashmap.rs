@@ -453,17 +453,17 @@ impl FSRHashMap {
         None
     }
 
-    pub fn insert_item(&mut self, key: u64, value: Vec<(AtomicObjId, AtomicObjId)>) {
+    pub fn insert_item(&mut self, hash: u64, key: ObjId, value: ObjId) {
         for segment in self.segment_map.iter_mut() {
             if segment.len() < MAX_SEGMENT_SIZE {
-                segment.insert(key, value);
+                segment.insert(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
                 // segment.is_dirty = true;
                 return;
             }
         }
 
         let mut new_segment = SegmentHashMap::new();
-        new_segment.insert(key, value);
+        new_segment.insert(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
         // new_segment.is_dirty = true;
         self.segment_map.push(new_segment);
     }
@@ -501,7 +501,7 @@ impl FSRHashMap {
         };
 
         if let None = self.get_item(hash) {
-            self.insert_item(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
+            self.insert_item(hash, key, value);
             return Ok(());
         }
         let res = {
@@ -561,7 +561,7 @@ impl FSRHashMap {
         };
 
         if let None = self.get_item(hash) {
-            self.insert_item(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
+            self.insert_item(hash, key, value);
             return Ok(());
         }
         let res = {
