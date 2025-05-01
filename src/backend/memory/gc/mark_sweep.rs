@@ -22,7 +22,7 @@ pub enum GcReason {
     SafePointTrigger,
 }
 
-const ESCAPE_COUNT: u32 = 1;
+const ESCAPE_COUNT: u32 = 2;
 
 pub struct MarkSweepGarbageCollector<'a> {
     marjor_arena: Vec<Option<Box<FSRObject<'a>>>>,
@@ -44,6 +44,29 @@ pub struct MarkSweepGarbageCollector<'a> {
 const THROLD: usize = 10240 * 2;
 
 impl<'a> MarkSweepGarbageCollector<'a> {
+    // pub fn init_size(&mut self) {
+    //     let mut res = 0;
+    //     for v in self.objects.iter() {
+    //         if let Some(obj) = v {
+    //             if obj.free {
+    //                 continue;
+    //             }
+    //             res += obj.get_size();
+    //         }
+    //     }
+
+    //     for v in self.marjor_arena.iter() {
+    //         if let Some(obj) = v {
+    //             if obj.free {
+    //                 continue;
+    //             }
+    //             res += obj.get_size();
+    //         }
+    //     }
+
+    //     self.tracker.memory_size = res;
+    // }
+
     pub fn get_stop_time(&self) -> u64 {
         self.tracker.collect_time
     }
@@ -70,6 +93,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
                 collect_count: 0,
                 minjar_object_count: 0,
                 marjor_object_count: 0,
+                #[cfg(feature = "track_memory_size")]
+                memory_size: 0,
             },
             check: AtomicBool::new(false),
             marjor_arena: Vec::with_capacity(THROLD),
@@ -105,6 +130,10 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
+            #[cfg(feature = "track_memory_size")]
+            {
+                self.tracker.memory_size += obj.get_size();
+            }
             self.tracker.minjar_object_count += 1;
             return FSRObject::obj_to_id(obj);
         } else {
@@ -112,6 +141,10 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
+            #[cfg(feature = "track_memory_size")]
+            {
+                self.tracker.memory_size += obj.get_size();
+            }
             self.tracker.minjar_object_count += 1;
             self.objects[free_idx] = Some(obj);
             return FSRObject::obj_to_id(self.objects[free_idx].as_ref().unwrap());
@@ -133,12 +166,17 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             obj.free = false;
             obj.area = Area::Minjor;
             self.tracker.minjar_object_count += 1;
-
+            #[cfg(feature = "track_memory_size")]
+            {
+                self.tracker.memory_size += obj.get_size();
+            }
             return FSRObject::obj_to_id(obj);
         }
 
         unimplemented!()
     }
+
+    
 
     pub fn preserve(&mut self) {
         let extend_size = if self.objects.len() / 2 == 0 {
@@ -148,18 +186,19 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         };
         //let extend_size = self.objects.len() / 2;
         let last = self.objects.len();
-        self.objects.extend(
-            (0..extend_size).map(|_| {
-                let mut obj = Box::new(FSRObject::new_inst(FSRValue::None, FSRGlobalObjId::None as ObjId));
-                obj.free = true;
-                Some(obj)
-            })
-        );
+        self.objects.extend((0..extend_size).map(|_| {
+            let mut obj = Box::new(FSRObject::new_inst(
+                FSRValue::None,
+                FSRGlobalObjId::None as ObjId,
+            ));
+            obj.free = true;
+            Some(obj)
+        }));
 
         for i in 0..extend_size {
             let slot = last + i;
             self.free_slots.push(slot);
-        }   
+        }
     }
 
     pub fn shrink(&mut self) {
@@ -190,6 +229,13 @@ impl<'a> MarkSweepGarbageCollector<'a> {
                 } else {
                     self.tracker.marjor_object_count -= 1;
                 }
+
+                #[cfg(feature = "track_memory_size")]
+                {
+                    self.tracker.memory_size = self.tracker.memory_size.saturating_sub(obj.get_size());
+                }
+
+                //self.tracker.memory_size -= obj.get_size();
                 obj.free = true;
                 self.free_slots.push(i);
                 *freed_count += 1;
@@ -211,6 +257,34 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             self.tracker.minjar_object_count -= 1;
             self.marjor_arena.push(Some(obj));
         }
+    }
+
+    pub fn alloc_object_in_place(&mut self, free_idx: usize) -> &mut FSRObject<'a> {
+        debug_assert!(free_idx < self.objects.len(), "free_idx out of bounds");
+        let obj = &mut self.objects[free_idx];
+        if let Some(obj) = obj {
+            obj.free = false;
+            obj.area = Area::Minjor;
+            #[cfg(feature = "track_memory_size")]
+            {
+                self.tracker.memory_size += obj.get_size();
+            }
+            return obj;
+        }
+        unimplemented!()
+    }
+
+    pub fn new_object_in_place(&mut self) -> &mut FSRObject<'a> {
+        self.tracker.object_count += 1;
+        if self.free_slots.is_empty() {
+            self.preserve();
+        }
+
+        if let Some(free_idx) = self.free_slots.pop() {
+            self.tracker.minjar_object_count += 1;
+            return self.alloc_object_in_place(free_idx);
+        }
+        unimplemented!()
     }
 
     fn tracker_process(&mut self, freed_count: u32) {

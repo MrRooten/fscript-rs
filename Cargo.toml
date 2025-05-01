@@ -12,9 +12,9 @@ mimalloc = "0.1.46"
 # opt-level = 2
 
 [features]
-default = []
+default = ["track_memory_size"]
 bytecode_trace = []
-alloc_trace = []
+track_memory_size = []
 
 [profile.release]
 overflow-checks = false

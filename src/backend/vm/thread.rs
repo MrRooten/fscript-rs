@@ -2979,12 +2979,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
         println!("count: {}", self.counter);
 
-        #[cfg(feature = "alloc_trace")]
-        println!(
-            "reused count: {}",
-            crate::backend::types::base::HEAP_TRACE.object_count()
-        );
-
         Ok(())
     }
 

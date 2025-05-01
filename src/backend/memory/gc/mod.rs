@@ -10,4 +10,6 @@ pub struct Tracker {
     collect_count: u64,
     minjar_object_count: u32,
     marjor_object_count: u32,
+    #[cfg(feature = "track_memory_size")]
+    memory_size: usize
 }

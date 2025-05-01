@@ -18,6 +18,7 @@ pub fn fn_gc_info<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    // thread.garbage_collect.init_size();
     println!("{:#?}", thread.garbage_collect.tracker);
     println!(
         "stw_time: {:?} ms",

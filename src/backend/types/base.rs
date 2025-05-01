@@ -74,6 +74,8 @@ pub enum FSRValue<'a> {
 }
 
 impl<'a> FSRValue<'a> {
+
+    #[inline(always)]
     pub fn get_size(&self) -> usize {
         match self {
             FSRValue::Class(_) => std::mem::size_of::<FSRClass>(),
@@ -261,30 +263,7 @@ impl Debug for FSRObject<'_> {
     }
 }
 
-#[cfg(feature = "alloc_trace")]
-pub struct HeapTrace {
-    total_object: AtomicI64,
-}
 
-#[cfg(feature = "alloc_trace")]
-impl HeapTrace {
-    pub fn add_object(&self) {
-        self.total_object.fetch_add(1, Ordering::AcqRel);
-    }
-
-    pub fn dec_object(&self) {
-        self.total_object.fetch_sub(1, Ordering::AcqRel);
-    }
-
-    pub fn object_count(&self) -> i64 {
-        self.total_object.load(Ordering::Relaxed)
-    }
-}
-
-#[cfg(feature = "alloc_trace")]
-pub(crate) static HEAP_TRACE: HeapTrace = HeapTrace {
-    total_object: AtomicI64::new(0),
-};
 
 
 impl Default for FSRObject<'_> {
@@ -312,6 +291,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    #[inline(always)]
     pub fn get_size(&self) -> usize {
         std::mem::size_of::<Self>() + self.value.get_size()
     }
