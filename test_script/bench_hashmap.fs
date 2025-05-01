@@ -1,14 +1,13 @@
 a = HashMap::new()
 
 for i in 0..1000000 {
-    a.insert(i, "abc")
+    a.insert(i, i)
 }
 
 println("abc")
 
 for i in 0..1000000 {
-    a.get(i)
+    a[i]
 }
-
 
 gc_info()

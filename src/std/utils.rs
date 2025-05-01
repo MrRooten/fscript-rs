@@ -51,7 +51,9 @@ pub fn fsr_fn_export<'a>(
     let obj = args[1];
 
     let s = module;
-    let m = FSRObject::id_to_mut_obj(s).expect("not a module object").as_mut_code();
+    let m = FSRObject::id_to_mut_obj(s)
+        .expect("not a module object")
+        .as_mut_code();
     m.register_object(name.as_str(), obj);
 
     Ok(FSRRetValue::GlobalId(0))
@@ -105,10 +107,12 @@ pub fn fsr_fn_type<'a>(
             FSRString::new_value("Float"),
             FSRGlobalObjId::StringCls as ObjId,
         ))),
-        FSRValue::String(fsrinner_string) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-            FSRString::new_value("String"),
-            FSRGlobalObjId::StringCls as ObjId,
-        ))),
+        FSRValue::String(fsrinner_string) => {
+            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+                FSRString::new_value("String"),
+                FSRGlobalObjId::StringCls as ObjId,
+            )))
+        }
         FSRValue::Class(fsrclass) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Class"),
             FSRGlobalObjId::StringCls as ObjId,
@@ -119,62 +123,64 @@ pub fn fsr_fn_type<'a>(
                 FSRString::new_value(name),
                 FSRGlobalObjId::StringCls as ObjId,
             )))
-        },
-        FSRValue::Function(fsrfn) => {
-            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-                FSRString::new_value("Fn"),
-                FSRGlobalObjId::StringCls as ObjId,
-            )))
-        },
-        FSRValue::Bool(_) => {
-            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-                FSRString::new_value("Bool"),
-                FSRGlobalObjId::StringCls as ObjId,
-            )))
-        },
-        FSRValue::List(fsrlist) => {
-            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-                FSRString::new_value("List"),
-                FSRGlobalObjId::StringCls as ObjId,
-            )))
-        },
+        }
+        FSRValue::Function(fsrfn) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+            FSRString::new_value("Fn"),
+            FSRGlobalObjId::StringCls as ObjId,
+        ))),
+        FSRValue::Bool(_) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+            FSRString::new_value("Bool"),
+            FSRGlobalObjId::StringCls as ObjId,
+        ))),
+        FSRValue::List(fsrlist) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+            FSRString::new_value("List"),
+            FSRGlobalObjId::StringCls as ObjId,
+        ))),
         FSRValue::Iterator(fsrinner_iterator) => {
             Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRString::new_value("Iterator"),
                 FSRGlobalObjId::StringCls as ObjId,
             )))
-        },
-        FSRValue::Code(fsrcode) => {
-            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-                FSRString::new_value("Code"),
-                FSRGlobalObjId::StringCls as ObjId,
-            )))
-        },
-        FSRValue::Range(fsrrange) => {
-            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-                FSRString::new_value("Range"),
-                FSRGlobalObjId::StringCls as ObjId,
-            )))
-        },
-        FSRValue::Any(any_type) => {
-            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-                FSRString::new_value("Any"),
-                FSRGlobalObjId::StringCls as ObjId,
-            )))
-        },
+        }
+        FSRValue::Code(fsrcode) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+            FSRString::new_value("Code"),
+            FSRGlobalObjId::StringCls as ObjId,
+        ))),
+        FSRValue::Range(fsrrange) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+            FSRString::new_value("Range"),
+            FSRGlobalObjId::StringCls as ObjId,
+        ))),
+        FSRValue::Any(any_type) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+            FSRString::new_value("Any"),
+            FSRGlobalObjId::StringCls as ObjId,
+        ))),
         FSRValue::Module(fsrmodule) => {
             Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRString::new_value("Module"),
                 FSRGlobalObjId::StringCls as ObjId,
             )))
-        },
-        FSRValue::None => {
-            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-                FSRString::new_value("None"),
-                FSRGlobalObjId::StringCls as ObjId,
-            )))
-        },
+        }
+        FSRValue::None => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+            FSRString::new_value("None"),
+            FSRGlobalObjId::StringCls as ObjId,
+        ))),
     }
+}
+
+pub fn fsr_fn_id<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    _module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    if args.len() != 1 {
+        return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
+    }
+
+    let integer = thread.garbage_collect.new_object(
+        FSRValue::Integer(args[0] as i64),
+        FSRGlobalObjId::IntegerCls as ObjId,
+    );
+    Ok(FSRRetValue::GlobalId(integer))
 }
 
 fn fsr_is_class<'a>(
@@ -246,20 +252,20 @@ pub fn fsr_sleep<'a>(
 pub fn init_utils<'a>() -> HashMap<&'static str, FSRObject<'a>> {
     let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
     let export_fn = FSRFn::from_rust_fn_static(fsr_fn_export, "export");
-    // let ref_count = FSRFn::from_rust_fn_static(fsr_fn_ref_count, "ref_count");
     let sleep_fn = FSRFn::from_rust_fn_static(fsr_sleep, "sleep");
     let time_it = FSRFn::from_rust_fn_static(fsr_timeit, "timeit");
     let range = FSRFn::from_rust_fn_static(fsr_fn_range, "range");
     let is_class = FSRFn::from_rust_fn_static(fsr_is_class, "is_class");
     let type_fn = FSRFn::from_rust_fn_static(fsr_fn_type, "type");
+    let id_fn = FSRFn::from_rust_fn_static(fsr_fn_id, "id");
     let mut m = HashMap::new();
     m.insert("assert", assert_fn);
     m.insert("export", export_fn);
-    // m.insert("ref_count", ref_count);
     m.insert("sleep", sleep_fn);
     m.insert("timeit", time_it);
     m.insert("range", range);
     m.insert("is_class", is_class);
     m.insert("type", type_fn);
+    m.insert("id", id_fn);
     m
 }
