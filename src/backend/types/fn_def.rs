@@ -5,6 +5,8 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use ahash::AHashMap;
+
 use crate::{
     backend::{compiler::bytecode::Bytecode, vm::thread::FSRThreadRuntime},
     utils::error::FSRError,
@@ -63,7 +65,7 @@ pub struct FSRFn<'a> {
     ///     }
     /// }
     ///
-    pub(crate) store_cells: HashMap<&'a str, AtomicObjId>,
+    pub(crate) store_cells: AHashMap<&'a str, AtomicObjId>,
 }
 
 impl Debug for FSRFn<'_> {
@@ -159,7 +161,7 @@ impl<'a> FSRFn<'a> {
             fn_def: FSRnE::FSRFn(fn_obj),
             code: code_obj,
             closure_fn: c,
-            store_cells: HashMap::new(),
+            store_cells: AHashMap::new(),
         };
         FSRValue::Function(Box::new(v))
     }
@@ -169,7 +171,7 @@ impl<'a> FSRFn<'a> {
             fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
             code: 0,
             closure_fn: vec![],
-            store_cells: HashMap::new(),
+            store_cells: AHashMap::new(),
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
