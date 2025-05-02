@@ -7,4 +7,8 @@ class Thread {
     fn join(self) {
         self.handle.join()
     }
+
+    fn thread_id() {
+        return __get_cur_thread_id()
+    }
 }

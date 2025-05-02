@@ -1,5 +1,6 @@
-for i in 0..3000000 {
-    a = "abc" + "def"
+
+for i in 0..10000000 {
+    a = str(i)
 }
 
 gc_info()

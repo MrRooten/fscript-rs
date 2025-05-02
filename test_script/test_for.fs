@@ -12,7 +12,7 @@ for i in [1, 2, 3, 4, 6] {
         if c > 4 {
             break
         }
-        print("this is: ")
+        print("this is inner loop: ")
         println(c)
     }
 

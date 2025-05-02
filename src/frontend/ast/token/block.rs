@@ -4,6 +4,7 @@ use super::base::{FSRPosition, FSRToken};
 use super::for_statement::FSRFor;
 use super::function_def::FSRFnDef;
 use super::if_statement::FSRIf;
+use super::import::FSRImport;
 use super::r#else::FSRElse;
 use super::return_def::FSRReturn;
 use super::try_expr::FSRTryBlock;
@@ -77,7 +78,11 @@ impl<'a> FSRBlock<'a> {
         self.len
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition,context: &mut ASTContext) -> Result<Self, SyntaxError> {
+    pub fn parse(
+        source: &'a [u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<Self, SyntaxError> {
         let mut trie = FSTrie::new();
         let mut start = 0;
         let mut length = 0;
@@ -140,7 +145,8 @@ impl<'a> FSRBlock<'a> {
                 length += l;
                 let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
                 let mut sub_block_meta = meta.from_offset(start);
-                let sub_block = Self::parse(&source[start..start + length], sub_block_meta, context)?;
+                let sub_block =
+                    Self::parse(&source[start..start + length], sub_block_meta, context)?;
                 block.tokens.push(FSRToken::Block(sub_block));
                 start += length;
                 length = 0;
@@ -223,9 +229,17 @@ impl<'a> FSRBlock<'a> {
                     block.tokens.push(FSRToken::TryBlock(try_def));
                     start += length;
                     length = 0;
+                } else if t == &NodeType::Import {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + start;
+                    let import_def = FSRImport::parse(&source[start..], sub_meta, context)?;
+                    length += import_def.1;
+                    block.tokens.push(FSRToken::Import(import_def.0));
+                    start += length;
+                    length = 0;
                 } else {
                     let sub_meta = meta.from_offset(start);
-                    let err = SyntaxError::new(&sub_meta, "invalid token");
+                    let err = SyntaxError::new(&sub_meta, "invalid token in block");
                     return Err(err);
                 }
             }
@@ -243,6 +257,17 @@ mod test {
         let s = "{
         
         } #absdfsdf
+        ";
+        let meta = FSRPosition::new();
+        let mut context = ASTContext::new_context();
+        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context).unwrap();
+        println!("{:#?}", b);
+    }
+
+    #[test]
+    fn test_class_getter() {
+        let s = "{
+            Abc::ddc::get_abc()
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();

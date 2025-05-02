@@ -1,7 +1,9 @@
 import thread
 
 fn abc() {
-    id = __get_cur_thread_id()
+    import thread
+    id = thread::Thread::thread_id()
+    println("thread id: ", id)
     i = 0
     while i < 3000000 {
         i = i + 1

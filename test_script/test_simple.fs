@@ -1,22 +1,14 @@
-class Test {
-    fn abc(self) {
-        a = 1
-	    return a
-    }
+import thread
 
-    fn __add__(self, other) {
-        return 1
+fn abc() {
+    import thread
+    id = thread::Thread::thread_id()
+    println("thread id: ", id)
+    i = 0
+    while i < 3000000 {
+        i = i + 1
     }
 }
 
-t = Test()
-t.abc()
-t.index = 1
-b = 1
-while b < 3000000 {
-    t.index = t.index + t.abc()
-    t.ddc = 123 + 1
-    b = b + 1
-}
-
-gc_info()
+c = thread::Thread(abc)
+c.join()

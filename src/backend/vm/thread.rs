@@ -1324,9 +1324,6 @@ impl<'a> FSRThreadRuntime<'a> {
             dot_father_obj.get_attr(name)
         };
         if let Some(id) = id {
-            // let obj = FSRObject::id_to_obj(id);
-            // println!("{:#?}", obj);
-            //context.exp.push(SValue::Global(dot_father));
             let new_attr = self.thread_allocator.new_box_attr(
                 attr_id.attr_id,
                 dot_father,
@@ -1337,15 +1334,6 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
             if let SValue::Stack(s) = dot_father_svalue {
                 let state = self.get_cur_mut_frame();
-                // let father_id = state.get_var(&s.0).unwrap().load(Ordering::Relaxed);
-                // let father_obj = FSRObject::id_to_obj(father_id);
-                // let id_obj = FSRObject::id_to_obj(id.load(Ordering::Relaxed));
-                // if father_obj.area.is_long()
-                //     && id_obj.area == Area::Minjor
-                //     && father_obj.get_write_barrier()
-                // {
-                //     father_obj.set_write_barrier(true);
-                // }
                 state
                     .attr_map
                     .insert(s.0 as usize, attr_id.attr_id as usize, Some(id));
@@ -1419,9 +1407,6 @@ impl<'a> FSRThreadRuntime<'a> {
             return Ok(false);
         }
         if let Some(id) = id {
-            // let obj = FSRObject::id_to_obj(id);
-            // println!("{:#?}", obj);
-            //context.exp.push(SValue::Global(dot_father));
             let new_attr = self.thread_allocator.new_box_attr(
                 attr_id.attr_id,
                 dot_father,
@@ -1593,11 +1578,6 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRValue::ClassInst(Box::new(FSRClassInst::new(fn_obj.get_fsr_class_name()))),
             cls_id,
         );
-        // self_obj.set_value(FSRValue::ClassInst(Box::new(FSRClassInst::new(
-        //     fn_obj.get_fsr_class_name(),
-        // ))));
-        // //println!("{:#?}", self_obj);
-        // let self_id = FSRVM::register_object(self_obj);
 
         args.insert(0, self_id);
 
@@ -1670,7 +1650,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             let offset = fn_obj.get_fsr_offset().1;
             if let FSRValue::Function(obj) = &fn_obj.value {
-                //println!("{:#?}", FSRObject::id_to_obj(obj.module).as_module().as_string());
                 self.get_cur_mut_context().code = obj.code;
             }
             self.get_cur_mut_context().ip = (offset.0, 0);
@@ -1802,7 +1781,6 @@ impl<'a> FSRThreadRuntime<'a> {
             //let offset = fn_obj.get_fsr_offset();
             let offset = fn_obj.get_fsr_offset().1;
             if let FSRValue::Function(obj) = &fn_obj.value {
-                //println!("{:#?}", FSRObject::id_to_obj(obj.module).as_module().as_string());
                 self.get_cur_mut_context().code = obj.code;
             }
 
@@ -2052,8 +2030,6 @@ impl<'a> FSRThreadRuntime<'a> {
             //FSRObject::id_to_obj(id).ref_add();
             id
         };
-        // let v = FSRObject::id_to_obj(iter_id);
-        // println!("{:#?}", v);
         if let ArgType::ForLine(n) = bytecode.get_arg() {
             self.flow_tracker
                 .break_line
@@ -3078,9 +3054,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 break;
             }
 
-            if v {
-                break;
-            }
+            // if v {
+            //     break;
+            // }
 
             code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }

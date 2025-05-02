@@ -236,7 +236,7 @@ impl<'a> FSRModuleFrontEnd<'a> {
                 length = 0;
             } else {
                 let sub_meta = meta.from_offset(start);
-                let err = SyntaxError::new(&sub_meta, "invalid token");
+                let err = SyntaxError::new(&sub_meta, "invalid token in module");
                 return Err(err);
             }
         }
