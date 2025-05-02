@@ -24,7 +24,7 @@ use crate::{
     utils::error::FSRError,
 };
 
-const MAX_SEGMENT_SIZE: usize = 204800;
+const MAX_SEGMENT_SIZE: usize = 409600;
 
 struct SegmentHashMap {
     // is_dirty: bool,

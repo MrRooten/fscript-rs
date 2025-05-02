@@ -723,7 +723,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let work_list = &mut self.gc_context.worklist;
         let mut is_add = false;
         let refs = obj.get_references(full, work_list, &mut is_add);
-        
+
         for ref_id in refs {
             let obj = FSRObject::id_to_obj(ref_id);
             if obj.area == Area::Minjor {
@@ -2389,12 +2389,11 @@ impl<'a> FSRThreadRuntime<'a> {
     // will load the list to the stack
     fn load_list(
         self: &mut FSRThreadRuntime<'a>,
-
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if let ArgType::LoadListNumber(n) = bytecode.get_arg() {
-            let mut list = vec![];
+            let mut list = Vec::with_capacity(*n);
             let n = *n;
             for _ in 0..n {
                 let v = self.get_cur_mut_context().exp.pop().unwrap();
@@ -2704,32 +2703,68 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     fn load_var(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
-        if let ArgType::Variable(var) = arg.get_arg() {
-            self.get_cur_mut_context().exp.push(SValue::Stack(var));
-        } else if let ArgType::ConstInteger(_, obj) = arg.get_arg() {
-            self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-        } else if let ArgType::ConstFloat(_, obj) = arg.get_arg() {
-            self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-        } else if let ArgType::ConstString(_, obj) = arg.get_arg() {
-            self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-        } else if let ArgType::Attr(attr_id, name) = arg.get_arg() {
-            let new_attr = self
-                .thread_allocator
-                .new_box_attr(*attr_id, 0, None, name, true);
-            self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
-        } else if let ArgType::ClosureVar(v) = arg.get_arg() {
-            let fn_id = self.get_cur_frame().fn_obj;
-            if fn_id == 0 {
-                panic!("not found function object");
+        // if let ArgType::Variable(var) = arg.get_arg() {
+        //     self.get_cur_mut_context().exp.push(SValue::Stack(var));
+        // } else if let ArgType::ConstInteger(_, obj) = arg.get_arg() {
+        //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+        // } else if let ArgType::ConstFloat(_, obj) = arg.get_arg() {
+        //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+        // } else if let ArgType::ConstString(_, obj) = arg.get_arg() {
+        //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+        // } else if let ArgType::Attr(attr_id, name) = arg.get_arg() {
+        //     let new_attr = self
+        //         .thread_allocator
+        //         .new_box_attr(*attr_id, 0, None, name, true);
+        //     self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
+        // } else if let ArgType::ClosureVar(v) = arg.get_arg() {
+        //     let fn_id = self.get_cur_frame().fn_obj;
+        //     if fn_id == 0 {
+        //         panic!("not found function object");
+        //     }
+        //     let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
+        //     let var = fn_obj.get_closure_var(&v.1);
+        //     self.get_cur_mut_context()
+        //         .exp
+        //         .push(SValue::Global(var.unwrap()));
+        // } else {
+        //     println!("{:?}", self.get_cur_mut_context().exp);
+        //     unimplemented!()
+        // }
+        let exp = &mut self.get_cur_mut_context().exp;
+        match arg.get_arg() {
+            ArgType::Variable(var) => {
+                self.get_cur_mut_context().exp.push(SValue::Stack(var));
             }
-            let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
-            let var = fn_obj.get_closure_var(&v.1);
-            self.get_cur_mut_context()
-                .exp
-                .push(SValue::Global(var.unwrap()));
-        } else {
-            println!("{:?}", self.get_cur_mut_context().exp);
-            unimplemented!()
+            ArgType::ConstInteger(_, obj) => {
+                self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+            }
+            ArgType::ConstFloat(_, obj) => {
+                self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+            }
+            ArgType::ConstString(_, obj) => {
+                self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+            }
+            ArgType::Attr(attr_id, name) => {
+                let new_attr = self
+                    .thread_allocator
+                    .new_box_attr(*attr_id, 0, None, name, true);
+                self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
+            }
+            ArgType::ClosureVar(v) => {
+                let fn_id = self.get_cur_frame().fn_obj;
+                if fn_id == 0 {
+                    panic!("not found function object");
+                }
+                let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
+                let var = fn_obj.get_closure_var(&v.1);
+                self.get_cur_mut_context()
+                    .exp
+                    .push(SValue::Global(var.unwrap()));
+            }
+            _ => {
+                println!("{:?}", self.get_cur_mut_context().exp);
+                unimplemented!()
+            }
         }
 
         Ok(false)
