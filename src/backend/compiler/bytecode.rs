@@ -153,6 +153,7 @@ pub enum BytecodeOperator {
     //}
     // the [1, 2, 3] need to be ref
     ForBlockRefAdd = 42,
+    LoadSelfFn = 43,
     Load = 1000,
 }
 
@@ -160,6 +161,7 @@ pub enum BytecodeOperator {
 pub enum ArgType {
     Variable((u64, String, bool)),
     ClosureVar((u64, String)),
+    CurrentFn,
     Lambda((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
@@ -340,6 +342,7 @@ pub struct BytecodeContext {
     pub(crate) table: Vec<ObjId>,
     pub(crate) fn_def_map: HashMap<String, Vec<Vec<BytecodeArg>>>,
     pub(crate) ref_map_stack: Vec<HashMap<String, bool>>,
+    pub(crate) cur_fn_name: Vec<String>
 }
 
 #[allow(clippy::new_without_default)]
@@ -350,6 +353,7 @@ impl BytecodeContext {
             table: vec![0],
             fn_def_map: HashMap::new(),
             ref_map_stack: vec![],
+            cur_fn_name: vec![],
         }
     }
 
@@ -602,7 +606,14 @@ impl<'a> Bytecode {
                 let id = var_map_ref.last_mut().unwrap().get_var(name).unwrap();
 
                 // if !call.is_defined && const_map.contains_variable_in_ref_stack(call.get_name()) {
-                if const_map.contains_variable_in_ref_stack(call.get_name()) {
+                if !const_map.cur_fn_name.is_empty() && name.eq(const_map.cur_fn_name.last().unwrap()) {
+                    result.push(BytecodeArg {
+                        operator: BytecodeOperator::Load,
+                        arg: ArgType::CurrentFn,
+                        info: FSRByteInfo::new(call.get_meta().clone()),
+                    });
+                }
+                else if const_map.contains_variable_in_ref_stack(call.get_name()) {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: ArgType::ClosureVar((*id, name.to_string())),
@@ -1656,7 +1667,9 @@ impl<'a> Bytecode {
         }
 
         let body = fn_def.get_body();
+        const_map.cur_fn_name.push(name.to_string());
         let v = Self::load_block(body, var_map, const_map);
+        const_map.cur_fn_name.pop();
         var_map = v.1;
         let mut fn_body = v.0;
 

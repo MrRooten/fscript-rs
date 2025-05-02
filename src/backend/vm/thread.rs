@@ -2761,6 +2761,15 @@ impl<'a> FSRThreadRuntime<'a> {
                     .exp
                     .push(SValue::Global(var.unwrap()));
             }
+            ArgType::CurrentFn => {
+                let fn_id = self.get_cur_frame().fn_obj;
+                if fn_id == 0 {
+                    panic!("not found function object");
+                }
+                self.get_cur_mut_context()
+                    .exp
+                    .push(SValue::Global(fn_id));
+            }
             _ => {
                 println!("{:?}", self.get_cur_mut_context().exp);
                 unimplemented!()
