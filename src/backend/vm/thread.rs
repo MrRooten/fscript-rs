@@ -262,13 +262,18 @@ impl<'a> AttrArgs<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ReferenceArgs<'a> {
+    pub(crate) father: ObjId,
+    pub(crate) ref_id: &'a AtomicObjId,
+    pub(crate) call_method: bool,
+}
+
 #[derive(Debug)]
 pub enum SValue<'a> {
     Stack(&'a (u64, String, bool)),
     Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
     Global(ObjId),
-    #[allow(dead_code)]
-    // BoxObject(Box<FSRObject<'a>>),
     Reference(ObjId, &'a AtomicObjId, bool), // Owner, ref, call_method
 }
 
@@ -2766,9 +2771,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 if fn_id == 0 {
                     panic!("not found function object");
                 }
-                self.get_cur_mut_context()
-                    .exp
-                    .push(SValue::Global(fn_id));
+                self.get_cur_mut_context().exp.push(SValue::Global(fn_id));
             }
             _ => {
                 println!("{:?}", self.get_cur_mut_context().exp);
