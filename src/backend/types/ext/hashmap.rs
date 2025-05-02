@@ -4,7 +4,6 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-
 use ahash::AHashMap;
 
 use crate::{
@@ -45,8 +44,7 @@ impl SegmentHashMap {
     pub fn new() -> Self {
         Self {
             // is_dirty: true,
-            hashmap: AHashMap::new()
-            // area: Area::Minjor,
+            hashmap: AHashMap::new(), // area: Area::Minjor,
         }
     }
 
@@ -189,18 +187,51 @@ impl<'a> Iterator for FSRHashMapRefIterator<'a> {
 }
 
 impl GetReference for FSRHashMap {
-    fn get_reference<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        let mut v = Vec::with_capacity(self.len() * 2);
+    /// Try to process in here instead of return a iterator
+    fn get_reference<'a>(
+        &'a self,
+        full: bool,
+        worklist: &mut Vec<ObjId>,
+        is_add: &mut bool,
+    ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+        //let mut v = Vec::with_capacity(self.len() * 2);
         for segment in self.segment_map.iter() {
             for (_, vec) in segment.hashmap.iter() {
                 for (key, value) in vec.iter() {
-                    v.push(key.load(Ordering::Relaxed));
-                    v.push(value.load(Ordering::Relaxed));
+                    //v.push(key.load(Ordering::Relaxed));
+                    //v.push(value.load(Ordering::Relaxed));
+                    {
+                        let ref_id = key.load(Ordering::Relaxed);
+                        let obj = FSRObject::id_to_obj(ref_id);
+                        if obj.area == Area::Minjor {
+                            *is_add = true;
+                        } else if !full {
+                            continue;
+                        }
+
+                        if !obj.is_marked() {
+                            worklist.push(ref_id);
+                        }
+                    }
+
+                    {
+                        let ref_id = value.load(Ordering::Relaxed);
+                        let obj = FSRObject::id_to_obj(ref_id);
+                        if obj.area == Area::Minjor {
+                            *is_add = true;
+                        } else if !full {
+                            continue;
+                        }
+
+                        if !obj.is_marked() {
+                            worklist.push(ref_id);
+                        }
+                    }
                 }
             }
         }
 
-        Box::new(v.into_iter())
+        Box::new(std::iter::empty())
     }
 
     fn set_undirty(&mut self) {

@@ -774,7 +774,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    pub fn get_references(&self, full: bool) -> Box<dyn Iterator<Item = ObjId> + '_> {
+    pub fn get_references(&self, full: bool, worklist: &mut Vec<ObjId>, is_add: &mut bool) -> Box<dyn Iterator<Item = ObjId> + '_> {
         match &self.value {
             FSRValue::Class(fsrclass) => Box::new(fsrclass
                 .iter_values()
@@ -787,7 +787,7 @@ impl<'a> FSRObject<'a> {
                 .map(|x| x.load(Ordering::Relaxed))),
             FSRValue::Function(f) => Box::new(f.get_references().into_iter()),
             FSRValue::Iterator(iterator) => Box::new(iterator.get_references().into_iter()),
-            FSRValue::Any(any) => Box::new(any.iter_values(full)),
+            FSRValue::Any(any) => Box::new(any.iter_values(full, worklist, is_add)),
             _ => Box::new(std::iter::empty()),
         }
         //Box::new(self.value.get_references().into_iter())

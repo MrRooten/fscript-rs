@@ -721,8 +721,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn process_refs(&mut self, id: ObjId, obj: &FSRObject, full: bool) {
         let work_list = &mut self.gc_context.worklist;
-        let refs = obj.get_references(full);
         let mut is_add = false;
+        let refs = obj.get_references(full, work_list, &mut is_add);
+        
         for ref_id in refs {
             let obj = FSRObject::id_to_obj(ref_id);
             if obj.area == Area::Minjor {

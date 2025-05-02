@@ -1,11 +1,23 @@
 use std::{any::Any, fmt::Debug};
 
-use crate::{backend::{types::base::FSRObject, vm::thread::FSRThreadRuntime}, utils::error::FSRError};
+use crate::{
+    backend::{types::base::FSRObject, vm::thread::FSRThreadRuntime},
+    utils::error::FSRError,
+};
 
-use super::{base::{AtomicObjId, FSRRetValue, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn};
+use super::{
+    base::{AtomicObjId, FSRRetValue, FSRValue, ObjId},
+    class::FSRClass,
+    fn_def::FSRFn,
+};
 
 pub trait GetReference {
-    fn get_reference<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a>;
+    fn get_reference<'a>(
+        &'a self,
+        full: bool,
+        worklist: &mut Vec<ObjId>,
+        is_add: &mut bool,
+    ) -> Box<dyn Iterator<Item = ObjId> + 'a>;
 
     fn set_undirty(&mut self);
 }
@@ -14,8 +26,6 @@ pub trait AnyDebugSend: Any + Debug + Send + GetReference {
     fn as_any(&self) -> &dyn Any;
 
     fn as_any_mut(&mut self) -> &mut dyn Any;
-
-
 }
 
 #[derive(Debug)]
@@ -24,8 +34,13 @@ pub struct AnyType {
 }
 
 impl AnyType {
-    pub fn iter_values<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        self.value.get_reference(full)
+    pub fn iter_values<'a>(
+        &'a self,
+        full: bool,
+        worklist: &mut Vec<ObjId>,
+        is_add: &mut bool,
+    ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+        self.value.get_reference(full, worklist, is_add)
     }
 
     pub fn undirty(&mut self) {
@@ -49,24 +64,25 @@ impl AnyDebugSend for FSRThreadHandle {
 }
 
 impl GetReference for FSRThreadHandle {
-    fn get_reference<'a>(&'a self, full: bool) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+    fn get_reference<'a>(
+        &'a self,
+        full: bool,
+        _: &mut Vec<ObjId>,
+        _: &mut bool,
+    ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         Box::new(std::iter::empty())
     }
-    
-    fn set_undirty(&mut self) {
-        
-    }
 
-    
+    fn set_undirty(&mut self) {}
 }
 
 fn join<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
-    _module: ObjId
+    _module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
-    
+
     if let FSRValue::Any(any) = &mut self_object.value {
         if let Some(handle) = any.value.as_any_mut().downcast_mut::<FSRThreadHandle>() {
             //thread.release();
@@ -81,10 +97,11 @@ fn join<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-
 impl FSRThreadHandle {
     pub fn new(thread: std::thread::JoinHandle<()>) -> Self {
-        FSRThreadHandle { thread: Some(thread) }
+        FSRThreadHandle {
+            thread: Some(thread),
+        }
     }
 
     pub fn join(&mut self) -> Result<(), FSRError> {
