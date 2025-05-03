@@ -5,6 +5,7 @@ use std::{
 };
 
 use ahash::AHashMap;
+use indexmap::{map::Iter, IndexMap};
 
 use crate::{
     backend::{
@@ -24,12 +25,12 @@ use crate::{
     utils::error::FSRError,
 };
 
-const MAX_SEGMENT_SIZE: usize = 409600;
+const MAX_SEGMENT_SIZE: usize = 4096000;
 
 struct SegmentHashMap {
     // is_dirty: bool,
     // area: Area,
-    hashmap: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
+    hashmap: IndexMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
 }
 
 impl Debug for SegmentHashMap {
@@ -44,7 +45,7 @@ impl SegmentHashMap {
     pub fn new() -> Self {
         Self {
             // is_dirty: true,
-            hashmap: AHashMap::new(), // area: Area::Minjor,
+            hashmap: IndexMap::new(), // area: Area::Minjor,
         }
     }
 
@@ -103,7 +104,7 @@ struct FSRHashMapRefIterator<'a> {
     hashmap: &'a FSRHashMap,
     segment_idx: usize,
     vec_iter: Option<std::slice::Iter<'a, (AtomicObjId, AtomicObjId)>>,
-    hash_iter: Option<std::collections::hash_map::Iter<'a, u64, Vec<(AtomicObjId, AtomicObjId)>>>,
+    hash_iter: Option<Iter<'a, u64, Vec<(AtomicObjId, AtomicObjId)>>>,
     current_pair: Option<&'a (AtomicObjId, AtomicObjId)>,
     yield_key: bool,
 }
@@ -200,18 +201,19 @@ impl GetReference for FSRHashMap {
                 for (key, value) in vec.iter() {
                     //v.push(key.load(Ordering::Relaxed));
                     //v.push(value.load(Ordering::Relaxed));
-                    {
+                    loop {
                         let ref_id = key.load(Ordering::Relaxed);
                         let obj = FSRObject::id_to_obj(ref_id);
                         if obj.area == Area::Minjor {
                             *is_add = true;
-                        } else if !full {
-                            continue;
+                        } else if full {
+                            break;
                         }
 
                         if !obj.is_marked() {
                             worklist.push(ref_id);
                         }
+                        break;
                     }
 
                     {
