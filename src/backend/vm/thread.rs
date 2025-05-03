@@ -8,6 +8,8 @@ use std::{
     sync::{atomic::Ordering, Arc, Condvar, Mutex},
 };
 
+use smallvec::SmallVec;
+
 use crate::{
     backend::{
         compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
@@ -1504,7 +1506,7 @@ impl<'a> FSRThreadRuntime<'a> {
         args_num: usize,
         thread: &mut Self,
         module: ObjId,
-        args: &mut Vec<ObjId>,
+        args: &mut SmallVec<[ObjId; 4]>,
     ) -> Result<(), FSRError> {
         let mut i = 0;
         while i < args_num {
@@ -1553,7 +1555,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
 
         cls_id: ObjId,
-        args: &mut Vec<usize>,
+        args: &mut SmallVec<[ObjId; 4]>,
     ) -> Result<bool, FSRError> {
         //let mut args = vec![];
         // New a object if fn_obj is fsr_cls
@@ -1620,7 +1622,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         obj_id: ObjId,
         fn_obj: &'a FSRObject<'a>,
-        args: &mut Vec<usize>,
+        args: &mut SmallVec<[usize; 4]>,
     ) -> Result<bool, FSRError> {
         // let obj_id = context.exp.pop().unwrap().get_global_id(self)?;
 
@@ -1703,13 +1705,13 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let mut args = if let ArgType::CallArgsNumber(n) = *bytecode.get_arg() {
             // in case of method call like `obj.method()`, reserve the first arg for `self`
-            let mut args = Vec::with_capacity(n + 1);
+            let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
             let args_num = n;
             Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
             args.reverse();
             args
         } else {
-            vec![]
+            SmallVec::new()
         };
 
         //let ptr = vm as *mut FSRVM;
