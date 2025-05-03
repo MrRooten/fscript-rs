@@ -22,6 +22,7 @@ pub struct FSRCode<'a> {
     #[allow(unused)]
     bytecode: Bytecode,
     object_map: AHashMap<String, AtomicObjId>,
+    const_table: Vec<Option<ObjId>>,
 }
 
 impl Debug for FSRCode<'_> {
@@ -56,6 +57,7 @@ impl<'a> FSRCode<'a> {
                 name: Cow::Owned(code.0),
                 bytecode: code.1,
                 object_map: AHashMap::new(),
+                const_table: vec![],
             };
 
             let mut object = FSRObject::new();
@@ -66,6 +68,13 @@ impl<'a> FSRCode<'a> {
             res.insert(tmp.to_string(), object);
         }
         Ok(res)
+    }
+
+    pub fn insert_const(&mut self, const_index: usize, obj: ObjId) {
+        if const_index >= self.const_table.len() {
+            self.const_table.resize(const_index + 1, None);
+        }
+        self.const_table[const_index] = Some(obj);
     }
 
     #[inline(always)]

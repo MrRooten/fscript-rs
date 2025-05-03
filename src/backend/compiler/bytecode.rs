@@ -5,7 +5,12 @@ use std::{
 
 use crate::{
     backend::{
-        types::{base::{Area, FSRGlobalObjId, FSRObject, ObjId}, float::FSRFloat, integer::FSRInteger, string::FSRString},
+        types::{
+            base::{Area, FSRGlobalObjId, FSRObject, ObjId},
+            float::FSRFloat,
+            integer::FSRInteger,
+            string::FSRString,
+        },
         vm::virtual_machine::FSRVM,
     },
     frontend::ast::token::{
@@ -153,7 +158,10 @@ pub enum BytecodeOperator {
     //}
     // the [1, 2, 3] need to be ref
     ForBlockRefAdd = 42,
+    /// Load current function
+    /// use in nested function
     LoadSelfFn = 43,
+    LoadConst = 44,
     Load = 1000,
 }
 
@@ -165,9 +173,12 @@ pub enum ArgType {
     Lambda((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
-    ConstString(u64, ObjId),
-    ConstInteger(u64, ObjId),
-    ConstFloat(u64, ObjId),
+    String(u64, ObjId),
+    Integer(u64, ObjId),
+    Float(u64, ObjId),
+    RealConstInteger(u64, String, Option<String>),
+    RealConstFloat(u64, String, Option<String>),
+    RealConstString(u64, String),
     Attr(u64, String),
     BinaryOperator(BinaryOffset),
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
@@ -342,7 +353,7 @@ pub struct BytecodeContext {
     pub(crate) table: Vec<ObjId>,
     pub(crate) fn_def_map: HashMap<String, Vec<Vec<BytecodeArg>>>,
     pub(crate) ref_map_stack: Vec<HashMap<String, bool>>,
-    pub(crate) cur_fn_name: Vec<String>
+    pub(crate) cur_fn_name: Vec<String>,
 }
 
 #[allow(clippy::new_without_default)]
@@ -606,14 +617,15 @@ impl<'a> Bytecode {
                 let id = var_map_ref.last_mut().unwrap().get_var(name).unwrap();
 
                 // if !call.is_defined && const_map.contains_variable_in_ref_stack(call.get_name()) {
-                if !const_map.cur_fn_name.is_empty() && name.eq(const_map.cur_fn_name.last().unwrap()) {
+                if !const_map.cur_fn_name.is_empty()
+                    && name.eq(const_map.cur_fn_name.last().unwrap())
+                {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: ArgType::CurrentFn,
                         info: FSRByteInfo::new(call.get_meta().clone()),
                     });
-                }
-                else if const_map.contains_variable_in_ref_stack(call.get_name()) {
+                } else if const_map.contains_variable_in_ref_stack(call.get_name()) {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: ArgType::ClosureVar((*id, name.to_string())),
@@ -697,19 +709,18 @@ impl<'a> Bytecode {
                             arg: ArgType::None,
                             info: FSRByteInfo::new(var.get_meta().clone()),
                         });
-                    },
+                    }
                     "not" => {
                         ans.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: ArgType::None,
                             info: FSRByteInfo::new(var.get_meta().clone()),
                         });
-                    },
+                    }
                     _ => {
                         panic!("not support single op {}", single_op);
                     }
                 }
-                
             }
 
             return (ans, var_map);
@@ -746,14 +757,14 @@ impl<'a> Bytecode {
                         arg: ArgType::None,
                         info: FSRByteInfo::new(var.get_meta().clone()),
                     });
-                },
+                }
                 "not" => {
                     ans.push(BytecodeArg {
                         operator: BytecodeOperator::NotOperator,
                         arg: ArgType::None,
                         info: FSRByteInfo::new(var.get_meta().clone()),
                     });
-                },
+                }
                 _ => {
                     panic!("not support single op {}", single_op);
                 }
@@ -1214,7 +1225,6 @@ impl<'a> Bytecode {
         result.push(t);
 
         let mut load_next = Vec::new();
-        
 
         if !var_self.last_mut().unwrap().has_var(for_def.get_var_name()) {
             var_self
@@ -1233,7 +1243,7 @@ impl<'a> Bytecode {
             arg: ArgType::Variable((*arg_id, for_def.get_var_name().to_string(), false)),
             info: FSRByteInfo::new(for_def.get_meta().clone()),
         });
-        
+
         // load_next.push(BytecodeArg {
         //     operator: BytecodeOperator::Load,
         //     arg: ArgType::Variable((*arg_id, for_def.get_var_name().to_string(), false)),
@@ -1528,16 +1538,14 @@ impl<'a> Bytecode {
 
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstInteger(id, ptr),
+                arg: ArgType::Integer(id, ptr),
                 info: FSRByteInfo::new(token.get_meta().clone()),
             });
         } else if let FSRConstantType::String(s) = token.get_constant() {
             let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
                 obj
             } else {
-                let obj = FSRString::new_value(
-                    &String::from_utf8_lossy(s),
-                );
+                let obj = FSRString::new_value(&String::from_utf8_lossy(s));
                 // obj.ref_add();
                 let obj = FSRObject::new_inst(obj, FSRGlobalObjId::StringCls as ObjId);
                 let ptr = FSRVM::leak_object(Box::new(obj));
@@ -1547,7 +1555,7 @@ impl<'a> Bytecode {
 
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstString(id, ptr),
+                arg: ArgType::String(id, ptr),
                 info: FSRByteInfo::new(token.get_meta().clone()),
             });
         } else if let FSRConstantType::Float(f) = token.get_constant() {
@@ -1564,7 +1572,7 @@ impl<'a> Bytecode {
 
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::ConstFloat(id, ptr),
+                arg: ArgType::Float(id, ptr),
                 info: FSRByteInfo::new(token.get_meta().clone()),
             });
         }
@@ -1787,6 +1795,36 @@ impl<'a> Bytecode {
             let single_line = Vec::from_iter(v);
             result.push(single_line);
         }
+
+        let const_map = &const_table.const_map;
+        let mut const_loader = vec![];
+        for const_var in const_map {
+            match const_var.0 {
+                FSROrinStr2::Integer(i, v) => {
+                    const_loader.push(BytecodeArg {
+                        operator: BytecodeOperator::LoadConst,
+                        arg: ArgType::RealConstInteger(*const_var.1, i.to_string(), v.clone()),
+                        info: FSRByteInfo::new(FSRPosition::new()),
+                    });
+                }
+                FSROrinStr2::Float(f, v) => {
+                    const_loader.push(BytecodeArg {
+                        operator: BytecodeOperator::LoadConst,
+                        arg: ArgType::RealConstFloat(*const_var.1, f.to_string(), v.clone()),
+                        info: FSRByteInfo::new(FSRPosition::new()),
+                    });
+                }
+                FSROrinStr2::String(s) => {
+                    const_loader.push(BytecodeArg {
+                        operator: BytecodeOperator::LoadConst,
+                        arg: ArgType::RealConstString(*const_var.1, s.to_string()),
+                        info: FSRByteInfo::new(FSRPosition::new()),
+                    });
+                }
+            }
+        }
+
+        result.insert(0, const_loader);
 
         let mut res = HashMap::new();
         res.insert(

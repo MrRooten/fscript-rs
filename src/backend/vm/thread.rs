@@ -20,10 +20,13 @@ use crate::{
             class::FSRClass,
             class_inst::FSRClassInst,
             code::FSRCode,
+            float::FSRFloat,
             fn_def::{FSRFn, FSRFnInner},
+            integer::FSRInteger,
             list::FSRList,
             module::FSRModule,
             range::FSRRange,
+            string::FSRString,
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -2658,6 +2661,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::EndCatch => Self::catch_end(self, bytecode),
             BytecodeOperator::BinaryRange => Self::binary_range_process(self),
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
+            BytecodeOperator::LoadConst => Self::load_const(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -2682,47 +2686,73 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    fn load_const(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
+        let code = FSRObject::id_to_mut_obj(self.get_context().code)
+            .unwrap()
+            .as_mut_code();
+        match arg.get_arg() {
+            ArgType::RealConstInteger(index, obj, single_op) => {
+                let i = obj.parse::<i64>().unwrap();
+                let i = if single_op.is_some() && single_op.as_ref().unwrap().eq("-") {
+                    -1 * i
+                } else {
+                    i
+                };
+                let ptr = {
+                    let mut obj = FSRInteger::new_inst(i);
+                    // obj.ref_add();
+                    obj.area = Area::Global;
+                    let ptr = FSRVM::leak_object(Box::new(obj));
+                    ptr
+                };
+
+                code.insert_const(*index as usize, ptr);
+            }
+            ArgType::RealConstFloat(index, obj, single_op) => {
+                let i = obj.parse::<f64>().unwrap();
+                let i = if single_op.is_some() && single_op.as_ref().unwrap().eq("-") {
+                    -1.0 * i
+                } else {
+                    i
+                };
+                let ptr = {
+                    let mut obj = FSRFloat::new_inst(i);
+                    // obj.ref_add();
+                    obj.area = Area::Global;
+                    let ptr = FSRVM::leak_object(Box::new(obj));
+                    ptr
+                };
+
+                code.insert_const(*index as usize, ptr);
+            }
+            ArgType::RealConstString(index, s) => {
+                let obj = FSRString::new_value(s);
+                // obj.ref_add();
+                let obj = FSRObject::new_inst(obj, FSRGlobalObjId::StringCls as ObjId);
+                let ptr = FSRVM::leak_object(Box::new(obj));
+
+                code.insert_const(*index as usize, ptr);
+            }
+            _ => unimplemented!(),
+        }
+
+        unimplemented!()
+    }
+
     #[inline(always)]
     fn load_var(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
-        // if let ArgType::Variable(var) = arg.get_arg() {
-        //     self.get_cur_mut_context().exp.push(SValue::Stack(var));
-        // } else if let ArgType::ConstInteger(_, obj) = arg.get_arg() {
-        //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-        // } else if let ArgType::ConstFloat(_, obj) = arg.get_arg() {
-        //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-        // } else if let ArgType::ConstString(_, obj) = arg.get_arg() {
-        //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-        // } else if let ArgType::Attr(attr_id, name) = arg.get_arg() {
-        //     let new_attr = self
-        //         .thread_allocator
-        //         .new_box_attr(*attr_id, 0, None, name, true);
-        //     self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
-        // } else if let ArgType::ClosureVar(v) = arg.get_arg() {
-        //     let fn_id = self.get_cur_frame().fn_obj;
-        //     if fn_id == 0 {
-        //         panic!("not found function object");
-        //     }
-        //     let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
-        //     let var = fn_obj.get_closure_var(&v.1);
-        //     self.get_cur_mut_context()
-        //         .exp
-        //         .push(SValue::Global(var.unwrap()));
-        // } else {
-        //     println!("{:?}", self.get_cur_mut_context().exp);
-        //     unimplemented!()
-        // }
         let exp = &mut self.get_cur_mut_context().exp;
         match arg.get_arg() {
             ArgType::Variable(var) => {
                 self.get_cur_mut_context().exp.push(SValue::Stack(var));
             }
-            ArgType::ConstInteger(_, obj) => {
+            ArgType::Integer(_, obj) => {
                 self.get_cur_mut_context().exp.push(SValue::Global(*obj));
             }
-            ArgType::ConstFloat(_, obj) => {
+            ArgType::Float(_, obj) => {
                 self.get_cur_mut_context().exp.push(SValue::Global(*obj));
             }
-            ArgType::ConstString(_, obj) => {
+            ArgType::String(_, obj) => {
                 self.get_cur_mut_context().exp.push(SValue::Global(*obj));
             }
             ArgType::Attr(attr_id, name) => {

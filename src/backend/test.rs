@@ -153,7 +153,7 @@ pub mod tests {
     fn test_list() {
         let _ = FSRVM::single();
         let expr = "
-        [1, 2, 3]
+        [1, 2, 3, \"abc\"]
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
