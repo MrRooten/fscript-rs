@@ -176,8 +176,6 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         unimplemented!()
     }
 
-    
-
     pub fn preserve(&mut self) {
         let extend_size = if self.objects.len() / 2 == 0 {
             4096
@@ -232,7 +230,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
 
                 #[cfg(feature = "track_memory_size")]
                 {
-                    self.tracker.memory_size = self.tracker.memory_size.saturating_sub(obj.get_size());
+                    self.tracker.memory_size =
+                        self.tracker.memory_size.saturating_sub(obj.get_size());
                 }
 
                 //self.tracker.memory_size -= obj.get_size();
@@ -259,8 +258,9 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         }
     }
 
-    pub fn alloc_object_in_place(&mut self, free_idx: usize) -> &mut FSRObject<'a> {
-        debug_assert!(free_idx < self.objects.len(), "free_idx out of bounds");
+    pub fn alloc_object_in_place(&mut self) -> &mut FSRObject<'a> {
+        let free_idx = self.free_slots.pop().unwrap();
+        //debug_assert!(free_idx < self.objects.len(), "free_idx out of bounds");
         let obj = &mut self.objects[free_idx];
         if let Some(obj) = obj {
             obj.free = false;
@@ -280,11 +280,10 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             self.preserve();
         }
 
-        if let Some(free_idx) = self.free_slots.pop() {
-            self.tracker.minjar_object_count += 1;
-            return self.alloc_object_in_place(free_idx);
-        }
-        unimplemented!()
+
+        self.tracker.minjar_object_count += 1;
+        return self.alloc_object_in_place();
+
     }
 
     fn tracker_process(&mut self, freed_count: u32) {

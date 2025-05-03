@@ -851,7 +851,6 @@ impl<'a> FSRThreadRuntime<'a> {
                     thread.get_context().code,
                 )?
             };
-            
         } else if op.eq("!=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::NotEqual,
@@ -1515,14 +1514,14 @@ impl<'a> FSRThreadRuntime<'a> {
     fn call_process_set_args(
         args_num: usize,
         thread: &mut Self,
-        module: ObjId,
+        code: ObjId,
         args: &mut SmallVec<[ObjId; 4]>,
     ) -> Result<(), FSRError> {
         let mut i = 0;
         while i < args_num {
             let arg = thread.get_cur_mut_context().exp.pop().unwrap();
             let a_id = match arg {
-                SValue::Stack(s) => match Self::chain_get_variable(s, thread, module) {
+                SValue::Stack(s) => match Self::chain_get_variable(s, thread, code) {
                     Some(s) => s,
                     None => {
                         return Err(FSRError::new(
@@ -1871,15 +1870,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 name = &s.1;
                 let module = FSRObject::id_to_obj(self.get_context().code).as_code();
                 self.try_get_obj_by_name(s.0, name, module)
-                // let state = self.get_cur_mut_frame();
-                // if let Some(id) = state.get_var(&s.0) {
-                //     Some(id.load(Ordering::Relaxed))
-                // } else {
-                //     let v = self.get_vm().get_global_obj_by_name(name).cloned().unwrap();
-                //     let state = self.get_cur_mut_frame();
-                //     state.insert_var_no_garbage(s.0, v);
-                //     Some(v)
-                // }
             }
             SValue::Global(id) => Some(*id),
             _ => {
