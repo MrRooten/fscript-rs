@@ -30,7 +30,7 @@ const MAX_SEGMENT_SIZE: usize = 4096000;
 struct SegmentHashMap {
     // is_dirty: bool,
     // area: Area,
-    hashmap: IndexMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
+    hashmap: IndexMap<u64, Vec<(AtomicObjId, AtomicObjId)>, ahash::RandomState>,
 }
 
 impl Debug for SegmentHashMap {
@@ -45,7 +45,7 @@ impl SegmentHashMap {
     pub fn new() -> Self {
         Self {
             // is_dirty: true,
-            hashmap: IndexMap::new(), // area: Area::Minjor,
+            hashmap: IndexMap::with_hasher(ahash::RandomState::new()), // area: Area::Minjor,
         }
     }
 
@@ -66,7 +66,7 @@ impl SegmentHashMap {
     }
 
     pub fn remove(&mut self, key: u64) {
-        self.hashmap.remove(&key);
+        self.hashmap.swap_remove(&key);
     }
 
     pub fn clear(&mut self) {
