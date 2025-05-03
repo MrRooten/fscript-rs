@@ -12,6 +12,7 @@ pub struct Ops {
     pub(crate) greater: Lookup2D,
     pub(crate) getter: Lookup2D,
     pub(crate) next: Lookup1D,
+    pub(crate) equal: Lookup2D,
 }
 
 impl Ops {
@@ -69,6 +70,14 @@ impl Ops {
             crate::backend::types::float::greater,
         );
 
+        let mut equal = [[None; OP_LEN]; OP_LEN];
+        Self::insert(
+            FSRGlobalObjId::IntegerCls as usize,
+            FSRGlobalObjId::IntegerCls as usize,
+            &mut equal,
+            crate::backend::types::integer::equal,
+        );
+
         let mut next = [None; OP_LEN];
         next[FSRGlobalObjId::InnerIterator as usize] =
             Some(crate::backend::types::iterator::next_obj as FSRRustFn);
@@ -83,7 +92,10 @@ impl Ops {
             greater,
             next,
             getter,
+            equal
         }
+
+        
     }
 
     pub fn insert(
@@ -109,6 +121,15 @@ impl Ops {
         // is the square matrix, so self.add len is the same as self.add[i].len()
         if i < OP_LEN && j < OP_LEN {
             return self.less[i][j];
+        }
+        None
+    }
+
+    #[inline(always)]
+    pub fn get_equal(&self, i: usize, j: usize) -> Option<FSRRustFn> {
+        // is the square matrix, so self.add len is the same as self.add[i].len()
+        if i < OP_LEN && j < OP_LEN {
+            return self.equal[i][j];
         }
         None
     }

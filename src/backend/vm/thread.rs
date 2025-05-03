@@ -836,12 +836,22 @@ impl<'a> FSRThreadRuntime<'a> {
                 thread.get_context().code,
             )?;
         } else if op.eq("==") {
-            res = FSRObject::invoke_offset_method(
-                BinaryOffset::Equal,
-                &[left, right],
-                thread,
-                thread.get_context().code,
-            )?;
+            let left_obj = FSRObject::id_to_obj(left);
+            let right_obj = FSRObject::id_to_obj(right);
+            res = if let Some(equal) = thread
+                .op_quick
+                .get_equal(right_obj.cls as ObjId, left_obj.cls as ObjId)
+            {
+                equal(&[left, right], thread, thread.get_context().code)?
+            } else {
+                FSRObject::invoke_offset_method(
+                    BinaryOffset::Equal,
+                    &[left, right],
+                    thread,
+                    thread.get_context().code,
+                )?
+            };
+            
         } else if op.eq("!=") {
             res = FSRObject::invoke_offset_method(
                 BinaryOffset::NotEqual,
