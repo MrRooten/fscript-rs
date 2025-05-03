@@ -209,11 +209,6 @@ impl<'a> CallFrame<'a> {
         self.attr_map.clear_var(id as usize);
     }
 
-    pub fn insert_var_no_garbage(&mut self, id: u64, obj_id: ObjId) {
-        self.var_map.insert(id, obj_id);
-        self.attr_map.clear_var(id as usize);
-    }
-
     #[inline(always)]
     pub fn has_var(&self, id: &u64) -> bool {
         self.var_map.contains_key(id)
@@ -1700,7 +1695,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 let v = self.get_vm().get_global_obj_by_name(name).cloned()?;
 
                 let state = self.get_cur_mut_frame();
-                state.insert_var_no_garbage(c_id, v);
+                state.insert_var(c_id, v);
 
                 Some(v)
             }
@@ -2448,7 +2443,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let obj_id = { self.load(module_obj)? };
             //self.rt_lock();
             let state = self.get_cur_mut_frame();
-            state.insert_var_no_garbage(*v, obj_id);
+            state.insert_var(*v, obj_id);
             FSRObject::id_to_mut_obj(context)
                 .expect("not a code object")
                 .as_mut_code()
@@ -2473,7 +2468,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let name = obj.get_name().to_string();
             cls_obj.set_value(FSRValue::Class(obj));
             let obj_id = FSRVM::register_object(cls_obj);
-            state.insert_var_no_garbage(id, obj_id);
+            state.insert_var(id, obj_id);
             // keep this order in case of will_remove is same as v
             // self.garbage_collect.remove_root(will_remove);
             // self.garbage_collect.add_root(obj_id);
