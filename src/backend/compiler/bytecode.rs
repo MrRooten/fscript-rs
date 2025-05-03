@@ -173,12 +173,13 @@ pub enum ArgType {
     Lambda((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
-    String(u64, ObjId),
-    Integer(u64, ObjId),
-    Float(u64, ObjId),
-    RealConstInteger(u64, String, Option<String>),
-    RealConstFloat(u64, String, Option<String>),
-    RealConstString(u64, String),
+    // String(u64, ObjId),
+    // Integer(u64, ObjId),
+    // Float(u64, ObjId),
+    ConstInteger(u64, String, Option<String>),
+    ConstFloat(u64, String, Option<String>),
+    ConstString(u64, String),
+    Const(u64),
     Attr(u64, String),
     BinaryOperator(BinaryOffset),
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
@@ -1519,63 +1520,68 @@ impl<'a> Bytecode {
         let id = *const_map.const_map.get(&c.to_2()).unwrap();
 
         let mut result_list = Vec::new();
-        if let FSRConstantType::Integer(i) = token.get_constant() {
-            let i = if token.single_op.is_some() && token.single_op.unwrap().eq("-") {
-                -1 * *i
-            } else {
-                *i
-            };
-            let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
-                obj
-            } else {
-                let mut obj = FSRInteger::new_inst(i);
-                // obj.ref_add();
-                obj.area = Area::Global;
-                let ptr = FSRVM::leak_object(Box::new(obj));
-                const_map.insert_table(id as usize, ptr);
-                ptr
-            };
+        result_list.push(BytecodeArg {
+            operator: BytecodeOperator::Load,
+            arg: ArgType::Const(id),
+            info: FSRByteInfo::new(token.get_meta().clone()),
+        });
+        // if let FSRConstantType::Integer(i) = token.get_constant() {
+        //     // let i = if token.single_op.is_some() && token.single_op.unwrap().eq("-") {
+        //     //     -1 * *i
+        //     // } else {
+        //     //     *i
+        //     // };
+        //     // let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
+        //     //     obj
+        //     // } else {
+        //     //     let mut obj = FSRInteger::new_inst(i);
+        //     //     // obj.ref_add();
+        //     //     obj.area = Area::Global;
+        //     //     let ptr = FSRVM::leak_object(Box::new(obj));
+        //     //     const_map.insert_table(id as usize, ptr);
+        //     //     ptr
+        //     // };
 
-            result_list.push(BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: ArgType::Integer(id, ptr),
-                info: FSRByteInfo::new(token.get_meta().clone()),
-            });
-        } else if let FSRConstantType::String(s) = token.get_constant() {
-            let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
-                obj
-            } else {
-                let obj = FSRString::new_value(&String::from_utf8_lossy(s));
-                // obj.ref_add();
-                let obj = FSRObject::new_inst(obj, FSRGlobalObjId::StringCls as ObjId);
-                let ptr = FSRVM::leak_object(Box::new(obj));
-                const_map.insert_table(id as usize, ptr);
-                ptr
-            };
+        //     result_list.push(BytecodeArg {
+        //         operator: BytecodeOperator::Load,
+        //         arg: ArgType::Const(i)
+        //         info: FSRByteInfo::new(token.get_meta().clone()),
+        //     });
+        // } else if let FSRConstantType::String(s) = token.get_constant() {
+        //     let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
+        //         obj
+        //     } else {
+        //         let obj = FSRString::new_value(&String::from_utf8_lossy(s));
+        //         // obj.ref_add();
+        //         let obj = FSRObject::new_inst(obj, FSRGlobalObjId::StringCls as ObjId);
+        //         let ptr = FSRVM::leak_object(Box::new(obj));
+        //         const_map.insert_table(id as usize, ptr);
+        //         ptr
+        //     };
 
-            result_list.push(BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: ArgType::String(id, ptr),
-                info: FSRByteInfo::new(token.get_meta().clone()),
-            });
-        } else if let FSRConstantType::Float(f) = token.get_constant() {
-            let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
-                obj
-            } else {
-                let mut obj = FSRFloat::new_inst(*f);
-                // obj.ref_add();
-                obj.area = Area::Global;
-                let ptr = FSRVM::leak_object(Box::new(obj));
-                const_map.insert_table(id as usize, ptr);
-                ptr
-            };
+        //     result_list.push(BytecodeArg {
+        //         operator: BytecodeOperator::Load,
+        //         arg: ArgType::String(id, ptr),
+        //         info: FSRByteInfo::new(token.get_meta().clone()),
+        //     });
+        // } else if let FSRConstantType::Float(f) = token.get_constant() {
+        //     let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
+        //         obj
+        //     } else {
+        //         let mut obj = FSRFloat::new_inst(*f);
+        //         // obj.ref_add();
+        //         obj.area = Area::Global;
+        //         let ptr = FSRVM::leak_object(Box::new(obj));
+        //         const_map.insert_table(id as usize, ptr);
+        //         ptr
+        //     };
 
-            result_list.push(BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: ArgType::Float(id, ptr),
-                info: FSRByteInfo::new(token.get_meta().clone()),
-            });
-        }
+        //     result_list.push(BytecodeArg {
+        //         operator: BytecodeOperator::Load,
+        //         arg: ArgType::Float(id, ptr),
+        //         info: FSRByteInfo::new(token.get_meta().clone()),
+        //     });
+        // }
 
         (result_list, var_map)
     }
@@ -1803,21 +1809,21 @@ impl<'a> Bytecode {
                 FSROrinStr2::Integer(i, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::RealConstInteger(*const_var.1, i.to_string(), v.clone()),
+                        arg: ArgType::ConstInteger(*const_var.1, i.to_string(), v.clone()),
                         info: FSRByteInfo::new(FSRPosition::new()),
                     });
                 }
                 FSROrinStr2::Float(f, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::RealConstFloat(*const_var.1, f.to_string(), v.clone()),
+                        arg: ArgType::ConstFloat(*const_var.1, f.to_string(), v.clone()),
                         info: FSRByteInfo::new(FSRPosition::new()),
                     });
                 }
                 FSROrinStr2::String(s) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::RealConstString(*const_var.1, s.to_string()),
+                        arg: ArgType::ConstString(*const_var.1, s.to_string()),
                         info: FSRByteInfo::new(FSRPosition::new()),
                     });
                 }

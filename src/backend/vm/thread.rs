@@ -2691,7 +2691,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap()
             .as_mut_code();
         match arg.get_arg() {
-            ArgType::RealConstInteger(index, obj, single_op) => {
+            ArgType::ConstInteger(index, obj, single_op) => {
                 let i = obj.parse::<i64>().unwrap();
                 let i = if single_op.is_some() && single_op.as_ref().unwrap().eq("-") {
                     -1 * i
@@ -2708,7 +2708,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 code.insert_const(*index as usize, ptr);
             }
-            ArgType::RealConstFloat(index, obj, single_op) => {
+            ArgType::ConstFloat(index, obj, single_op) => {
                 let i = obj.parse::<f64>().unwrap();
                 let i = if single_op.is_some() && single_op.as_ref().unwrap().eq("-") {
                     -1.0 * i
@@ -2725,7 +2725,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 code.insert_const(*index as usize, ptr);
             }
-            ArgType::RealConstString(index, s) => {
+            ArgType::ConstString(index, s) => {
                 let obj = FSRString::new_value(s);
                 // obj.ref_add();
                 let obj = FSRObject::new_inst(obj, FSRGlobalObjId::StringCls as ObjId);
@@ -2736,7 +2736,7 @@ impl<'a> FSRThreadRuntime<'a> {
             _ => unimplemented!(),
         }
 
-        unimplemented!()
+        Ok(false)
     }
 
     #[inline(always)]
@@ -2746,14 +2746,19 @@ impl<'a> FSRThreadRuntime<'a> {
             ArgType::Variable(var) => {
                 self.get_cur_mut_context().exp.push(SValue::Stack(var));
             }
-            ArgType::Integer(_, obj) => {
-                self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-            }
-            ArgType::Float(_, obj) => {
-                self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-            }
-            ArgType::String(_, obj) => {
-                self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+            // ArgType::Integer(_, obj) => {
+            //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+            // }
+            // ArgType::Float(_, obj) => {
+            //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+            // }
+            // ArgType::String(_, obj) => {
+            //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
+            // }
+            ArgType::Const(index) => {
+                let code = FSRObject::id_to_obj(self.get_context().code).as_code();
+                let obj = code.get_const(*index as usize).unwrap();
+                self.get_cur_mut_context().exp.push(SValue::Global(obj));
             }
             ArgType::Attr(attr_id, name) => {
                 let new_attr = self

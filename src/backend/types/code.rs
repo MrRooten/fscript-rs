@@ -77,6 +77,14 @@ impl<'a> FSRCode<'a> {
         self.const_table[const_index] = Some(obj);
     }
 
+    pub fn get_const(&self, const_index: usize) -> Option<ObjId> {
+        if const_index < self.const_table.len() {
+            self.const_table[const_index]
+        } else {
+            None
+        }
+    }
+
     #[inline(always)]
     pub fn get_expr(&self, ip_1: usize) -> Option<&Vec<BytecodeArg>> {
         self.bytecode.get(ip_1)
