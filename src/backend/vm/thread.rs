@@ -1552,7 +1552,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let code = self.get_context().code;
 
         //state.exp = Some(exp.clone());
-        let store_exp = Some(std::mem::take(&mut self.get_cur_mut_context().exp));
+        let store_exp = Some(std::mem::replace(&mut self.get_cur_mut_context().exp, Vec::with_capacity(8)));
         let state = self.get_cur_mut_frame();
         state.set_reverse_ip(ip);
         state.exp = store_exp;
@@ -1640,7 +1640,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if fn_obj.is_fsr_function() {
             let ip = self.get_context().ip;
 
-            let store_exp = Some(std::mem::take(&mut self.get_cur_mut_context().exp));
+            let store_exp = Some(std::mem::replace(&mut self.get_cur_mut_context().exp, Vec::with_capacity(8)));
             let state = self.get_cur_mut_frame();
             //Save callstate
             state.set_reverse_ip(ip);
