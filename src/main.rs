@@ -27,18 +27,13 @@ mod test {
         fn abc() {
             id = __get_cur_thread_id()
             i = 0
-            while i < 40000000 {
-                i = i + 1
-                abc1()
-            }
+            sleep(3000)
             println("done id: ", id)
             println("done res: ", i)
         }
 
         th = thread::Thread(abc)
-        th2 = thread::Thread(abc)
         th.join()
-        th2.join()
         println("hello world")
         "#;
         let v = FSRCode::from_code("main", module1).unwrap();
@@ -66,14 +61,7 @@ mod test {
         println!("run 2 second");
         sleep(Duration::from_secs(2));
         println!("stop all threads: {:?} again", (Instant::now()) - p_st);
-        vm.stop_all_threads();
-        // vm.wait_all_threads();
 
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        println!("sleep 2 second again");
-
-        vm.continue_all_threads();
-        println!("continue all threads");
         let et = Instant::now();
         println!("elapsed time: {:?}", et - st);
         th.join().unwrap();

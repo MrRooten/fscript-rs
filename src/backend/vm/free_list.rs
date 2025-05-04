@@ -22,7 +22,7 @@ impl<'a> FrameFreeList<'a> {
     }
 
     #[inline]
-    pub fn new_frame(&mut self, name: &'a str, code: ObjId, fn_obj: ObjId) -> Box<CallFrame<'a>> {
+    pub fn new_frame(&mut self, code: ObjId, fn_obj: ObjId) -> Box<CallFrame<'a>> {
         if let Some(mut frame) = self.list.pop() {
             frame.clear();
             frame.code = code;
@@ -30,6 +30,6 @@ impl<'a> FrameFreeList<'a> {
             return frame;
         }
 
-        Box::new(CallFrame::new(name, code, fn_obj))
+        Box::new(CallFrame::new(code, fn_obj))
     }
 }

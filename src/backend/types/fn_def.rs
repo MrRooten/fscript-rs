@@ -204,7 +204,7 @@ impl<'a> FSRFn<'a> {
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             let frame = thread
                 .frame_free_list
-                .new_frame(&self.get_name(), code, fn_id);
+                .new_frame(code, fn_id);
             thread.push_frame(frame);
             //thread.rt_unlock();
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code, f.module)?;
@@ -229,7 +229,7 @@ impl<'a> FSRFn<'a> {
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             let frame = thread
                 .frame_free_list
-                .new_frame(&self.get_name(), code, fn_id);
+                .new_frame(code, fn_id);
             thread.push_frame(frame);
             let v = FSRThreadRuntime::call_fn(thread, f, &[left, right], self.code, f.module)?;
             return Ok(FSRRetValue::GlobalId(v));

@@ -218,7 +218,7 @@ impl<'a> CallFrame<'a> {
         self.reverse_ip = ip;
     }
 
-    pub fn new(_name: &'a str, code: ObjId, fn_obj: ObjId) -> Self {
+    pub fn new(code: ObjId, fn_obj: ObjId) -> Self {
         Self {
             var_map: IndexMap::new(),
             reverse_ip: (0, 0),
@@ -479,7 +479,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) remembered_set: HashSet<ObjId>,
     pub(crate) op_quick: Box<Ops>,
     pub(crate) counter: usize,
-    pub(crate) last_counter: usize,
+    pub(crate) last_aquire_counter: usize,
     pub(crate) til: ThreadLockerState,
     pub(crate) thread_context_stack: Vec<Box<FSCodeContext<'a>>>,
     pub(crate) thread_context: Option<Box<FSCodeContext<'a>>>,
@@ -539,7 +539,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn new() -> FSRThreadRuntime<'a> {
-        let frame = Box::new(CallFrame::new("base", 0, 0));
+        let frame = Box::new(CallFrame::new(0, 0));
         Self {
             cur_frame: frame,
             call_frames: vec![],
@@ -553,7 +553,7 @@ impl<'a> FSRThreadRuntime<'a> {
             op_quick: Box::new(Ops::new_init()),
             counter: 0,
             til: ThreadLockerState::new(),
-            last_counter: 0,
+            last_aquire_counter: 0,
             thread_context_stack: Vec::with_capacity(8),
             thread_context: None,
             remembered_set: HashSet::new(),
@@ -1602,7 +1602,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_context().call_end += 1;
                 let frame = self
                     .frame_free_list
-                    .new_frame("__new__", f.code, self_new_obj);
+                    .new_frame(f.code, self_new_obj);
                 self.get_cur_mut_context().code = f.code;
                 self.push_frame(frame);
             } else {
@@ -1644,7 +1644,6 @@ impl<'a> FSRThreadRuntime<'a> {
             if let FSRValue::Function(f) = &fn_obj.value {
                 self.get_cur_mut_context().call_end += 1;
                 let mut frame = self.frame_free_list.new_frame(
-                    f.get_name(),
                     f.code,
                     FSRObject::obj_to_id(fn_obj),
                 );
@@ -1763,24 +1762,20 @@ impl<'a> FSRThreadRuntime<'a> {
         } else if fn_obj.is_fsr_function() {
             self.get_cur_mut_context().call_end += 1;
             self.save_ip_to_callstate();
-            // if let FSRValue::Function(f) = &fn_obj.value {
-            //     let frame = self.frame_free_list.new_frame("tmp2", f.code, fn_id);
-            //     self.push_frame(frame);
-            // } else {
-            //     panic!("not a function")
-            // }
             let f = fn_obj.as_fn();
-            let frame = self.frame_free_list.new_frame("tmp2", f.code, fn_id);
+            let frame = self.frame_free_list.new_frame(f.code, fn_id);
             self.push_frame(frame);
 
             if call_method {
-                let self_obj = self
-                    .get_cur_mut_context()
-                    .exp
-                    .pop()
-                    .unwrap()
-                    .get_global_id(self)
-                    .unwrap();
+                let self_obj = match self.get_cur_mut_context().exp.pop() {
+                    Some(s) => s.get_global_id(self)?,
+                    None => {
+                        return Err(FSRError::new(
+                            "Failed to retrieve self object in call_process",
+                            FSRErrCode::EmptyExpStack,
+                        ));
+                    }
+                };
                 self.get_cur_mut_frame().args.push(self_obj);
             }
 
@@ -2846,17 +2841,27 @@ impl<'a> FSRThreadRuntime<'a> {
             // sleep(Duration::from_secs(1));
             *self.til.is_stop.0.lock().unwrap() = true;
             self.til.is_stop.1.notify_all();
+            println!("wait runtime: {}", self.thread_id);
             in_rt_cxt = self.til.in_rt_cxt.1.wait(in_rt_cxt).unwrap();
+            println!("receive runtime: {}, {}", self.thread_id, *in_rt_cxt);
         }
 
         *self.til.is_stop.0.lock().unwrap() = false;
         //}
 
-        self.last_counter = self.counter;
+        self.last_aquire_counter = self.counter;
     }
 
     fn rt_yield(&mut self) {
+        //self.safe_point_to_stop();
         self.acquire();
+    }
+
+    pub fn safe_point_to_stop(&self) {
+        // let mut in_rt_ctx = self.til.in_rt_cxt.0.lock().unwrap();
+        // *in_rt_ctx = false;
+        *self.til.is_stop.0.lock().unwrap() = true;
+        self.til.is_stop.1.notify_all();
     }
 
     pub fn rt_stop(&self) {
@@ -2873,8 +2878,13 @@ impl<'a> FSRThreadRuntime<'a> {
         println!("continue thread {}", self.thread_id);
         {
             let mut locker = self.til.in_rt_cxt.0.lock().unwrap();
-            *locker = true;
+            while !*locker {
+                *locker = true;
+            }
+            
         }
+
+        println!("send notify thread {}", self.thread_id);
 
         self.til.in_rt_cxt.1.notify_all();
         println!("continued thread {}", self.thread_id);
@@ -2895,7 +2905,7 @@ impl<'a> FSRThreadRuntime<'a> {
         expr: &'a [BytecodeArg],
         bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        if self.counter - self.last_counter > 100 {
+        if self.counter - self.last_aquire_counter > 100 {
             self.rt_yield();
         }
 
@@ -2978,7 +2988,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         self.push_context(context);
 
-        let frame = self.frame_free_list.new_frame("load_module", code_id, 0);
+        let frame = self.frame_free_list.new_frame( code_id, 0);
         self.push_frame(frame);
         //self.unlock_and_lock();
         let mut code = FSRObject::id_to_obj(code_id).as_code();

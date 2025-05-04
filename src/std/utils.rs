@@ -242,6 +242,7 @@ pub fn fsr_sleep<'a>(
 ) -> Result<FSRRetValue<'a>, FSRError> {
     if let FSRValue::Integer(i) = &FSRObject::id_to_obj(args[0]).value {
         //thread.release();
+        thread.safe_point_to_stop();
         std::thread::sleep(Duration::from_millis(*i as u64));
         thread.acquire();
     }
