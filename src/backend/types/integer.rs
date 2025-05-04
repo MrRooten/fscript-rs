@@ -1,6 +1,9 @@
 #![allow(unused)]
 
-use std::hash::{DefaultHasher, Hash, Hasher};
+
+use std::hash::{Hash, Hasher};
+
+use ahash::AHasher;
 
 use crate::{
     backend::{
@@ -319,7 +322,7 @@ fn hash_integer<'a>(
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::Integer(self_int) = &self_object.value {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = AHasher::default();
         self_int.hash(&mut hasher);
         let hash = hasher.finish();
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(

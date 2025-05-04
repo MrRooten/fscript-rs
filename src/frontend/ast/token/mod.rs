@@ -23,7 +23,7 @@ pub mod class;
 pub mod r#else;
 pub mod for_statement;
 pub mod try_expr;
-
+pub mod match_pattern;
 
 pub struct ASTContext {
     pub(crate)  variable_define: Vec<Rc<RefCell<HashMap<String, bool>>>>

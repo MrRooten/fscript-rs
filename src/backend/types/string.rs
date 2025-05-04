@@ -1,4 +1,6 @@
-use std::{fmt, hash::{DefaultHasher, Hash, Hasher}, str::Chars, sync::Arc};
+use std::{fmt, hash::{Hash, Hasher}, str::Chars, sync::Arc};
+
+use ahash::AHasher;
 
 use crate::{
     backend::{
@@ -261,7 +263,7 @@ fn hash_string<'a>(
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::String(self_str) = &self_object.value {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = AHasher::default();
         self_str.chars.hash(&mut hasher);
         let hash = hasher.finish();
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
