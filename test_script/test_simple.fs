@@ -1,5 +1,6 @@
-fn abc() {
-    return 1
+n = 2
+for i in 0..18000000 {
+    if n == 1 or n == 2 {
+        
+    }
 }
-
-a1 = [abc(), abc()]

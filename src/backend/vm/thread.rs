@@ -189,14 +189,15 @@ impl<'a> CallFrame<'a> {
 
     #[inline(always)]
     pub fn get_var(&self, id: &u64) -> Option<&AtomicObjId> {
-        if let Some(s) = self.var_map.get(id) {
-            // if s == &0 {
-            //     return None;
-            // }
-            return Some(s);
-        }
+        // if let Some(s) = self.var_map.get(id) {
+        //     // if s == &0 {
+        //     //     return None;
+        //     // }
+        //     return Some(s);
+        // }
 
-        None
+        // None
+        self.var_map.get(id)
     }
 
     pub fn get_attr(&self, i: usize, j: usize) -> Option<&'a AtomicObjId> {
@@ -1741,6 +1742,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
+    #[inline(always)]
     fn get_fn_args(
         &mut self,
         var: &mut Option<&'a (usize, u64, String, bool)>,
@@ -1773,8 +1775,24 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let mut var: Option<&(usize, u64, String, bool)> = None;
-        let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
-
+        //let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
+        let mut args = if let ArgType::CallArgsNumber(n) = bytecode.get_arg() {
+            // in case of method call like `obj.method()`, reserve the first arg for `self`
+            let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
+            let args_num = n;
+            Self::call_process_set_args(*args_num, self, self.get_context().code, &mut args)?;
+            args.reverse();
+            args
+        } else if let ArgType::CallArgsNumberWithVar(pack) = bytecode.get_arg() {
+            let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
+            let args_num = pack.0;
+            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            var = Some(pack);
+            args.reverse();
+            args
+        } else {
+            SmallVec::new()
+        };
         //let ptr = vm as *mut FSRVM;
         let mut object_id: Option<ObjId> = None;
         let module = FSRObject::id_to_obj(self.get_context().code).as_code();
@@ -2246,8 +2264,18 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if let ArgType::Compare(op) = bytecode.get_arg() {
-            let right = self.get_cur_mut_frame().exp.pop().unwrap();
-            let left = self.get_cur_mut_frame().exp.pop().unwrap();
+            let right = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
+                FSRError::new(
+                    "Failed to pop right operand from stack in compare_test",
+                    FSRErrCode::EmptyExpStack,
+                )
+            })?;
+            let left = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
+                FSRError::new(
+                    "Failed to pop left operand from stack in compare_test",
+                    FSRErrCode::EmptyExpStack,
+                )
+            })?;
 
             let right_id = right.get_global_id(self)?;
             let left_id = left.get_global_id(self)?;
@@ -2286,7 +2314,12 @@ impl<'a> FSRThreadRuntime<'a> {
                     let vm = self.get_vm();
                     let v = match module.get_object(&s.1) {
                         Some(s) => s.load(Ordering::Relaxed),
-                        None => *vm.get_global_obj_by_name(&s.1).unwrap(),
+                        None => *vm.get_global_obj_by_name(&s.1).ok_or_else(|| {
+                            FSRError::new(
+                                format!("not found object in test: {}", s.1),
+                                FSRErrCode::NoSuchObject,
+                            )
+                        })?,
                     };
                     v
                 }
@@ -2302,7 +2335,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         self.pop_stack();
-        let cur = self.get_cur_mut_frame();             
+        let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(v);
         let ip_0 = cur.reverse_ip.0;
         let ip_1 = cur.reverse_ip.1;
@@ -2376,7 +2409,12 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let state = &mut self.cur_frame;
-        let v = state.args.pop().unwrap();
+        let v = state.args.pop().ok_or_else(|| {
+            FSRError::new(
+                "Failed to pop argument from stack in assign_args",
+                FSRErrCode::EmptyExpStack,
+            )
+        })?;
         if let ArgType::Variable(s_id) = bytecode.get_arg() {
             state.insert_var(s_id.0, v);
         } else if let ArgType::ClosureVar(s_id) = bytecode.get_arg() {
@@ -2396,7 +2434,12 @@ impl<'a> FSRThreadRuntime<'a> {
             let mut list = Vec::with_capacity(*n);
             let n = *n;
             for _ in 0..n {
-                let v = self.get_cur_mut_frame().exp.pop().unwrap();
+                let v = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
+                    FSRError::new(
+                        "Failed to pop value from stack in load_list",
+                        FSRErrCode::EmptyExpStack,
+                    )
+                })?;
                 let v_id = v.get_global_id(self)?;
 
                 list.push(v_id);
@@ -2416,7 +2459,12 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let id = match self.get_cur_mut_frame().exp.pop().unwrap() {
+        let id = match self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
+            FSRError::new(
+                "Failed to pop class id from stack in class_def",
+                FSRErrCode::EmptyExpStack,
+            )
+        })? {
             SValue::Stack(i) => i,
             SValue::Attr(_) => panic!(),
             SValue::Global(_) => panic!(),
@@ -2952,7 +3000,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     }
 
                     if v {
-                        self.get_cur_mut_context().clear_exp();
+                        self.get_cur_mut_frame().exp.clear();
                         return Ok(false);
                     }
                 }
@@ -2964,7 +3012,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         self.get_cur_mut_context().ip.0 += 1;
         self.get_cur_mut_context().ip.1 = 0;
-        self.get_cur_mut_context().clear_exp();
+        self.get_cur_mut_frame().exp.clear();
 
         if self.garbage_collect.will_collect() {
             let st = std::time::Instant::now();
