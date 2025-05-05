@@ -164,7 +164,7 @@ pub struct CallFrame<'a> {
     pub(crate) var_map: IndexMap,
     attr_map: AttrMap<'a>,
     reverse_ip: (usize, usize),
-    args: Vec<ObjId>,
+    args: SmallVec<[ObjId; 4]>,
     cur_cls: Option<Box<FSRClass<'a>>>,
     pub(crate) ret_val: Option<ObjId>,
     pub(crate) exp: Option<Vec<SValue<'a>>>,
@@ -222,7 +222,7 @@ impl<'a> CallFrame<'a> {
         Self {
             var_map: IndexMap::new(),
             reverse_ip: (0, 0),
-            args: Vec::new(),
+            args: SmallVec::new(),
             cur_cls: None,
             ret_val: None,
             exp: None,
@@ -1547,7 +1547,10 @@ impl<'a> FSRThreadRuntime<'a> {
         let code = self.get_context().code;
 
         //state.exp = Some(exp.clone());
-        let store_exp = Some(std::mem::replace(&mut self.get_cur_mut_context().exp, Vec::with_capacity(8)));
+        let store_exp = Some(std::mem::take(
+            &mut self.get_cur_mut_context().exp,
+            // Vec::with_capacity(8),
+        ));
         let state = self.get_cur_mut_frame();
         state.set_reverse_ip(ip);
         state.exp = store_exp;
@@ -1600,9 +1603,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if let FSRValue::Function(f) = &new_obj.value {
                 self.get_cur_mut_context().call_end += 1;
-                let frame = self
-                    .frame_free_list
-                    .new_frame(f.code, self_new_obj);
+                let frame = self.frame_free_list.new_frame(f.code, self_new_obj);
                 self.get_cur_mut_context().code = f.code;
                 self.push_frame(frame);
             } else {
@@ -1635,7 +1636,10 @@ impl<'a> FSRThreadRuntime<'a> {
         if fn_obj.is_fsr_function() {
             let ip = self.get_context().ip;
 
-            let store_exp = Some(std::mem::replace(&mut self.get_cur_mut_context().exp, Vec::with_capacity(8)));
+            let store_exp = Some(std::mem::replace(
+                &mut self.get_cur_mut_context().exp,
+                Vec::with_capacity(8),
+            ));
             let state = self.get_cur_mut_frame();
             //Save callstate
             state.set_reverse_ip(ip);
@@ -1643,10 +1647,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if let FSRValue::Function(f) = &fn_obj.value {
                 self.get_cur_mut_context().call_end += 1;
-                let mut frame = self.frame_free_list.new_frame(
-                    f.code,
-                    FSRObject::obj_to_id(fn_obj),
-                );
+                let mut frame = self
+                    .frame_free_list
+                    .new_frame(f.code, FSRObject::obj_to_id(fn_obj));
                 frame.code = f.code;
                 self.push_frame(frame);
             } else {
@@ -1701,52 +1704,117 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    fn call_process(
-        self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
-        _: &'a Bytecode,
-    ) -> Result<bool, FSRError> {
-        let mut args = if let ArgType::CallArgsNumber(n) = *bytecode.get_arg() {
+    fn process_fsr_fn(
+        &mut self,
+        fn_id: ObjId,
+        fn_obj: &FSRObject<'a>,
+        call_method: bool,
+        args: &mut SmallVec<[ObjId; 4]>,
+    ) -> Result<(), FSRError> {
+        self.get_cur_mut_context().call_end += 1;
+        self.save_ip_to_callstate();
+        let f = fn_obj.as_fn();
+        let frame = self.frame_free_list.new_frame(f.code, fn_id);
+        self.push_frame(frame);
+
+        if call_method {
+            let self_obj = match self.get_cur_mut_context().exp.pop() {
+                Some(s) => s.get_global_id(self)?,
+                None => {
+                    return Err(FSRError::new(
+                        "Failed to retrieve self object in call_process",
+                        FSRErrCode::EmptyExpStack,
+                    ));
+                }
+            };
+            self.get_cur_mut_frame().args.push(self_obj);
+        }
+
+        for arg in args.iter().rev() {
+            self.get_cur_mut_frame().args.push(*arg);
+        }
+        //let offset = fn_obj.get_fsr_offset();
+        let offset = fn_obj.get_fsr_offset().1;
+        if let FSRValue::Function(obj) = &fn_obj.value {
+            self.get_cur_mut_context().code = obj.code;
+        }
+
+        self.get_cur_mut_context().ip = (offset.0, 0);
+        Ok(())
+    }
+
+    fn get_fn_args(
+        &mut self,
+        var: &mut Option<&'a (usize, u64, String, bool)>,
+        arg: &'a ArgType,
+    ) -> Result<SmallVec<[usize; 4]>, FSRError> {
+        let mut args = if let ArgType::CallArgsNumber(n) = *arg {
             // in case of method call like `obj.method()`, reserve the first arg for `self`
             let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
             let args_num = n;
             Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
             args.reverse();
             args
+        } else if let ArgType::CallArgsNumberWithVar(pack) = arg {
+            let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
+            let args_num = pack.0;
+            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            *var = Some(pack);
+            args.reverse();
+            args
         } else {
             SmallVec::new()
         };
+
+        Ok(args)
+    }
+
+    fn call_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &'a BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let mut var: Option<&(usize, u64, String, bool)> = None;
+        let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
 
         //let ptr = vm as *mut FSRVM;
         let mut object_id: Option<ObjId> = None;
         let module = FSRObject::id_to_obj(self.get_context().code).as_code();
         let mut call_method = false;
-        let fn_id = match self.get_cur_mut_context().exp.pop().unwrap() {
-            SValue::Stack(s) => self.try_get_obj_by_name(s.0, &s.1, module).unwrap(),
-            SValue::Global(id) => id,
-            SValue::Attr(attr) => {
-                call_method = attr.call_method;
+        let fn_id;
+        let fn_obj;
+        if let Some(var) = var {
+            let var_id = var.1;
+            fn_id = self.try_get_obj_by_name(var.1, &var.2, module).unwrap();
+            fn_obj = FSRObject::id_to_obj(fn_id);
+        } else {
+            fn_id = match self.get_cur_mut_context().exp.pop().unwrap() {
+                SValue::Stack(s) => self.try_get_obj_by_name(s.0, &s.1, module).unwrap(),
+                SValue::Global(id) => id,
+                SValue::Attr(attr) => {
+                    call_method = attr.call_method;
 
-                let id = if !call_method {
-                    let cls_obj = FSRObject::id_to_obj(attr.father).as_class();
-                    cls_obj.get_attr(attr.name).unwrap().load(Ordering::Relaxed)
-                } else {
-                    object_id = Some(attr.father);
-                    attr.attr_object_id.unwrap().load(Ordering::Relaxed)
-                };
+                    let id = if !call_method {
+                        let cls_obj = FSRObject::id_to_obj(attr.father).as_class();
+                        cls_obj.get_attr(attr.name).unwrap().load(Ordering::Relaxed)
+                    } else {
+                        object_id = Some(attr.father);
+                        attr.attr_object_id.unwrap().load(Ordering::Relaxed)
+                    };
 
-                self.thread_allocator.free_box_attr(attr);
+                    self.thread_allocator.free_box_attr(attr);
 
-                id
-            }
-            SValue::Reference(_, atomic_usize, is_object) => {
-                call_method = is_object;
+                    id
+                }
+                SValue::Reference(_, atomic_usize, is_object) => {
+                    call_method = is_object;
 
-                atomic_usize.load(Ordering::Relaxed)
-            }
+                    atomic_usize.load(Ordering::Relaxed)
+                }
+            };
+
+            fn_obj = FSRObject::id_to_obj(fn_id);
         };
-
-        let fn_obj = FSRObject::id_to_obj(fn_id);
 
         if fn_obj.is_fsr_cls() {
             let v = Self::process_fsr_cls(self, fn_id, &mut args)?;
@@ -1755,40 +1823,11 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         } else if object_id.is_some() && call_method {
             let v = Self::process_fn_is_attr(self, object_id.unwrap(), fn_obj, &mut args)?;
-
             if v {
                 return Ok(v);
             }
         } else if fn_obj.is_fsr_function() {
-            self.get_cur_mut_context().call_end += 1;
-            self.save_ip_to_callstate();
-            let f = fn_obj.as_fn();
-            let frame = self.frame_free_list.new_frame(f.code, fn_id);
-            self.push_frame(frame);
-
-            if call_method {
-                let self_obj = match self.get_cur_mut_context().exp.pop() {
-                    Some(s) => s.get_global_id(self)?,
-                    None => {
-                        return Err(FSRError::new(
-                            "Failed to retrieve self object in call_process",
-                            FSRErrCode::EmptyExpStack,
-                        ));
-                    }
-                };
-                self.get_cur_mut_frame().args.push(self_obj);
-            }
-
-            for arg in args.iter().rev() {
-                self.get_cur_mut_frame().args.push(*arg);
-            }
-            //let offset = fn_obj.get_fsr_offset();
-            let offset = fn_obj.get_fsr_offset().1;
-            if let FSRValue::Function(obj) = &fn_obj.value {
-                self.get_cur_mut_context().code = obj.code;
-            }
-
-            self.get_cur_mut_context().ip = (offset.0, 0);
+            self.process_fsr_fn(fn_id, fn_obj, call_method, &mut args)?;
             return Ok(true);
         } else {
             let v = match fn_obj.call(&args, self, self.get_context().code, fn_id) {
@@ -2156,19 +2195,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
             state.insert_var(name.0, fn_id);
             let define_fn_obj = self.get_cur_frame().fn_obj;
-            // If is not fn define block not like this
-            // ```rust
-            // fn test() {
-            //     fn test2() {
-            //     }
-            // }
-            // ```
-            // like this
-            //
-            // ```rust
-            // fn test() {
-            // }
-            // ``````
             if define_fn_obj == FSRObject::none_id() {
                 FSRObject::id_to_mut_obj(self.get_context().code)
                     .expect("not a code object")
@@ -2738,15 +2764,6 @@ impl<'a> FSRThreadRuntime<'a> {
             ArgType::Variable(var) => {
                 self.get_cur_mut_context().exp.push(SValue::Stack(var));
             }
-            // ArgType::Integer(_, obj) => {
-            //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-            // }
-            // ArgType::Float(_, obj) => {
-            //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-            // }
-            // ArgType::String(_, obj) => {
-            //     self.get_cur_mut_context().exp.push(SValue::Global(*obj));
-            // }
             ArgType::Const(index) => {
                 let code = FSRObject::id_to_obj(self.get_context().code).as_code();
                 let obj = code.get_const(*index as usize).unwrap();
@@ -2881,7 +2898,6 @@ impl<'a> FSRThreadRuntime<'a> {
             while !*locker {
                 *locker = true;
             }
-            
         }
 
         println!("send notify thread {}", self.thread_id);
@@ -2988,7 +3004,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         self.push_context(context);
 
-        let frame = self.frame_free_list.new_frame( code_id, 0);
+        let frame = self.frame_free_list.new_frame(code_id, 0);
         self.push_frame(frame);
         //self.unlock_and_lock();
         let mut code = FSRObject::id_to_obj(code_id).as_code();

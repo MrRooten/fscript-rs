@@ -7,9 +7,9 @@ fn abc() {
         }
     }
 
-    
-    fib(2)
-    
+    for i in 0..18000000 {
+        fib(2)
+    }
 }
 
 abc()

@@ -188,6 +188,7 @@ pub enum ArgType {
     Compare(&'static str),
     FnLines(usize),
     CallArgsNumber(usize),
+    CallArgsNumberWithVar((usize, u64, String, bool)), // number size, Variable
     DefineFnArgs(u64, u64),
     DefineClassLine(u64),
     LoadListNumber(usize),
@@ -398,6 +399,21 @@ impl BytecodeContext {
         false
     }
 
+    pub fn contains_variable_in_ref_stack_not_last(&self, name: &str) -> bool {
+        if self.ref_map_stack.len() < 2 {
+            return false;
+        }
+        for i in &self.ref_map_stack[..self.ref_map_stack.len() - 1] {
+            if let Some(v) = i.get(name) {
+                if *v {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     pub fn contains_in_cur_ref(&self, name: &str) -> bool {
         if let Some(ref_map) = self.ref_map_stack.last() {
             if let Some(v) = ref_map.get(name) {
@@ -584,6 +600,8 @@ impl<'a> Bytecode {
         let mut var_map_ref = var_map;
 
         let name = call.get_name();
+        let mut is_var = false;
+        let mut var_id = 0;
         if !name.is_empty() {
             if is_attr {
                 if !var_map_ref.last_mut().unwrap().has_attr(name) {
@@ -626,18 +644,20 @@ impl<'a> Bytecode {
                         arg: ArgType::CurrentFn,
                         info: FSRByteInfo::new(call.get_meta().clone()),
                     });
-                } else if const_map.contains_variable_in_ref_stack(call.get_name()) {
+                } else if const_map.contains_variable_in_ref_stack_not_last(call.get_name()) {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: ArgType::ClosureVar((*id, name.to_string())),
                         info: FSRByteInfo::new(call.get_meta().clone()),
                     });
                 } else {
-                    result.push(BytecodeArg {
-                        operator: BytecodeOperator::Load,
-                        arg: ArgType::Variable((*id, name.to_string(), false)),
-                        info: FSRByteInfo::new(call.get_meta().clone()),
-                    });
+                    is_var = true;
+                    var_id = *id;
+                    // result.push(BytecodeArg {
+                    //     operator: BytecodeOperator::Load,
+                    //     arg: ArgType::Variable((*id, name.to_string(), false)),
+                    //     info: FSRByteInfo::new(call.get_meta().clone()),
+                    // });
                 }
             }
         }
@@ -646,17 +666,25 @@ impl<'a> Bytecode {
             let mut v = Self::load_token_with_map(arg, var_map_ref, const_map);
             var_map_ref = v.1;
             result.append(&mut v.0[0]);
-            // result.push(BytecodeArg {
-            //     operator: BytecodeOperator::InsertArg,
-            //     arg: ArgType::None,
-            // });
         }
-
-        result.push(BytecodeArg {
-            operator: BytecodeOperator::Call,
-            arg: ArgType::CallArgsNumber(call.get_args().len()),
-            info: FSRByteInfo::new(call.get_meta().clone()),
-        });
+        if is_var {
+            result.push(BytecodeArg {
+                operator: BytecodeOperator::Call,
+                arg: ArgType::CallArgsNumberWithVar((
+                    call.get_args().len(),
+                    var_id,
+                    name.to_string(),
+                    false,
+                )),
+                info: FSRByteInfo::new(call.get_meta().clone()),
+            });
+        } else {
+            result.push(BytecodeArg {
+                operator: BytecodeOperator::Call,
+                arg: ArgType::CallArgsNumber(call.get_args().len()),
+                info: FSRByteInfo::new(call.get_meta().clone()),
+            });
+        }
 
         (result, var_map_ref)
     }
@@ -2080,6 +2108,22 @@ a[0] = 1
     fn test_not_attr() {
         let expr = "
         not a.contains(0) && abc
+        ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_simple() {
+        let expr = "
+        fn abc() {
+
+        }
+
+        abc()
         ";
 
         let meta = FSRPosition::new();
