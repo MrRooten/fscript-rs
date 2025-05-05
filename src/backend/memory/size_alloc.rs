@@ -10,7 +10,7 @@ use crate::backend::{
 pub struct FSRObjectAllocator<'a> {
     object_bins: Vec<Box<FSRObject<'a>>>,
     box_attr_bins: Vec<Box<AttrArgs<'a>>>,
-    code_context_bins: Vec<Box<FSCodeContext<'a>>>,
+    code_context_bins: Vec<Box<FSCodeContext>>,
 }
 
 #[allow(clippy::new_without_default)]
@@ -75,7 +75,7 @@ impl<'a> FSRObjectAllocator<'a> {
         &mut self,
         code: ObjId,
         module: ObjId,
-    ) -> Box<FSCodeContext<'a>> {
+    ) -> Box<FSCodeContext> {
         if let Some(mut s) = self.code_context_bins.pop() {
             s.code = code;
             s.module = module;
@@ -86,7 +86,7 @@ impl<'a> FSRObjectAllocator<'a> {
         Box::new(FSCodeContext::new_context(code, module))
     }
 
-    pub fn free_code_context(&mut self, mut obj: Box<FSCodeContext<'a>>) {
+    pub fn free_code_context(&mut self, mut obj: Box<FSCodeContext>) {
         obj.clear();
         self.code_context_bins.push(obj);
     }

@@ -167,7 +167,7 @@ pub struct CallFrame<'a> {
     args: SmallVec<[ObjId; 4]>,
     cur_cls: Option<Box<FSRClass<'a>>>,
     pub(crate) ret_val: Option<ObjId>,
-    pub(crate) exp: Option<Vec<SValue<'a>>>,
+    pub(crate) exp: Vec<SValue<'a>>,
     pub(crate) code: ObjId,
     catch_ends: Vec<(usize, usize)>,
     pub(crate) handling_exception: ObjId,
@@ -182,7 +182,7 @@ impl<'a> CallFrame<'a> {
         self.args.clear();
         self.cur_cls = None;
         self.ret_val = None;
-        self.exp = None;
+        self.exp.clear();
         self.attr_map.clear();
         self.handling_exception = FSRObject::none_id();
     }
@@ -225,7 +225,7 @@ impl<'a> CallFrame<'a> {
             args: SmallVec::new(),
             cur_cls: None,
             ret_val: None,
-            exp: None,
+            exp: vec![],
             code,
             catch_ends: vec![],
             handling_exception: FSRObject::none_id(),
@@ -335,19 +335,19 @@ impl<'a> SValue<'a> {
 }
 
 /// Context for bytecode, if fs code call from rust fn will create new context
-pub struct FSCodeContext<'a> {
+pub struct FSCodeContext {
     // tracing call stack, is call stack is empty means end of this call except start of this call
     pub(crate) call_end: u32,
-    exp: Vec<SValue<'a>>,
+    // exp: Vec<SValue<'a>>,
     ip: (usize, usize),
     pub(crate) code: ObjId,
     pub(crate) module: ObjId,
 }
 
-impl<'a> FSCodeContext<'a> {
+impl FSCodeContext {
     pub fn new_context(code: ObjId, module: ObjId) -> Self {
         FSCodeContext {
-            exp: Vec::with_capacity(8),
+            // exp: Vec::with_capacity(8),
             ip: (0, 0),
 
             code,
@@ -358,15 +358,15 @@ impl<'a> FSCodeContext<'a> {
 
     #[inline(always)]
     pub fn clear_exp(&mut self) {
-        if self.exp.is_empty() {
-            return;
-        }
+        // if self.exp.is_empty() {
+        //     return;
+        // }
 
-        self.exp.clear();
+        // self.exp.clear();
     }
 
     pub fn clear(&mut self) {
-        self.exp.clear();
+        //self.exp.clear();
         self.ip = (0, 0);
     }
 }
@@ -481,8 +481,8 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) counter: usize,
     pub(crate) last_aquire_counter: usize,
     pub(crate) til: ThreadLockerState,
-    pub(crate) thread_context_stack: Vec<Box<FSCodeContext<'a>>>,
-    pub(crate) thread_context: Option<Box<FSCodeContext<'a>>>,
+    pub(crate) thread_context_stack: Vec<Box<FSCodeContext>>,
+    pub(crate) thread_context: Option<Box<FSCodeContext>>,
     pub(crate) gc_context: GcContext,
 }
 
@@ -605,11 +605,11 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    pub fn get_cur_mut_context(&mut self) -> &mut FSCodeContext<'a> {
+    pub fn get_cur_mut_context(&mut self) -> &mut FSCodeContext {
         self.thread_context.as_mut().unwrap()
     }
 
-    pub fn push_context(&mut self, context: Box<FSCodeContext<'a>>) {
+    pub fn push_context(&mut self, context: Box<FSCodeContext>) {
         if self.thread_context.is_none() {
             self.thread_context = Some(context);
         } else {
@@ -620,7 +620,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    pub fn pop_context(&mut self) -> Box<FSCodeContext<'a>> {
+    pub fn pop_context(&mut self) -> Box<FSCodeContext> {
         if let Some(s) = self.thread_context.take() {
             // self.thread_context_stack.push(s);
             self.thread_context = self.thread_context_stack.pop();
@@ -632,7 +632,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    pub fn get_context(&self) -> &FSCodeContext<'a> {
+    pub fn get_context(&self) -> &FSCodeContext {
         self.thread_context.as_ref().unwrap()
     }
 
@@ -659,17 +659,17 @@ impl<'a> FSRThreadRuntime<'a> {
                 work_list.push(obj.load(Ordering::Relaxed));
             }
 
-            if let Some(s) = &it.exp {
-                for i in s {
-                    let id = match i.get_global_id(self) {
-                        Ok(id) => id,
-                        Err(_) => {
-                            continue;
-                        }
-                    };
-                    work_list.push(id);
-                }
+            //if let Some(s) = &it.exp {
+            for i in &it.exp {
+                let id = match i.get_global_id(self) {
+                    Ok(id) => id,
+                    Err(_) => {
+                        continue;
+                    }
+                };
+                work_list.push(id);
             }
+            //}
 
             if let Some(ret_val) = it.ret_val {
                 work_list.push(ret_val);
@@ -697,29 +697,29 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(obj);
         }
 
-        for context in self.thread_context_stack.iter() {
-            for obj in context.exp.iter() {
-                let id = match obj.get_global_id(self) {
-                    Ok(id) => id,
-                    Err(_) => {
-                        continue;
-                    }
-                };
+        // for context in self.thread_context_stack.iter() {
+        //     for obj in context.exp.iter() {
+        //         let id = match obj.get_global_id(self) {
+        //             Ok(id) => id,
+        //             Err(_) => {
+        //                 continue;
+        //             }
+        //         };
 
-                work_list.push(id);
-            }
-        }
+        //         work_list.push(id);
+        //     }
+        // }
 
-        for obj in self.get_context().exp.iter() {
-            let id = match obj.get_global_id(self) {
-                Ok(id) => id,
-                Err(_) => {
-                    continue;
-                }
-            };
+        // for obj in self.get_context().exp.iter() {
+        //     let id = match obj.get_global_id(self) {
+        //         Ok(id) => id,
+        //         Err(_) => {
+        //             continue;
+        //         }
+        //     };
 
-            work_list.push(id);
-        }
+        //     work_list.push(id);
+        // }
 
         work_list
     }
@@ -877,7 +877,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let index_obj = self.get_cur_mut_context().exp.pop().unwrap();
+        let index_obj = self.get_cur_mut_frame().exp.pop().unwrap();
 
         let index_id = match &index_obj {
             SValue::Stack(s) => {
@@ -890,7 +890,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Reference(_, atomic_usize, _) => atomic_usize.load(Ordering::Relaxed),
         };
 
-        let list_obj = self.get_cur_mut_context().exp.pop().unwrap();
+        let list_obj = self.get_cur_mut_frame().exp.pop().unwrap();
         let list_id = match &list_obj {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_frame();
@@ -924,14 +924,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_context().exp.push(SValue::Global(res_id));
+                self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
             FSRRetValue::Reference(atomic_usize) => {
-                self.get_cur_mut_context().exp.push(SValue::Reference(
-                    list_id,
-                    atomic_usize,
-                    false,
-                ));
+                self.get_cur_mut_frame()
+                    .exp
+                    .push(SValue::Reference(list_id, atomic_usize, false));
             }
         };
 
@@ -946,7 +944,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         if let ArgType::Variable(v) = bytecode.get_arg() {
             let var_id = v.0;
-            let svalue = match self.get_cur_mut_context().exp.pop() {
+            let svalue = match self.get_cur_mut_frame().exp.pop() {
                 Some(s) => s,
                 None => {
                     return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
@@ -967,14 +965,14 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         //Assign variable name
-        let assign_id = match self.get_cur_mut_context().exp.pop() {
+        let assign_id = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
             }
         };
 
-        let to_assign_obj_svalue = self.get_cur_mut_context().exp.pop().unwrap();
+        let to_assign_obj_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
 
         let to_assign_obj_id = match to_assign_obj_svalue {
             SValue::Stack(s) => {
@@ -1046,7 +1044,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v1 = match self.get_cur_mut_context().exp.pop() {
+        let v1 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1056,7 +1054,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let v2 = match self.get_cur_mut_context().exp.pop() {
+        let v2 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1078,7 +1076,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             match res {
                 FSRRetValue::GlobalId(res_id) => {
-                    self.get_cur_mut_context().exp.push(SValue::Global(res_id));
+                    self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
                 }
                 FSRRetValue::Reference(_) => {
                     panic!("not support reference return, in add process")
@@ -1101,7 +1099,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_context().exp.push(SValue::Global(res_id));
+                self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
             FSRRetValue::Reference(_) => {
                 panic!("not support reference return, in add process")
@@ -1118,7 +1116,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v1 = match self.get_cur_mut_context().exp.pop() {
+        let v1 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1128,7 +1126,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let v2 = match self.get_cur_mut_context().exp.pop() {
+        let v2 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1151,7 +1149,7 @@ impl<'a> FSRThreadRuntime<'a> {
         v2.drop_box(&mut self.thread_allocator);
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_context().exp.push(SValue::Global(res_id));
+                self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
             FSRRetValue::Reference(_) => {
                 panic!("not support reference return, in sub process")
@@ -1168,7 +1166,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v1 = match self.get_cur_mut_context().exp.pop() {
+        let v1 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1178,7 +1176,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let v2 = match self.get_cur_mut_context().exp.pop() {
+        let v2 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1207,7 +1205,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //     context.exp.push(SValue::BoxObject(object));
             // }
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_context().exp.push(SValue::Global(res_id));
+                self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
             FSRRetValue::Reference(_) => {
                 panic!("not support reference return, in mul process")
@@ -1222,7 +1220,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v1 = match self.get_cur_mut_context().exp.pop() {
+        let v1 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1232,7 +1230,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let v2 = match self.get_cur_mut_context().exp.pop() {
+        let v2 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1257,7 +1255,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //     context.exp.push(SValue::BoxObject(object));
             // }
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_context().exp.push(SValue::Global(res_id));
+                self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
             FSRRetValue::Reference(_) => {
                 panic!("not support reference return, in div process")
@@ -1275,13 +1273,13 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let attr_id = match self.get_cur_mut_context().exp.pop().unwrap() {
+        let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
             SValue::Attr(id) => id,
             SValue::Reference(_, _, _) => todo!(),
         };
-        let dot_father_svalue = match self.get_cur_mut_context().exp.pop() {
+        let dot_father_svalue = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1313,7 +1311,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     ))
                 }
             };
-            self.get_cur_mut_context()
+            self.get_cur_mut_frame()
                 .exp
                 .push(SValue::Reference(dot_father, id, false));
             self.thread_allocator.free_box_attr(attr_id);
@@ -1340,7 +1338,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 name,
                 true,
             );
-            self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
+            self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
             if let SValue::Stack(s) = dot_father_svalue {
                 let state = self.get_cur_mut_frame();
                 state
@@ -1356,7 +1354,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 name,
                 true,
             );
-            self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
+            self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
             if let SValue::Stack(s) = dot_father_svalue {
                 let state = self.get_cur_mut_frame();
                 state.attr_map.insert(
@@ -1377,14 +1375,14 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let attr_id = match self.get_cur_mut_context().exp.pop().unwrap() {
+        let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
             SValue::Attr(id) => id,
             SValue::Reference(_, _, _) => todo!(),
         };
 
-        let dot_father = match self.get_cur_mut_context().exp.pop() {
+        let dot_father = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s.get_global_id(self)?,
             None => {
                 return Err(FSRError::new(
@@ -1409,7 +1407,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     ))
                 }
             };
-            self.get_cur_mut_context()
+            self.get_cur_mut_frame()
                 .exp
                 .push(SValue::Reference(dot_father, id, false));
             self.thread_allocator.free_box_attr(attr_id);
@@ -1423,7 +1421,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 name,
                 false,
             );
-            self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
+            self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
         } else {
             //context.exp.push(SValue::Global(dot_father));
             let new_attr = self.thread_allocator.new_box_attr(
@@ -1433,7 +1431,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 name,
                 false,
             );
-            self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
+            self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
         }
         self.thread_allocator.free_box_attr(attr_id);
 
@@ -1441,7 +1439,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn binary_range_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
-        let rhs = match self.get_cur_mut_context().exp.pop() {
+        let rhs = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1456,7 +1454,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //     context.is_attr = false;
         // }
 
-        let lhs = match self.get_cur_mut_context().exp.pop() {
+        let lhs = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1485,7 +1483,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 let id = FSRVM::leak_object(obj);
 
-                self.get_cur_mut_context().exp.push(SValue::Global(id));
+                self.get_cur_mut_frame().exp.push(SValue::Global(id));
                 rhs.drop_box(&mut self.thread_allocator);
                 lhs.drop_box(&mut self.thread_allocator);
                 return Ok(false);
@@ -1514,7 +1512,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<(), FSRError> {
         let mut i = 0;
         while i < args_num {
-            let arg = thread.get_cur_mut_context().exp.pop().unwrap();
+            let arg = thread.get_cur_mut_frame().exp.pop().unwrap();
             let a_id = match arg {
                 SValue::Stack(s) => match Self::chain_get_variable(s, thread, code) {
                     Some(s) => s,
@@ -1547,13 +1545,13 @@ impl<'a> FSRThreadRuntime<'a> {
         let code = self.get_context().code;
 
         //state.exp = Some(exp.clone());
-        let store_exp = Some(std::mem::take(
-            &mut self.get_cur_mut_context().exp,
-            // Vec::with_capacity(8),
-        ));
+        // let store_exp = Some(std::mem::take(
+        //     &mut self.get_cur_mut_frame().exp,
+        //     // Vec::with_capacity(8),
+        // ));
         let state = self.get_cur_mut_frame();
         state.set_reverse_ip(ip);
-        state.exp = store_exp;
+        // state.exp = store_exp;
         state.code = code;
     }
 
@@ -1579,7 +1577,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 );
 
                 //let self_id = FSRVM::register_object(self_obj);
-                self.get_cur_mut_context().exp.push(SValue::Global(self_id));
+                self.get_cur_mut_frame().exp.push(SValue::Global(self_id));
 
                 return Ok(false);
             }
@@ -1636,14 +1634,14 @@ impl<'a> FSRThreadRuntime<'a> {
         if fn_obj.is_fsr_function() {
             let ip = self.get_context().ip;
 
-            let store_exp = Some(std::mem::replace(
-                &mut self.get_cur_mut_context().exp,
-                Vec::with_capacity(8),
-            ));
+            // let store_exp = Some(std::mem::replace(
+            //     &mut self.get_cur_mut_frame().exp,
+            //     Vec::with_capacity(8),
+            // ));
             let state = self.get_cur_mut_frame();
             //Save callstate
             state.set_reverse_ip(ip);
-            state.exp = store_exp;
+            //state.exp = store_exp;
 
             if let FSRValue::Function(f) = &fn_obj.value {
                 self.get_cur_mut_context().call_end += 1;
@@ -1676,7 +1674,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .unwrap();
 
             let id = v.get_id();
-            self.get_cur_mut_context().exp.push(SValue::Global(id));
+            self.get_cur_mut_frame().exp.push(SValue::Global(id));
         }
         Ok(false)
     }
@@ -1718,7 +1716,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.push_frame(frame);
 
         if call_method {
-            let self_obj = match self.get_cur_mut_context().exp.pop() {
+            let self_obj = match self.get_cur_mut_frame().exp.pop() {
                 Some(s) => s.get_global_id(self)?,
                 None => {
                     return Err(FSRError::new(
@@ -1788,7 +1786,7 @@ impl<'a> FSRThreadRuntime<'a> {
             fn_id = self.try_get_obj_by_name(var.1, &var.2, module).unwrap();
             fn_obj = FSRObject::id_to_obj(fn_id);
         } else {
-            fn_id = match self.get_cur_mut_context().exp.pop().unwrap() {
+            fn_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
                 SValue::Stack(s) => self.try_get_obj_by_name(s.0, &s.1, module).unwrap(),
                 SValue::Global(id) => id,
                 SValue::Attr(attr) => {
@@ -1843,7 +1841,7 @@ impl<'a> FSRThreadRuntime<'a> {
             };
 
             let id = v.get_id();
-            self.get_cur_mut_context().exp.push(SValue::Global(id));
+            self.get_cur_mut_frame().exp.push(SValue::Global(id));
         }
 
         Ok(false)
@@ -1892,7 +1890,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v = self.get_cur_mut_context().exp.pop().unwrap();
+        let v = self.get_cur_mut_frame().exp.pop().unwrap();
         let mut name = "";
         let test_val = match &v {
             SValue::Stack(s) => {
@@ -1947,7 +1945,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let test_val = match self.get_cur_mut_context().exp.pop().unwrap() {
+        let test_val = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_frame();
                 if let Some(id) = state.get_var(&s.0) {
@@ -2042,7 +2040,7 @@ impl<'a> FSRThreadRuntime<'a> {
     // save will fix
     fn for_block_ref(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let obj_id = {
-            let obj = self.get_context().exp.last().unwrap();
+            let obj = self.get_cur_frame().exp.last().unwrap();
 
             let obj_id = self.get_global_id(obj)?;
             obj_id
@@ -2058,7 +2056,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let iter_obj = self.get_cur_mut_context().exp.pop().unwrap();
+        let iter_obj = self.get_cur_mut_frame().exp.pop().unwrap();
         let iter_id = {
             let id = iter_obj.get_global_id(self)?;
             //FSRObject::id_to_obj(id).ref_add();
@@ -2082,7 +2080,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let test_val = match self.get_cur_mut_context().exp.pop().unwrap() {
+        let test_val = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_mut_frame();
                 if let Some(id) = state.get_var(&s.0) {
@@ -2147,7 +2145,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let name = match self.get_cur_mut_context().exp.pop().unwrap() {
+        let name = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(id) => id,
             SValue::Attr(_) => panic!(),
             SValue::Global(_) => panic!(),
@@ -2158,7 +2156,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::DefineFnArgs(n, arg_len) = bytecode.get_arg() {
             let mut args = vec![];
             for _ in 0..*arg_len {
-                let v = match self.get_cur_mut_context().exp.pop().unwrap() {
+                let v = match self.get_cur_mut_frame().exp.pop().unwrap() {
                     SValue::Stack(id) => id,
                     _ => panic!("not support args value"),
                 };
@@ -2248,8 +2246,8 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if let ArgType::Compare(op) = bytecode.get_arg() {
-            let right = self.get_cur_mut_context().exp.pop().unwrap();
-            let left = self.get_cur_mut_context().exp.pop().unwrap();
+            let right = self.get_cur_mut_frame().exp.pop().unwrap();
+            let left = self.get_cur_mut_frame().exp.pop().unwrap();
 
             let right_id = right.get_global_id(self)?;
             let left_id = left.get_global_id(self)?;
@@ -2260,11 +2258,11 @@ impl<'a> FSRThreadRuntime<'a> {
             right.drop_box(&mut self.thread_allocator);
 
             if v {
-                self.get_cur_mut_context()
+                self.get_cur_mut_frame()
                     .exp
                     .push(SValue::Global(FSRObject::true_id()))
             } else {
-                self.get_cur_mut_context()
+                self.get_cur_mut_frame()
                     .exp
                     .push(SValue::Global(FSRObject::false_id()))
             }
@@ -2278,7 +2276,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v = match self.get_cur_mut_context().exp.pop().unwrap() {
+        let v = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(s) => {
                 let state = self.get_cur_frame();
                 if let Some(id) = state.get_var(&s.0) {
@@ -2304,7 +2302,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         self.pop_stack();
-        let cur = self.get_cur_mut_frame();
+        let cur = self.get_cur_mut_frame();             
         cur.ret_val = Some(v);
         let ip_0 = cur.reverse_ip.0;
         let ip_1 = cur.reverse_ip.1;
@@ -2345,7 +2343,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn load_closure(&mut self, closure: &(u64, String)) -> Result<(), FSRError> {
-        let svalue = match self.get_cur_mut_context().exp.pop() {
+        let svalue = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
@@ -2398,7 +2396,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let mut list = Vec::with_capacity(*n);
             let n = *n;
             for _ in 0..n {
-                let v = self.get_cur_mut_context().exp.pop().unwrap();
+                let v = self.get_cur_mut_frame().exp.pop().unwrap();
                 let v_id = v.get_global_id(self)?;
 
                 list.push(v_id);
@@ -2407,7 +2405,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let list = self
                 .garbage_collect
                 .new_object(FSRList::new_value(list), FSRGlobalObjId::ListCls as ObjId);
-            self.get_cur_mut_context().exp.push(SValue::Global(list));
+            self.get_cur_mut_frame().exp.push(SValue::Global(list));
         }
 
         Ok(false)
@@ -2418,7 +2416,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let id = match self.get_cur_mut_context().exp.pop().unwrap() {
+        let id = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(i) => i,
             SValue::Attr(_) => panic!(),
             SValue::Global(_) => panic!(),
@@ -2540,7 +2538,7 @@ impl<'a> FSRThreadRuntime<'a> {
             state.insert_var(v.0, res_id);
             return Ok(false);
         }
-        self.get_cur_mut_context().exp.push(SValue::Global(res_id));
+        self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
         Ok(false)
     }
 
@@ -2550,7 +2548,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let first = self
-            .get_cur_mut_context()
+            .get_cur_mut_frame()
             .exp
             .pop()
             .unwrap()
@@ -2558,7 +2556,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if first == 0 || first == 2 {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
                 self.get_cur_mut_context().ip.1 += *offset;
-                self.get_cur_mut_context().exp.push(SValue::Global(2));
+                self.get_cur_mut_frame().exp.push(SValue::Global(2));
             }
         }
 
@@ -2572,7 +2570,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let first = self
-            .get_cur_mut_context()
+            .get_cur_mut_frame()
             .exp
             .pop()
             .unwrap()
@@ -2580,7 +2578,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if first != 0 && first != 2 {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
                 self.get_cur_mut_context().ip.1 += *offset;
-                self.get_cur_mut_context().exp.push(SValue::Global(1));
+                self.get_cur_mut_frame().exp.push(SValue::Global(1));
             }
         }
 
@@ -2592,7 +2590,7 @@ impl<'a> FSRThreadRuntime<'a> {
         _bc: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v1 = match self.get_context().exp.last() {
+        let v1 = match self.get_cur_frame().exp.last() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -2606,16 +2604,16 @@ impl<'a> FSRThreadRuntime<'a> {
         // let mut target = false;
         let target = FSRObject::none_id() == v1_id || FSRObject::false_id() == v1_id;
 
-        if let Some(x) = self.get_cur_mut_context().exp.pop() {
+        if let Some(x) = self.get_cur_mut_frame().exp.pop() {
             x.drop_box(&mut self.thread_allocator)
         }
 
         if target {
-            self.get_cur_mut_context()
+            self.get_cur_mut_frame()
                 .exp
                 .push(SValue::Global(FSRObject::true_id()));
         } else {
-            self.get_cur_mut_context()
+            self.get_cur_mut_frame()
                 .exp
                 .push(SValue::Global(FSRObject::false_id()));
         }
@@ -2759,21 +2757,21 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     fn load_var(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
-        let exp = &mut self.get_cur_mut_context().exp;
+        let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
             ArgType::Variable(var) => {
-                self.get_cur_mut_context().exp.push(SValue::Stack(var));
+                self.get_cur_mut_frame().exp.push(SValue::Stack(var));
             }
             ArgType::Const(index) => {
                 let code = FSRObject::id_to_obj(self.get_context().code).as_code();
                 let obj = code.get_const(*index as usize).unwrap();
-                self.get_cur_mut_context().exp.push(SValue::Global(obj));
+                self.get_cur_mut_frame().exp.push(SValue::Global(obj));
             }
             ArgType::Attr(attr_id, name) => {
                 let new_attr = self
                     .thread_allocator
                     .new_box_attr(*attr_id, 0, None, name, true);
-                self.get_cur_mut_context().exp.push(SValue::Attr(new_attr));
+                self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
             }
             ArgType::ClosureVar(v) => {
                 let fn_id = self.get_cur_frame().fn_obj;
@@ -2782,7 +2780,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
                 let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
                 let var = fn_obj.get_closure_var(&v.1);
-                self.get_cur_mut_context()
+                self.get_cur_mut_frame()
                     .exp
                     .push(SValue::Global(var.unwrap()));
             }
@@ -2791,10 +2789,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 if fn_id == 0 {
                     panic!("not found function object");
                 }
-                self.get_cur_mut_context().exp.push(SValue::Global(fn_id));
+                self.get_cur_mut_frame().exp.push(SValue::Global(fn_id));
             }
             _ => {
-                println!("{:?}", self.get_cur_mut_context().exp);
+                println!("{:?}", self.get_cur_mut_frame().exp);
                 unimplemented!()
             }
         }
@@ -2805,14 +2803,14 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     fn set_exp_stack_ret(&mut self) {
         let state = self.get_cur_frame();
-        if state.exp.is_some() {
-            let v = self.get_cur_mut_frame().exp.take().unwrap();
-            self.get_cur_mut_context().exp = v;
-        }
+        // if state.exp.is_some() {
+        //     let v = self.get_cur_mut_frame().exp.take().unwrap();
+        //     self.get_cur_mut_context().exp = v;
+        // }
 
         if self.get_cur_mut_frame().ret_val.is_some() {
             let v = self.get_cur_mut_frame().ret_val.take().unwrap();
-            self.get_cur_mut_context().exp.push(SValue::Global(v));
+            self.get_cur_mut_frame().exp.push(SValue::Global(v));
         }
     }
 
@@ -2939,7 +2937,7 @@ impl<'a> FSRThreadRuntime<'a> {
             #[cfg(feature = "bytecode_trace")]
             {
                 let t = format!("{:?} => {:?}", self.get_context().ip, arg);
-                println!("{:?}", self.get_context().exp);
+                println!("{:?}", self.get_cur_frame().exp);
                 println!("{}", t);
             }
             self.counter += 1;
@@ -2995,7 +2993,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap();
         let code_id = FSRObject::obj_to_id(code);
         let context = Box::new(FSCodeContext {
-            exp: Vec::with_capacity(8),
+            //exp: Vec::with_capacity(8),
             ip: (0, 0),
             code: code_id,
             call_end: 1,
@@ -3088,7 +3086,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.push_context(context);
         //self.rt_lock();
         {
-            self.get_cur_mut_context().exp.clear();
+            self.get_cur_mut_frame().exp.clear();
 
             for arg in args.iter().rev() {
                 self.get_cur_mut_frame().args.push(*arg);
