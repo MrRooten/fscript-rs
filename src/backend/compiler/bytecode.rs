@@ -424,7 +424,6 @@ impl BytecodeContext {
     }
 }
 
-#[allow(unused)]
 #[derive(Debug)]
 pub struct VarMap<'a> {
     var_map: HashMap<&'a str, u64>,

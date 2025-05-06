@@ -540,6 +540,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn new() -> FSRThreadRuntime<'a> {
+        
         let frame = Box::new(CallFrame::new(0, 0));
         Self {
             cur_frame: frame,
