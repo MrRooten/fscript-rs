@@ -145,10 +145,7 @@ impl Ops {
 
     #[inline(always)]
     pub fn get_next(&self, i: usize) -> Option<FSRRustFn> {
-        if i < OP_LEN {
-            return self.next[i];
-        }
-        None
+        self.next.get(i).cloned()?
     }
 
     #[inline(always)]
