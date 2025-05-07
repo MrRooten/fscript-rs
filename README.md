@@ -1,41 +1,55 @@
-## Introduce
-Running on bytecode, simple and useless program language, \[temporary not but will\]zero dependence script language.
 
-## Wait for support
-### [√] float type
-### [x] async support 
-### [√] import module
-### [x] type hint system
-### [x] Turing Completeness
-### [x] better AST error handle(display or tips)
-### [x] jit compiler
-### [√] closure support
-### [√] anonymous function
 
-## Usage
+# FScript-RS
 
-### Compile
+A toy scripting language that runs on bytecode. It’s currently minimalistic and experimental, but aims to evolve into a **zero-dependency**, **embeddable**, and **Turing-complete** scripting language.
+
+---
+
+## 🚀 Features & Roadmap
+
+| Feature                   | Status |
+| ------------------------- | ------ |
+| Float type                | ✅      |
+| Async support             | ❌      |
+| Module import             | ✅      |
+| Type hint system          | ❌      |
+| Turing completeness       | ❌      |
+| Better AST error messages | ❌      |
+| JIT compiler              | ❌      |
+| Closure support           | ✅      |
+| Anonymous functions       | ✅      |
+
+---
+
+## 🔧 Build Instructions
 
 ```bash
 cargo build --release
 ```
 
-### Test
-#### While Test
+---
+
+## 🧪 Examples
+
+### 🔁 While Loop
+
 ```rust
 i = 3
-one = 1
-b = 3000000
-while i < b {
-    i = i + one
+while i < 3000000 {
+    i = i + 1
 }
 
 println(i)
 ```
 
+Run:
+
 ```bash
 target/release/fscript-rs ./test_script/test_while.fs
 ```
+
+Output:
 
 ```
 3000000
@@ -44,7 +58,10 @@ obj count: 4
 184.098625ms
 ```
 
-#### Class Test
+---
+
+### 🧱 Class Usage
+
 ```python
 class Abc {
     fn __new__(self) {
@@ -68,6 +85,8 @@ if a.abc > 3 {
 }
 ```
 
+Output:
+
 ```
 return string
 Get a.abc
@@ -77,7 +96,10 @@ count: 44
 675.794µs
 ```
 
-#### For Test
+---
+
+### 🔃 For Loop
+
 ```rust
 a = [1, 2, 3, 4, 5]
 
@@ -85,6 +107,8 @@ for i in a {
     println(i)
 }
 ```
+
+Output:
 
 ```
 1
@@ -96,8 +120,11 @@ count: 79
 41.709µs
 ```
 
-#### For Import
-import library is in modules/
+---
+
+### 📦 Module Import
+
+> Modules are located in the `modules/` directory.
 
 ```python
 import test
@@ -109,7 +136,8 @@ abc = test.Abc()
 dump(test.Abc)
 ```
 
-output
+Output:
+
 ```
 this is test
 FSRObject {
@@ -118,12 +146,8 @@ FSRObject {
         FSRClass {
             name: "Abc",
             attrs: {
-                "test": String(
-                    "fn `test`",
-                ),
-                "__new__": String(
-                    "fn `__new__`",
-                ),
+                "test": String("fn `test`"),
+                "__new__": String("fn `__new__`"),
             },
             offset_attrs: "",
         },
@@ -139,3 +163,11 @@ count: 36
 reused count: 6
 157.459µs
 ```
+
+
+### More Examples
+more examples can be found in the `test_script/` directory.
+
+
+## Performance
+it is still a little slower than most scenarios in Python/ruby The performance will be improved in the future.

@@ -17,7 +17,7 @@
 a = {}
 
 for i in range(1000000):
-    a[i] = i
+    a.update({i: i})
 
 for i in range(1000000):
     b = a[i]

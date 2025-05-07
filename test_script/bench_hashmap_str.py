@@ -16,7 +16,7 @@ import gc
 t = {}
 for i in range(1000000):
     a = str(i)
-    t[a] = i
+    t.update({a: i})
 
 for i in range(1000000):
     a = str(i)

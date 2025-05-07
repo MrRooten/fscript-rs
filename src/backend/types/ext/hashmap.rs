@@ -6,6 +6,7 @@ use std::{
 
 use ahash::AHashMap;
 use indexmap::{map::Iter, IndexMap};
+use smallvec::SmallVec;
 
 use crate::{
     backend::{
@@ -25,12 +26,12 @@ use crate::{
     utils::error::FSRError,
 };
 
-const MAX_SEGMENT_SIZE: usize = 4096000;
+const MAX_SEGMENT_SIZE: usize = 409600;
 
 struct SegmentHashMap {
     // is_dirty: bool,
     // area: Area,
-    hashmap: IndexMap<u64, Vec<(AtomicObjId, AtomicObjId)>, ahash::RandomState>,
+    hashmap: IndexMap<u64, SmallVec<[(AtomicObjId, AtomicObjId);1]>, ahash::RandomState>,
 }
 
 impl Debug for SegmentHashMap {
@@ -53,15 +54,15 @@ impl SegmentHashMap {
         self.hashmap.len()
     }
 
-    pub fn get(&self, key: u64) -> Option<&Vec<(AtomicObjId, AtomicObjId)>> {
+    pub fn get(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId);1]>> {
         self.hashmap.get(&key)
     }
 
-    pub fn get_mut(&mut self, key: u64) -> Option<&mut Vec<(AtomicObjId, AtomicObjId)>> {
+    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId, AtomicObjId);1]>> {
         self.hashmap.get_mut(&key)
     }
 
-    pub fn insert(&mut self, key: u64, value: Vec<(AtomicObjId, AtomicObjId)>) {
+    pub fn insert(&mut self, key: u64, value: SmallVec<[(AtomicObjId, AtomicObjId);1]>) {
         self.hashmap.insert(key, value);
     }
 
@@ -104,7 +105,7 @@ struct FSRHashMapRefIterator<'a> {
     hashmap: &'a FSRHashMap,
     segment_idx: usize,
     vec_iter: Option<std::slice::Iter<'a, (AtomicObjId, AtomicObjId)>>,
-    hash_iter: Option<Iter<'a, u64, Vec<(AtomicObjId, AtomicObjId)>>>,
+    hash_iter: Option<Iter<'a, u64, SmallVec<[(AtomicObjId, AtomicObjId);1]>>>,
     current_pair: Option<&'a (AtomicObjId, AtomicObjId)>,
     yield_key: bool,
 }
@@ -462,7 +463,7 @@ impl FSRHashMap {
         self.segment_map.iter().map(|s| s.len()).sum()
     }
 
-    pub fn get_item(&self, key: u64) -> Option<&Vec<(AtomicObjId, AtomicObjId)>> {
+    pub fn get_item(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId);1]>> {
         for segment in self.segment_map.iter() {
             if let Some(value) = segment.get(key) {
                 return Some(value);
@@ -471,7 +472,7 @@ impl FSRHashMap {
         None
     }
 
-    pub fn get_mut(&mut self, key: u64) -> Option<&mut Vec<(AtomicObjId, AtomicObjId)>> {
+    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId, AtomicObjId);1]>> {
         for segment in self.segment_map.iter_mut() {
             if let Some(value) = segment.get_mut(key) {
                 return Some(value);
@@ -483,14 +484,14 @@ impl FSRHashMap {
     pub fn insert_item(&mut self, hash: u64, key: ObjId, value: ObjId) {
         for segment in self.segment_map.iter_mut() {
             if segment.len() < MAX_SEGMENT_SIZE {
-                segment.insert(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
+                segment.insert(hash, [(AtomicObjId::new(key), AtomicObjId::new(value))].into());
                 // segment.is_dirty = true;
                 return;
             }
         }
 
         let mut new_segment = SegmentHashMap::new();
-        new_segment.insert(hash, vec![(AtomicObjId::new(key), AtomicObjId::new(value))]);
+        new_segment.insert(hash, [(AtomicObjId::new(key), AtomicObjId::new(value))].into());
         // new_segment.is_dirty = true;
         self.segment_map.push(new_segment);
     }

@@ -322,11 +322,11 @@ fn hash_integer<'a>(
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::Integer(self_int) = &self_object.value {
-        let mut hasher = AHasher::default();
-        self_int.hash(&mut hasher);
-        let hash = hasher.finish();
+        // let mut hasher = AHasher::default();
+        // self_int.hash(&mut hasher);
+        // let hash = hasher.finish();
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-            FSRValue::Integer(hash as i64),
+            FSRValue::Integer(*self_int),
             FSRGlobalObjId::IntegerCls as ObjId,
         )));
     }
