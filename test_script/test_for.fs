@@ -28,3 +28,14 @@ for i in [1, 2, 3, 4, 6] {
     }
     
 }
+
+
+b = HashMap::new()
+
+for i in 0..10 {
+    b.insert(i, i)
+}
+
+for i in b {
+    println(i)
+}
