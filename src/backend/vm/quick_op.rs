@@ -85,7 +85,8 @@ impl Ops {
         let mut getter = [[None; OP_LEN]; OP_LEN];
         getter[FSRGlobalObjId::ListCls as usize][FSRGlobalObjId::IntegerCls as usize] =
             Some(crate::backend::types::list::get_item as FSRRustFn);
-
+        getter[FSRGlobalObjId::HashMapCls as usize][FSRGlobalObjId::IntegerCls as usize] =
+            Some(crate::backend::types::ext::hashmap::fsr_fn_hashmap_get_reference as FSRRustFn);
         Self {
             add,
             less,

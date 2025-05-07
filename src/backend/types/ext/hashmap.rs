@@ -31,7 +31,7 @@ const MAX_SEGMENT_SIZE: usize = 409600;
 struct SegmentHashMap {
     // is_dirty: bool,
     // area: Area,
-    hashmap: IndexMap<u64, SmallVec<[(AtomicObjId, AtomicObjId);1]>, ahash::RandomState>,
+    hashmap: IndexMap<u64, SmallVec<[(AtomicObjId, AtomicObjId); 1]>, ahash::RandomState>,
 }
 
 impl Debug for SegmentHashMap {
@@ -54,15 +54,15 @@ impl SegmentHashMap {
         self.hashmap.len()
     }
 
-    pub fn get(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId);1]>> {
+    pub fn get(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
         self.hashmap.get(&key)
     }
 
-    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId, AtomicObjId);1]>> {
+    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
         self.hashmap.get_mut(&key)
     }
 
-    pub fn insert(&mut self, key: u64, value: SmallVec<[(AtomicObjId, AtomicObjId);1]>) {
+    pub fn insert(&mut self, key: u64, value: SmallVec<[(AtomicObjId, AtomicObjId); 1]>) {
         self.hashmap.insert(key, value);
     }
 
@@ -105,7 +105,7 @@ struct FSRHashMapRefIterator<'a> {
     hashmap: &'a FSRHashMap,
     segment_idx: usize,
     vec_iter: Option<std::slice::Iter<'a, (AtomicObjId, AtomicObjId)>>,
-    hash_iter: Option<Iter<'a, u64, SmallVec<[(AtomicObjId, AtomicObjId);1]>>>,
+    hash_iter: Option<Iter<'a, u64, SmallVec<[(AtomicObjId, AtomicObjId); 1]>>>,
     current_pair: Option<&'a (AtomicObjId, AtomicObjId)>,
     yield_key: bool,
 }
@@ -463,7 +463,7 @@ impl FSRHashMap {
         self.segment_map.iter().map(|s| s.len()).sum()
     }
 
-    pub fn get_item(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId);1]>> {
+    pub fn get_item(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
         for segment in self.segment_map.iter() {
             if let Some(value) = segment.get(key) {
                 return Some(value);
@@ -472,7 +472,7 @@ impl FSRHashMap {
         None
     }
 
-    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId, AtomicObjId);1]>> {
+    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
         for segment in self.segment_map.iter_mut() {
             if let Some(value) = segment.get_mut(key) {
                 return Some(value);
@@ -481,19 +481,57 @@ impl FSRHashMap {
         None
     }
 
-    pub fn insert_item(&mut self, hash: u64, key: ObjId, value: ObjId) {
+    pub fn insert_item(&mut self, hash: u64, key: ObjId, value: ObjId) -> Option<()> {
         for segment in self.segment_map.iter_mut() {
             if segment.len() < MAX_SEGMENT_SIZE {
-                segment.insert(hash, [(AtomicObjId::new(key), AtomicObjId::new(value))].into());
+                segment.insert(
+                    hash,
+                    [(AtomicObjId::new(key), AtomicObjId::new(value))].into(),
+                );
                 // segment.is_dirty = true;
-                return;
+                return Some(());
             }
         }
 
         let mut new_segment = SegmentHashMap::new();
-        new_segment.insert(hash, [(AtomicObjId::new(key), AtomicObjId::new(value))].into());
+        new_segment.insert(
+            hash,
+            [(AtomicObjId::new(key), AtomicObjId::new(value))].into(),
+        );
         // new_segment.is_dirty = true;
         self.segment_map.push(new_segment);
+
+        return Some(())
+    }
+
+    pub fn try_insert_item(&mut self, hash: u64, key: ObjId, value: ObjId) -> Option<()> {
+        for segment in self.segment_map.iter_mut() {
+            if segment.len() < MAX_SEGMENT_SIZE {
+                // segment.insert(
+                //     hash,
+                //     [(AtomicObjId::new(key), AtomicObjId::new(value))].into(),
+                // );
+
+                match segment.hashmap.entry(hash) {
+                    indexmap::map::Entry::Occupied(occupied_entry) => return None,
+                    indexmap::map::Entry::Vacant(vacant_entry) => {
+                        vacant_entry.insert([(AtomicObjId::new(key), AtomicObjId::new(value))].into());
+                    },
+                };
+                // segment.is_dirty = true;
+                return Some(());
+            }
+        }
+
+        let mut new_segment = SegmentHashMap::new();
+        new_segment.insert(
+            hash,
+            [(AtomicObjId::new(key), AtomicObjId::new(value))].into(),
+        );
+        // new_segment.is_dirty = true;
+        self.segment_map.push(new_segment);
+
+        return Some(())
     }
 
     pub fn remove_item(&mut self, key: u64) {
@@ -507,18 +545,21 @@ impl FSRHashMap {
         }
     }
 
-    pub fn try_insert_if_not_exist(
-        &mut self,
+    fn call_hash(
         key: ObjId,
-        value: ObjId,
         thread: &mut FSRThreadRuntime,
-    ) -> Result<(), FSRError> {
+    ) -> Result<u64, FSRError> {
+        let obj = FSRObject::id_to_obj(key);
+        if let FSRValue::Integer(i) = obj.value {
+            return Ok(i as u64);
+        }
+
         let key_obj = FSRObject::id_to_obj(key);
+        let cls = key_obj.cls;
         let hash_fn_id = key_obj
             .get_cls_offset_attr(BinaryOffset::Hash)
             .unwrap()
             .load(std::sync::atomic::Ordering::Relaxed);
-
         let hash_fn = FSRObject::id_to_obj(hash_fn_id);
         let hash = hash_fn.call(&[key], thread, 0, hash_fn_id)?;
         let hash_id = FSRObject::id_to_obj(hash.get_id());
@@ -527,6 +568,17 @@ impl FSRHashMap {
         } else {
             unimplemented!()
         };
+
+        Ok(hash)
+    }
+
+    pub fn try_insert_if_not_exist(
+        &mut self,
+        key: ObjId,
+        value: ObjId,
+        thread: &mut FSRThreadRuntime,
+    ) -> Result<(), FSRError> {
+        let hash = Self::call_hash(key, thread)?;
 
         if let None = self.get_item(hash) {
             self.insert_item(hash, key, value);
@@ -573,25 +625,13 @@ impl FSRHashMap {
         value: ObjId,
         thread: &mut FSRThreadRuntime,
     ) -> Result<(), FSRError> {
-        let key_obj = FSRObject::id_to_obj(key);
-        let hash_fn_id = key_obj
-            .get_cls_offset_attr(BinaryOffset::Hash)
-            .unwrap()
-            .load(std::sync::atomic::Ordering::Relaxed);
+        let hash = Self::call_hash(key, thread)?;
 
-        let hash_fn = FSRObject::id_to_obj(hash_fn_id);
-        let hash = hash_fn.call(&[key], thread, 0, hash_fn_id)?;
-        let hash_id = FSRObject::id_to_obj(hash.get_id());
-        let hash = if let FSRValue::Integer(i) = &hash_id.value {
-            *i as u64
-        } else {
-            unimplemented!()
-        };
-
-        if let None = self.get_item(hash) {
-            self.insert_item(hash, key, value);
+        // if let None = self.get_mut(hash) {
+        if let Some(_) = self.try_insert_item(hash, key, value) {
             return Ok(());
         }
+
         let res = {
             let res = self.get_mut(hash).unwrap();
             for save_item in res.iter() {
@@ -628,26 +668,9 @@ impl FSRHashMap {
     }
 
     pub fn get(&self, key: ObjId, thread: &mut FSRThreadRuntime) -> Option<&AtomicObjId> {
-        let key_obj = FSRObject::id_to_obj(key);
-        let hash_fn_id = key_obj
-            .get_cls_offset_attr(BinaryOffset::Hash)
-            .unwrap()
-            .load(std::sync::atomic::Ordering::Relaxed);
+        let hash = Self::call_hash(key, thread).unwrap();
 
-        let hash_fn = FSRObject::id_to_obj(hash_fn_id);
-        let hash = hash_fn.call(&[key], thread, 0, hash_fn_id).unwrap();
-        let hash_id = FSRObject::id_to_obj(hash.get_id());
-        let hash = if let FSRValue::Integer(i) = &hash_id.value {
-            *i as u64
-        } else {
-            unimplemented!()
-        };
-
-        if let None = self.get_item(hash) {
-            return None;
-        }
-
-        let res = self.get_item(hash).unwrap();
+        let res = self.get_item(hash)?;
         for save_item in res.iter() {
             let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
             if save_key == key {
