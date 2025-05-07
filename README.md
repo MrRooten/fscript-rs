@@ -19,6 +19,7 @@ A toy scripting language that runs on bytecode. It’s currently minimalistic an
 | JIT compiler              | ❌      |
 | Closure support           | ✅      |
 | Anonymous functions       | ✅      |
+| Class support             | ✅      |
 
 ---
 
@@ -170,4 +171,4 @@ more examples can be found in the `test_script/` directory.
 
 
 ## Performance
-it is still a little slower than most scenarios in Python/ruby The performance will be improved in the future.
+it is still a little slower than most scenarios in Python/ruby. The performance will be improved in the future.
