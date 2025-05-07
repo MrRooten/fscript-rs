@@ -301,6 +301,24 @@ pub mod tests {
         runtime.start(obj_id).unwrap();
     }
 
+    #[test]
+    fn test_simple() {
+        let _ = FSRVM::single();
+        let module1 = r#"
+        a = true or false
+        "#;
+        
+        let v = FSRCode::from_code("main", module1).unwrap();
+        let obj = Box::new(FSRModule::new_module("main", v));
+        let obj_id = FSRVM::leak_object(obj);
+        let mut runtime = FSRThreadRuntime::new();
+
+
+        //runtime.start(&v, &mut vm).unwrap();
+
+        runtime.start(obj_id).unwrap();
+    }
+
     // #[test]
     // fn test_suspend_thread() {
     //     let module1 = r#"

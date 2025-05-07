@@ -13,3 +13,4 @@ fn abc() {
 }
 
 abc()
+gc_info()

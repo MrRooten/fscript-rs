@@ -2118,11 +2118,7 @@ a[0] = 1
     #[test]
     fn test_simple() {
         let expr = "
-        fn abc() {
-
-        }
-
-        abc()
+        n == 1 or n == 2 or n == 3
         ";
 
         let meta = FSRPosition::new();
