@@ -38,7 +38,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["./test_script/test_expression.fs"],
+            "args": ["./test_script/test_simple.fs"],
             "cwd": "${workspaceFolder}"
         },
         {

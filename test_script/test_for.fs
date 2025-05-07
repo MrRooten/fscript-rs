@@ -19,7 +19,7 @@ for i in [1, 2, 3, 4, 6] {
     if i == 3 {
         println("no 3")
         continue
-    }
+    } 
 
     println(i)
 
