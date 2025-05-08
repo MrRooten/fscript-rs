@@ -1,8 +1,11 @@
 use std::{
-    borrow::Cow, collections::hash_map::Keys, fmt::Debug, sync::{
+    borrow::Cow,
+    collections::hash_map::Keys,
+    fmt::Debug,
+    sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
-    }
+    },
 };
 
 use crate::{
@@ -33,6 +36,11 @@ use super::{
 
 pub type ObjId = usize;
 pub type AtomicObjId = AtomicUsize;
+
+pub struct Pointer<'a> {
+    pointer: *const FSRObject<'a>,
+}
+
 pub enum FSRGlobalObjId {
     None = 0,
     True = 1,
@@ -50,9 +58,8 @@ pub enum FSRGlobalObjId {
     RangeCls = 13,
     ModuleCls = 14,
     ThreadCls = 15,
-    HashMapCls = 16
+    HashMapCls = 16,
 }
-
 
 #[derive(Debug)]
 pub enum FSRValue<'a> {
@@ -74,7 +81,6 @@ pub enum FSRValue<'a> {
 }
 
 impl<'a> FSRValue<'a> {
-
     #[inline(always)]
     pub fn get_size(&self) -> usize {
         match self {
@@ -215,7 +221,7 @@ pub enum MemType {
 pub enum Area {
     Minjor,
     Marjor,
-    Global
+    Global,
 }
 
 impl Area {
@@ -262,9 +268,6 @@ impl Debug for FSRObject<'_> {
             .finish()
     }
 }
-
-
-
 
 impl Default for FSRObject<'_> {
     fn default() -> Self {
@@ -492,25 +495,6 @@ impl<'a> FSRObject<'a> {
         id < 10000
     }
 
-    // #[inline]
-    // pub fn ref_add(&self) {
-    //     self.ref_count.fetch_add(1, Ordering::Relaxed);
-    // }
-
-    // #[inline]
-    // pub fn ref_dec(&self) {
-    //     self.ref_count.fetch_sub(1, Ordering::Relaxed);
-    // }
-
-    pub fn into_object(id: ObjId) -> Box<FSRObject<'a>> {
-        unsafe { Box::from_raw(id as *mut Self) }
-    }
-
-    // #[inline(always)]
-    // pub fn count_ref(&self) -> u32 {
-    //     unsafe { *self.ref_count.as_ptr() }
-    // }
-
     #[inline(always)]
     pub fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
         if id >= 1000 {
@@ -529,7 +513,7 @@ impl<'a> FSRObject<'a> {
     #[inline(always)]
     pub fn id_to_mut_obj(id: ObjId) -> Option<&'a mut FSRObject<'a>> {
         if id < 1000 {
-            return None
+            return None;
         }
         unsafe {
             let ptr = id as *mut FSRObject;
@@ -679,11 +663,7 @@ impl<'a> FSRObject<'a> {
         self as *const Self as u64
     }
 
-    pub fn to_string(
-        &'a self,
-        thread: &mut FSRThreadRuntime<'a>,
-        module: ObjId,
-    ) -> FSRValue<'a> {
+    pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>, module: ObjId) -> FSRValue<'a> {
         let s = self
             .value
             .to_string(FSRObject::obj_to_id(self), thread, module);
@@ -695,7 +675,7 @@ impl<'a> FSRObject<'a> {
             return FSRString::new_value(&format!(
                 "<`{}` Class Object at {:?}>",
                 self.cls, self as *const Self
-            ))
+            ));
         }
         // Box::new(FSRString::new_inst(&format!(
         //     "<`{}` Object at {:?}>",
@@ -705,7 +685,7 @@ impl<'a> FSRObject<'a> {
         return FSRString::new_value(&format!(
             "<`{}` Object at {:?}>",
             self.cls, self as *const Self
-        ))
+        ));
         //return self.invoke("__str__", vec![]);
     }
 
@@ -774,17 +754,24 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    pub fn get_references(&self, full: bool, worklist: &mut Vec<ObjId>, is_add: &mut bool) -> Box<dyn Iterator<Item = ObjId> + '_> {
+    pub fn get_references(
+        &self,
+        full: bool,
+        worklist: &mut Vec<ObjId>,
+        is_add: &mut bool,
+    ) -> Box<dyn Iterator<Item = ObjId> + '_> {
         match &self.value {
-            FSRValue::Class(fsrclass) => Box::new(fsrclass
-                .iter_values()
-                .map(|x| x.load(Ordering::Relaxed))),
-            FSRValue::ClassInst(fsrclass_inst) => Box::new(fsrclass_inst
-                .iter_values()
-                .map(|x| x.load(Ordering::Relaxed))),
-            FSRValue::List(fsrlist) => Box::new(fsrlist
-                .iter_values()
-                .map(|x| x.load(Ordering::Relaxed))),
+            FSRValue::Class(fsrclass) => {
+                Box::new(fsrclass.iter_values().map(|x| x.load(Ordering::Relaxed)))
+            }
+            FSRValue::ClassInst(fsrclass_inst) => Box::new(
+                fsrclass_inst
+                    .iter_values()
+                    .map(|x| x.load(Ordering::Relaxed)),
+            ),
+            FSRValue::List(fsrlist) => {
+                Box::new(fsrlist.iter_values().map(|x| x.load(Ordering::Relaxed)))
+            }
             FSRValue::Function(f) => Box::new(f.get_references().into_iter()),
             FSRValue::Iterator(iterator) => Box::new(iterator.get_references().into_iter()),
             FSRValue::Any(any) => Box::new(any.iter_values(full, worklist, is_add)),
@@ -797,11 +784,10 @@ impl<'a> FSRObject<'a> {
         match &mut self.value {
             FSRValue::Any(any) => {
                 any.undirty();
-            },
+            }
             _ => {}
         }
     }
-
 }
 
 mod test {
@@ -826,8 +812,10 @@ mod test {
             size_of::<crate::backend::types::list::FSRList>()
         );
     }
+
 }
 
 pub trait DropObject<'a> {
     fn drop(&self, allocator: &mut FSRObjectAllocator<'a>);
 }
+

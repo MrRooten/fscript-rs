@@ -81,26 +81,38 @@ pub enum FSRErrCode {
 }
 
 #[derive(Debug)]
-pub struct FSRError {
+pub struct ErrorStruct {
     pub(crate) code: FSRErrCode,
     pub(crate) exception: Option<ObjId>,
     msg: String,
 }
 
+#[derive(Debug)]
+pub struct FSRError {
+    // pub(crate) code: FSRErrCode,
+    // pub(crate) exception: Option<ObjId>,
+    // msg: String,
+    pub(crate) inner: Box<ErrorStruct>,
+}
+
 impl FSRError {
     pub fn new(msg: impl Into<String>, code: FSRErrCode) -> Self {
         Self {
-            code,
-            msg: msg.into(),
-            exception: None,
+            inner: Box::new(ErrorStruct {
+                code,
+                exception: None,
+                msg: msg.into(),
+            }),
         }
     }
 
     pub fn new_runtime_error(exception: ObjId) -> Self {
         Self {
-            code: FSRErrCode::RuntimeError,
-            exception: Some(exception),
-            msg: "".to_string(),
+            inner: Box::new(ErrorStruct {
+                code: FSRErrCode::RuntimeError,
+                exception: Some(exception),
+                msg: "Runtime Error".to_string(),
+            }),
         }
     }
 }
@@ -111,7 +123,7 @@ impl Error for FSRError {
     }
 
     fn description(&self) -> &str {
-        &self.msg
+        &self.inner.msg
     }
 
     fn cause(&self) -> Option<&dyn Error> {

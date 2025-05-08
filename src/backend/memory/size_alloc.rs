@@ -37,12 +37,6 @@ impl<'a> FSRObjectAllocator<'a> {
     }
 
     #[inline(always)]
-    pub fn free(&mut self, obj_id: ObjId) {
-        let obj = FSRObject::into_object(obj_id);
-        self.object_bins.push(obj);
-    }
-
-    #[inline(always)]
     pub fn free_object(&mut self, obj: Box<FSRObject<'a>>) {
         self.object_bins.push(obj);
     }
