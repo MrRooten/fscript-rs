@@ -89,9 +89,6 @@ pub struct ErrorStruct {
 
 #[derive(Debug)]
 pub struct FSRError {
-    // pub(crate) code: FSRErrCode,
-    // pub(crate) exception: Option<ObjId>,
-    // msg: String,
     pub(crate) inner: Box<ErrorStruct>,
 }
 
