@@ -1,5 +1,6 @@
 use std::{
-    fmt::{Debug, Formatter}, sync::{atomic::Ordering, Arc}
+    fmt::{Debug, Formatter},
+    sync::{atomic::Ordering, Arc},
 };
 
 use ahash::AHashMap;
@@ -46,16 +47,13 @@ impl FSRIterator for FSRListIterator<'_> {
     }
 }
 
-
 pub struct FSRList {
     vs: Vec<AtomicObjId>,
 }
 
 impl Debug for FSRList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FSRList")
-            .field("vs", &"[...]")
-            .finish()
+        f.debug_struct("FSRList").field("vs", &"[...]").finish()
     }
 }
 
@@ -165,10 +163,7 @@ pub fn sort<'a>(
     _module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     if args.len() != 1 {
-        return Err(FSRError::new(
-            "sort args error",
-            FSRErrCode::RuntimeError,
-        ));
+        return Err(FSRError::new("sort args error", FSRErrCode::RuntimeError));
     }
     let obj_id = args[0];
     let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
@@ -176,7 +171,13 @@ pub fn sort<'a>(
         l.vs.sort_by(|a, b| {
             let l_id = a.load(Ordering::Relaxed);
             let r_id = b.load(Ordering::Relaxed);
-            let v = FSRThreadRuntime::compare(l_id, r_id, ">", thread).unwrap();
+            let v = FSRThreadRuntime::compare(
+                l_id,
+                r_id,
+                crate::backend::compiler::bytecode::CompareOperator::Greater,
+                thread,
+            )
+            .unwrap();
             if v {
                 return std::cmp::Ordering::Greater;
             } else {
@@ -199,7 +200,7 @@ pub fn sort_by<'a>(
         ));
     }
     let obj_id = args[0];
-    let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");;
+    let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
     let compare_fn_id = args[1];
     let compare_fn = FSRObject::id_to_obj(compare_fn_id);
     if let FSRValue::List(l) = &mut obj.value {
@@ -228,7 +229,7 @@ pub fn reverse<'a>(
     _module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let obj_id = args[0];
-    let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");;
+    let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
     if let FSRValue::List(l) = &mut obj.value {
         l.vs.reverse();
     } else {
@@ -269,9 +270,7 @@ pub fn sort_key<'a>(
                 let ord_fn = obj.get_cls_offset_attr(BinaryOffset::Order).unwrap();
                 let ord_fn_id = ord_fn.load(Ordering::Relaxed);
                 let ord_fn = FSRObject::id_to_obj(ord_fn_id);
-                let ord_value = ord_fn
-                    .call(&[ret_id], thread, module, ord_fn_id)
-                    .unwrap();
+                let ord_value = ord_fn.call(&[ret_id], thread, module, ord_fn_id).unwrap();
                 let ord_value_id = ord_value.get_id();
                 if let FSRValue::Integer(i) = &FSRObject::id_to_obj(ord_value_id).value {
                     return *i;
@@ -292,7 +291,7 @@ pub fn push<'a>(
         return Err(FSRError::new("push args error", FSRErrCode::RuntimeError));
     }
     let self_id = args[0];
-    let obj = FSRObject::id_to_mut_obj(self_id).expect("msg: not a list");;
+    let obj = FSRObject::id_to_mut_obj(self_id).expect("msg: not a list");
     if obj.area.is_long() && FSRObject::id_to_obj(args[1]).area == Area::Minjor {
         obj.set_write_barrier(true);
     }
@@ -350,5 +349,4 @@ impl FSRList {
     pub fn iter_values(&self) -> impl Iterator<Item = &AtomicObjId> {
         self.vs.iter()
     }
-
 }

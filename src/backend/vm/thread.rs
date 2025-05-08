@@ -12,7 +12,7 @@ use smallvec::SmallVec;
 
 use crate::{
     backend::{
-        compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator},
+        compiler::bytecode::{ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator},
         memory::{
             gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator,
             GarbageCollector,
@@ -536,7 +536,6 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn new() -> FSRThreadRuntime<'a> {
-        
         let frame = Box::new(CallFrame::new(0, 0));
         Self {
             cur_frame: frame,
@@ -775,94 +774,95 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn compare(
         left: ObjId,
         right: ObjId,
-        op: &str,
+        op: CompareOperator,
         thread: &mut Self,
     ) -> Result<bool, FSRError> {
-        let res;
+        let res = match op {
+            CompareOperator::Greater => {
+                let left_obj = FSRObject::id_to_obj(left);
+                let right_obj = FSRObject::id_to_obj(right);
 
-        if op.eq(">") {
-            let left_obj = FSRObject::id_to_obj(left);
-            let right_obj = FSRObject::id_to_obj(right);
+                if let Some(greater) = thread
+                    .op_quick
+                    .get_greater(right_obj.cls as ObjId, left_obj.cls as ObjId)
+                {
+                    greater(&[left, right], thread, thread.get_context().code)?
+                } else {
+                    FSRObject::invoke_offset_method(
+                        BinaryOffset::Greater,
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                }
+            }
+            CompareOperator::Less => {
+                let left_obj = FSRObject::id_to_obj(left);
+                let right_obj = FSRObject::id_to_obj(right);
 
-            res = if let Some(less) = thread
-                .op_quick
-                .get_greater(right_obj.cls as ObjId, left_obj.cls as ObjId)
-            {
-                less(&[left, right], thread, thread.get_context().code)?
-            } else {
-                FSRObject::invoke_offset_method(
-                    BinaryOffset::Greater,
-                    &[left, right],
-                    thread,
-                    thread.get_context().code,
-                )?
-            };
-        } else if op.eq("<") {
-            let left_obj = FSRObject::id_to_obj(left);
-            let right_obj = FSRObject::id_to_obj(right);
-
-            res = if let Some(less) = thread
-                .op_quick
-                .get_less(right_obj.cls as ObjId, left_obj.cls as ObjId)
-            {
-                less(&[left, right], thread, thread.get_context().code)?
-            } else {
-                FSRObject::invoke_offset_method(
-                    BinaryOffset::Less,
-                    &[left, right],
-                    thread,
-                    thread.get_context().code,
-                )?
-            };
-        } else if op.eq(">=") {
-            res = FSRObject::invoke_offset_method(
+                if let Some(less) = thread
+                    .op_quick
+                    .get_less(right_obj.cls as ObjId, left_obj.cls as ObjId)
+                {
+                    less(&[left, right], thread, thread.get_context().code)?
+                } else {
+                    FSRObject::invoke_offset_method(
+                        BinaryOffset::Less,
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                }
+            }
+            CompareOperator::GreaterEqual => FSRObject::invoke_offset_method(
                 BinaryOffset::GreatEqual,
                 &[left, right],
                 thread,
                 thread.get_context().code,
-            )?;
-        } else if op.eq("<=") {
-            res = FSRObject::invoke_offset_method(
+            )?,
+            CompareOperator::LessEqual => FSRObject::invoke_offset_method(
                 BinaryOffset::LessEqual,
                 &[left, right],
                 thread,
                 thread.get_context().code,
-            )?;
-        } else if op.eq("==") {
-            let left_obj = FSRObject::id_to_obj(left);
-            let right_obj = FSRObject::id_to_obj(right);
-            res = if let Some(equal) = thread
-                .op_quick
-                .get_equal(right_obj.cls as usize, left_obj.cls as usize)
-            {
-                equal(&[left, right], thread, thread.get_context().code)?
-            } else {
-                FSRObject::invoke_offset_method(
-                    BinaryOffset::Equal,
-                    &[left, right],
-                    thread,
-                    thread.get_context().code,
-                )?
-            };
-        } else if op.eq("!=") {
-            res = FSRObject::invoke_offset_method(
+            )?,
+            CompareOperator::Equal => {
+                let left_obj = FSRObject::id_to_obj(left);
+                let right_obj = FSRObject::id_to_obj(right);
+
+                if let Some(equal) = thread
+                    .op_quick
+                    .get_equal(right_obj.cls as usize, left_obj.cls as usize)
+                {
+                    equal(&[left, right], thread, thread.get_context().code)?
+                } else {
+                    FSRObject::invoke_offset_method(
+                        BinaryOffset::Equal,
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                }
+            }
+            CompareOperator::NotEqual => FSRObject::invoke_offset_method(
                 BinaryOffset::NotEqual,
                 &[left, right],
                 thread,
                 thread.get_context().code,
-            )?;
-        } else {
-            return Err(FSRError::new(
-                format!("not support op: `{}`", op),
-                FSRErrCode::NotSupportOperator,
-            ));
-        }
+            )?,
+            _ => {
+                return Err(FSRError::new(
+                    format!("not support op: `{:?}`", op),
+                    FSRErrCode::NotSupportOperator,
+                ));
+            }
+        };
         // if let FSRRetValue::GlobalId(id) = &res {
         //     return Ok(id == &1);
         // }
 
         let id = res.get_id();
-        return Ok(id == 1);
+        return Ok(id == FSRObject::true_id());
     }
 
     fn pop_stack(&mut self) {
@@ -2260,7 +2260,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        if let ArgType::Compare(op) = bytecode.get_arg() {
+        if let ArgType::Compare(op) = *bytecode.get_arg() {
             let right = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
                 FSRError::new(
                     "Failed to pop right operand from stack in compare_test",
@@ -2602,7 +2602,8 @@ impl<'a> FSRThreadRuntime<'a> {
             .exp
             .pop()
             .unwrap()
-            .get_global_id(self).unwrap();
+            .get_global_id(self)
+            .unwrap();
         if first == 0 || first == 2 {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
                 self.get_cur_mut_context().ip.1 += *offset;
@@ -2624,7 +2625,8 @@ impl<'a> FSRThreadRuntime<'a> {
             .exp
             .pop()
             .unwrap()
-            .get_global_id(self).unwrap();
+            .get_global_id(self)
+            .unwrap();
         if first != 0 && first != 2 {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
                 self.get_cur_mut_context().ip.1 += *offset;
@@ -3188,10 +3190,17 @@ impl<'a> FSRThreadRuntime<'a> {
 mod test {
     use std::sync::{Arc, Mutex};
 
-    use crate::{backend::{
-        types::{base::{FSRObject, ObjId}, code::FSRCode, module::FSRModule},
-        vm::virtual_machine::FSRVM,
-    }, utils::error::FSRError};
+    use crate::{
+        backend::{
+            types::{
+                base::{FSRObject, ObjId},
+                code::FSRCode,
+                module::FSRModule,
+            },
+            vm::virtual_machine::FSRVM,
+        },
+        utils::error::FSRError,
+    };
 
     use super::FSRThreadRuntime;
 
@@ -3314,7 +3323,10 @@ mod test {
     #[test]
     fn test_svalue_size() {
         println!("svalue size: {}", std::mem::size_of::<super::SValue>());
-        println!("result size: {}", std::mem::size_of::<Result<ObjId, FSRError>>());
+        println!(
+            "result size: {}",
+            std::mem::size_of::<Result<ObjId, FSRError>>()
+        );
     }
 
     #[test]

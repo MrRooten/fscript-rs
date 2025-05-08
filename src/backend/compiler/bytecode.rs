@@ -165,6 +165,30 @@ pub enum BytecodeOperator {
     Load = 1000,
 }
 
+#[derive(Debug, PartialEq, Hash, Eq, Clone, Copy)]
+pub enum CompareOperator {
+    Equal,
+    NotEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
+}
+
+impl CompareOperator {
+    pub fn from_str(op: &str) -> Option<Self> {
+        match op {
+            "==" => Some(CompareOperator::Equal),
+            "!=" => Some(CompareOperator::NotEqual),
+            ">" => Some(CompareOperator::Greater),
+            ">=" => Some(CompareOperator::GreaterEqual),
+            "<" => Some(CompareOperator::Less),
+            "<=" => Some(CompareOperator::LessEqual),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ArgType {
     Variable((u64, String, bool)),
@@ -173,9 +197,6 @@ pub enum ArgType {
     Lambda((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
-    // String(u64, ObjId),
-    // Integer(u64, ObjId),
-    // Float(u64, ObjId),
     ConstInteger(u64, String, Option<String>),
     ConstFloat(u64, String, Option<String>),
     ConstString(u64, String),
@@ -185,7 +206,7 @@ pub enum ArgType {
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
     WhileTest(u64),         //i64 is return to test, u64 is skip the block,
     WhileEnd(i64),
-    Compare(&'static str),
+    Compare(CompareOperator),
     FnLines(usize),
     CallArgsNumber(usize),
     CallArgsNumberWithVar((usize, u64, String, bool)), // number size, Variable
@@ -300,7 +321,9 @@ impl BytecodeOperator {
         {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::CompareTest,
-                arg: ArgType::Compare(Self::get_static_op(op)),
+                arg: ArgType::Compare(
+                    CompareOperator::from_str(op).unwrap(),
+                ),
                 info,
             });
         } else if op.eq("<<") {
