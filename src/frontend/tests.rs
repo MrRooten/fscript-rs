@@ -215,6 +215,15 @@ mod frontend_tests {
     }
 
     #[test]
+    fn test_list2() {
+        let s = "a == [(1+1),2,3,4]";
+        let meta = FSRPosition::new();
+        let mut context = ASTContext::new_context();
+        let s = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        println!("{:#?}", s);
+    }
+
+    #[test]
     fn test_module_name() {
         let s = "path::test('adf')";
         let meta = FSRPosition::new();

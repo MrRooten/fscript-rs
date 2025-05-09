@@ -33,3 +33,9 @@ assert(i == 5)
 for c in "abcd" {
     println(c)
 }
+
+a = (0..5).__iter__().map(|x| {
+    println("a.map: ", x)
+    return x + 1
+})
+dump(a)

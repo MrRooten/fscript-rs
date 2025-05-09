@@ -64,13 +64,54 @@ pub fn next_obj<'a>(
         panic!("not a iterator");
     }
 
-    
+    Ok(match result {
+        Some(s) => s,
+        None => FSRRetValue::GlobalId(0),
+    })
+}
+
+pub fn map<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
+    let map_fn_id = args[1];
+    let mut result = None;
+    if let FSRValue::Iterator(it) = &mut self_obj.value {
+        let from_obj = FSRObject::id_to_obj(it.obj);
+        let map_fn = FSRObject::id_to_obj(map_fn_id);
+        if let FSRValue::ClassInst(inst) = &from_obj.value {
+            let cls = from_obj.cls;
+            let cls = FSRObject::id_to_obj(cls);
+            let cls = cls.as_class();
+            let v = cls.get_offset_attr(BinaryOffset::Index);
+            if let Some(obj_id) = v {
+                let obj_id = obj_id.load(Ordering::Relaxed);
+                let obj = FSRObject::id_to_obj(obj_id);
+                let mut ret = obj.call(&[it.obj], thread, module, obj_id)?.get_id();
+                while ret != FSRObject::none_id() {
+                    let map_ret = map_fn.call(&[ret], thread, module, map_fn_id)?;
+                    ret = obj.call(&[it.obj], thread, module, obj_id)?.get_id();
+                }
+            }
+        } else {
+            let iter = it.iterator.as_mut().unwrap();
+            while let Some(obj) = iter.next(thread) {
+                let obj = obj?;
+                let ret = map_fn.call(&[obj], thread, module, map_fn_id)?;
+            }
+        }
+    } else {
+        panic!("not a iterator");
+    }
 
     Ok(match result {
         Some(s) => s,
         None => FSRRetValue::GlobalId(0),
     })
 }
+
 
 impl FSRInnerIterator {
     pub fn get_class<'a>() -> FSRClass<'a> {
@@ -79,6 +120,8 @@ impl FSRInnerIterator {
 
         // cls.insert_attr("__next__", next);
         cls.insert_offset_attr(BinaryOffset::NextObject, next);
+        let map = FSRFn::from_rust_fn_static(map, "inner_iterator_map");
+        cls.insert_attr("map", map);
         cls
     }
 

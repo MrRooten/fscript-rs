@@ -137,7 +137,7 @@ fn iter<'a>(
 
 pub fn get_item<'a>(
     args: &[ObjId],
-    _: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_id = args[0];
@@ -152,6 +152,12 @@ pub fn get_item<'a>(
             } else {
                 return Err(FSRError::new("list index of range", FSRErrCode::OutOfRange));
             }
+        } else if let FSRValue::Range(range) = &index_obj.value {
+            let start = range.range.start as usize;
+            let end = range.range.end as usize;
+            let sub = l.vs[start..end].iter().map(|x| AtomicObjId::new(x.load(Ordering::Relaxed))).collect::<Vec<_>>();
+            let range = thread.garbage_collect.new_object(FSRList::new_value_ref(sub), FSRGlobalObjId::ListCls as ObjId);
+            return Ok(FSRRetValue::GlobalId(range));
         }
     }
     unimplemented!()
@@ -301,6 +307,104 @@ pub fn push<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
+pub fn map<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    _module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    if args.len() != 2 {
+        return Err(FSRError::new("map args error", FSRErrCode::RuntimeError));
+    }
+    let self_id = args[0];
+    let map_fn_id = args[1];
+    let map_fn = FSRObject::id_to_obj(map_fn_id);
+    let obj = FSRObject::id_to_mut_obj(self_id).expect("msg: not a list");
+    
+    if let FSRValue::List(l) = &mut obj.value {
+        let mut ret_list = Vec::with_capacity(l.vs.len());
+        for id in l.get_items() {
+            let ret = map_fn.call(&[id.load(Ordering::Relaxed)], thread, _module, map_fn_id)?;
+            let ret_id = ret.get_id();
+            ret_list.push(AtomicObjId::new(ret_id));
+        }
+
+        return Ok(FSRRetValue::GlobalId(
+            thread.garbage_collect.new_object(
+                FSRList::new_value_ref(ret_list),
+                FSRGlobalObjId::ListCls as ObjId,
+            ),
+        ));
+    }
+    Ok(FSRRetValue::GlobalId(0))
+}
+
+pub fn filter<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    _module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    if args.len() != 2 {
+        return Err(FSRError::new("filter args error", FSRErrCode::RuntimeError));
+    }
+    let self_id = args[0];
+    let filter_fn_id = args[1];
+    let filter_fn = FSRObject::id_to_obj(filter_fn_id);
+    let obj = FSRObject::id_to_mut_obj(self_id).expect("msg: not a list");
+    
+    if let FSRValue::List(l) = &mut obj.value {
+        let mut ret_list = Vec::with_capacity(l.vs.len());
+        for id in l.get_items() {
+            let ret = filter_fn.call(&[id.load(Ordering::Relaxed)], thread, _module, filter_fn_id)?;
+            let ret_id = ret.get_id();
+            if ret_id == FSRObject::true_id() {
+                ret_list.push(AtomicObjId::new(id.load(Ordering::Relaxed)));
+            }
+        }
+
+        return Ok(FSRRetValue::GlobalId(
+            thread.garbage_collect.new_object(
+                FSRList::new_value_ref(ret_list),
+                FSRGlobalObjId::ListCls as ObjId,
+            ),
+        ));
+    }
+    Ok(FSRRetValue::GlobalId(0))
+}
+
+pub fn equal<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    _module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    if args.len() != 2 {
+        return Err(FSRError::new("list equal args error", FSRErrCode::RuntimeError));
+    }
+    let self_id = args[0];
+    let other_id = args[1];
+    let self_object = FSRObject::id_to_obj(self_id);
+    let other_object = FSRObject::id_to_obj(other_id);
+
+    if let FSRValue::List(self_s) = &self_object.value {
+        if let FSRValue::List(other_s) = &other_object.value {
+            if self_s.get_items().len() != other_s.get_items().len() {
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+            }
+            for (i, id) in self_s.get_items().iter().enumerate() {
+                let obj_id = id.load(Ordering::Relaxed);
+                let obj = FSRObject::id_to_obj(obj_id);
+                let eq_fn_id = obj.get_cls_offset_attr(BinaryOffset::Equal).unwrap().load(Ordering::Relaxed);
+                let eq_fn = FSRObject::id_to_obj(eq_fn_id);
+                let equal_res = eq_fn.call(&[obj_id, other_s.vs[i].load(Ordering::Relaxed)], thread, _module, eq_fn_id)?.get_id();
+                if equal_res != FSRObject::true_id() {
+                    return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+                }
+            }
+            return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+        }
+    }
+    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
+}
+
 impl FSRList {
     pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass {
@@ -326,7 +430,12 @@ impl FSRList {
         cls.insert_attr("sort_key", sort_key_fn);
         let reverse_fn = FSRFn::from_rust_fn_static(reverse, "list_reverse");
         cls.insert_attr("reverse", reverse_fn);
-
+        let map_fn = FSRFn::from_rust_fn_static(map, "list_map");
+        cls.insert_attr("map", map_fn);
+        let equal_fn = FSRFn::from_rust_fn_static(equal, "list_equal");
+        cls.insert_offset_attr(BinaryOffset::Equal, equal_fn);
+        let filter_fn = FSRFn::from_rust_fn_static(filter, "list_filter");
+        cls.insert_attr("filter", filter_fn);
         cls
     }
 
@@ -343,6 +452,10 @@ impl FSRList {
             .into_iter()
             .map(|s| AtomicObjId::new(s))
             .collect::<Vec<_>>();
+        FSRValue::List(Box::new(Self { vs }))
+    }
+
+    pub fn new_value_ref(vs: Vec<AtomicObjId>) -> FSRValue<'static> {
         FSRValue::List(Box::new(Self { vs }))
     }
 

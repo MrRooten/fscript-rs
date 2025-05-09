@@ -317,7 +317,7 @@ impl<'a> SValue<'a> {
                 }
             }
             SValue::Global(id) => *id,
-            SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
+            SValue::Attr(args) => args.attr_object_id?.load(Ordering::Relaxed),
             SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         })
     }

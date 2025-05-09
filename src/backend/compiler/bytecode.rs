@@ -1003,7 +1003,7 @@ impl<'a> Bytecode {
             let mut v = Self::load_stack_expr(st, var_map_ref.unwrap(), const_map);
             second.append(&mut v.0);
             var_map_ref = Some(v.1);
-        } else if let FSRToken::List(list) = expr.get_left() {
+        } else if let FSRToken::List(list) = expr.get_right() {
             let mut v = Self::load_list(list, var_map_ref.unwrap(), const_map);
             op_code.append(&mut v.0);
             var_map_ref = Some(v.1);
@@ -2141,7 +2141,7 @@ a[0] = 1
     #[test]
     fn test_simple() {
         let expr = "
-        n == 1 or n == 2 or n == 3
+        n == [1, 2, 3]
         ";
 
         let meta = FSRPosition::new();
