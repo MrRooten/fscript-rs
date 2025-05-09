@@ -1,6 +1,4 @@
-n = 2
-for i in 0..18000000 {
-    if n == 1 or n == 2 {
-
-    }
-}
+(0..3000000).__iter__().map(|x| {
+    println("a.map: ", x)
+    return x + 1
+})
