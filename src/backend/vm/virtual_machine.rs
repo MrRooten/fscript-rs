@@ -4,6 +4,8 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
+use ahash::AHashMap;
+
 use crate::{
     backend::types::{
         any::FSRThreadHandle,
@@ -34,8 +36,8 @@ pub enum ConstType<'a> {
 }
 
 pub struct FSRVM<'a> {
-    global: HashMap<String, ObjId>,
-    global_modules: HashMap<&'a str, ObjId>,
+    global: AHashMap<String, ObjId>,
+    global_modules: AHashMap<&'a str, ObjId>,
     threads: Mutex<Vec<Option<UnsafeCell<FSRThreadRuntime<'a>>>>>,
 }
 
@@ -55,8 +57,8 @@ impl<'a> FSRVM<'a> {
     fn new() -> Self {
         Self::init_static_object();
         let mut v = Self {
-            global: HashMap::new(),
-            global_modules: HashMap::new(),
+            global: AHashMap::new(),
+            global_modules: AHashMap::new(),
             threads: Mutex::new(vec![]),
         };
         v.init();
