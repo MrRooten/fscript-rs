@@ -38,12 +38,17 @@ impl FSRIteratorReferences for FSRListIterator<'_> {
 }
 
 impl FSRIterator for FSRListIterator<'_> {
-    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Option<Result<ObjId, FSRError>> {
-        let c = self.iter.next();
-        c.map(|x| {
+    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
+        // let c = self.iter.next();
+        // c.map(|x| {
+        //     let obj_id = x.load(Ordering::Relaxed);
+        //     Ok(obj_id)
+        // })
+        if let Some(x) = self.iter.next() {
             let obj_id = x.load(Ordering::Relaxed);
-            Ok(obj_id)
-        })
+            return Ok(Some(obj_id));
+        }
+        Ok(None)
     }
 }
 

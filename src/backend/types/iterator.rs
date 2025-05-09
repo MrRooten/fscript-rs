@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, code::FSRCode, fn_def::FSRFn
+    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, code::FSRCode, ext::map_iter::FSRMapIter, fn_def::FSRFn
 };
 
 pub trait FSRIteratorReferences {
@@ -15,7 +15,7 @@ pub trait FSRIteratorReferences {
 
 
 pub trait FSRIterator: FSRIteratorReferences + Send {
-    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Option<Result<ObjId, FSRError>>;
+    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError>;
 }
 
 pub struct FSRInnerIterator {
@@ -53,8 +53,7 @@ pub fn next_obj<'a>(
             }
         } else {
             let iter = it.iterator.as_mut().unwrap();
-            if let Some(obj) = iter.next(thread) {
-                let obj = obj?;
+            if let Some(obj) = iter.next(thread)? {
                 result = Some(FSRRetValue::GlobalId(obj));
             } else {
                 result = None;
@@ -77,39 +76,19 @@ pub fn map<'a>(
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
     let map_fn_id = args[1];
-    let mut result = None;
-    if let FSRValue::Iterator(it) = &mut self_obj.value {
-        let from_obj = FSRObject::id_to_obj(it.obj);
-        let map_fn = FSRObject::id_to_obj(map_fn_id);
-        if let FSRValue::ClassInst(inst) = &from_obj.value {
-            let cls = from_obj.cls;
-            let cls = FSRObject::id_to_obj(cls);
-            let cls = cls.as_class();
-            let v = cls.get_offset_attr(BinaryOffset::Index);
-            if let Some(obj_id) = v {
-                let obj_id = obj_id.load(Ordering::Relaxed);
-                let obj = FSRObject::id_to_obj(obj_id);
-                let mut ret = obj.call(&[it.obj], thread, module, obj_id)?.get_id();
-                while ret != FSRObject::none_id() {
-                    let map_ret = map_fn.call(&[ret], thread, module, map_fn_id)?;
-                    ret = obj.call(&[it.obj], thread, module, obj_id)?.get_id();
-                }
-            }
-        } else {
-            let iter = it.iterator.as_mut().unwrap();
-            while let Some(obj) = iter.next(thread) {
-                let obj = obj?;
-                let ret = map_fn.call(&[obj], thread, module, map_fn_id)?;
-            }
-        }
-    } else {
-        panic!("not a iterator");
-    }
+    let map_iterator = FSRMapIter {
+        callback: map_fn_id,
+        prev_iterator: args[0],
+    };
+    let object = thread.garbage_collect.new_object(
+        FSRValue::Iterator(Box::new(FSRInnerIterator {
+            obj: args[0],
+            iterator: Some(Box::new(map_iterator)),
+        })),
+        FSRGlobalObjId::InnerIterator as ObjId,
+    );
 
-    Ok(match result {
-        Some(s) => s,
-        None => FSRRetValue::GlobalId(0),
-    })
+    Ok(FSRRetValue::GlobalId(object))
 }
 
 

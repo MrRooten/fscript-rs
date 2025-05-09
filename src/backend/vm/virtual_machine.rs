@@ -12,7 +12,7 @@ use crate::{
         class::FSRClass,
         code::FSRCode,
         error::FSRException,
-        ext::hashmap::FSRHashMap,
+        ext::{hashmap::FSRHashMap, map_iter::FSRMapIter},
         float::FSRFloat,
         fn_def::FSRFn,
         integer::FSRInteger,
@@ -209,6 +209,10 @@ impl<'a> FSRVM<'a> {
                 OBJECTS.push(Self::new_stataic_object_with_id(
                     FSRGlobalObjId::HashMapCls as ObjId,
                     FSRValue::Class(Box::new(FSRHashMap::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    FSRGlobalObjId::MapIterator as ObjId,
+                    FSRValue::Class(Box::new(FSRMapIter::get_class())),
                 ));
             }
         }

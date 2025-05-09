@@ -33,17 +33,26 @@ impl FSRIteratorReferences for FSRRangeIterator {
 }
 
 impl FSRIterator for FSRRangeIterator {
-    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Option<Result<ObjId, FSRError>> {
+    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
+        // let c = self.iter.next();
+        // c.map(|x| {
+        //     // let obj_id = thread
+        //     //     .garbage_collect
+        //     //     .new_object(FSRValue::Integer(x), FSRGlobalObjId::IntegerCls as ObjId);
+        //     let obj = thread.garbage_collect.new_object_in_place();
+        //     obj.value = FSRValue::Integer(x);
+        //     obj.cls = FSRGlobalObjId::IntegerCls as ObjId;
+        //     Ok(FSRObject::obj_to_id(obj))
+        // })
         let c = self.iter.next();
-        c.map(|x| {
-            // let obj_id = thread
-            //     .garbage_collect
-            //     .new_object(FSRValue::Integer(x), FSRGlobalObjId::IntegerCls as ObjId);
+        if let Some(x) = c {
             let obj = thread.garbage_collect.new_object_in_place();
             obj.value = FSRValue::Integer(x);
             obj.cls = FSRGlobalObjId::IntegerCls as ObjId;
-            Ok(FSRObject::obj_to_id(obj))
-        })
+            Ok(Some(FSRObject::obj_to_id(obj)))
+        } else {
+            Ok(None)
+        }
     }
 }
 

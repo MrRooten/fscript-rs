@@ -59,6 +59,7 @@ pub enum FSRGlobalObjId {
     ModuleCls = 14,
     ThreadCls = 15,
     HashMapCls = 16,
+    MapIterator = 17
 }
 
 #[derive(Debug)]

@@ -76,15 +76,24 @@ impl FSRIteratorReferences for FSRStringIterator<'_> {
 }
 
 impl FSRIterator for FSRStringIterator<'_> {
-    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Option<Result<ObjId, FSRError>> {
-        let c = self.iter.next();
-        c.map(|x| {
+    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
+        // let c = self.iter.next();
+        // c.map(|x| {
+        //     let obj_id = thread.garbage_collect.new_object(
+        //         FSRValue::String(Arc::new(FSRInnerString::new_from_char(x))),
+        //         FSRGlobalObjId::StringCls as ObjId,
+        //     );
+        //     Ok(obj_id)
+        // })
+        if let Some(c) = self.iter.next() {
             let obj_id = thread.garbage_collect.new_object(
-                FSRValue::String(Arc::new(FSRInnerString::new_from_char(x))),
+                FSRValue::String(Arc::new(FSRInnerString::new_from_char(c))),
                 FSRGlobalObjId::StringCls as ObjId,
             );
-            Ok(obj_id)
-        })
+            Ok(Some(obj_id))
+        } else {
+            Ok(None)
+        }
     }
 }
 

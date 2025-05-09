@@ -256,16 +256,26 @@ impl FSRIteratorReferences for FSRHashMapIterator<'_> {
 }
 
 impl FSRIterator for FSRHashMapIterator<'_> {
-    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Option<Result<ObjId, FSRError>> {
+    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
         let c = self.iter.next();
-        c.map(|x| {
-            let vs = vec![x.0, x.1];
+        // c.map(|x| {
+        //     let vs = vec![x.0, x.1];
+        //     let list = FSRList::new_value(vs);
+        //     let ret = thread
+        //         .garbage_collect
+        //         .new_object(list, FSRGlobalObjId::ListCls as ObjId);
+        //     Ok(ret)
+        // })
+        if let Some((key, value)) = c {
+            let vs = vec![key, value];
             let list = FSRList::new_value(vs);
             let ret = thread
                 .garbage_collect
                 .new_object(list, FSRGlobalObjId::ListCls as ObjId);
-            Ok(ret)
-        })
+            Ok(Some(ret))
+        } else {
+            Ok(None)
+        }
     }
 }
 

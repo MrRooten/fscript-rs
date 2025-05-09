@@ -1251,21 +1251,21 @@ impl<'a> Bytecode {
             arg: ArgType::None,
             info: FSRByteInfo::new(for_def.get_meta().clone()),
         });
-        t.push(BytecodeArg {
-            operator: BytecodeOperator::Load,
-            arg: ArgType::Attr(*id, "__iter__".to_string()),
-            info: FSRByteInfo::new(for_def.get_meta().clone()),
-        });
-        t.push(BytecodeArg {
-            operator: BytecodeOperator::BinaryDot,
-            arg: ArgType::None,
-            info: FSRByteInfo::new(for_def.get_meta().clone()),
-        });
-        t.push(BytecodeArg {
-            operator: BytecodeOperator::Call,
-            arg: ArgType::CallArgsNumber(0),
-            info: FSRByteInfo::new(for_def.get_meta().clone()),
-        });
+        // t.push(BytecodeArg {
+        //     operator: BytecodeOperator::Load,
+        //     arg: ArgType::Attr(*id, "__iter__".to_string()),
+        //     info: FSRByteInfo::new(for_def.get_meta().clone()),
+        // });
+        // t.push(BytecodeArg {
+        //     operator: BytecodeOperator::BinaryDot,
+        //     arg: ArgType::None,
+        //     info: FSRByteInfo::new(for_def.get_meta().clone()),
+        // });
+        // t.push(BytecodeArg {
+        //     operator: BytecodeOperator::Call,
+        //     arg: ArgType::CallArgsNumber(0),
+        //     info: FSRByteInfo::new(for_def.get_meta().clone()),
+        // });
         let mut block_items = Self::load_block(for_def.get_block(), var_self, const_map);
         var_self = block_items.1;
         t.push(BytecodeArg {

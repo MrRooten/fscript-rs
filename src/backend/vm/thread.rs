@@ -2127,6 +2127,19 @@ impl<'a> FSRThreadRuntime<'a> {
             id
         };
 
+        let iter_obj = FSRObject::id_to_obj(iter_id);
+        let read_iter_id = match iter_obj.get_attr("__iter__") {
+            Some(s) => {
+                let iter_fn = s.load(Ordering::Relaxed);
+                let iter_fn_obj = FSRObject::id_to_obj(iter_fn);
+                let ret = iter_fn_obj.call(&[iter_id], self, 0, iter_fn)?;
+                ret.get_id()
+            },
+            None => {
+                iter_id
+            },
+        };
+
         self.get_cur_mut_frame().middle_value.push(iter_id);
         if let ArgType::ForLine(n) = bytecode.get_arg() {
             self.flow_tracker
@@ -2136,7 +2149,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .continue_line
                 .push(self.get_context().ip.0 + 1);
         }
-        self.flow_tracker.for_iter_obj.push(iter_id);
+        self.flow_tracker.for_iter_obj.push(read_iter_id);
         Ok(false)
     }
 
