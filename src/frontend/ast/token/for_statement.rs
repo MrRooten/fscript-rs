@@ -21,6 +21,13 @@ enum State {
     Continue,
 }
 
+#[derive(PartialEq, Clone)]
+enum Bracket {
+    Round,
+    Square,
+    Curly,
+}
+
 impl<'a> FSRFor<'a> {
     pub fn get_len(&self) -> usize {
         self.len
@@ -119,19 +126,83 @@ impl<'a> FSRFor<'a> {
         let mut len = 0;
         let mut state = State::Continue;
         let mut pre_state = State::Continue;
+        let mut brackets = vec![];
         for c in &source[start..] {
             let c = *c as char;
             len += 1;
-            if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {
+            if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) && brackets.is_empty() {
                 len -= 1;
                 break;
             }
 
-            if c == '\n' {
+            if c == '(' && (state != State::DoubleQuote && state != State::SingleQuote) {
+                brackets.push(Bracket::Round);
+                continue;
+            }
+
+            if c == ')' && (state != State::DoubleQuote && state != State::SingleQuote) && !brackets.is_empty() {
+                if brackets.last().unwrap() != &Bracket::Round {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + len - 1;
+                    let err = SyntaxError::new(&sub_meta, "Invalid for statement");
+                    return Err(err);
+                }
+                if brackets.is_empty() {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + len - 1;
+                    let err = SyntaxError::new(&sub_meta, "Invalid for statement");
+                    return Err(err);
+                }
+                brackets.pop();
+                continue;
+            }
+
+            if c == '\n' && (state != State::DoubleQuote && state != State::SingleQuote) && brackets.is_empty() {
                 let mut sub_meta = meta.clone();
                 sub_meta.offset = meta.offset + len - 1;
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
+            }
+
+            if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) {
+                brackets.push(Bracket::Curly);
+                continue;
+            }
+            if c == '}' && (state != State::DoubleQuote && state != State::SingleQuote) && !brackets.is_empty() {
+                if brackets.last().unwrap() != &Bracket::Curly {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + len - 1;
+                    let err = SyntaxError::new(&sub_meta, "Invalid for statement");
+                    return Err(err);
+                }
+                if brackets.is_empty() {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + len - 1;
+                    let err = SyntaxError::new(&sub_meta, "Invalid for statement");
+                    return Err(err);
+                }
+                brackets.pop();
+                continue;
+            }
+            if c == '[' && (state != State::DoubleQuote && state != State::SingleQuote) {
+                brackets.push(Bracket::Square);
+                continue;
+            }
+            if c == ']' && (state != State::DoubleQuote && state != State::SingleQuote) && !brackets.is_empty() {
+                if brackets.last().unwrap() != &Bracket::Square {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + len - 1;
+                    let err = SyntaxError::new(&sub_meta, "Invalid for statement");
+                    return Err(err);
+                }
+                if brackets.is_empty() {
+                    let mut sub_meta = meta.clone();
+                    sub_meta.offset = meta.offset + len - 1;
+                    let err = SyntaxError::new(&sub_meta, "Invalid for statement");
+                    return Err(err);
+                }
+                brackets.pop();
+                continue;
             }
 
             if state == State::EscapeQuote {
@@ -183,5 +254,20 @@ impl<'a> FSRFor<'a> {
             len: start,
             meta,
         })
+    }
+}
+
+mod test {
+    use super::*;
+
+    use crate::utils::error::SyntaxError;
+
+    #[test]
+    fn test_for() {
+        let expr = "for i in [1, 2, 3].map(|| {}) { println(i) }";
+        let meta = FSRPosition::new();
+        let mut context = ASTContext::new_context();
+        let token = FSRFor::parse(expr.as_bytes(), meta, &mut context).unwrap();
+        println!("{:#?}", token);
     }
 }

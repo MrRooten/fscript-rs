@@ -500,4 +500,12 @@ abc()
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
     }
+
+    #[test]
+    fn test_reminder() {
+        let c = r#"a = 1 % 2"#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
 }

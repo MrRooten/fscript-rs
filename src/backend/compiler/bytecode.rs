@@ -53,6 +53,7 @@ pub enum BinaryOffset {
     Index = 13,
     Order = 14,
     Hash = 15,
+    Reminder = 16,
 }
 
 impl BinaryOffset {
@@ -75,6 +76,7 @@ impl BinaryOffset {
             BinaryOffset::Index => "__index__",
             BinaryOffset::Order => "__ord__",
             BinaryOffset::Hash => "__hash__",
+            BinaryOffset::Reminder => "__reminder__",
         }
     }
 
@@ -96,6 +98,7 @@ impl BinaryOffset {
             "__index__" => Some(BinaryOffset::Index),
             "__ord__" => Some(BinaryOffset::Order),
             "__hash__" => Some(BinaryOffset::Hash),
+            "__reminder__" => Some(BinaryOffset::Reminder),
             _ => None,
         }
     }
@@ -162,6 +165,7 @@ pub enum BytecodeOperator {
     /// use in nested function
     LoadSelfFn = 43,
     LoadConst = 44,
+    BinaryReminder = 45,
     Load = 1000,
 }
 
@@ -356,7 +360,13 @@ impl BytecodeOperator {
                 arg: ArgType::None,
                 info,
             });
-        }
+        } else if op.eq("%") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::BinaryReminder,
+                arg: ArgType::None,
+                info,
+            });
+        } 
         // } else if op.eq("&&") || op.eq("and") {
         //     return Some(BytecodeArg {
         //         operator: BytecodeOperator::LoadAnd,

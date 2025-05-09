@@ -3,46 +3,54 @@ use std::any::Any;
 use crate::{backend::{compiler::bytecode::BinaryOffset, types::{any::{AnyDebugSend, AnyType, GetReference}, base::{FSRObject, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, iterator::{FSRIterator, FSRIteratorReferences}}, vm::thread::FSRThreadRuntime}, utils::error::FSRError};
 
 #[derive(Debug)]
-pub struct FSRMapIter {
-    pub(crate) callback: ObjId,
+pub struct FSRFilterIter {
+    pub(crate) filter: ObjId,
     pub(crate) prev_iterator: ObjId,
     pub(crate) module: ObjId,
 }
 
-impl FSRIteratorReferences for FSRMapIter {
+impl FSRIteratorReferences for FSRFilterIter {
     fn ref_objects(&self) -> Vec<ObjId> {
-        vec![self.callback, self.prev_iterator]
+        vec![self.filter, self.prev_iterator]
     }
 }
 
-impl FSRIterator for FSRMapIter {
+impl FSRIterator for FSRFilterIter {
     fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
         let prev_iterator = FSRObject::id_to_obj(self.prev_iterator);
         let next_method_id = prev_iterator.get_cls_offset_attr(BinaryOffset::NextObject).unwrap().load(std::sync::atomic::Ordering::Relaxed);
         let next_method = FSRObject::id_to_obj(next_method_id);
-        let ret = next_method.call(&[self.prev_iterator], thread, self.module, next_method_id).unwrap().get_id();
+        let mut ret = next_method.call(&[self.prev_iterator], thread, 0, next_method_id).unwrap().get_id();
         if ret == FSRObject::none_id() {
             return Ok(None);
         }
 
-        let callback = FSRObject::id_to_obj(self.callback);
-        let map_ret = callback.call(&[ret], thread, self.module, self.callback).unwrap().get_id();
-        if map_ret == FSRObject::none_id() {
+        let filter = FSRObject::id_to_obj(self.filter);
+        let mut filter_ret = filter.call(&[ret], thread, self.module, self.filter).unwrap().get_id();
+        while filter_ret == FSRObject::false_id() {
+            ret = next_method.call(&[self.prev_iterator], thread, self.module, next_method_id).unwrap().get_id();
+            if ret == FSRObject::none_id() {
+                return Ok(None);
+            }
+
+            filter_ret = filter.call(&[ret], thread, self.module, self.filter).unwrap().get_id();
+        }
+        if filter_ret == FSRObject::none_id() {
             return Ok(None);
         }
 
-        Ok(Some(map_ret))
+        Ok(Some(ret))
     }
 }
 
-impl GetReference for FSRMapIter {
+impl GetReference for FSRFilterIter {
     fn get_reference<'a>(
         &'a self,
         full: bool,
         worklist: &mut Vec<ObjId>,
         is_add: &mut bool,
     ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        Box::new(vec![self.callback, self.prev_iterator].into_iter())
+        Box::new(vec![self.filter, self.prev_iterator].into_iter())
     }
 
     fn set_undirty(&mut self) {
@@ -50,7 +58,7 @@ impl GetReference for FSRMapIter {
     }
 }
 
-impl AnyDebugSend for FSRMapIter {
+impl AnyDebugSend for FSRFilterIter {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -60,13 +68,12 @@ impl AnyDebugSend for FSRMapIter {
     }
 }
 
-impl FSRMapIter {
+impl FSRFilterIter {
     // pub fn new(callback: ObjId, prev_iterator: ObjId) -> FSRValue<'static> {
     //     FSRValue::Any(Box::new(AnyType {
-    //         value: Box::new(FSRMapIter {
-    //             callback,
-    //             prev_iterator,
-    //             module: todo!(),
+    //         value: Box::new(FSRFilterIter {
+    //             filter: callback,
+    //             prev_iterator
     //         })
     //     }))
     // }

@@ -126,6 +126,29 @@ fn div<'a>(
     unimplemented!()
 }
 
+fn reminder<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let other_object = FSRObject::id_to_obj(args[1]);
+    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
+    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
+
+    if let FSRValue::Integer(self_int) = self_object.value {
+        if let FSRValue::Integer(other_int) = other_object.value {
+            let v = thread
+                .garbage_collect
+                .new_object(FSRValue::Integer(self_int % other_int), self_object.cls);
+
+            return Ok(FSRRetValue::GlobalId(v));
+        }
+    }
+
+    unimplemented!()
+}
+
 fn left_shift<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
@@ -371,6 +394,8 @@ impl<'a> FSRInteger {
         let hash_integer = FSRFn::from_rust_fn_static(hash_integer, "integer_not_eq");
         cls.insert_offset_attr(BinaryOffset::Hash, hash_integer);
 
+        let reminder = FSRFn::from_rust_fn_static(reminder, "integer_reminder");
+        cls.insert_offset_attr(BinaryOffset::Reminder, reminder);
         cls
     }
 

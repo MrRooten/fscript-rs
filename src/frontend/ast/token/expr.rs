@@ -176,7 +176,7 @@ impl<'a> Node<'a> {
             return 1;
         }
 
-        if op.eq("*") || op.eq("/") {
+        if op.eq("*") || op.eq("/") || op.eq("%") {
             return 2;
         }
 
@@ -310,6 +310,7 @@ impl<'a> FSRExpr<'a> {
             || op == '!'
             || op == '/'
             || op == ':'
+            || op == '%'
         {
             return true;
         }

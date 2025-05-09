@@ -416,6 +416,8 @@ impl ASTParser {
             return "::"
         } else if op.eq("..") {
             return ".."
+        } else if op.eq("%") {
+            return "%"
         }
 
         println!("error: {}", op);

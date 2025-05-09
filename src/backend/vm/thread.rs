@@ -1288,6 +1288,61 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
+    fn binary_reminder_process(
+        self: &mut FSRThreadRuntime<'a>,
+        _bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        let right_value = match self.get_cur_mut_frame().exp.pop() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary mul 1",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+        let left_value = match self.get_cur_mut_frame().exp.pop() {
+            Some(s) => s,
+            None => {
+                return Err(FSRError::new(
+                    "error in binary mul 2",
+                    FSRErrCode::EmptyExpStack,
+                ));
+            }
+        };
+
+        let right_id = right_value.get_global_id(self).unwrap();
+        let left_id = left_value.get_global_id(self).unwrap();
+
+        let res = FSRObject::invoke_binary_method(
+            BinaryOffset::Reminder,
+            left_id,
+            right_id,
+            self,
+            self.get_context().code,
+        )?;
+        match res {
+            // FSRRetValue::Value(object) => {
+            //     context.exp.push(SValue::BoxObject(object));
+            // }
+            FSRRetValue::GlobalId(res_id) => {
+                self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
+            }
+            FSRRetValue::Reference(_) => {
+                panic!("not support reference return, in div process")
+            }
+        };
+
+        right_value.drop_box(&mut self.thread_allocator);
+        left_value.drop_box(&mut self.thread_allocator);
+        self.get_cur_mut_frame().middle_value.push(right_id);
+        self.get_cur_mut_frame().middle_value.push(left_id);
+        Ok(false)
+    }
+
     fn binary_dot_process(
         self: &mut FSRThreadRuntime<'a>,
 
@@ -2803,6 +2858,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::BinaryRange => Self::binary_range_process(self),
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
             BytecodeOperator::LoadConst => Self::load_const(self, bytecode),
+            BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode, bc),
             _ => {
                 panic!("not implement for {:#?}", op);
             }

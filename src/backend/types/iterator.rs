@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, code::FSRCode, ext::map_iter::FSRMapIter, fn_def::FSRFn
+    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, code::FSRCode, ext::{filter_iter::FSRFilterIter, map_iter::FSRMapIter}, fn_def::FSRFn
 };
 
 pub trait FSRIteratorReferences {
@@ -79,11 +79,35 @@ pub fn map<'a>(
     let map_iterator = FSRMapIter {
         callback: map_fn_id,
         prev_iterator: args[0],
+        module
     };
     let object = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
             obj: args[0],
             iterator: Some(Box::new(map_iterator)),
+        })),
+        FSRGlobalObjId::InnerIterator as ObjId,
+    );
+
+    Ok(FSRRetValue::GlobalId(object))
+}
+
+pub fn filter<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
+    let filter_fn_id = args[1];
+    let filter_iterator = FSRFilterIter {
+        filter: filter_fn_id,
+        prev_iterator: args[0],
+        module,
+    };
+    let object = thread.garbage_collect.new_object(
+        FSRValue::Iterator(Box::new(FSRInnerIterator {
+            obj: args[0],
+            iterator: Some(Box::new(filter_iterator)),
         })),
         FSRGlobalObjId::InnerIterator as ObjId,
     );
@@ -101,6 +125,8 @@ impl FSRInnerIterator {
         cls.insert_offset_attr(BinaryOffset::NextObject, next);
         let map = FSRFn::from_rust_fn_static(map, "inner_iterator_map");
         cls.insert_attr("map", map);
+        let filter = FSRFn::from_rust_fn_static(filter, "inner_iterator_filter");
+        cls.insert_attr("filter", filter);
         cls
     }
 

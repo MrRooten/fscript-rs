@@ -206,11 +206,11 @@ pub mod tests {
     fn test_script() {
         FSRVM::single();
         let vs = vec![
-            "test_script/test_class.fs",
-            "test_script/test_expression.fs",
-            "test_script/test_nested_call.fs",
-            "test_script/test_error_handle.fs",
-            "test_script/test_closure.fs"
+            "test_script/test/test_class.fs",
+            "test_script/test/test_expression.fs",
+            "test_script/test/test_nested_call.fs",
+            "test_script/test/test_error_handle.fs",
+            "test_script/test/test_closure.fs"
         ];
         for i in vs {
             println!("Running script: {}", i);

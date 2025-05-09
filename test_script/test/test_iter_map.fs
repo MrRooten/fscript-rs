@@ -1,10 +1,8 @@
-a = (0..10).__iter__()
-
-new_a = a.map(|x| {
-    println("a.map: ", x)
+a = (0..10).__iter__().map(|x| {
+    println("ori: ", x)
     return x + 1
 })
 
-for i in new_a {
-    println(i)
+for i in a {
+    println("new:",i)
 }
