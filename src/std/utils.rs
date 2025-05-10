@@ -39,7 +39,7 @@ pub fn fsr_fn_assert<'a>(
 pub fn fsr_fn_export<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId,
+    code: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
     let name = match &FSRObject::id_to_obj(args[0]).value {
         FSRValue::String(cow) => cow,
@@ -50,11 +50,15 @@ pub fn fsr_fn_export<'a>(
 
     let obj = args[1];
 
-    let s = module;
-    let m = FSRObject::id_to_mut_obj(s)
-        .expect("not a module object")
-        .as_mut_code();
-    m.register_object(name.as_str(), obj);
+    let s = code;
+    let module = FSRObject::id_to_mut_obj(
+        FSRObject::id_to_obj(code)
+            .as_code()
+            .module,
+    )
+    .unwrap()
+    .as_mut_module();
+    module.register_object(name.as_str(), obj);
 
     Ok(FSRRetValue::GlobalId(0))
 }

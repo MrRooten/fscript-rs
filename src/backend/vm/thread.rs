@@ -294,7 +294,9 @@ impl<'a> SValue<'a> {
                 return Some(s);
             }
         }
-        let module = FSRObject::id_to_obj(state.code).as_code();
+        // let code = FSRObject::id_to_obj(state.code).as_code();
+        let module =
+            FSRObject::id_to_obj(FSRObject::id_to_obj(state.code).as_code().module).as_module();
         let vm = thread.get_vm();
         let v = match module.get_object(&var.1) {
             Some(s) => s.load(Ordering::Relaxed),
@@ -507,7 +509,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Some(s);
             }
         }
-        let module = FSRObject::id_to_obj(state.code).as_code();
+        // let module = FSRObject::id_to_obj(state.code).as_code();
+        let module =
+            FSRObject::id_to_obj(FSRObject::id_to_obj(state.code).as_code().module).as_module();
         let vm = thread.get_vm();
         let v = match module.get_object(&var.1) {
             Some(s) => s.load(Ordering::Relaxed),
@@ -985,7 +989,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(id) = state.get_var(&s.0) {
                     id.load(Ordering::Relaxed)
                 } else {
-                    let module = FSRObject::id_to_obj(state.code).as_code();
+                    let module = FSRObject::id_to_obj(
+                        FSRObject::id_to_obj(self.get_context().code)
+                            .as_code()
+                            .module,
+                    )
+                    .as_module();
                     let vm = self.get_vm();
                     let v = match module.get_object(&s.1) {
                         Some(s) => s.load(Ordering::Relaxed),
@@ -1607,7 +1616,11 @@ impl<'a> FSRThreadRuntime<'a> {
     fn chain_get_variable(var: &(u64, String, bool), thread: &Self, code: ObjId) -> Option<ObjId> {
         if let Some(value) = thread.get_cur_frame().get_var(&var.0) {
             Some(value.load(Ordering::Relaxed))
-        } else if let Some(value) = FSRObject::id_to_obj(code).as_code().get_object(&var.1) {
+        } else if let Some(value) =
+            FSRObject::id_to_obj(FSRObject::id_to_obj(code).as_code().module)
+                .as_module()
+                .get_object(&var.1)
+        {
             Some(value.load(Ordering::Relaxed))
         } else {
             thread.get_vm().get_global_obj_by_name(&var.1).copied()
@@ -1793,7 +1806,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline]
-    fn try_get_obj_by_name(&mut self, c_id: u64, name: &str, code: &FSRCode) -> Option<ObjId> {
+    fn try_get_obj_by_name(&mut self, c_id: u64, name: &str, module: &FSRModule) -> Option<ObjId> {
         {
             let state = self.get_cur_mut_frame();
             if let Some(id) = state.get_var(&c_id) {
@@ -1801,7 +1814,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        match code.get_object(name) {
+        match module.get_object(name) {
             Some(s) => Some(s.load(Ordering::Relaxed)),
             None => {
                 // Cache global object in call frame
@@ -1887,7 +1900,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn get_call_fn_id(
         &mut self,
         var: &Option<&(usize, u64, String, bool)>,
-        module: &FSRCode,
+        module: &FSRModule,
         object_id: &mut Option<ObjId>,
     ) -> Result<(ObjId, bool), FSRError> {
         let mut call_method = false;
@@ -1978,7 +1991,13 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
 
         let mut object_id: Option<ObjId> = None;
-        let module = FSRObject::id_to_obj(self.get_context().code).as_code();
+        // let module = FSRObject::id_to_obj(self.get_context().code).as_code();
+        let module = FSRObject::id_to_obj(
+            FSRObject::id_to_obj(self.get_context().code)
+                .as_code()
+                .module,
+        )
+        .as_module();
         let (fn_id, call_method) = self.get_call_fn_id(&var, module, &mut object_id)?;
 
         self.call_process_ret(fn_id, &mut args, &object_id, call_method)
@@ -2032,7 +2051,13 @@ impl<'a> FSRThreadRuntime<'a> {
         let test_val = match &v {
             SValue::Stack(s) => {
                 name = &s.1;
-                let module = FSRObject::id_to_obj(self.get_context().code).as_code();
+                // let module = FSRObject::id_to_obj(self.get_context().code).as_code();
+                let module = FSRObject::id_to_obj(
+                    FSRObject::id_to_obj(self.get_context().code)
+                        .as_code()
+                        .module,
+                )
+                .as_module();
                 self.try_get_obj_by_name(s.0, name, module)
             }
             SValue::Global(id) => Some(*id),
@@ -2348,10 +2373,19 @@ impl<'a> FSRThreadRuntime<'a> {
             state.insert_var(name.0, fn_id);
             let define_fn_obj = self.get_cur_frame().fn_obj;
             if define_fn_obj == FSRObject::none_id() {
-                FSRObject::id_to_mut_obj(self.get_context().code)
-                    .expect("not a code object")
-                    .as_mut_code()
-                    .register_object(&name.1, fn_id);
+                // FSRObject::id_to_mut_obj(self.get_context().code)
+                //     .expect("not a code object")
+                //     .as_mut_code()
+                //     .register_object(&name.1, fn_id);
+                // self.get_mut_module(self.get_context().code).register_object(&name.1, fn_id);
+                let module = FSRObject::id_to_mut_obj(
+                    FSRObject::id_to_obj(self.get_context().code)
+                        .as_code()
+                        .module,
+                )
+                .unwrap()
+                .as_mut_module();
+                module.register_object(&name.1, fn_id);
             }
             if name.2 {
                 let define_fn_obj = self.get_cur_frame().fn_obj;
@@ -2439,7 +2473,14 @@ impl<'a> FSRThreadRuntime<'a> {
                     if let Some(id) = state.get_var(&s.0) {
                         id.load(Ordering::Relaxed)
                     } else {
-                        let module = FSRObject::id_to_obj(state.code).as_code();
+                        //let code = FSRObject::id_to_obj(state.code).as_code();
+                        // let module = self.get_module(state.code);
+                        let module = FSRObject::id_to_obj(
+                            FSRObject::id_to_obj(self.get_context().code)
+                                .as_code()
+                                .module,
+                        )
+                        .as_module();
                         let vm = self.get_vm();
                         let v = match module.get_object(&s.1) {
                             Some(s) => s.load(Ordering::Relaxed),
@@ -2663,32 +2704,18 @@ impl<'a> FSRThreadRuntime<'a> {
             //self.rt_lock();
             let state = self.get_cur_mut_frame();
             state.insert_var(*v, obj_id);
-            FSRObject::id_to_mut_obj(context)
-                .expect("not a code object")
-                .as_mut_code()
-                .register_object(module_name.last().unwrap(), obj_id);
+            // FSRObject::id_to_mut_obj(context)
+            //     .expect("not a code object")
+            //     .as_mut_code()
+            //     .register_object(module_name.last().unwrap(), obj_id);
+            // Self::get_mut_module(context).register_object(module_name.last().unwrap(), obj_id);
+            let module = FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
+                .unwrap()
+                .as_mut_module();
+            module.register_object(module_name.last().unwrap(), obj_id);
             return Ok(false);
         }
         unimplemented!()
-    }
-
-    fn get_cur_module(&self) -> &FSRModule {
-        FSRObject::id_to_obj(
-            FSRObject::id_to_obj(self.get_context().code)
-                .as_code()
-                .module,
-        )
-        .as_module()
-    }
-
-    fn get_cur_mut_module(&mut self) -> &mut FSRModule {
-        FSRObject::id_to_mut_obj(
-            FSRObject::id_to_obj(self.get_context().code)
-                .as_code()
-                .module,
-        )
-        .unwrap()
-        .as_mut_module()
     }
 
     fn end_class_def(
@@ -2707,13 +2734,18 @@ impl<'a> FSRThreadRuntime<'a> {
             cls_obj.set_value(FSRValue::Class(obj));
             let obj_id = FSRVM::register_object(cls_obj);
             state.insert_var(id, obj_id);
-            // keep this order in case of will_remove is same as v
-            // self.garbage_collect.remove_root(will_remove);
-            // self.garbage_collect.add_root(obj_id);
-            FSRObject::id_to_mut_obj(self.get_context().code)
-                .expect("not a code object")
-                .as_mut_code()
-                .register_object(&name, obj_id);
+            // FSRObject::id_to_mut_obj(self.get_context().code)
+            //     .expect("not a code object")
+            //     .as_mut_code()
+            //     .register_object(&name, obj_id);
+            let module = FSRObject::id_to_mut_obj(
+                FSRObject::id_to_obj(self.get_context().code)
+                    .as_code()
+                    .module,
+            )
+            .unwrap()
+            .as_mut_module();
+            module.register_object(&name, obj_id);
             // self.garbage_collect.add_root(obj_id);
         } else {
             unimplemented!()

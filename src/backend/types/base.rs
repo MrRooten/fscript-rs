@@ -630,7 +630,7 @@ impl<'a> FSRObject<'a> {
             return Some(v);
         }
 
-        if let FSRValue::Code(m) = &self.value {
+        if let FSRValue::Module(m) = &self.value {
             return m.get_object(name);
         }
 

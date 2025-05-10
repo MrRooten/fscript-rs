@@ -104,12 +104,12 @@ impl<'a> FSRCode<'a> {
         format!("<Module `{}`>", self.name)
     }
 
-    pub fn register_object(&mut self, name: &'a str, obj_id: ObjId) {
-        self.object_map
-            .insert(name.to_string(), AtomicUsize::new(obj_id));
-    }
+    // pub fn register_object(&mut self, name: &'a str, obj_id: ObjId) {
+    //     self.object_map
+    //         .insert(name.to_string(), AtomicUsize::new(obj_id));
+    // }
 
-    pub fn get_object(&self, name: &str) -> Option<&AtomicObjId> {
-        self.object_map.get(name)
-    }
+    // pub fn get_object(&self, name: &str) -> Option<&AtomicObjId> {
+    //     self.object_map.get(name)
+    // }
 }
