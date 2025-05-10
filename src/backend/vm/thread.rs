@@ -2366,11 +2366,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 let offset = BinaryOffset::from_alias_name(name.1.as_str());
                 if let Some(offset) = offset {
                     cur_cls.insert_offset_attr_obj_id(offset, fn_id);
-                    self.get_cur_mut_context().ip = (self.get_context().ip.0 + *n as usize + 2, 0);
+                    self.get_cur_mut_context().ip = (self.get_context().ip.0 + 1, 0);
                     return Ok(true);
                 }
                 cur_cls.insert_attr_id(&name.1, fn_id);
-                self.get_cur_mut_context().ip = (self.get_context().ip.0 + *n as usize + 2, 0);
+                self.get_cur_mut_context().ip = (self.get_context().ip.0 + 1, 0);
                 return Ok(true);
             }
 
@@ -2409,7 +2409,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             let ip_0 = self.get_context().ip.0;
-            self.get_cur_mut_context().ip = (ip_0 + *n as usize + 2, 0);
+            self.get_cur_mut_context().ip = (ip_0 + 1, 0);
             return Ok(true);
         }
         Ok(false)

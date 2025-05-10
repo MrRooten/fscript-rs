@@ -1786,7 +1786,7 @@ impl<'a> Bytecode {
 
         let body = fn_def.get_body();
         bytecontext.cur_fn_name.push(name.to_string());
-        let name = bytecontext.cur_fn_name.join("::").to_string();
+        let cur_name = bytecontext.cur_fn_name.join("::").to_string();
         let v = Self::load_block(body, var_map, bytecontext);
         bytecontext.cur_fn_name.pop();
         var_map = v.1;
@@ -1836,7 +1836,7 @@ impl<'a> Bytecode {
         
         define_fn.push(BytecodeArg {
             operator: BytecodeOperator::DefineFn,
-            arg: ArgType::DefineFnArgs(fn_body.len() as u64 + 1, arg_len, name.clone()),
+            arg: ArgType::DefineFnArgs(fn_body.len() as u64 + 1, arg_len, cur_name.to_string()),
             info: FSRByteInfo::new(fn_def.get_meta().clone()),
         });
 
@@ -1844,7 +1844,7 @@ impl<'a> Bytecode {
 
         bytecontext
             .fn_def_map
-            .insert(name.clone(), fn_body.clone());
+            .insert(cur_name, fn_body.clone());
 
         result.push(define_fn);
         // result.push(load_args);

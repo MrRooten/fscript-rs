@@ -20,4 +20,5 @@ class Abc {
 
 
 a = Abc()
-println(a.__str__()) # will prin 'return string'
+
+dump(a.abc)
