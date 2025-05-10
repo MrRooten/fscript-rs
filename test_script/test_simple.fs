@@ -1,48 +1,23 @@
-c = "abc" + "def"
-println(c)
-fn abc() {
-    return 'abc'.len()
+class Ddc {
+    fn __new__(self) {
+        self.ddc = 123 + 1
+        return self
+    }
 }
-
-a = ((1 + 3 + 1 ) * 3 + 4 + abc()) * 4
-assert(a == 88)
 
 class Abc {
     fn __new__(self) {
-        self.abc = 123
+        self.abc = Ddc()
         return self
     }
 
-    fn abcd(self) {
-        return 'abc'.len()
+    fn __str__(self) {
+        return 'return string'
     }
+
 }
 
 
-abc = Abc()
 
-c = abc.abc + abc.abc
-
-println(c)
-assert(abc.abc == 123)
-true = 1 == 1
-
-assert(true)
-
-false = 1 != 1
-
-assert(!false)
-
-a = -1 * 10
-assert(a == -10)
-
-b = 10 + -1 * 10
-assert(b == 0)
-
-assert(true and not false)
-
-assert(true or false)
-
-assert(not (true and false))
-
-assert(true or false and false, "test: true or false and false")
+a = Abc()
+println(a.__str__()) # will prin 'return string'

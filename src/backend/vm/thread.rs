@@ -2333,7 +2333,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Reference(_) => todo!(),
         };
 
-        if let ArgType::DefineFnArgs(n, arg_len) = bytecode.get_arg() {
+        if let ArgType::DefineFnArgs(n, arg_len, fn_identify_name) = bytecode.get_arg() {
             let mut args = vec![];
             for _ in 0..*arg_len {
                 let v = match self.get_cur_mut_frame().exp.pop().unwrap() {
@@ -2344,12 +2344,16 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             //println!("define_fn: {}", FSRObject::id_to_obj(context.module.unwrap()).as_module().as_string());
+            let module_id = FSRObject::id_to_obj(self.get_context().code).as_code().module;
+            let module = FSRObject::id_to_obj(module_id).as_module();
+            let fn_code = module.get_fn(&fn_identify_name).unwrap();
+            let fn_code_id = FSRObject::obj_to_id(fn_code);
             let fn_obj = FSRFn::from_fsr_fn(
                 &name.1,
-                (self.get_context().ip.0 + 1, 0),
+                (0, 0),
                 args,
                 bc,
-                self.get_context().code,
+                fn_code_id,
                 self.get_cur_frame().fn_obj,
             );
 
