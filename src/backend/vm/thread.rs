@@ -3288,10 +3288,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 break;
             }
 
-            // if v {
-            //     break;
-            // }
-
             code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
 
