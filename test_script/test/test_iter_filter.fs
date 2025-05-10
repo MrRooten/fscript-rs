@@ -1,10 +1,6 @@
 
-for i in (0..10).__iter__().filter(|x| {
-    if x % 2 == 0 {
-        return true
-    }
-
-    return false
+for i in (0..30).filter(|x| {
+    return x % 2 == 0
 }) {
     println("new:",i)
 }

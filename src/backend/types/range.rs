@@ -9,11 +9,7 @@ use crate::{
 };
 
 use super::{
-    base::{AtomicObjId, FSRGlobalObjId, FSRRetValue, FSRValue, ObjId},
-    class::FSRClass,
-    class_inst::FSRClassInst,
-    fn_def::FSRFn,
-    iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences},
+    base::{AtomicObjId, FSRGlobalObjId, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, ext::{filter_iter::FSRFilterIter, map_iter::FSRMapIter}, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}
 };
 
 #[derive(Debug, Clone)]
@@ -95,11 +91,61 @@ fn next_obj<'a>(
     unimplemented!()
 }
 
+fn filter<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let iterator = iter_obj(args, thread, module)?.get_id();
+    let filter_iterator = FSRFilterIter {
+        filter: args[1],
+        prev_iterator: iterator,
+        module,
+    };
+    let filter_iterator_id = thread.garbage_collect.new_object(
+        FSRValue::Iterator(Box::new(FSRInnerIterator {
+            obj: iterator,
+            iterator: Some(Box::new(filter_iterator)),
+        })),
+        FSRGlobalObjId::InnerIterator as ObjId,
+    );
+
+
+    Ok(FSRRetValue::GlobalId(filter_iterator_id))
+}
+
+fn map<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    let iterator = iter_obj(args, thread, module)?.get_id();
+    let map_iterator = FSRMapIter {
+        callback: args[1],
+        prev_iterator: iterator,
+        module,
+    };
+    let map_iterator_id = thread.garbage_collect.new_object(
+        FSRValue::Iterator(Box::new(FSRInnerIterator {
+            obj: iterator,
+            iterator: Some(Box::new(map_iterator)),
+        })),
+        FSRGlobalObjId::InnerIterator as ObjId,
+    );
+
+
+    Ok(FSRRetValue::GlobalId(map_iterator_id))
+}
+
 impl FSRRange {
     pub fn get_class() -> FSRClass<'static> {
         let mut r = FSRClass::new("Range");
         let iter = FSRFn::from_rust_fn_static(iter_obj, "range_iter");
         r.insert_attr("__iter__", iter);
+        let filter = FSRFn::from_rust_fn_static(filter, "range_filter");
+        r.insert_attr("filter", filter);
+        let map = FSRFn::from_rust_fn_static(map, "range_map");
+        r.insert_attr("map", map);
         r
     }
 

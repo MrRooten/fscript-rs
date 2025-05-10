@@ -1,8 +1,7 @@
-a = (0..10).__iter__().map(|x| {
-    println("ori: ", x)
-    return x + 1
-})
-
-for i in a {
+for i in (0..30).map(|x| {
+    return x * 2
+}).filter(|x| {
+    return x % 3 == 0
+}) {
     println("new:",i)
 }

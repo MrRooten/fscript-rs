@@ -2428,35 +2428,40 @@ impl<'a> FSRThreadRuntime<'a> {
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let v = match self.get_cur_mut_frame().exp.pop().unwrap() {
-            SValue::Stack(s) => {
-                let state = self.get_cur_frame();
-                if let Some(id) = state.get_var(&s.0) {
-                    id.load(Ordering::Relaxed)
-                } else {
-                    let module = FSRObject::id_to_obj(state.code).as_code();
-                    let vm = self.get_vm();
-                    let v = match module.get_object(&s.1) {
-                        Some(s) => s.load(Ordering::Relaxed),
-                        None => *vm.get_global_obj_by_name(&s.1).ok_or_else(|| {
-                            FSRError::new(
-                                format!("not found object in test: {}", s.1),
-                                FSRErrCode::NoSuchObject,
-                            )
-                        })?,
-                    };
-                    v
+        let v = if self.get_cur_mut_frame().exp.is_empty() {
+            FSRObject::none_id()
+        } else {
+            match self.get_cur_mut_frame().exp.pop().unwrap() {
+                SValue::Stack(s) => {
+                    let state = self.get_cur_frame();
+                    if let Some(id) = state.get_var(&s.0) {
+                        id.load(Ordering::Relaxed)
+                    } else {
+                        let module = FSRObject::id_to_obj(state.code).as_code();
+                        let vm = self.get_vm();
+                        let v = match module.get_object(&s.1) {
+                            Some(s) => s.load(Ordering::Relaxed),
+                            None => *vm.get_global_obj_by_name(&s.1).ok_or_else(|| {
+                                FSRError::new(
+                                    format!("not found object in test: {}", s.1),
+                                    FSRErrCode::NoSuchObject,
+                                )
+                            })?,
+                        };
+                        v
+                    }
                 }
+                SValue::Global(id) => id,
+                SValue::Attr(args) => {
+                    let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
+                    self.thread_allocator.free_box_attr(args);
+                    id
+                }
+                // SValue::BoxObject(obj) => FSRVM::leak_object(obj),
+                SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
             }
-            SValue::Global(id) => id,
-            SValue::Attr(args) => {
-                let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
-                self.thread_allocator.free_box_attr(args);
-                id
-            }
-            // SValue::BoxObject(obj) => FSRVM::leak_object(obj),
-            SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
         };
+        
         self.get_cur_mut_frame().middle_value.push(v);
         self.pop_stack();
         let cur = self.get_cur_mut_frame();

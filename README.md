@@ -123,6 +123,18 @@ count: 79
 
 ---
 
+### Chain iterator
+
+```rust
+for i in (0..30).map(|x| {
+    return x * 2
+}).filter(|x| {
+    return x % 3 == 0
+}) {
+    println("new:",i)
+}
+```
+
 ### 📦 Module Import
 
 > Modules are located in the `modules/` directory.
