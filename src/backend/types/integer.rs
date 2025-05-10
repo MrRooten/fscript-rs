@@ -126,7 +126,7 @@ fn div<'a>(
     unimplemented!()
 }
 
-fn reminder<'a>(
+pub fn reminder<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
@@ -138,11 +138,11 @@ fn reminder<'a>(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let v = thread
-                .garbage_collect
-                .new_object(FSRValue::Integer(self_int % other_int), self_object.cls);
-
-            return Ok(FSRRetValue::GlobalId(v));
+            let obj = thread.garbage_collect.new_object_in_place();
+            obj.value = FSRValue::Integer(self_int % other_int);
+            obj.cls = self_object.cls;
+            return Ok(FSRRetValue::GlobalId(FSRObject::obj_to_id(obj)));
+            //return Ok(FSRRetValue::GlobalId(v));
         }
     }
 

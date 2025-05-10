@@ -1317,6 +1317,26 @@ impl<'a> FSRThreadRuntime<'a> {
         let right_id = right_value.get_global_id(self).unwrap();
         let left_id = left_value.get_global_id(self).unwrap();
 
+        let left_cls = obj_cls!(left_id);
+        let right_cls = obj_cls!(right_id);
+        if let Some(op_quick) = self.op_quick.get_reminder(left_cls, right_cls) {
+            let res = op_quick(&[left_id, right_id], self, self.get_context().code)?;
+            left_value.drop_box(&mut self.thread_allocator);
+            right_value.drop_box(&mut self.thread_allocator);
+            self.get_cur_mut_frame().middle_value.push(right_id);
+            self.get_cur_mut_frame().middle_value.push(left_id);
+            match res {
+                FSRRetValue::GlobalId(res_id) => {
+                    self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
+                }
+                FSRRetValue::Reference(_) => {
+                    panic!("not support reference return, in reminder process")
+                }
+            };
+
+            return Ok(false);
+        }
+
         let res = FSRObject::invoke_binary_method(
             BinaryOffset::Reminder,
             left_id,
@@ -2359,21 +2379,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn end_define_fn(
-        self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
-    ) -> Result<bool, FSRError> {
-        self.pop_stack();
-        let cur = self.get_cur_mut_frame();
-        let ip_0 = cur.reverse_ip.0;
-        let ip_1 = cur.reverse_ip.1;
-        let code = cur.code;
-        self.get_cur_mut_context().ip = (ip_0, ip_1 + 1);
-        self.get_cur_mut_context().code = code;
-        self.get_cur_mut_context().call_end -= 1;
-        Ok(true)
-    }
+    
 
     #[inline(always)]
     fn compare_test(
@@ -2473,6 +2479,23 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_context().code = code;
         self.get_cur_mut_context().call_end -= 1;
         // self.garbage_collect.add_root(v);
+        Ok(true)
+    }
+
+    fn end_define_fn(
+        self: &mut FSRThreadRuntime<'a>,
+        _bytecode: &BytecodeArg,
+        _: &'a Bytecode,
+    ) -> Result<bool, FSRError> {
+        self.pop_stack();
+        let cur = self.get_cur_mut_frame();
+        let ip_0 = cur.reverse_ip.0;
+        let ip_1 = cur.reverse_ip.1;
+        let code = cur.code;
+        cur.ret_val = Some(FSRObject::none_id());
+        self.get_cur_mut_context().ip = (ip_0, ip_1 + 1);
+        self.get_cur_mut_context().code = code;
+        self.get_cur_mut_context().call_end -= 1;
         Ok(true)
     }
 
@@ -2976,6 +2999,9 @@ impl<'a> FSRThreadRuntime<'a> {
                     panic!("not found function object");
                 }
                 self.get_cur_mut_frame().exp.push(SValue::Global(fn_id));
+            }
+            ArgType::GlobalId(id) => {
+                self.get_cur_mut_frame().exp.push(SValue::Global(*id));
             }
             _ => {
                 println!("{:?}", self.get_cur_mut_frame().exp);

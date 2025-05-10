@@ -14,7 +14,6 @@ A toy scripting language that runs on bytecode. It’s currently minimalistic an
 | Async support             | ❌      |
 | Module import             | ✅      |
 | Type hint system          | ❌      |
-| Turing completeness       | ❌      |
 | Better AST error messages | ❌      |
 | JIT compiler              | ❌      |
 | Closure support           | ✅      |

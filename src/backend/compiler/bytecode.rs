@@ -223,6 +223,7 @@ pub enum ArgType {
     StoreFastVar(u64, String),
     Import(Vec<String>),
     TryCatch(u64, u64), // first u64 for catch start, second for catch end + 1
+    GlobalId(ObjId), // only for global id, like key object
     None,
 }
 
@@ -389,17 +390,23 @@ pub struct BytecodeContext {
     pub(crate) fn_def_map: HashMap<String, Vec<Vec<BytecodeArg>>>,
     pub(crate) ref_map_stack: Vec<HashMap<String, bool>>,
     pub(crate) cur_fn_name: Vec<String>,
+    pub(crate) key_map: HashMap<&'static str, ObjId>,
 }
 
 #[allow(clippy::new_without_default)]
 impl BytecodeContext {
     pub fn new() -> Self {
+        let mut v = HashMap::new();
+        v.insert("true", FSRObject::true_id());
+        v.insert("false", FSRObject::false_id());
+        v.insert("none", FSRObject::none_id());
         Self {
             const_map: HashMap::new(),
             table: vec![0],
             fn_def_map: HashMap::new(),
             ref_map_stack: vec![],
             cur_fn_name: vec![],
+            key_map: v,
         }
     }
 
@@ -736,6 +743,40 @@ impl<'a> Bytecode {
             let v = var.get_name();
             var_map.last_mut().unwrap().insert_attr(v);
         }
+
+        if context.key_map.contains_key(var.get_name()) {
+            let obj = *context.key_map.get(var.get_name()).unwrap();
+            let op_arg = BytecodeArg {
+                operator: BytecodeOperator::Load,
+                arg: ArgType::GlobalId(obj),
+                info: FSRByteInfo::new(var.get_meta().clone()),
+            };
+
+            let mut ans = vec![op_arg];
+            if let Some(single_op) = var.single_op {
+                match single_op {
+                    "!" => {
+                        ans.push(BytecodeArg {
+                            operator: BytecodeOperator::NotOperator,
+                            arg: ArgType::None,
+                            info: FSRByteInfo::new(var.get_meta().clone()),
+                        });
+                    }
+                    "not" => {
+                        ans.push(BytecodeArg {
+                            operator: BytecodeOperator::NotOperator,
+                            arg: ArgType::None,
+                            info: FSRByteInfo::new(var.get_meta().clone()),
+                        });
+                    }
+                    _ => {
+                        panic!("not support single op {}", single_op);
+                    }
+                }
+            }
+
+            return (ans, var_map);
+        } 
 
         if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined {
             // if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined{

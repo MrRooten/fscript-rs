@@ -27,7 +27,7 @@ impl FSRIterator for FSRFilterIter {
 
         let filter = FSRObject::id_to_obj(self.filter);
         let mut filter_ret = filter.call(&[ret], thread, self.module, self.filter).unwrap().get_id();
-        while filter_ret == FSRObject::false_id() {
+        while filter_ret != FSRObject::true_id() {
             ret = next_method.call(&[self.prev_iterator], thread, self.module, next_method_id).unwrap().get_id();
             if ret == FSRObject::none_id() {
                 return Ok(None);
