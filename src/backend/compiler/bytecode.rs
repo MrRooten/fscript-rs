@@ -1841,7 +1841,11 @@ impl<'a> Bytecode {
         });
 
         fn_body.insert(0, load_args);
-
+        fn_body.push(vec![BytecodeArg {
+                operator: BytecodeOperator::EndDefineFn,
+                arg: ArgType::None,
+                info: FSRByteInfo::new(fn_def.get_meta().clone()),
+            }]);
         bytecontext
             .fn_def_map
             .insert(cur_name, fn_body.clone());
@@ -2267,29 +2271,12 @@ a[0] = 1
     #[test]
     fn test_simple() {
         let expr = "
-        class Ddc {
-            fn __new__(self) {
-                self.ddc = 123 + 1
-                return self
-            }
+        a = || {
+            println(\"abc\")
+            assert(true)
         }
 
-        class Abc {
-            fn __new__(self) {
-                self.abc = Ddc()
-                return self
-            }
-
-            fn __str__(self) {
-                return 'return string'
-            }
-
-        }
-
-
-
-        a = Abc()
-        println(a.__str__()) # will prin 'return string'
+        a()
         ";
 
         let meta = FSRPosition::new();
