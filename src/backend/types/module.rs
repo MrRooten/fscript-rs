@@ -27,15 +27,19 @@ impl<'a> FSRModule<'a> {
         format!("Module: {}", self.name)
     }
 
-    pub fn new_module(name: &str, fn_map: HashMap<String, FSRObject<'a>>) -> FSRObject<'a> {
+    pub fn new_module(name: &str) -> FSRObject<'a> {
         let module = FSRModule {
             name: name.to_string(),
-            fn_map,
+            fn_map: HashMap::new(),
         };
         let mut object = FSRObject::new();
         object.value = FSRValue::Module(Box::new(module));
         object.cls = FSRGlobalObjId::CodeCls as ObjId;
         object
+    }
+
+    pub fn init_fn_map(&mut self, fn_map: HashMap<String, FSRObject<'a>>) {
+        self.fn_map = fn_map;
     }
 
     pub fn get_class() -> FSRClass<'static> {

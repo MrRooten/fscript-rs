@@ -1,11 +1,7 @@
 #[cfg(test)]
 pub mod tests {
 
-    use std::{
-        borrow::Cow,
-        io::Read,
-        time::Instant,
-    };
+    use std::{borrow::Cow, io::Read, time::Instant};
 
     use crate::{
         backend::{
@@ -179,13 +175,14 @@ pub mod tests {
         assert(i == 10)
         
         ";
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
-
 
     #[test]
     fn test_new_object() {
@@ -210,7 +207,7 @@ pub mod tests {
             "test_script/test/test_expression.fs",
             "test_script/test/test_nested_call.fs",
             "test_script/test/test_error_handle.fs",
-            "test_script/test/test_closure.fs"
+            "test_script/test/test_closure.fs",
         ];
         for i in vs {
             println!("Running script: {}", i);
@@ -218,9 +215,11 @@ pub mod tests {
             let mut f = std::fs::File::open(file).unwrap();
             let mut source_code = String::new();
             f.read_to_string(&mut source_code).unwrap();
-            let v = FSRCode::from_code("main", &source_code).unwrap();
-            let obj = Box::new(FSRModule::new_module("main", v));
+            let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
             let obj_id = FSRVM::leak_object(obj);
+            let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
+            let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+            obj.as_mut_module().init_fn_map(v);
             let mut runtime = FSRThreadRuntime::new();
 
             let start = Instant::now();
@@ -273,9 +272,12 @@ pub mod tests {
 
         abc()
         "#;
-        let v = FSRCode::from_code("main", module1).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
+        //let obj_id = FSRVM::leak_object(obj);
         let mut runtime = FSRThreadRuntime::new();
         //runtime.start(&v, &mut vm).unwrap();
 
@@ -289,12 +291,13 @@ pub mod tests {
         b = 10 + -1 * 10
         println(b)
         "#;
-        
-        let v = FSRCode::from_code("main", module1).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
-        let obj_id = FSRVM::leak_object(obj);
-        let mut runtime = FSRThreadRuntime::new();
 
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
+        let mut runtime = FSRThreadRuntime::new();
 
         //runtime.start(&v, &mut vm).unwrap();
 
@@ -307,12 +310,14 @@ pub mod tests {
         let module1 = r#"
         a = true or false
         "#;
-        
-        let v = FSRCode::from_code("main", module1).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
-        let obj_id = FSRVM::leak_object(obj);
-        let mut runtime = FSRThreadRuntime::new();
 
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
+
+        let mut runtime = FSRThreadRuntime::new();
 
         //runtime.start(&v, &mut vm).unwrap();
 
@@ -349,6 +354,6 @@ pub mod tests {
     //     println!("sleep 2 seconds");
     //     vm.continue_all_threads();
     //     th.join().unwrap();
-        
+
     // }
 }

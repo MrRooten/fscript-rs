@@ -344,17 +344,15 @@ pub struct FSCodeContext {
     // exp: Vec<SValue<'a>>,
     ip: (usize, usize),
     pub(crate) code: ObjId,
-    pub(crate) module: ObjId,
 }
 
 impl FSCodeContext {
-    pub fn new_context(code: ObjId, module: ObjId) -> Self {
+    pub fn new_context(code: ObjId) -> Self {
         FSCodeContext {
             // exp: Vec::with_capacity(8),
             ip: (0, 0),
             code,
             call_end: 1,
-            module,
         }
     }
 
@@ -2326,7 +2324,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 args,
                 bc,
                 self.get_context().code,
-                self.get_context().module,
                 self.get_cur_frame().fn_obj,
             );
 
@@ -2656,12 +2653,14 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         if let ArgType::ImportModule(v, module_name) = bc.get_arg() {
             let code = Self::read_code_from_module(module_name)?;
-
-            let module = FSRCode::from_code(&module_name.join("."), &code)?;
-            let module = FSRModule::new_module(&module_name.join("."), module);
-            let module_obj = FSRVM::leak_object(Box::new(module));
+            let mut module = FSRModule::new_module(&module_name.join("."));
+            let module_id = FSRVM::leak_object(Box::new(module));
+            let fn_map = FSRCode::from_code(&module_name.join("."), &code, module_id)?;
+            let module = FSRObject::id_to_mut_obj(module_id).unwrap();
+            module.as_mut_module().init_fn_map(fn_map);
+            
             //self.rt_unlock();
-            let obj_id = { self.load(module_obj)? };
+            let obj_id = { self.load(module_id)? };
             //self.rt_lock();
             let state = self.get_cur_mut_frame();
             state.insert_var(*v, obj_id);
@@ -3210,7 +3209,6 @@ impl<'a> FSRThreadRuntime<'a> {
             ip: (0, 0),
             code: code_id,
             call_end: 1,
-            module: 0,
         });
 
         self.push_context(context);
@@ -3240,7 +3238,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .get_fn("__main__")
                 .unwrap(),
         );
-        let context = self.thread_allocator.new_code_context(code_id, module);
+        let context = self.thread_allocator.new_code_context(code_id);
         self.push_context(context);
         let mut main_code = None;
         for code in FSRObject::id_to_obj(module).as_module().iter_fn() {
@@ -3280,12 +3278,10 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_def: &'a FSRFnInner,
         args: &[ObjId],
         code: ObjId,
-        module: ObjId,
     ) -> Result<ObjId, FSRError> {
-        let mut context = self.thread_allocator.new_code_context(code, module);
+        let mut context = self.thread_allocator.new_code_context(code);
         context.ip = fn_def.get_ip();
         context.code = code;
-        context.module = module;
 
         self.push_context(context);
         //self.rt_lock();
@@ -3365,9 +3361,11 @@ mod test {
 
         export('abc', abc)
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();
@@ -3384,9 +3382,13 @@ mod test {
         b = 1.2
         dump(i + b)
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
+        
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();
@@ -3459,9 +3461,11 @@ mod test {
         c = b[0][0]
         println(c)
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();
@@ -3488,9 +3492,11 @@ mod test {
 
         println('ok')
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();
@@ -3512,9 +3518,11 @@ mod test {
 
         println('ok')
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();
@@ -3540,9 +3548,11 @@ mod test {
 
         println('ok')
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();
@@ -3572,44 +3582,17 @@ mod test {
 
         println('ok')
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();
         runtime.start(obj_id).unwrap();
     }
 
-    // #[test]
-    // fn test_try() {
-    //     let code = "try { a = 1 + 1 }";
-    // }
-
-    #[test]
-    fn test_range() {
-        let range = r#"
-        for i in 0..4 {
-            println(i)
-        }
-
-        assert(i == 3)
-        "#;
-        let v = FSRCode::from_code("main", range).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
-        let obj_id = FSRVM::leak_object(obj);
-        // let v = v.remove("__main__").unwrap();
-        // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut runtime = FSRThreadRuntime::new();
-        runtime.start(obj_id).unwrap();
-    }
-
-    // #[test]
-    // fn size_of_object() {
-    //     println!("size of object: {}", std::mem::size_of::<FSRObject>());
-    //     println!("size of svalue: {}", std::mem::size_of::<super::SValue>());
-    //     println!("size of fvalue: {}", std::mem::size_of::<super::FSRValue>());
-    // }
 
     #[test]
     fn test_lambda() {
@@ -3621,9 +3604,11 @@ mod test {
 
         a()
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();
@@ -3642,9 +3627,11 @@ mod test {
         gc_collect()
         gc_info()
         "#;
-        let v = FSRCode::from_code("main", source_code).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new();

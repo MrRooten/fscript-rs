@@ -28,7 +28,6 @@ pub struct FSRFnInner<'a> {
     name: Cow<'a, str>,
     fn_ip: (usize, usize),
     bytecode: &'a Bytecode,
-    module: ObjId,
 }
 
 impl FSRFnInner<'_> {
@@ -137,14 +136,12 @@ impl<'a> FSRFn<'a> {
         _: Vec<String>,
         bytecode: &'a Bytecode,
         code_obj: ObjId,
-        module_obj: ObjId,
         fn_id: ObjId, // Which father fn define this son fn
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
             fn_ip: u,
             bytecode,
-            module: module_obj,
         };
 
         let c = if fn_id != 0 {
@@ -207,7 +204,7 @@ impl<'a> FSRFn<'a> {
                 .new_frame(code, fn_id);
             thread.push_frame(frame);
             //thread.rt_unlock();
-            let v = FSRThreadRuntime::call_fn(thread, f, args, self.code, f.module)?;
+            let v = FSRThreadRuntime::call_fn(thread, f, args, self.code)?;
             //thread.rt_lock();
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -231,7 +228,7 @@ impl<'a> FSRFn<'a> {
                 .frame_free_list
                 .new_frame(code, fn_id);
             thread.push_frame(frame);
-            let v = FSRThreadRuntime::call_fn(thread, f, &[left, right], self.code, f.module)?;
+            let v = FSRThreadRuntime::call_fn(thread, f, &[left, right], self.code)?;
             return Ok(FSRRetValue::GlobalId(v));
         }
         unimplemented!()

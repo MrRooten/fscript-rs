@@ -3,7 +3,7 @@ use std::time::Instant;
 use std::io::Read;
 
 use fscript_rs::backend::{
-    types::{code::FSRCode, module::FSRModule},
+    types::{base::FSRObject, code::FSRCode, module::FSRModule},
     vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
 };
 mod test {
@@ -13,7 +13,7 @@ mod test {
     };
 
     use fscript_rs::backend::{
-        types::{code::FSRCode, module::FSRModule},
+        types::{base::FSRObject, code::FSRCode, module::FSRModule},
         vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
     };
 
@@ -36,9 +36,11 @@ mod test {
         th.join()
         println("hello world")
         "#;
-        let v = FSRCode::from_code("main", module1).unwrap();
-        let obj = Box::new(FSRModule::new_module("main", v));
+        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
         let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
         let vm = FSRVM::single();
         let vm2 = vm.clone();
         let runtime = FSRThreadRuntime::new();
@@ -101,10 +103,12 @@ fn main() {
         let binding = vm2.clone();
         let thread = binding.get_thread(tid).unwrap();
 
-        let v = FSRCode::from_code("main", &source_code).unwrap();
-        let module = Box::new(FSRModule::new_module("main", v));
-        let module_id = FSRVM::leak_object(module);
-        thread.start(module_id).unwrap();
+        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
+        thread.start(obj_id).unwrap();
     });
     let _ = th.join();
 

@@ -343,6 +343,13 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    pub fn as_mut_module(&mut self) -> &mut FSRModule<'a> {
+        match &mut self.value {
+            FSRValue::Module(fsrmodule) => fsrmodule,
+            _ => unimplemented!(),
+        }
+    }
+
     #[inline(always)]
     pub fn is_code(&self) -> bool {
         // matches!(&self.value, FSRValue::Code(_fsrmodule))

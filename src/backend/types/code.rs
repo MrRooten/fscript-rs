@@ -1,5 +1,11 @@
 use std::{
-    borrow::Cow, cell::RefCell, collections::HashMap, fs, path::Path, ptr::addr_of, sync::{atomic::AtomicUsize, Mutex}
+    borrow::Cow,
+    cell::RefCell,
+    collections::HashMap,
+    fs,
+    path::Path,
+    ptr::addr_of,
+    sync::{atomic::AtomicUsize, Mutex},
 };
 
 use ahash::AHashMap;
@@ -16,13 +22,13 @@ use super::{
     class::FSRClass,
 };
 
-
 pub struct FSRCode<'a> {
     name: Cow<'a, str>,
     #[allow(unused)]
     bytecode: Bytecode,
     object_map: AHashMap<String, AtomicObjId>,
     const_table: Vec<Option<ObjId>>,
+    module: ObjId,
 }
 
 impl Debug for FSRCode<'_> {
@@ -49,7 +55,7 @@ impl<'a> FSRCode<'a> {
         unimplemented!()
     }
 
-    pub fn from_code(name: &str, code: &str) -> Result<HashMap<String, FSRObject<'a>>, FSRError> {
+    pub fn from_code(name: &str, code: &str, module: ObjId) -> Result<HashMap<String, FSRObject<'a>>, FSRError> {
         let bytecode = Bytecode::compile(name, code);
         let mut res = HashMap::new();
         for code in bytecode {
@@ -58,6 +64,7 @@ impl<'a> FSRCode<'a> {
                 bytecode: code.1,
                 object_map: AHashMap::new(),
                 const_table: vec![],
+                module,
             };
 
             let mut object = FSRObject::new();
