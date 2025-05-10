@@ -1,11 +1,14 @@
-use std::{collections::HashMap, fmt::Debug, ptr::addr_of};
+use std::{collections::HashMap, fmt::Debug, ptr::addr_of, sync::atomic::AtomicUsize};
 
-use super::{base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass};
+use ahash::AHashMap;
+
+use super::{base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
 
 pub struct FSRModule<'a> {
     name: String,
     fn_map: HashMap<String, FSRObject<'a>>,
+    object_map: AHashMap<String, AtomicObjId>,
 }
 
 impl Debug for FSRModule<'_> {
@@ -31,6 +34,7 @@ impl<'a> FSRModule<'a> {
         let module = FSRModule {
             name: name.to_string(),
             fn_map: HashMap::new(),
+            object_map: AHashMap::new(),
         };
         let mut object = FSRObject::new();
         object.value = FSRValue::Module(Box::new(module));
@@ -52,5 +56,14 @@ impl<'a> FSRModule<'a> {
 
     pub fn iter_fn(&self) -> impl Iterator<Item = (&String, &FSRObject<'a>)> {
         self.fn_map.iter()
+    }
+
+    pub fn register_object(&mut self, name: &'a str, obj_id: ObjId) {
+        self.object_map
+            .insert(name.to_string(), AtomicObjId::new(obj_id));
+    }
+
+    pub fn get_object(&self, name: &str) -> Option<&AtomicObjId> {
+        self.object_map.get(name)
     }
 }

@@ -24,11 +24,10 @@ use super::{
 
 pub struct FSRCode<'a> {
     name: Cow<'a, str>,
-    #[allow(unused)]
     bytecode: Bytecode,
     object_map: AHashMap<String, AtomicObjId>,
     const_table: Vec<Option<ObjId>>,
-    module: ObjId,
+    pub(crate) module: ObjId,
 }
 
 impl Debug for FSRCode<'_> {
