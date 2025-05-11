@@ -26,7 +26,7 @@ pub struct FSRCode<'a> {
     name: Cow<'a, str>,
     bytecode: Bytecode,
     object_map: AHashMap<String, AtomicObjId>,
-    const_table: Vec<Option<ObjId>>,
+    //const_table: Vec<Option<ObjId>>,
     pub(crate) module: ObjId,
 }
 
@@ -62,7 +62,7 @@ impl<'a> FSRCode<'a> {
                 name: Cow::Owned(code.0),
                 bytecode: code.1,
                 object_map: AHashMap::new(),
-                const_table: vec![],
+                //const_table: vec![],
                 module,
             };
 
@@ -76,20 +76,7 @@ impl<'a> FSRCode<'a> {
         Ok(res)
     }
 
-    pub fn insert_const(&mut self, const_index: usize, obj: ObjId) {
-        if const_index >= self.const_table.len() {
-            self.const_table.resize(const_index + 1, None);
-        }
-        self.const_table[const_index] = Some(obj);
-    }
-
-    pub fn get_const(&self, const_index: usize) -> Option<ObjId> {
-        if const_index < self.const_table.len() {
-            self.const_table[const_index]
-        } else {
-            None
-        }
-    }
+    
 
     #[inline(always)]
     pub fn get_expr(&self, ip_1: usize) -> Option<&Vec<BytecodeArg>> {

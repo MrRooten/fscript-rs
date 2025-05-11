@@ -2344,7 +2344,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             //println!("define_fn: {}", FSRObject::id_to_obj(context.module.unwrap()).as_module().as_string());
-            let module_id = FSRObject::id_to_obj(self.get_context().code).as_code().module;
+            let module_id = FSRObject::id_to_obj(self.get_context().code)
+                .as_code()
+                .module;
             let module = FSRObject::id_to_obj(module_id).as_module();
             let fn_code = module.get_fn(&fn_identify_name).unwrap();
             let fn_code_id = FSRObject::obj_to_id(fn_code);
@@ -2965,9 +2967,10 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn load_const(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
-        let code = FSRObject::id_to_mut_obj(self.get_context().code)
-            .unwrap()
-            .as_mut_code();
+        let code = FSRObject::id_to_obj(self.get_context().code)
+            .as_code()
+            .module;
+        let module = FSRObject::id_to_mut_obj(code).unwrap().as_mut_module();
         match arg.get_arg() {
             ArgType::ConstInteger(index, obj, single_op) => {
                 let i = obj.parse::<i64>().unwrap();
@@ -2984,7 +2987,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     ptr
                 };
 
-                code.insert_const(*index as usize, ptr);
+                module.insert_const(*index as usize, ptr);
             }
             ArgType::ConstFloat(index, obj, single_op) => {
                 let i = obj.parse::<f64>().unwrap();
@@ -3001,7 +3004,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     ptr
                 };
 
-                code.insert_const(*index as usize, ptr);
+                module.insert_const(*index as usize, ptr);
             }
             ArgType::ConstString(index, s) => {
                 let obj = FSRString::new_value(s);
@@ -3009,7 +3012,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 let obj = FSRObject::new_inst(obj, FSRGlobalObjId::StringCls as ObjId);
                 let ptr = FSRVM::leak_object(Box::new(obj));
 
-                code.insert_const(*index as usize, ptr);
+                module.insert_const(*index as usize, ptr);
             }
             _ => unimplemented!(),
         }
@@ -3025,8 +3028,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().exp.push(SValue::Stack(var));
             }
             ArgType::Const(index) => {
-                let code = FSRObject::id_to_obj(self.get_context().code).as_code();
-                let obj = code.get_const(*index as usize).unwrap();
+                let code = FSRObject::id_to_obj(self.get_context().code)
+                    .as_code()
+                    .module;
+                let module = FSRObject::id_to_obj(code).as_module();
+                let obj = module.get_const(*index as usize).unwrap();
                 self.get_cur_mut_frame().exp.push(SValue::Global(obj));
             }
             ArgType::Attr(attr_id, name) => {

@@ -237,6 +237,7 @@ impl<'a> FSRFor<'a> {
         }
 
         let expr = &source[start..start + len];
+        // println!("expr: {}", String::from_utf8_lossy(expr));
         let sub_meta = meta.from_offset(start);
         let expr = FSRExpr::parse(expr, false, sub_meta, context)?.0;
         start += len;
