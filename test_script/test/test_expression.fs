@@ -25,11 +25,8 @@ c = abc.abc + abc.abc
 
 println(c)
 assert(abc.abc == 123)
-true = 1 == 1
 
 assert(true)
-
-false = 1 != 1
 
 assert(!false)
 
