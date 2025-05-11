@@ -1,5 +1,12 @@
-for i in (0..30).filter(|x| {
-    return x % 2 == 0
-}) {
-    println("new:",i)
+fn abc() {
+    fn fib(n) {
+        
+    }
+
+    for i in 0..18000000 {
+    	fib(1)
+    }
 }
+
+abc()
+gc_info()

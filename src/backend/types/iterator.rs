@@ -74,6 +74,12 @@ pub fn map<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    if args.len() != 2 {
+        return Err(FSRError::new(
+            "msg: map function requires 2 arguments",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
     let map_fn_id = args[1];
     let map_iterator = FSRMapIter {
@@ -97,6 +103,12 @@ pub fn filter<'a>(
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
 ) -> Result<FSRRetValue<'a>, FSRError> {
+    if args.len() != 2 {
+        return Err(FSRError::new(
+            "msg: filter function requires 2 arguments",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
     let filter_fn_id = args[1];
     let filter_iterator = FSRFilterIter {

@@ -420,8 +420,6 @@ impl ASTParser {
             return "%"
         }
 
-        println!("error: {}", op);
-
-        unimplemented!()
+        panic!("error: {}", op);
     }
 }

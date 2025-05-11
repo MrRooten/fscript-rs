@@ -1102,6 +1102,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
+            self.get_cur_mut_frame().middle_value.push(v2_id);
+            self.get_cur_mut_frame().middle_value.push(v1_id);
+
             return Ok(false);
         }
 
@@ -1133,7 +1136,6 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     fn binary_sub_process(
         self: &mut FSRThreadRuntime<'a>,
-
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
@@ -1159,6 +1161,29 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let right = right_value.get_global_id(self).unwrap();
         let left = left_value.get_global_id(self).unwrap();
+
+        let left_cls = obj_cls!(left);
+        let right_cls = obj_cls!(right);
+        if let Some(op_quick) = self.op_quick.get_sub(left_cls, right_cls) {
+            let res = op_quick(&[left, right], self, self.get_context().code)?;
+            right_value.drop_box(&mut self.thread_allocator);
+            left_value.drop_box(&mut self.thread_allocator);
+
+            match res {
+                FSRRetValue::GlobalId(res_id) => {
+                    self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
+                }
+                FSRRetValue::Reference(_) => {
+                    panic!("not support reference return, in sub process")
+                }
+            };
+
+            self.get_cur_mut_frame().middle_value.push(right);
+            self.get_cur_mut_frame().middle_value.push(left);
+
+            return Ok(false);
+        }
+
         let res = FSRObject::invoke_binary_method(
             BinaryOffset::Sub,
             left,
@@ -1714,8 +1739,8 @@ impl<'a> FSRThreadRuntime<'a> {
             cls_id,
         );
 
-        args.insert(0, self_id);
-
+        //args.insert(0, self_id);
+        args.push(self_id);
         self.save_ip_to_callstate();
         let self_obj = FSRObject::id_to_obj(self_id);
         let self_new = self_obj.get_cls_attr("__new__");
@@ -1733,7 +1758,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 unimplemented!()
             }
 
-            for arg in args.iter().rev() {
+            for arg in args.iter() {
                 //obj.ref_add();
                 self.get_cur_mut_frame().args.push(*arg);
             }
@@ -1755,8 +1780,8 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         // let obj_id = context.exp.pop().unwrap().get_global_id(self).unwrap();
 
-        args.insert(0, obj_id);
-
+        //args.insert(0, obj_id);
+        args.push(obj_id);
         if fn_obj.is_fsr_function() {
             let ip = self.get_context().ip;
 
@@ -1780,7 +1805,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 panic!("not a function")
             }
 
-            for arg in args.iter().rev() {
+            for arg in args.iter() {
                 self.get_cur_mut_frame().args.push(*arg);
             }
             let offset = fn_obj.get_fsr_offset().1;
@@ -1790,9 +1815,10 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_context().ip = (offset.0, 0);
             return Ok(true);
         } else {
+            args.reverse();
             let v = fn_obj
                 .call(
-                    args,
+                    &args,
                     self,
                     self.get_context().code,
                     FSRObject::obj_to_id(fn_obj),
@@ -1833,7 +1859,6 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         fn_id: ObjId,
         fn_obj: &FSRObject<'a>,
-        call_method: bool,
         args: &mut SmallVec<[ObjId; 4]>,
     ) -> Result<(), FSRError> {
         self.get_cur_mut_context().call_end += 1;
@@ -1842,30 +1867,16 @@ impl<'a> FSRThreadRuntime<'a> {
         let frame = self.frame_free_list.new_frame(f.code, fn_id);
         self.push_frame(frame);
 
-        if call_method {
-            let self_obj = match self.get_cur_mut_frame().exp.pop() {
-                Some(s) => s.get_global_id(self).unwrap(),
-                None => {
-                    return Err(FSRError::new(
-                        "Failed to retrieve self object in call_process",
-                        FSRErrCode::EmptyExpStack,
-                    ));
-                }
-            };
-            self.get_cur_mut_frame().args.push(self_obj);
-            self.get_cur_mut_frame().middle_value.push(self_obj);
-        }
-
-        for arg in args.iter().rev() {
+        for arg in args.iter() {
             self.get_cur_mut_frame().args.push(*arg);
         }
         //let offset = fn_obj.get_fsr_offset();
-        let offset = fn_obj.get_fsr_offset().1;
-        if let FSRValue::Function(obj) = &fn_obj.value {
-            self.get_cur_mut_context().code = obj.code;
-        }
+        //let offset = fn_obj.get_fsr_offset().1;
+        //if let FSRValue::Function(obj) = &fn_obj.value {
+        self.get_cur_mut_context().code = f.code;
+        //}
 
-        self.get_cur_mut_context().ip = (offset.0, 0);
+        self.get_cur_mut_context().ip = (0, 0);
         Ok(())
     }
 
@@ -1948,7 +1959,10 @@ impl<'a> FSRThreadRuntime<'a> {
         call_method: bool,
     ) -> Result<bool, FSRError> {
         let fn_obj = FSRObject::id_to_obj(fn_id);
-        if fn_obj.is_fsr_cls() {
+        if fn_obj.is_fsr_function() && !call_method {
+            self.process_fsr_fn(fn_id, fn_obj, args)?;
+            return Ok(true);
+        } else if fn_obj.is_fsr_cls() {
             let v = Self::process_fsr_cls(self, fn_id, args)?;
             if v {
                 return Ok(v);
@@ -1958,10 +1972,8 @@ impl<'a> FSRThreadRuntime<'a> {
             if v {
                 return Ok(v);
             }
-        } else if fn_obj.is_fsr_function() {
-            self.process_fsr_fn(fn_id, fn_obj, call_method, args)?;
-            return Ok(true);
         } else {
+            args.reverse();
             let v = match fn_obj.call(&args, self, self.get_context().code, fn_id) {
                 Ok(o) => o,
                 Err(e) => {
@@ -1970,7 +1982,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         return Ok(false);
                     }
 
-                    panic!()
+                    panic!("error: in call_process_ret: {}", e);
                 }
             };
 
@@ -1988,7 +2000,17 @@ impl<'a> FSRThreadRuntime<'a> {
         _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let mut var: Option<&(usize, u64, String, bool)> = None;
-        let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
+        let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
+        //let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
+        if let ArgType::CallArgsNumber(args_num) = *bytecode.get_arg() {
+            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            //args.reverse();
+        } else if let ArgType::CallArgsNumberWithVar(pack) = bytecode.get_arg() {
+            let args_num = pack.0;
+            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            var = Some(pack);
+            //args.reverse();
+        };
 
         let mut object_id: Option<ObjId> = None;
         // let module = FSRObject::id_to_obj(self.get_context().code).as_code();

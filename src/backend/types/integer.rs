@@ -54,7 +54,7 @@ pub fn add<'a>(
     unimplemented!()
 }
 
-fn sub<'a>(
+pub fn sub<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,

@@ -8,6 +8,7 @@ pub type Lookup1D = [Option<FSRRustFn>; OP_LEN];
 /// Quick op lookup for first initialize type like integer or float etc.
 pub struct Ops {
     pub(crate) add: Lookup2D,
+    pub(crate) sub: Lookup2D,
     pub(crate) less: Lookup2D,
     pub(crate) greater: Lookup2D,
     pub(crate) getter: Lookup2D,
@@ -38,6 +39,20 @@ impl Ops {
             FSRGlobalObjId::StringCls as usize,
             &mut add,
             crate::backend::types::string::add,
+        );
+
+        let mut sub = [[None; OP_LEN]; OP_LEN];
+        Self::insert(
+            FSRGlobalObjId::IntegerCls as usize,
+            FSRGlobalObjId::IntegerCls as usize,
+            &mut sub,
+            crate::backend::types::integer::sub,
+        );
+        Self::insert(
+            FSRGlobalObjId::FloatCls as usize,
+            FSRGlobalObjId::FloatCls as usize,
+            &mut sub,
+            crate::backend::types::float::sub,
         );
 
 
@@ -105,6 +120,7 @@ impl Ops {
             getter,
             equal,
             reminder,
+            sub,
         }
 
         
@@ -172,6 +188,14 @@ impl Ops {
     pub fn get_reminder(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         if i < OP_LEN && j < OP_LEN {
             return self.reminder[i][j];
+        }
+        None
+    }
+
+    #[inline(always)]
+    pub fn get_sub(&self, i: usize, j: usize) -> Option<FSRRustFn> {
+        if i < OP_LEN && j < OP_LEN {
+            return self.sub[i][j];
         }
         None
     }

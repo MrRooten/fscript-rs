@@ -33,6 +33,14 @@ class Abc {
         println("gt")
         return true
     }
+
+    fn more_args(self, a, b, c) {
+        assert(a == 1)
+        assert(b == 2)
+        assert(c == 3)
+        println("more args", a, b, c)
+        return 1
+    }
 }
 
 
@@ -52,6 +60,8 @@ println(a.abc.ddc)
 Abc::not_self()
 
 println(a)
+
+println(a.more_args(1, 2, 3))
 
 assert(is_class(a, Abc))
 
