@@ -120,7 +120,7 @@ pub enum BytecodeOperator {
     IfTest = 5,
     WhileTest = 6,
     DefineFn = 7,
-    EndDefineFn = 8,
+    EndFn = 8,
     CompareTest = 9,
     ReturnValue = 10,
     WhileBlockEnd = 11,
@@ -1840,7 +1840,7 @@ impl<'a> Bytecode {
 
         fn_body.insert(0, load_args);
         fn_body.push(vec![BytecodeArg {
-                operator: BytecodeOperator::EndDefineFn,
+                operator: BytecodeOperator::EndFn,
                 arg: ArgType::None,
                 info: FSRByteInfo::new(fn_def.get_meta().clone()),
             }]);

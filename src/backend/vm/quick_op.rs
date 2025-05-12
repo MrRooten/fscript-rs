@@ -1,6 +1,6 @@
 use crate::backend::types::{base::FSRGlobalObjId, fn_def::FSRRustFn};
 
-const OP_LEN: usize = 30;
+const OP_LEN: usize = 20;
 
 pub type Lookup2D = [[Option<FSRRustFn>; OP_LEN]; OP_LEN];
 pub type Lookup1D = [Option<FSRRustFn>; OP_LEN];

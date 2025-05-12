@@ -2515,7 +2515,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
-    fn end_define_fn(
+    fn end_fn(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
         _: &'a Bytecode,
@@ -2895,7 +2895,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::IfTest => Self::if_test_process(self, bytecode, bc),
             BytecodeOperator::WhileTest => Self::while_test_process(self, bytecode, bc),
             BytecodeOperator::DefineFn => Self::define_fn(self, bytecode, bc),
-            BytecodeOperator::EndDefineFn => Self::end_define_fn(self, bytecode, bc),
+            BytecodeOperator::EndFn => Self::end_fn(self, bytecode, bc),
             BytecodeOperator::CompareTest => Self::compare_test(self, bytecode, bc),
             BytecodeOperator::ReturnValue => Self::ret_value(self, bytecode, bc),
             BytecodeOperator::WhileBlockEnd => Self::while_block_end(self, bytecode, bc),
@@ -2949,11 +2949,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        if v {
-            return Ok(v);
-        }
-
-        Ok(false)
+        Ok(v)
     }
 
     fn load_const(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
