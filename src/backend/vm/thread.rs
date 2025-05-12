@@ -485,9 +485,32 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_context_stack: Vec<Box<FSCodeContext>>,
     pub(crate) thread_context: Option<Box<FSCodeContext>>,
     pub(crate) gc_context: GcContext,
+    #[cfg(feature = "count_bytecode")]
+    pub(crate) bytecode_counter: Vec<usize>,
 }
 
 impl<'a> FSRThreadRuntime<'a> {
+    #[cfg(feature = "count_bytecode")]
+    fn dump_bytecode_counter(&self) {
+        use std::collections::HashMap;
+
+        let mut map = HashMap::new();
+        for (i, count) in self.bytecode_counter.iter().enumerate() {
+            if *count > 0 {
+                let op = match BytecodeOperator::from_u8(i as u8) {
+                    Some(op) => op,
+                    None => {
+                        continue;
+                    }
+                };
+                map.insert(op, *count);
+            }
+        }
+
+        println!("bytecode counter: {:?}", map);
+    }
+
+
     pub fn get_vm(&self) -> Arc<FSRVM<'static>> {
         unsafe { VM.as_ref().unwrap().clone() }
     }
@@ -557,6 +580,8 @@ impl<'a> FSRThreadRuntime<'a> {
             thread_context_stack: Vec::with_capacity(8),
             thread_context: None,
             gc_context: GcContext::new(),
+            #[cfg(feature = "count_bytecode")]
+            bytecode_counter: vec![0; 256],
         }
     }
 
@@ -798,7 +823,7 @@ impl<'a> FSRThreadRuntime<'a> {
             CompareOperator::Equal => {
                 let left_obj = FSRObject::id_to_obj(left);
                 let right_obj = FSRObject::id_to_obj(right);
-
+                
                 if let Some(equal) = thread
                     .op_quick
                     .get_equal(right_obj.cls as usize, left_obj.cls as usize)
@@ -842,7 +867,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn getter_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let index_obj = self.get_cur_mut_frame().exp.pop().unwrap();
 
@@ -916,7 +941,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         if let ArgType::Variable(v) = bytecode.get_arg() {
             let var_id = v.0;
@@ -1028,8 +1053,6 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     fn binary_add_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let v1 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1105,7 +1128,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_sub_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let right_value = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1179,7 +1202,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_mul_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let right_value = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1234,7 +1257,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_div_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let right_value = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1289,7 +1312,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_reminder_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let right_value = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1364,7 +1387,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
 
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(_) => unimplemented!(),
@@ -1472,8 +1495,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn binary_get_cls_attr_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(_) => unimplemented!(),
@@ -1965,7 +1986,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn call_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let mut var: Option<&(usize, u64, String, bool)> = None;
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
@@ -2034,7 +2055,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let v = self.get_cur_mut_frame().exp.pop().unwrap();
         let mut name = "";
@@ -2086,7 +2107,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
 
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         self.flow_tracker.pop_last_if_test();
         Ok(false)
@@ -2096,7 +2117,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn else_if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let test_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
         let test_val = match &test_svalue {
@@ -2136,7 +2157,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn else_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         if self.flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
@@ -2154,7 +2175,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn else_if_match(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         if self.flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
@@ -2171,7 +2192,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn break_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         self.flow_tracker.is_break = true;
         let l = self.flow_tracker.continue_line.len();
@@ -2184,7 +2205,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn continue_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let l = self.flow_tracker.continue_line.len();
         let continue_line = self.flow_tracker.continue_line[l - 1];
@@ -2209,7 +2230,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn load_for_iter(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let iter_obj = self.get_cur_mut_frame().exp.pop().unwrap();
         let iter_id = {
@@ -2246,7 +2267,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn while_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let test_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
         let test_val = match test_svalue {
@@ -2313,7 +2334,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn define_fn(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        bc: &'a Bytecode,
+        //bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let name = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(id) => id,
@@ -2344,7 +2365,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 &name.1,
                 (0, 0),
                 args,
-                bc,
+                //bc,
                 fn_code_id,
                 self.get_cur_frame().fn_obj,
             );
@@ -2411,7 +2432,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn compare_test(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if let ArgType::Compare(op) = bytecode.get_arg() {
             let right = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
@@ -2458,7 +2478,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn ret_value(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let v = if self.get_cur_mut_frame().exp.is_empty() {
             FSRObject::none_id()
@@ -2518,7 +2538,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn end_fn(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         self.pop_stack();
         let cur = self.get_cur_mut_frame();
@@ -2535,7 +2555,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn for_block_end(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         if let ArgType::ForEnd(n) = bytecode.get_arg() {
             let tmp = self.get_context().ip.0;
@@ -2549,7 +2569,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn while_block_end(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         if let ArgType::WhileEnd(n) = bytecode.get_arg() {
             let tmp = self.get_context().ip.0;
@@ -2592,7 +2612,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn assign_args(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let state = &mut self.cur_frame;
         let v = state.args.pop().ok_or_else(|| {
@@ -2614,7 +2634,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn load_list(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         if let ArgType::LoadListNumber(n) = bytecode.get_arg() {
             let mut list = Vec::with_capacity(*n);
@@ -2644,7 +2664,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn class_def(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let id = match self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
             FSRError::new(
@@ -2717,7 +2737,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn end_class_def(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         if let ArgType::Variable(var) = bc.get_arg() {
             let id = var.0;
@@ -2754,7 +2774,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn special_load_for(
         self: &mut FSRThreadRuntime<'a>,
         arg: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let obj = self.flow_tracker.for_iter_obj.last().cloned().unwrap();
         let obj_value = FSRObject::id_to_obj(obj);
@@ -2794,7 +2814,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn process_logic_and(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let first = self
             .get_cur_mut_frame()
@@ -2817,7 +2837,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn process_logic_or(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         let first = self
             .get_cur_mut_frame()
@@ -2838,8 +2858,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn not_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bc: &BytecodeArg,
-        _: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let v1 = match self.get_cur_frame().exp.last() {
             Some(s) => s,
@@ -2877,61 +2895,61 @@ impl<'a> FSRThreadRuntime<'a> {
     fn empty_process(
         self: &mut FSRThreadRuntime<'a>,
         _bc: &BytecodeArg,
-        _: &'a Bytecode,
+        
     ) -> Result<bool, FSRError> {
         Ok(false)
     }
 
     #[inline(always)]
-    fn process(&mut self, bytecode: &'a BytecodeArg, bc: &'a Bytecode) -> Result<bool, FSRError> {
+    fn process(&mut self, bytecode: &'a BytecodeArg) -> Result<bool, FSRError> {
         let op = bytecode.get_operator();
 
         let v = match op {
-            BytecodeOperator::Assign => Self::assign_process(self, bytecode, bc),
-            BytecodeOperator::BinaryAdd => Self::binary_add_process(self, bytecode, bc),
-            BytecodeOperator::BinaryDot => Self::binary_dot_process(self, bytecode, bc),
-            BytecodeOperator::BinaryMul => Self::binary_mul_process(self, bytecode, bc),
-            BytecodeOperator::Call => Self::call_process(self, bytecode, bc),
-            BytecodeOperator::IfTest => Self::if_test_process(self, bytecode, bc),
-            BytecodeOperator::WhileTest => Self::while_test_process(self, bytecode, bc),
-            BytecodeOperator::DefineFn => Self::define_fn(self, bytecode, bc),
-            BytecodeOperator::EndFn => Self::end_fn(self, bytecode, bc),
-            BytecodeOperator::CompareTest => Self::compare_test(self, bytecode, bc),
-            BytecodeOperator::ReturnValue => Self::ret_value(self, bytecode, bc),
-            BytecodeOperator::WhileBlockEnd => Self::while_block_end(self, bytecode, bc),
-            BytecodeOperator::AssignArgs => Self::assign_args(self, bytecode, bc),
-            BytecodeOperator::ClassDef => Self::class_def(self, bytecode, bc),
-            BytecodeOperator::EndDefineClass => Self::end_class_def(self, bytecode, bc),
-            BytecodeOperator::LoadList => Self::load_list(self, bytecode, bc),
-            BytecodeOperator::Else => Self::else_process(self, bytecode, bc),
-            BytecodeOperator::ElseIf => Self::else_if_match(self, bytecode, bc),
-            BytecodeOperator::ElseIfTest => Self::else_if_test_process(self, bytecode, bc),
-            BytecodeOperator::IfBlockEnd => Self::if_end(self, bytecode, bc),
-            BytecodeOperator::Break => Self::break_process(self, bytecode, bc),
-            BytecodeOperator::Continue => Self::continue_process(self, bytecode, bc),
-            BytecodeOperator::LoadForIter => Self::load_for_iter(self, bytecode, bc),
-            BytecodeOperator::ForBlockEnd => Self::for_block_end(self, bytecode, bc),
-            BytecodeOperator::SpecialLoadFor => Self::special_load_for(self, bytecode, bc),
-            BytecodeOperator::AndJump => Self::process_logic_and(self, bytecode, bc),
-            BytecodeOperator::OrJump => Self::process_logic_or(self, bytecode, bc),
-            BytecodeOperator::Empty => Self::empty_process(self, bytecode, bc),
-            BytecodeOperator::BinarySub => Self::binary_sub_process(self, bytecode, bc),
+            BytecodeOperator::Assign => Self::assign_process(self, bytecode),
+            BytecodeOperator::BinaryAdd => Self::binary_add_process(self),
+            BytecodeOperator::BinaryDot => Self::binary_dot_process(self, bytecode),
+            BytecodeOperator::BinaryMul => Self::binary_mul_process(self, bytecode),
+            BytecodeOperator::Call => Self::call_process(self, bytecode),
+            BytecodeOperator::IfTest => Self::if_test_process(self, bytecode),
+            BytecodeOperator::WhileTest => Self::while_test_process(self, bytecode),
+            BytecodeOperator::DefineFn => Self::define_fn(self, bytecode),
+            BytecodeOperator::EndFn => Self::end_fn(self, bytecode),
+            BytecodeOperator::CompareTest => Self::compare_test(self, bytecode),
+            BytecodeOperator::ReturnValue => Self::ret_value(self, bytecode),
+            BytecodeOperator::WhileBlockEnd => Self::while_block_end(self, bytecode),
+            BytecodeOperator::AssignArgs => Self::assign_args(self, bytecode),
+            BytecodeOperator::ClassDef => Self::class_def(self, bytecode),
+            BytecodeOperator::EndDefineClass => Self::end_class_def(self, bytecode),
+            BytecodeOperator::LoadList => Self::load_list(self, bytecode),
+            BytecodeOperator::Else => Self::else_process(self, bytecode),
+            BytecodeOperator::ElseIf => Self::else_if_match(self, bytecode),
+            BytecodeOperator::ElseIfTest => Self::else_if_test_process(self, bytecode),
+            BytecodeOperator::IfBlockEnd => Self::if_end(self, bytecode),
+            BytecodeOperator::Break => Self::break_process(self, bytecode),
+            BytecodeOperator::Continue => Self::continue_process(self, bytecode),
+            BytecodeOperator::LoadForIter => Self::load_for_iter(self, bytecode),
+            BytecodeOperator::ForBlockEnd => Self::for_block_end(self, bytecode),
+            BytecodeOperator::SpecialLoadFor => Self::special_load_for(self, bytecode),
+            BytecodeOperator::AndJump => Self::process_logic_and(self, bytecode),
+            BytecodeOperator::OrJump => Self::process_logic_or(self, bytecode),
+            BytecodeOperator::Empty => Self::empty_process(self, bytecode),
+            BytecodeOperator::BinarySub => Self::binary_sub_process(self, bytecode),
             BytecodeOperator::Import => {
                 Self::process_import(self, bytecode, self.get_context().code)
             }
-            BytecodeOperator::BinaryDiv => Self::binary_div_process(self, bytecode, bc),
-            BytecodeOperator::NotOperator => Self::not_process(self, bytecode, bc),
+            BytecodeOperator::BinaryDiv => Self::binary_div_process(self, bytecode),
+            BytecodeOperator::NotOperator => Self::not_process(self),
             BytecodeOperator::BinaryClassGetter => {
-                Self::binary_get_cls_attr_process(self, bytecode, bc)
+                Self::binary_get_cls_attr_process(self)
             }
-            BytecodeOperator::Getter => Self::getter_process(self, bytecode, bc),
+            BytecodeOperator::Getter => Self::getter_process(self, bytecode),
             BytecodeOperator::Try => Self::try_process(self, bytecode),
             BytecodeOperator::EndTry => Self::try_end(self),
             BytecodeOperator::EndCatch => Self::catch_end(self, bytecode),
             BytecodeOperator::BinaryRange => Self::binary_range_process(self),
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
             BytecodeOperator::LoadConst => Self::load_const(self, bytecode),
-            BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode, bc),
+            BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3008,7 +3026,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[inline(always)]
     fn load_var(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
-        let exp = &mut self.get_cur_mut_frame().exp;
+        //let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
             ArgType::Variable(var) => {
                 self.get_cur_mut_frame().exp.push(SValue::Stack(var));
@@ -3174,17 +3192,16 @@ impl<'a> FSRThreadRuntime<'a> {
     fn run_expr_wrapper(
         &mut self,
         expr: &'a [BytecodeArg],
-        bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         if self.counter - self.last_aquire_counter > 100 {
             self.rt_yield();
         }
 
-        self.run_expr(expr, bc)
+        self.run_expr(expr)
     }
 
     #[inline(always)]
-    fn run_expr(&mut self, expr: &'a [BytecodeArg], bc: &'a Bytecode) -> Result<bool, FSRError> {
+    fn run_expr(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
         let mut v;
 
         self.set_exp_stack_ret();
@@ -3198,12 +3215,16 @@ impl<'a> FSRThreadRuntime<'a> {
                 println!("{}", t);
             }
             self.counter += 1;
+            #[cfg(feature = "count_bytecode")]
+            {
+                self.bytecode_counter[*arg.get_operator() as usize] += 1;
+            }
             match arg.get_operator() {
                 BytecodeOperator::Load => {
                     Self::load_var(self, arg)?;
                 }
                 _ => {
-                    v = self.process(arg, bc)?;
+                    v = self.process(arg)?;
                     if self.get_cur_frame().ret_val.is_some() {
                         return Ok(true);
                     }
@@ -3264,7 +3285,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //self.unlock_and_lock();
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         while let Some(expr) = code.get_expr(self.get_context().ip.0) {
-            self.run_expr_wrapper(expr, code.get_bytecode())?;
+            self.run_expr_wrapper(expr)?;
             code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
         //self.rt_unlock();
@@ -3310,12 +3331,15 @@ impl<'a> FSRThreadRuntime<'a> {
                         .as_string()
                 )
             }
-            self.run_expr_wrapper(expr, code.get_bytecode())?;
+            self.run_expr_wrapper(expr)?;
             code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
 
         println!("count: {}", self.counter);
-
+        #[cfg(feature = "count_bytecode")]
+        {
+            self.dump_bytecode_counter();
+        }
         Ok(())
     }
 
@@ -3342,7 +3366,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
         while let Some(expr) = code.get_expr(self.get_context().ip.0) {
-            let v = self.run_expr_wrapper(expr, fn_def.get_bytecode())?;
+            let v = self.run_expr_wrapper(expr)?;
             if self.exception_flag {
                 // If this is last function call, in this call_fn
                 if self.get_context().call_end == 0 {

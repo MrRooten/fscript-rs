@@ -27,7 +27,7 @@ pub type FSRRustFn = for<'a> fn(
 pub struct FSRFnInner<'a> {
     name: Cow<'a, str>,
     fn_ip: (usize, usize),
-    bytecode: &'a Bytecode,
+    //bytecode: &'a Bytecode,
 }
 
 impl FSRFnInner<'_> {
@@ -39,9 +39,9 @@ impl FSRFnInner<'_> {
         self.fn_ip
     }
 
-    pub fn get_bytecode(&self) -> &Bytecode {
-        self.bytecode
-    }
+    // pub fn get_bytecode(&self) -> &Bytecode {
+    //     self.bytecode
+    // }
 }
 
 #[derive(Debug)]
@@ -134,14 +134,14 @@ impl<'a> FSRFn<'a> {
         fn_name: &str,
         u: (usize, usize),
         _: Vec<String>,
-        bytecode: &'a Bytecode,
+        //bytecode: &'a Bytecode,
         code_obj: ObjId,
         fn_id: ObjId, // Which father fn define this son fn
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
             fn_ip: u,
-            bytecode,
+            //bytecode,
         };
 
         let c = if fn_id != 0 {
