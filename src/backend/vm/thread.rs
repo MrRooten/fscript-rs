@@ -478,7 +478,6 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) exception: ObjId,
     pub(crate) exception_flag: bool,
     pub(crate) garbage_collect: MarkSweepGarbageCollector<'a>,
-    pub(crate) remembered_set: HashSet<ObjId>,
     pub(crate) op_quick: Box<Ops>,
     pub(crate) counter: usize,
     pub(crate) last_aquire_counter: usize,
@@ -493,16 +492,13 @@ impl<'a> FSRThreadRuntime<'a> {
         unsafe { VM.as_ref().unwrap().clone() }
     }
 
-    // pub fn get_mut_vm(&mut self) -> &'a mut FSRVM<'a> {
-    //     unsafe { &mut *self.vm_ptr.unwrap() }
-    // }
-
     fn get_chains(
         thread: &FSRThreadRuntime,
         state: &CallFrame<'_>,
         var: &(u64, String, bool),
     ) -> Option<ObjId> {
         let fn_id = state.fn_obj;
+        // if in __main__ the module base code
         if fn_id != 0 {
             let obj = FSRObject::id_to_obj(fn_id).as_fn();
             if let Some(s) = obj.get_closure_var(var.1.as_str()) {
@@ -560,17 +556,8 @@ impl<'a> FSRThreadRuntime<'a> {
             last_aquire_counter: 0,
             thread_context_stack: Vec::with_capacity(8),
             thread_context: None,
-            remembered_set: HashSet::new(),
             gc_context: GcContext::new(),
         }
-    }
-
-    pub fn add_object_to_remembered_set(&mut self, id: ObjId) {
-        self.remembered_set.insert(id);
-    }
-
-    pub fn remove_object_from_remembered_set(&mut self, id: ObjId) {
-        self.remembered_set.remove(&id);
     }
 
     pub fn clear_marks(&mut self) {
@@ -596,12 +583,14 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self.cur_frame
     }
 
+    /// Push new call frame to call stack, and replace current call frame with new one
     #[inline(always)]
     pub fn push_frame(&mut self, frame: Box<CallFrame<'a>>) {
         let old_frame = std::mem::replace(&mut self.cur_frame, frame);
         self.call_frames.push(old_frame);
     }
 
+    /// Pop current call frame and replace with the last one
     #[inline(always)]
     pub fn pop_frame(&mut self) -> Box<CallFrame<'a>> {
         let v = self.call_frames.pop().unwrap();
@@ -652,45 +641,19 @@ impl<'a> FSRThreadRuntime<'a> {
         Some(())
     }
 
-    fn add_worklist(&self) -> Vec<ObjId> {
-        let mut others = self.flow_tracker.for_iter_obj.clone();
-        others.extend(self.flow_tracker.ref_for_obj.clone());
-        let frames = &self.call_frames;
-        let cur_frame = self.get_cur_frame();
-        let mut work_list = Vec::with_capacity(16);
-        for it in frames {
-            for obj in it.var_map.iter() {
-                work_list.push(obj.load(Ordering::Relaxed));
-            }
-
-            //if let Some(s) = &it.exp {
-            for i in &it.exp {
-                let id = match i.get_global_id(self) {
-                    Some(id) => id,
-                    None => {
-                        continue;
-                    }
-                };
-                work_list.push(id);
-            }
-            //}
-
-            for value in &it.middle_value {
-                work_list.push(*value);
-            }
-
-            if let Some(ret_val) = it.ret_val {
-                work_list.push(ret_val);
-            }
-
-            if it.handling_exception != 0 {
-                work_list.push(it.handling_exception);
-            }
-        }
-
-        let it = cur_frame;
+    fn process_callframe(&self, work_list: &mut Vec<ObjId>, it: &CallFrame<'a>) {
         for obj in it.var_map.iter() {
             work_list.push(obj.load(Ordering::Relaxed));
+        }
+
+        for i in &it.exp {
+            let id = match i.get_global_id(self) {
+                Some(id) => id,
+                None => {
+                    continue;
+                }
+            };
+            work_list.push(id);
         }
 
         if let Some(ret_val) = it.ret_val {
@@ -704,16 +667,21 @@ impl<'a> FSRThreadRuntime<'a> {
         for value in &it.middle_value {
             work_list.push(*value);
         }
+    }
 
-        for obj in it.exp.iter() {
-            let id = match obj.get_global_id(self) {
-                Some(id) => id,
-                None => {
-                    continue;
-                }
-            };
-            work_list.push(id);
+    /// Add all objects in current call frame to worklist, wait to gc to reference
+    fn add_worklist(&self) -> Vec<ObjId> {
+        let mut others = self.flow_tracker.for_iter_obj.clone();
+        others.extend(self.flow_tracker.ref_for_obj.clone());
+        let frames = &self.call_frames;
+        let cur_frame = self.get_cur_frame();
+        let mut work_list = Vec::with_capacity(16);
+        for it in frames {
+            self.process_callframe(&mut work_list, it);
         }
+
+        let it = cur_frame;
+        self.process_callframe(&mut work_list, it);
 
         for obj in others {
             work_list.push(obj);
@@ -2803,7 +2771,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         let res_id = res.get_id();
-        if res_id == 0 || self.flow_tracker.is_break {
+        if res_id == FSRObject::none_id() || self.flow_tracker.is_break {
             self.flow_tracker.is_break = false;
             let break_line = self.flow_tracker.break_line.pop().unwrap();
             self.flow_tracker.continue_line.pop();

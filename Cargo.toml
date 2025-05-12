@@ -19,6 +19,7 @@ bytecode_trace = []
 track_memory_size = []
 mimalloc = []
 
+
 [profile.release]
 overflow-checks = false
 debug = true
