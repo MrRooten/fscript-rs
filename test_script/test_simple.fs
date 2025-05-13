@@ -1,12 +1,19 @@
-fn abc() {
-    fn fib(n) {
-        
-    }
-
-    for i in 0..18000000 {
-    	fib(1)
+class Ddc {
+    fn __new__(self) {
+        self.ddc = 123 + 1
+        return self
     }
 }
 
-abc()
-gc_info()
+class Abc {
+    fn __new__(self) {
+        self.abc = Ddc()
+        return self
+    }
+
+}
+
+
+
+a = Abc()
+

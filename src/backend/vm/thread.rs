@@ -980,6 +980,41 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
+    fn attr_assign_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &'a BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        if let ArgType::Attr(attr_id, name) = bytecode.get_arg() {
+            let len = self.get_cur_frame().exp.len();
+            let father = self
+                .get_cur_frame()
+                .exp
+                .last()
+                .unwrap()
+                .get_global_id(self)
+                .unwrap();
+            let assign_value = self
+                .get_cur_frame()
+                .exp
+                .get(len - 2)
+                .unwrap()
+                .get_global_id(self)
+                .unwrap();
+
+            let father_obj = FSRObject::id_to_mut_obj(father).unwrap();
+            if father_obj.area.is_long() && FSRObject::id_to_obj(assign_value).area == Area::Minjor
+            {
+                father_obj.set_write_barrier(true);
+            }
+
+            father_obj.set_attr(name, assign_value);
+
+            return Ok(false);
+        }
+        unimplemented!()
+    }
+
+    #[inline(always)]
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
@@ -2351,26 +2386,26 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn define_fn(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
+        bytecode: &'a BytecodeArg,
         //bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let name = match self.get_cur_mut_frame().exp.pop().unwrap() {
-            SValue::Stack(id) => id,
-            SValue::Attr(_) => panic!(),
-            SValue::Global(_) => panic!(),
-            // SValue::BoxObject(_) => todo!(),
-            SValue::Reference(_) => todo!(),
-        };
+        // let name = match self.get_cur_mut_frame().exp.pop().unwrap() {
+        //     SValue::Stack(id) => id,
+        //     SValue::Attr(_) => panic!(),
+        //     SValue::Global(_) => panic!(),
+        //     // SValue::BoxObject(_) => todo!(),
+        //     SValue::Reference(_) => todo!(),
+        // };
 
-        if let ArgType::DefineFnArgs(n, arg_len, fn_identify_name) = bytecode.get_arg() {
-            let mut args = vec![];
-            for _ in 0..*arg_len {
-                let v = match self.get_cur_mut_frame().exp.pop().unwrap() {
-                    SValue::Stack(id) => id,
-                    _ => panic!("not support args value"),
-                };
-                args.push(v.1.to_string());
-            }
+        if let ArgType::DefineFnArgs(name_id, name, fn_identify_name, args, store_to_cell) = bytecode.get_arg() {
+            // let arg_len = args.len();
+            // for _ in 0..arg_len {
+            //     let v = match self.get_cur_mut_frame().exp.pop().unwrap() {
+            //         SValue::Stack(id) => id,
+            //         _ => panic!("not support args value"),
+            //     };
+            //     args.push(v.1.to_string());
+            // }
 
             //println!("define_fn: {}", FSRObject::id_to_obj(context.module.unwrap()).as_module().as_string());
             let module_id = FSRObject::id_to_obj(self.get_context().code)
@@ -2380,9 +2415,9 @@ impl<'a> FSRThreadRuntime<'a> {
             let fn_code = module.get_fn(&fn_identify_name).unwrap();
             let fn_code_id = FSRObject::obj_to_id(fn_code);
             let fn_obj = FSRFn::from_fsr_fn(
-                &name.1,
+                &name,
                 (0, 0),
-                args,
+                args.clone(),
                 //bc,
                 fn_code_id,
                 self.get_cur_frame().fn_obj,
@@ -2394,18 +2429,18 @@ impl<'a> FSRThreadRuntime<'a> {
             let fn_id = FSRVM::leak_object(fn_obj);
             let state = &mut self.cur_frame;
             if let Some(cur_cls) = &mut state.cur_cls {
-                let offset = BinaryOffset::from_alias_name(name.1.as_str());
+                let offset = BinaryOffset::from_alias_name(name.as_str());
                 if let Some(offset) = offset {
                     cur_cls.insert_offset_attr_obj_id(offset, fn_id);
                     self.get_cur_mut_context().ip = (self.get_context().ip.0 + 1, 0);
                     return Ok(true);
                 }
-                cur_cls.insert_attr_id(&name.1, fn_id);
+                cur_cls.insert_attr_id(&name, fn_id);
                 self.get_cur_mut_context().ip = (self.get_context().ip.0 + 1, 0);
                 return Ok(true);
             }
 
-            state.insert_var(name.0, fn_id);
+            state.insert_var(*name_id, fn_id);
             let define_fn_obj = self.get_cur_frame().fn_obj;
             if define_fn_obj == FSRObject::none_id() {
                 // FSRObject::id_to_mut_obj(self.get_context().code)
@@ -2420,9 +2455,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 )
                 .unwrap()
                 .as_mut_module();
-                module.register_object(&name.1, fn_id);
+                module.register_object(&name, fn_id);
             }
-            if name.2 {
+            if *store_to_cell {
                 let define_fn_obj = self.get_cur_frame().fn_obj;
                 if define_fn_obj == FSRObject::none_id() {
                     panic!("closure var must in closure");
@@ -2430,12 +2465,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj)
                     .expect("not a fn obj")
                     .as_mut_fn();
-                if let Some(s) = define_fn_obj.store_cells.get(name.1.as_str()) {
+                if let Some(s) = define_fn_obj.store_cells.get(name.as_str()) {
                     s.store(fn_id, Ordering::Relaxed);
                 } else {
                     define_fn_obj
                         .store_cells
-                        .insert(name.1.as_str(), AtomicObjId::new(fn_id));
+                        .insert(name.as_str(), AtomicObjId::new(fn_id));
                 }
             }
 
@@ -2672,26 +2707,28 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn class_def(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        bytecode: &'a BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let id = match self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
-            FSRError::new(
-                "Failed to pop class id from stack in class_def",
-                FSRErrCode::EmptyExpStack,
-            )
-        })? {
-            SValue::Stack(i) => i,
-            SValue::Attr(_) => panic!(),
-            SValue::Global(_) => panic!(),
-            //SValue::BoxObject(_) => todo!(),
-            SValue::Reference(_) => todo!(),
-        };
+        // let id = match self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
+        //     FSRError::new(
+        //         "Failed to pop class id from stack in class_def",
+        //         FSRErrCode::EmptyExpStack,
+        //     )
+        // })? {
+        //     SValue::Stack(i) => i,
+        //     SValue::Attr(_) => panic!(),
+        //     SValue::Global(_) => panic!(),
+        //     //SValue::BoxObject(_) => todo!(),
+        //     SValue::Reference(_) => todo!(),
+        // };
+        if let ArgType::Variable((id, name, store_to_cell)) = bytecode.get_arg() {
+            let new_cls = FSRClass::new(&name);
+            let state = self.get_cur_mut_frame();
+            state.cur_cls = Some(Box::new(new_cls));
 
-        let new_cls = FSRClass::new(&id.1);
-        let state = self.get_cur_mut_frame();
-        state.cur_cls = Some(Box::new(new_cls));
-
-        Ok(false)
+            return Ok(false)
+        }
+        unimplemented!()
     }
 
     fn read_code_from_module(module_name: &Vec<String>) -> Result<String, FSRError> {
@@ -2944,6 +2981,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::LoadConst => Self::load_const(self, bytecode),
             BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
+            BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3023,7 +3061,8 @@ impl<'a> FSRThreadRuntime<'a> {
         //let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
             ArgType::Variable(var) => {
-                self.get_cur_mut_frame().exp.push(SValue::Stack(var));
+                let id = SValue::Stack(var).get_global_id(self).unwrap();
+                self.get_cur_mut_frame().exp.push(SValue::Global(id));
             }
             ArgType::Const(index) => {
                 let code = FSRObject::id_to_obj(self.get_context().code)
