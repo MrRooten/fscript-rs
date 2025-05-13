@@ -104,17 +104,17 @@ impl<'a> FSRValue<'a> {
 }
 
 #[derive(Debug)]
-pub enum FSRRetValue<'a> {
+pub enum FSRRetValue {
     // Value(Box<FSRObject<'a>>),
     GlobalId(ObjId),
-    Reference(&'a AtomicObjId),
+    //Reference(&'a AtomicObjId),
 }
 
-impl<'a> FSRRetValue<'a> {
+impl<'a> FSRRetValue {
     pub fn get_id(&self) -> ObjId {
         match self {
             FSRRetValue::GlobalId(id) => *id,
-            FSRRetValue::Reference(id) => id.load(Ordering::Relaxed),
+            //FSRRetValue::Reference(id) => id.load(Ordering::Relaxed),
         }
     }
 }
@@ -182,15 +182,15 @@ impl<'a> FSRValue<'a> {
 
                         return None;
                     }
-                    FSRRetValue::Reference(atomic_usize) => {
-                        let id = atomic_usize.load(Ordering::Relaxed);
-                        let obj = FSRObject::id_to_obj(id);
-                        if let FSRValue::String(s) = &obj.value {
-                            return Some(s.clone());
-                        }
+                    // FSRRetValue::Reference(atomic_usize) => {
+                    //     let id = atomic_usize.load(Ordering::Relaxed);
+                    //     let obj = FSRObject::id_to_obj(id);
+                    //     if let FSRValue::String(s) = &obj.value {
+                    //         return Some(s.clone());
+                    //     }
 
-                        return None;
-                    }
+                    //     return None;
+                    // }
                 }
             }
             FSRValue::Iterator(_) => None,
@@ -534,7 +534,7 @@ impl<'a> FSRObject<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         let self_method = match self_object.get_cls_attr(name) {
             Some(s) => s.load(Ordering::Relaxed),
@@ -557,7 +557,7 @@ impl<'a> FSRObject<'a> {
         right: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         let left_object = Self::id_to_obj(left);
 
         if let Some(left_method) = left_object.get_cls_offset_attr(offset) {
@@ -589,7 +589,7 @@ impl<'a> FSRObject<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         module: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
 
         if let Some(self_method) = self_object.get_cls_offset_attr(offset) {
@@ -652,7 +652,7 @@ impl<'a> FSRObject<'a> {
         thread: &mut FSRThreadRuntime<'a>,
         code: ObjId,
         fn_id: ObjId,
-    ) -> Result<FSRRetValue<'a>, FSRError> {
+    ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, code, fn_id);
         }

@@ -66,7 +66,7 @@ fn list_len<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
 
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -89,7 +89,7 @@ fn list_string<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let mut s = FSRInnerString::new("");
     s.push('[');
     let obj_id = args[0];
@@ -120,7 +120,7 @@ fn iter<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     __module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_id = args[0];
     if let FSRValue::List(s) = &FSRObject::id_to_obj(self_id).value {
         let iterator = FSRListIterator {
@@ -144,7 +144,7 @@ pub fn get_item<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_id = args[0];
     let index_id = args[1];
     let obj = FSRObject::id_to_obj(self_id);
@@ -153,7 +153,7 @@ pub fn get_item<'a>(
         if let FSRValue::Integer(i) = &index_obj.value {
             let index = *i as usize;
             if let Some(s) = l.vs.get(index) {
-                return Ok(FSRRetValue::Reference(s));
+                return Ok(FSRRetValue::GlobalId(s.load(Ordering::Relaxed)));
             } else {
                 return Err(FSRError::new("list index of range", FSRErrCode::OutOfRange));
             }
@@ -172,7 +172,7 @@ pub fn set_item<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 3 {
         return Err(FSRError::new(
             "set_item args error",
@@ -204,7 +204,7 @@ pub fn sort<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 1 {
         return Err(FSRError::new("sort args error", FSRErrCode::RuntimeError));
     }
@@ -235,7 +235,7 @@ pub fn sort_by<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new(
             "sort_by args error",
@@ -270,7 +270,7 @@ pub fn reverse<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let obj_id = args[0];
     let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
     if let FSRValue::List(l) = &mut obj.value {
@@ -288,7 +288,7 @@ pub fn sort_key<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new(
             "sort_by args error",
@@ -329,7 +329,7 @@ pub fn push<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("push args error", FSRErrCode::RuntimeError));
     }
@@ -348,7 +348,7 @@ pub fn map<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("map args error", FSRErrCode::RuntimeError));
     }
@@ -379,7 +379,7 @@ pub fn filter<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("filter args error", FSRErrCode::RuntimeError));
     }
@@ -412,7 +412,7 @@ pub fn equal<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("list equal args error", FSRErrCode::RuntimeError));
     }

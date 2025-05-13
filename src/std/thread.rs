@@ -15,7 +15,7 @@ pub fn fsr_get_cur_thread_id<'a>(
     _args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let id = thread.get_thread_id();
     let obj = thread.garbage_collect.new_object(
         FSRValue::Integer(id as i64),
@@ -28,7 +28,7 @@ pub fn fsr_new_thread<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let fn_id = args[0];
     let args = args[1..].to_vec();
     

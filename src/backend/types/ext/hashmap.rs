@@ -283,7 +283,7 @@ pub fn fsr_fn_hashmap_iter<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRObject::id_to_obj(args[0]);
     if let FSRValue::Any(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
@@ -320,7 +320,7 @@ pub fn fsr_fn_hashmap_new<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRHashMap::new();
     let object = thread
         .garbage_collect
@@ -337,7 +337,7 @@ pub fn fsr_fn_hashmap_insert<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 3 {
         return Err(FSRError::new(
             "not valid args",
@@ -374,7 +374,7 @@ pub fn fsr_fn_hashmap_get<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
@@ -398,14 +398,14 @@ pub fn fsr_fn_hashmap_get_reference<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let hashmap_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
     let mut flag = false;
     if let FSRValue::Any(any) = &hashmap_obj.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             if let Some(value) = hashmap.get(key, thread) {
-                return Ok(FSRRetValue::Reference(value));
+                return Ok(FSRRetValue::GlobalId(value.load(Ordering::Relaxed)));
             }
         }
     } else {
@@ -418,7 +418,7 @@ pub fn fsr_fn_hashmap_contains<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
@@ -440,7 +440,7 @@ pub fn fsr_fn_hashmap_remove<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
 

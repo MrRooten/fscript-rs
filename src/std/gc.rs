@@ -17,7 +17,7 @@ pub fn fn_gc_info<'a>(
     _args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     // thread.garbage_collect.init_size();
     println!("{:#?}", thread.garbage_collect.tracker);
     println!(
@@ -33,7 +33,7 @@ pub fn fn_gc_collect<'a>(
     _args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     thread.garbage_collect.clear_marks();
     thread.set_ref_objects_mark(true);
     thread.collect_gc(true);
@@ -44,7 +44,7 @@ pub fn fn_minjor_gc_collect<'a>(
     _args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     thread.garbage_collect.clear_marks();
     thread.set_ref_objects_mark(false);
     thread.collect_gc(false);
@@ -55,7 +55,7 @@ pub fn fn_gc_shrink<'a>(
     _args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     thread.garbage_collect.shrink();
     Ok(FSRRetValue::GlobalId(0))
 }

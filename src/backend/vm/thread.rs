@@ -277,7 +277,7 @@ pub enum SValue<'a> {
     Stack(&'a (u64, String, bool)),
     Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
     Global(ObjId),
-    Reference(Box<ReferenceArgs<'a>>), // Owner, ref, call_method
+    //Reference(Box<ReferenceArgs<'a>>), // Owner, ref, call_method
 }
 
 impl<'a> SValue<'a> {
@@ -324,7 +324,7 @@ impl<'a> SValue<'a> {
             }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id?.load(Ordering::Relaxed),
-            SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
+            // SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         })
     }
 
@@ -556,7 +556,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
-            SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
+            //SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         })
     }
 
@@ -877,7 +877,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             //SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
-            SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
+            //SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         };
 
         let list_obj = self.get_cur_mut_frame().exp.pop().unwrap();
@@ -888,7 +888,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
-            SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
+            //SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         };
 
         let index_obj_v = FSRObject::id_to_obj(index_id);
@@ -918,18 +918,18 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(atomic_usize) => {
-                // self.get_cur_mut_frame()
-                //     .exp
-                //     .push(SValue::Reference(list_id, atomic_usize, false));
-                self.get_cur_mut_frame()
-                    .exp
-                    .push(SValue::Reference(Box::new(ReferenceArgs {
-                        father: list_id,
-                        atomic_usize,
-                        call_method: false,
-                    })));
-            }
+            // FSRRetValue::Reference(atomic_usize) => {
+            //     // self.get_cur_mut_frame()
+            //     //     .exp
+            //     //     .push(SValue::Reference(list_id, atomic_usize, false));
+            //     self.get_cur_mut_frame()
+            //         .exp
+            //         .push(SValue::Reference(Box::new(ReferenceArgs {
+            //             father: list_id,
+            //             atomic_usize,
+            //             call_method: false,
+            //         })));
+            // }
         };
 
         Ok(false)
@@ -1080,7 +1080,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 id
             }
             //SValue::BoxObject(fsrobject) => FSRVM::leak_object(fsrobject),
-            SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
+            // SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         };
 
         match &assign_id {
@@ -1107,17 +1107,17 @@ impl<'a> FSRThreadRuntime<'a> {
                 //self.thread_allocator.free_box_attr(attr);
             }
             SValue::Global(_) => todo!(),
-            SValue::Reference(ref refer) => {
-                let owner = FSRObject::id_to_obj(refer.father);
-                if owner.area.is_long()
-                    && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
-                {
-                    owner.set_write_barrier(true);
-                }
-                refer
-                    .atomic_usize
-                    .store(to_assign_obj_id, Ordering::Relaxed);
-            }
+            // SValue::Reference(ref refer) => {
+            //     let owner = FSRObject::id_to_obj(refer.father);
+            //     if owner.area.is_long()
+            //         && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
+            //     {
+            //         owner.set_write_barrier(true);
+            //     }
+            //     refer
+            //         .atomic_usize
+            //         .store(to_assign_obj_id, Ordering::Relaxed);
+            // }
         }
 
         self.get_cur_mut_frame().middle_value.push(to_assign_obj_id);
@@ -1162,9 +1162,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRRetValue::GlobalId(res_id) => {
                     self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
                 }
-                FSRRetValue::Reference(_) => {
-                    panic!("not support reference return, in add process")
-                }
+                // FSRRetValue::Reference(_) => {
+                //     panic!("not support reference return, in add process")
+                // }
             };
 
             self.get_cur_mut_frame().middle_value.push(v2_id);
@@ -1190,9 +1190,9 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(_) => {
-                panic!("not support reference return, in add process")
-            }
+            // FSRRetValue::Reference(_) => {
+            //     panic!("not support reference return, in add process")
+            // }
         };
 
         Ok(false)
@@ -1237,9 +1237,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRRetValue::GlobalId(res_id) => {
                     self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
                 }
-                FSRRetValue::Reference(_) => {
-                    panic!("not support reference return, in sub process")
-                }
+                // FSRRetValue::Reference(_) => {
+                //     panic!("not support reference return, in sub process")
+                // }
             };
 
             self.get_cur_mut_frame().middle_value.push(right);
@@ -1263,9 +1263,9 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(_) => {
-                panic!("not support reference return, in sub process")
-            }
+            // FSRRetValue::Reference(_) => {
+            //     panic!("not support reference return, in sub process")
+            // }
         };
 
         Ok(false)
@@ -1318,9 +1318,9 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(_) => {
-                panic!("not support reference return, in mul process")
-            }
+            // FSRRetValue::Reference(_) => {
+            //     panic!("not support reference return, in mul process")
+            // }
         };
         Ok(false)
     }
@@ -1367,9 +1367,9 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(_) => {
-                panic!("not support reference return, in div process")
-            }
+            // FSRRetValue::Reference(_) => {
+            //     panic!("not support reference return, in div process")
+            // }
         };
 
         right_value.drop_box(&mut self.thread_allocator);
@@ -1419,9 +1419,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRRetValue::GlobalId(res_id) => {
                     self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
                 }
-                FSRRetValue::Reference(_) => {
-                    panic!("not support reference return, in reminder process")
-                }
+                // FSRRetValue::Reference(_) => {
+                //     panic!("not support reference return, in reminder process")
+                // }
             };
 
             return Ok(false);
@@ -1441,9 +1441,9 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(SValue::Global(res_id));
             }
-            FSRRetValue::Reference(_) => {
-                panic!("not support reference return, in div process")
-            }
+            // FSRRetValue::Reference(_) => {
+            //     panic!("not support reference return, in div process")
+            // }
         };
 
         right_value.drop_box(&mut self.thread_allocator);
@@ -1462,7 +1462,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
             SValue::Attr(id) => id,
-            SValue::Reference(_) => todo!(),
+            // SValue::Reference(_) => todo!(),
         };
         let dot_father_svalue = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1490,11 +1490,7 @@ impl<'a> FSRThreadRuntime<'a> {
             };
             self.get_cur_mut_frame()
                 .exp
-                .push(SValue::Reference(Box::new(ReferenceArgs {
-                    father: dot_father,
-                    atomic_usize: id,
-                    call_method: false,
-                })));
+                .push(SValue::Global(id.load(Ordering::Relaxed)));
             self.get_cur_mut_frame().middle_value.push(dot_father);
             self.get_cur_mut_frame()
                 .middle_value
@@ -1567,7 +1563,7 @@ impl<'a> FSRThreadRuntime<'a> {
             SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
             SValue::Attr(id) => id,
-            SValue::Reference(_) => todo!(),
+            // SValue::Reference(_) => todo!(),
         };
 
         let dot_father = match self.get_cur_mut_frame().exp.pop() {
@@ -1600,11 +1596,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //     .push(SValue::Reference(dot_father, id, false));
             self.get_cur_mut_frame()
                 .exp
-                .push(SValue::Reference(Box::new(ReferenceArgs {
-                    father: dot_father,
-                    atomic_usize: id,
-                    call_method: false,
-                })));
+                .push(SValue::Global(id.load(Ordering::Relaxed)));
             self.thread_allocator.free_box_attr(attr_id);
             return Ok(false);
         }
@@ -1730,7 +1722,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 },
                 SValue::Global(g) => *g,
                 SValue::Attr(a) => a.attr_object_id.unwrap().load(Ordering::Relaxed),
-                SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
+                // SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
             };
             thread.get_cur_mut_frame().middle_value.push(a_id);
             args.push(a_id);
@@ -1995,11 +1987,11 @@ impl<'a> FSRThreadRuntime<'a> {
 
                     id
                 }
-                SValue::Reference(ref refer) => {
-                    call_method = refer.call_method;
+                // SValue::Reference(ref refer) => {
+                //     call_method = refer.call_method;
 
-                    refer.atomic_usize.load(Ordering::Relaxed)
-                }
+                //     refer.atomic_usize.load(Ordering::Relaxed)
+                // }
             };
             self.get_cur_mut_frame().middle_value.push(fn_id);
             Ok((fn_id, call_method))
@@ -2569,7 +2561,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     id
                 }
                 // SValue::BoxObject(obj) => FSRVM::leak_object(obj),
-                SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
+                // SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
             }
         };
 

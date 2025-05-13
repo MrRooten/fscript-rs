@@ -80,7 +80,7 @@ fn join<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
 
     if let FSRValue::Any(any) = &mut self_object.value {

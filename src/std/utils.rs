@@ -18,7 +18,7 @@ pub fn fsr_fn_assert<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     if args.len() == 2 {
         if value.is_false() {
@@ -40,7 +40,7 @@ pub fn fsr_fn_export<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     code: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     let name = match &FSRObject::id_to_obj(args[0]).value {
         FSRValue::String(cow) => cow,
         _ => {
@@ -67,7 +67,7 @@ pub fn fsr_fn_range<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -95,7 +95,7 @@ pub fn fsr_fn_type<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 1 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -175,7 +175,7 @@ pub fn fsr_fn_id<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 1 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -191,7 +191,7 @@ fn fsr_is_class<'a>(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -209,7 +209,7 @@ pub fn fsr_timeit<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -224,7 +224,7 @@ pub fn fsr_timeit<'a>(
                         continue;
                     }
                 }
-                FSRRetValue::Reference(_) => {}
+                // FSRRetValue::Reference(_) => {}
             };
         }
         let end = std::time::Instant::now();
@@ -243,7 +243,7 @@ pub fn fsr_sleep<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
     _module: ObjId,
-) -> Result<FSRRetValue<'a>, FSRError> {
+) -> Result<FSRRetValue, FSRError> {
     if let FSRValue::Integer(i) = &FSRObject::id_to_obj(args[0]).value {
         //thread.release();
         thread.safe_point_to_stop();
