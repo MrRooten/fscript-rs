@@ -1,5 +1,10 @@
 def fib(n):
-    pass
+    if n == 1 or n == 2:
+        return 1
+    else:
+        return fib(n - 1) + fib(n - 2)
 
+n = 2
 for i in range(18000000):
-    fib(1)
+    if n == 1 :
+        pass
