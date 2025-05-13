@@ -650,11 +650,11 @@ impl<'a> FSRObject<'a> {
         &'a self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: ObjId,
+        code: ObjId,
         fn_id: ObjId,
     ) -> Result<FSRRetValue<'a>, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
-            return fn_def.invoke(args, thread, module, fn_id);
+            return fn_def.invoke(args, thread, code, fn_id);
         }
         unimplemented!()
     }

@@ -510,7 +510,6 @@ impl<'a> FSRThreadRuntime<'a> {
         println!("bytecode counter: {:?}", map);
     }
 
-
     pub fn get_vm(&self) -> Arc<FSRVM<'static>> {
         unsafe { VM.as_ref().unwrap().clone() }
     }
@@ -823,7 +822,7 @@ impl<'a> FSRThreadRuntime<'a> {
             CompareOperator::Equal => {
                 let left_obj = FSRObject::id_to_obj(left);
                 let right_obj = FSRObject::id_to_obj(right);
-                
+
                 if let Some(equal) = thread
                     .op_quick
                     .get_equal(right_obj.cls as usize, left_obj.cls as usize)
@@ -867,7 +866,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn getter_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let index_obj = self.get_cur_mut_frame().exp.pop().unwrap();
 
@@ -937,11 +935,54 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    // like a[0] = 1
+    #[inline(always)]
+    fn getter_assign_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &'a BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let len = self.get_cur_frame().exp.len();
+        let index_obj = self
+            .get_cur_frame()
+            .exp
+            .last()
+            .unwrap()
+            .get_global_id(self)
+            .unwrap();
+        let container_obj = self
+            .get_cur_frame()
+            .exp
+            .get(len - 2)
+            .unwrap()
+            .get_global_id(self)
+            .unwrap();
+        let value_obj = self
+            .get_cur_frame()
+            .exp
+            .get(len - 3)
+            .unwrap()
+            .get_global_id(self)
+            .unwrap();
+        let set_item = FSRObject::id_to_obj(container_obj)
+            .get_cls_offset_attr(BinaryOffset::SetItem)
+            .unwrap()
+            .load(Ordering::Relaxed);
+
+        let set_item_fn = FSRObject::id_to_obj(set_item);
+        let res = set_item_fn.call(
+            &[container_obj, index_obj, value_obj],
+            self,
+            self.get_context().code,
+            set_item,
+        );
+
+        Ok(false)
+    }
+
     #[inline(always)]
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         if let ArgType::Variable(v) = bytecode.get_arg() {
             let var_id = v.0;
@@ -1051,9 +1092,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn binary_add_process(
-        self: &mut FSRThreadRuntime<'a>,
-    ) -> Result<bool, FSRError> {
+    fn binary_add_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let v1 = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
@@ -1128,7 +1167,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_sub_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let right_value = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1202,7 +1240,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_mul_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let right_value = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1257,7 +1294,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_div_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let right_value = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1312,7 +1348,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn binary_reminder_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let right_value = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -1387,7 +1422,6 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
 
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(_) => unimplemented!(),
@@ -1493,9 +1527,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn binary_get_cls_attr_process(
-        self: &mut FSRThreadRuntime<'a>,
-    ) -> Result<bool, FSRError> {
+    fn binary_get_cls_attr_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
             SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
@@ -1986,7 +2018,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn call_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let mut var: Option<&(usize, u64, String, bool)> = None;
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
@@ -2055,7 +2086,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let v = self.get_cur_mut_frame().exp.pop().unwrap();
         let mut name = "";
@@ -2103,12 +2133,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn if_end(
-        self: &mut FSRThreadRuntime<'a>,
-
-        _bytecode: &BytecodeArg,
-        
-    ) -> Result<bool, FSRError> {
+    fn if_end(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
         self.flow_tracker.pop_last_if_test();
         Ok(false)
     }
@@ -2117,7 +2142,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn else_if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let test_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
         let test_val = match &test_svalue {
@@ -2157,7 +2181,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn else_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         if self.flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
@@ -2175,7 +2198,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn else_if_match(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         if self.flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
@@ -2192,7 +2214,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn break_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         self.flow_tracker.is_break = true;
         let l = self.flow_tracker.continue_line.len();
@@ -2205,7 +2226,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn continue_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let l = self.flow_tracker.continue_line.len();
         let continue_line = self.flow_tracker.continue_line[l - 1];
@@ -2230,7 +2250,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn load_for_iter(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let iter_obj = self.get_cur_mut_frame().exp.pop().unwrap();
         let iter_id = {
@@ -2267,7 +2286,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn while_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let test_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
         let test_val = match test_svalue {
@@ -2478,7 +2496,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn ret_value(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let v = if self.get_cur_mut_frame().exp.is_empty() {
             FSRObject::none_id()
@@ -2535,11 +2552,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
-    fn end_fn(
-        self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
-        
-    ) -> Result<bool, FSRError> {
+    fn end_fn(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
         self.pop_stack();
         let cur = self.get_cur_mut_frame();
         let ip_0 = cur.reverse_ip.0;
@@ -2555,7 +2568,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn for_block_end(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         if let ArgType::ForEnd(n) = bytecode.get_arg() {
             let tmp = self.get_context().ip.0;
@@ -2569,7 +2581,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn while_block_end(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         if let ArgType::WhileEnd(n) = bytecode.get_arg() {
             let tmp = self.get_context().ip.0;
@@ -2612,7 +2623,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn assign_args(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let state = &mut self.cur_frame;
         let v = state.args.pop().ok_or_else(|| {
@@ -2634,7 +2644,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn load_list(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         if let ArgType::LoadListNumber(n) = bytecode.get_arg() {
             let mut list = Vec::with_capacity(*n);
@@ -2664,7 +2673,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn class_def(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let id = match self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
             FSRError::new(
@@ -2734,11 +2742,7 @@ impl<'a> FSRThreadRuntime<'a> {
         unimplemented!()
     }
 
-    fn end_class_def(
-        self: &mut FSRThreadRuntime<'a>,
-        bc: &BytecodeArg,
-        
-    ) -> Result<bool, FSRError> {
+    fn end_class_def(self: &mut FSRThreadRuntime<'a>, bc: &BytecodeArg) -> Result<bool, FSRError> {
         if let ArgType::Variable(var) = bc.get_arg() {
             let id = var.0;
             let state = self.get_cur_mut_frame();
@@ -2774,7 +2778,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn special_load_for(
         self: &mut FSRThreadRuntime<'a>,
         arg: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let obj = self.flow_tracker.for_iter_obj.last().cloned().unwrap();
         let obj_value = FSRObject::id_to_obj(obj);
@@ -2814,7 +2817,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn process_logic_and(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let first = self
             .get_cur_mut_frame()
@@ -2837,7 +2839,6 @@ impl<'a> FSRThreadRuntime<'a> {
     fn process_logic_or(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
-        
     ) -> Result<bool, FSRError> {
         let first = self
             .get_cur_mut_frame()
@@ -2856,9 +2857,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn not_process(
-        self: &mut FSRThreadRuntime<'a>,
-    ) -> Result<bool, FSRError> {
+    fn not_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let v1 = match self.get_cur_frame().exp.last() {
             Some(s) => s,
             None => {
@@ -2892,11 +2891,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn empty_process(
-        self: &mut FSRThreadRuntime<'a>,
-        _bc: &BytecodeArg,
-        
-    ) -> Result<bool, FSRError> {
+    fn empty_process(self: &mut FSRThreadRuntime<'a>, _bc: &BytecodeArg) -> Result<bool, FSRError> {
         Ok(false)
     }
 
@@ -2939,9 +2934,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             BytecodeOperator::BinaryDiv => Self::binary_div_process(self, bytecode),
             BytecodeOperator::NotOperator => Self::not_process(self),
-            BytecodeOperator::BinaryClassGetter => {
-                Self::binary_get_cls_attr_process(self)
-            }
+            BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr_process(self),
             BytecodeOperator::Getter => Self::getter_process(self, bytecode),
             BytecodeOperator::Try => Self::try_process(self, bytecode),
             BytecodeOperator::EndTry => Self::try_end(self),
@@ -2950,6 +2943,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
             BytecodeOperator::LoadConst => Self::load_const(self, bytecode),
             BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
+            BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3189,10 +3183,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn run_expr_wrapper(
-        &mut self,
-        expr: &'a [BytecodeArg],
-    ) -> Result<bool, FSRError> {
+    fn run_expr_wrapper(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
         if self.counter - self.last_aquire_counter > 100 {
             self.rt_yield();
         }

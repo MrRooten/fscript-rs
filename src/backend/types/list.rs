@@ -168,6 +168,38 @@ pub fn get_item<'a>(
     unimplemented!()
 }
 
+pub fn set_item<'a>(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime<'a>,
+    _module: ObjId,
+) -> Result<FSRRetValue<'a>, FSRError> {
+    if args.len() != 3 {
+        return Err(FSRError::new(
+            "set_item args error",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let self_id = args[0];
+    let index_id = args[1];
+    let target_id = args[2];
+    let obj = FSRObject::id_to_mut_obj(self_id).unwrap();
+    let index_obj = FSRObject::id_to_obj(index_id);
+    if let FSRValue::List(l) = &obj.value {
+        if let FSRValue::Integer(i) = &index_obj.value {
+            let index = *i as usize;
+            if let Some(s) = l.vs.get(index) {
+                s.store(target_id, Ordering::Relaxed);
+                return Ok(FSRRetValue::GlobalId(0));
+            } else {
+                return Err(FSRError::new("list index of range", FSRErrCode::OutOfRange));
+            }
+        }
+
+        unimplemented!()
+    }
+    unimplemented!()
+}
+
 pub fn sort<'a>(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'a>,
@@ -441,6 +473,8 @@ impl FSRList {
         cls.insert_offset_attr(BinaryOffset::Equal, equal_fn);
         let filter_fn = FSRFn::from_rust_fn_static(filter, "list_filter");
         cls.insert_attr("filter", filter_fn);
+        let set_item = FSRFn::from_rust_fn_static(set_item, "list_set_item");
+        cls.insert_offset_attr(BinaryOffset::SetItem, set_item);
         cls
     }
 

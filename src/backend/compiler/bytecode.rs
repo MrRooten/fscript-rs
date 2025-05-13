@@ -2337,4 +2337,17 @@ a[0] = 1
         let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);
     }
+
+    #[test]
+    fn test_getter_assign() {
+        let expr = "
+        a = [1, 2]
+        a[1 + 1] = 1
+        ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
 }
