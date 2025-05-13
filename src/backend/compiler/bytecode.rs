@@ -169,6 +169,7 @@ pub enum BytecodeOperator {
     Create = 46,
     AssignContainer = 47,
     AssignAttr = 48,
+    CallMethod = 49,
     Load = 254,
 }
 
@@ -225,6 +226,7 @@ impl BytecodeOperator {
             46 => Some(Create),
             47 => Some(AssignContainer),
             48 => Some(AssignAttr),
+            49 => Some(CallMethod),
             254 => Some(Load),
             _ => None,
         }
@@ -350,7 +352,7 @@ impl BytecodeOperator {
         unimplemented!()
     }
 
-    pub fn get_op(op: &str, info: FSRByteInfo) -> Option<BytecodeArg> {
+    pub fn get_op(op: &str, info: FSRByteInfo, attr_id: Option<ArgType>) -> Option<BytecodeArg> {
         if op.eq("+") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryAdd,
@@ -366,7 +368,7 @@ impl BytecodeOperator {
         } else if op.eq(".") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryDot,
-                arg: ArgType::None,
+                arg: attr_id.unwrap(),
                 info,
             });
         } else if op.eq("::") {
@@ -607,6 +609,11 @@ pub struct Bytecode {
     bytecode: Vec<Vec<BytecodeArg>>,
 }
 
+enum AttrIdOrCode {
+    Bytecode(Vec<BytecodeArg>),
+    AttrId(ArgType),
+}
+
 impl<'a> Bytecode {
     pub fn get(&self, index: usize) -> Option<&Vec<BytecodeArg>> {
         if let Some(s) = self.bytecode.get(index) {
@@ -633,22 +640,22 @@ impl<'a> Bytecode {
                     var_map.last_mut().unwrap().insert_attr(v);
                 }
                 let id = var_map.last_mut().unwrap().get_attr(name).unwrap();
-                result.push(BytecodeArg {
-                    operator: BytecodeOperator::Load,
-                    arg: ArgType::Attr(*id, name.to_string()),
-                    info: FSRByteInfo::new(getter.get_meta().clone()),
-                });
+                // result.push(BytecodeArg {
+                //     operator: BytecodeOperator::Load,
+                //     arg: ArgType::Attr(*id, name.to_string()),
+                //     info: FSRByteInfo::new(getter.get_meta().clone()),
+                // });
 
                 if is_method_call {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryDot,
-                        arg: ArgType::None,
+                        arg: ArgType::Attr(*id, name.to_string()),
                         info: FSRByteInfo::new(getter.get_meta().clone()),
                     });
                 } else {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryClassGetter,
-                        arg: ArgType::None,
+                        arg: ArgType::Attr(*id, name.to_string()),
                         info: FSRByteInfo::new(getter.get_meta().clone()),
                     });
                 }
@@ -708,22 +715,22 @@ impl<'a> Bytecode {
                     var_map.last_mut().unwrap().insert_attr(v);
                 }
                 let id = var_map.last_mut().unwrap().get_attr(name).unwrap();
-                result.push(BytecodeArg {
-                    operator: BytecodeOperator::Load,
-                    arg: ArgType::Attr(*id, name.to_string()),
-                    info: FSRByteInfo::new(call.get_meta().clone()),
-                });
+                // result.push(BytecodeArg {
+                //     operator: BytecodeOperator::Load,
+                //     arg: ArgType::Attr(*id, name.to_string()),
+                //     info: FSRByteInfo::new(call.get_meta().clone()),
+                // });
 
                 if is_method_call {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryDot,
-                        arg: ArgType::None,
+                        arg: ArgType::Attr(*id, name.to_string()),
                         info: FSRByteInfo::new(call.get_meta().clone()),
                     });
                 } else {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryClassGetter,
-                        arg: ArgType::None,
+                        arg: ArgType::Attr(*id, name.to_string()),
                         info: FSRByteInfo::new(call.get_meta().clone()),
                     });
                 }
@@ -765,9 +772,16 @@ impl<'a> Bytecode {
             let mut v = Self::load_token_with_map(arg, var_map, const_map);
             result.append(&mut v[0]);
         }
+
+        let call_or_callmethod = if is_method_call {
+            BytecodeOperator::CallMethod
+        } else {
+            BytecodeOperator::Call
+        };
+
         if is_var {
             result.push(BytecodeArg {
-                operator: BytecodeOperator::Call,
+                operator: call_or_callmethod,
                 arg: ArgType::CallArgsNumberWithVar((
                     call.get_args().len(),
                     var_id,
@@ -778,7 +792,7 @@ impl<'a> Bytecode {
             });
         } else {
             result.push(BytecodeArg {
-                operator: BytecodeOperator::Call,
+                operator: call_or_callmethod,
                 arg: ArgType::CallArgsNumber(call.get_args().len()),
                 info: FSRByteInfo::new(call.get_meta().clone()),
             });
@@ -792,7 +806,7 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         is_attr: bool,
         context: &mut BytecodeContext,
-    ) -> (Vec<BytecodeArg>) {
+    ) -> (AttrIdOrCode) {
         if !is_attr {
             if !var_map.last_mut().unwrap().has_var(var.get_name()) {
                 let v = var.get_name();
@@ -834,24 +848,20 @@ impl<'a> Bytecode {
                 }
             }
 
-            return (ans);
+            return (AttrIdOrCode::Bytecode(ans));
         }
 
         if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined {
             // if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined{
             let op_arg = match is_attr {
-                true => BytecodeArg {
-                    operator: BytecodeOperator::Load,
-                    arg: {
-                        let arg_id = var_map
-                            .last_mut()
-                            .unwrap()
-                            .get_attr(var.get_name())
-                            .unwrap();
-                        ArgType::Attr(*arg_id, var.get_name().to_string())
-                    },
-                    info: FSRByteInfo::new(var.get_meta().clone()),
-                },
+                true => {
+                    let arg_id = var_map
+                        .last_mut()
+                        .unwrap()
+                        .get_attr(var.get_name())
+                        .unwrap();
+                    return AttrIdOrCode::AttrId(ArgType::Attr(*arg_id, var.get_name().to_string()));
+                }
                 false => BytecodeArg {
                     operator: BytecodeOperator::Load,
                     arg: {
@@ -884,22 +894,18 @@ impl<'a> Bytecode {
                 }
             }
 
-            return (ans);
+            return (AttrIdOrCode::Bytecode(ans));
         }
 
         let op_arg = match is_attr {
-            true => BytecodeArg {
-                operator: BytecodeOperator::Load,
-                arg: {
-                    let arg_id = var_map
-                        .last_mut()
-                        .unwrap()
-                        .get_attr(var.get_name())
-                        .unwrap();
-                    ArgType::Attr(*arg_id, var.get_name().to_string())
-                },
-                info: FSRByteInfo::new(var.get_meta().clone()),
-            },
+            true => {
+                let arg_id = var_map
+                    .last_mut()
+                    .unwrap()
+                    .get_attr(var.get_name())
+                    .unwrap();
+                return AttrIdOrCode::AttrId(ArgType::Attr(*arg_id, var.get_name().to_string()));
+            }
             false => BytecodeArg {
                 operator: BytecodeOperator::Load,
                 arg: {
@@ -932,7 +938,7 @@ impl<'a> Bytecode {
             }
         }
 
-        (ans)
+        return (AttrIdOrCode::Bytecode(ans));
     }
 
     fn load_assign_arg(
@@ -1000,7 +1006,13 @@ impl<'a> Bytecode {
             op_code.append(&mut v);
         } else if let FSRToken::Variable(v) = expr.get_left() {
             let mut v = Self::load_variable(v, var_map, false, const_map);
-            op_code.append(&mut v);
+            match v {
+                AttrIdOrCode::Bytecode(mut bytecode_args) => {
+                    op_code.append(&mut bytecode_args);
+                },
+                AttrIdOrCode::AttrId(arg_type) => todo!(),
+            }
+            
         } else if let FSRToken::Call(c) = expr.get_left() {
             let mut v = Self::load_call(c, var_map, false, false, const_map);
             op_code.append(&mut v);
@@ -1022,6 +1034,7 @@ impl<'a> Bytecode {
         }
 
         let mut second = Vec::new();
+        let mut attr_id = None;
         if let FSRToken::Expr(sub_expr) = expr.get_right() {
             let mut v = Self::load_expr(sub_expr, var_map, const_map);
             second.append(&mut v);
@@ -1031,8 +1044,16 @@ impl<'a> Bytecode {
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 is_attr = true;
             }
-            let mut v = Self::load_variable(v, var_map, is_attr, const_map);
-            second.append(&mut v);
+            let v = Self::load_variable(v, var_map, is_attr, const_map);
+            match v {
+                AttrIdOrCode::Bytecode(mut bytecode_args) => {
+                    second.append(&mut bytecode_args);
+                },
+                AttrIdOrCode::AttrId(arg_type) => {
+                    attr_id = Some(arg_type)
+                },
+            }
+            
             //
         } else if let FSRToken::Call(c) = expr.get_right() {
             let mut is_attr = false;
@@ -1152,7 +1173,7 @@ impl<'a> Bytecode {
 
         op_code.append(&mut second);
         if let Some(s) =
-            BytecodeOperator::get_op(expr.get_op(), FSRByteInfo::new(expr.get_meta().clone()))
+            BytecodeOperator::get_op(expr.get_op(), FSRByteInfo::new(expr.get_meta().clone()), attr_id)
         {
             op_code.push(s);
         } else {
@@ -1489,7 +1510,12 @@ impl<'a> Bytecode {
             return (vec![v]);
         } else if let FSRToken::Variable(v) = token {
             let v = Self::load_variable(v, var_map, false, byte_context);
-            return (vec![v]);
+            match v {
+                AttrIdOrCode::Bytecode(bytecode_args) => {
+                    return vec![bytecode_args]
+                },
+                AttrIdOrCode::AttrId(arg_type) => todo!(),
+            }
         } else if let FSRToken::Module(m) = token {
             let mut vs = vec![];
             let mut ref_self = var_map;
@@ -1929,7 +1955,13 @@ impl<'a> Bytecode {
 
         define_fn.push(BytecodeArg {
             operator: BytecodeOperator::DefineFn,
-            arg: ArgType::DefineFnArgs(arg_id, name.to_string(), cur_name.to_string(), args_save, store_to_cell),
+            arg: ArgType::DefineFnArgs(
+                arg_id,
+                name.to_string(),
+                cur_name.to_string(),
+                args_save,
+                store_to_cell,
+            ),
             info: FSRByteInfo::new(fn_def.get_meta().clone()),
         });
 
@@ -2391,6 +2423,18 @@ a[0] = 1
     fn test_dot_assign() {
         let expr = "
         a.c = 1
+        ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_method_call_or_not() {
+        let expr = "
+        a.c.d[1]
         ";
 
         let meta = FSRPosition::new();

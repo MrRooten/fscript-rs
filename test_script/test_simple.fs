@@ -10,10 +10,13 @@ class Abc {
         self.abc = Ddc()
         return self
     }
-
+    fn __str__(self) {
+        return 'return string'
+    }
 }
 
 
 
 a = Abc()
 
+a.__str__()

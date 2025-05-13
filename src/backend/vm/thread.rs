@@ -173,7 +173,7 @@ pub struct CallFrame<'a> {
     args: SmallVec<[ObjId; 4]>,
     cur_cls: Option<Box<FSRClass<'a>>>,
     pub(crate) ret_val: Option<ObjId>,
-    pub(crate) exp: Vec<SValue<'a>>,
+    pub(crate) exp: Vec<SValue>,
     /// in case of garbage collection collecting this object, this object is for middle value for expression
     pub(crate) middle_value: Vec<ObjId>,
     pub(crate) code: ObjId,
@@ -273,14 +273,14 @@ pub struct ReferenceArgs<'a> {
 }
 
 #[derive(Debug)]
-pub enum SValue<'a> {
+pub enum SValue {
     //Stack(&'a (u64, String, bool)),
-    Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
+    //Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
     Global(ObjId),
     //Reference(Box<ReferenceArgs<'a>>), // Owner, ref, call_method
 }
 
-impl<'a> SValue<'a> {
+impl<'a> SValue {
     fn get_chains(
         &self,
         thread: &FSRThreadRuntime,
@@ -312,7 +312,7 @@ impl<'a> SValue<'a> {
     }
 
     #[inline(always)]
-    pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> Option<ObjId> {
+    pub fn get_global_id(&self) -> Option<ObjId> {
         Some(match self {
             // SValue::Stack(s) => {
             //     let state = thread.get_cur_frame();
@@ -323,7 +323,7 @@ impl<'a> SValue<'a> {
             //     }
             // }
             SValue::Global(id) => *id,
-            SValue::Attr(args) => args.attr_object_id?.load(Ordering::Relaxed),
+            //SValue::Attr(args) => args.attr_object_id?.load(Ordering::Relaxed),
             // SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         })
     }
@@ -331,9 +331,9 @@ impl<'a> SValue<'a> {
     #[inline(always)]
     pub fn drop_box(self, allocator: &mut FSRObjectAllocator<'a>) {
         match self {
-            Self::Attr(b) => {
-                allocator.free_box_attr(b);
-            }
+            // Self::Attr(b) => {
+            //     allocator.free_box_attr(b);
+            // }
             _ => {}
         }
     }
@@ -343,7 +343,7 @@ impl<'a> SValue<'a> {
 pub struct FSCodeContext {
     // tracing call stack, is call stack is empty means end of this call except start of this call
     pub(crate) call_end: u32,
-    // exp: Vec<SValue<'a>>,
+    // exp: Vec<SValue>,
     ip: (usize, usize),
     pub(crate) code: ObjId,
 }
@@ -516,7 +516,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     
 
-    pub fn get_global_id(&self, value: &SValue<'a>) -> Result<ObjId, FSRError> {
+    pub fn get_global_id(&self, value: &SValue) -> Result<ObjId, FSRError> {
         Ok(match value {
             // SValue::Stack(s) => {
             //     let state = self.get_cur_frame();
@@ -527,7 +527,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //     }
             // }
             SValue::Global(id) => *id,
-            SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
+            // SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             //SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         })
     }
@@ -643,7 +643,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         for i in &it.exp {
-            let id = match i.get_global_id(self) {
+            let id = match i.get_global_id() {
                 Some(id) => id,
                 None => {
                     continue;
@@ -847,7 +847,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //     state.get_var(&s.0).unwrap().load(Ordering::Relaxed)
             // }
             SValue::Global(id) => *id,
-            SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
+            // SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             //SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
             //SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         };
@@ -859,7 +859,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //     state.get_var(&s.0).unwrap().load(Ordering::Relaxed)
             // }
             SValue::Global(id) => *id,
-            SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
+            // SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             //SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         };
 
@@ -919,21 +919,21 @@ impl<'a> FSRThreadRuntime<'a> {
             .exp
             .last()
             .unwrap()
-            .get_global_id(self)
+            .get_global_id()
             .unwrap();
         let container_obj = self
             .get_cur_frame()
             .exp
             .get(len - 2)
             .unwrap()
-            .get_global_id(self)
+            .get_global_id()
             .unwrap();
         let value_obj = self
             .get_cur_frame()
             .exp
             .get(len - 3)
             .unwrap()
-            .get_global_id(self)
+            .get_global_id()
             .unwrap();
         let set_item = FSRObject::id_to_obj(container_obj)
             .get_cls_offset_attr(BinaryOffset::SetItem)
@@ -963,14 +963,14 @@ impl<'a> FSRThreadRuntime<'a> {
                 .exp
                 .last()
                 .unwrap()
-                .get_global_id(self)
+                .get_global_id()
                 .unwrap();
             let assign_value = self
                 .get_cur_frame()
                 .exp
                 .get(len - 2)
                 .unwrap()
-                .get_global_id(self)
+                .get_global_id()
                 .unwrap();
 
             let father_obj = FSRObject::id_to_mut_obj(father).unwrap();
@@ -1000,7 +1000,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            let obj_id = svalue.get_global_id(self).unwrap();
+            let obj_id = svalue.get_global_id().unwrap();
             let state = &mut self.cur_frame;
             state.insert_var(var_id, obj_id);
             svalue.drop_box(&mut self.thread_allocator);
@@ -1046,11 +1046,11 @@ impl<'a> FSRThreadRuntime<'a> {
             //     }
             // }
             SValue::Global(id) => *id,
-            SValue::Attr(args) => {
-                let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
-                //self.thread_allocator.free_box_attr(args);
-                id
-            }
+            // SValue::Attr(args) => {
+            //     let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
+            //     //self.thread_allocator.free_box_attr(args);
+            //     id
+            // }
             //SValue::BoxObject(fsrobject) => FSRVM::leak_object(fsrobject),
             // SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         };
@@ -1062,22 +1062,22 @@ impl<'a> FSRThreadRuntime<'a> {
             //     state.attr_map.clear_var(v.0 as usize);
             //     //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
             // }
-            SValue::Attr(attr) => {
-                let father_obj =
-                    FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
-                if father_obj.area.is_long()
-                    && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
-                {
-                    father_obj.set_write_barrier(true);
-                }
-                if let Some(s) = attr.attr_object_id {
-                    s.store(to_assign_obj_id, Ordering::Relaxed);
-                } else {
-                    father_obj.set_attr(attr.name, to_assign_obj_id);
-                }
+            // SValue::Attr(attr) => {
+            //     let father_obj =
+            //         FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
+            //     if father_obj.area.is_long()
+            //         && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
+            //     {
+            //         father_obj.set_write_barrier(true);
+            //     }
+            //     if let Some(s) = attr.attr_object_id {
+            //         s.store(to_assign_obj_id, Ordering::Relaxed);
+            //     } else {
+            //         father_obj.set_attr(attr.name, to_assign_obj_id);
+            //     }
 
-                //self.thread_allocator.free_box_attr(attr);
-            }
+            //     //self.thread_allocator.free_box_attr(attr);
+            // }
             SValue::Global(_) => todo!(),
             // SValue::Reference(ref refer) => {
             //     let owner = FSRObject::id_to_obj(refer.father);
@@ -1120,8 +1120,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let v1_id = v1.get_global_id(self).unwrap();
-        let v2_id = v2.get_global_id(self).unwrap();
+        let v1_id = v1.get_global_id().unwrap();
+        let v2_id = v2.get_global_id().unwrap();
 
         let v1_cls = obj_cls!(v1_id);
         let v2_cls = obj_cls!(v2_id);
@@ -1195,8 +1195,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let right = right_value.get_global_id(self).unwrap();
-        let left = left_value.get_global_id(self).unwrap();
+        let right = right_value.get_global_id().unwrap();
+        let left = left_value.get_global_id().unwrap();
 
         let left_cls = obj_cls!(left);
         let right_cls = obj_cls!(right);
@@ -1268,8 +1268,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let right_id = right_value.get_global_id(self).unwrap();
-        let left_id = left_value.get_global_id(self).unwrap();
+        let right_id = right_value.get_global_id().unwrap();
+        let left_id = left_value.get_global_id().unwrap();
 
         let res = FSRObject::invoke_binary_method(
             BinaryOffset::Mul,
@@ -1322,8 +1322,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let right_id = right_value.get_global_id(self).unwrap();
-        let left_id = left_value.get_global_id(self).unwrap();
+        let right_id = right_value.get_global_id().unwrap();
+        let left_id = left_value.get_global_id().unwrap();
 
         let res = FSRObject::invoke_binary_method(
             BinaryOffset::Div,
@@ -1376,8 +1376,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let right_id = right_value.get_global_id(self).unwrap();
-        let left_id = left_value.get_global_id(self).unwrap();
+        let right_id = right_value.get_global_id().unwrap();
+        let left_id = left_value.get_global_id().unwrap();
 
         let left_cls = obj_cls!(left_id);
         let right_cls = obj_cls!(right_id);
@@ -1427,15 +1427,21 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn binary_dot_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
-            //SValue::Stack(_) => unimplemented!(),
-            SValue::Global(_) => unimplemented!(),
-            SValue::Attr(id) => id,
-            // SValue::Reference(_) => todo!(),
+        // let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
+        //     //SValue::Stack(_) => unimplemented!(),
+        //     SValue::Global(_) => unimplemented!(),
+        //     // SValue::Attr(id) => id,
+        //     // SValue::Reference(_) => todo!(),
+        // };
+
+        let attr_id = if let ArgType::Attr(attr_id, name) = bytecode.get_arg() {
+            (attr_id, name)
+        } else {
+            unimplemented!()
         };
-        let dot_father_svalue = match self.get_cur_mut_frame().exp.pop() {
+        let dot_father_svalue = match self.get_cur_mut_frame().exp.last() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1445,10 +1451,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let dot_father = dot_father_svalue.get_global_id(self).unwrap();
+        let dot_father = dot_father_svalue.get_global_id().unwrap();
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
         if dot_father_obj.is_code() {
-            let name = attr_id.name;
+            let name = attr_id.1;
             let id = dot_father_obj.get_attr(name);
             let id = match id {
                 Some(s) => s,
@@ -1466,24 +1472,26 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_frame()
                 .middle_value
                 .push(id.load(Ordering::Relaxed));
-            self.thread_allocator.free_box_attr(attr_id);
+            //self.thread_allocator.free_box_attr(attr_id);
             return Ok(false);
         }
 
-        let name = attr_id.name;
+        let name = &attr_id.1;
 
         let id = {
             dot_father_obj.get_attr(name)
         };
         if let Some(id) = id {
-            let new_attr = self.thread_allocator.new_box_attr(
-                attr_id.attr_id,
-                dot_father,
-                Some(id),
-                name,
-                true,
-            );
-            self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
+            // let new_attr = self.thread_allocator.new_box_attr(
+            //     attr_id.attr_id,
+            //     dot_father,
+            //     Some(id),
+            //     name,
+            //     true,
+            // );
+            self.get_cur_mut_frame().exp.push(SValue::Global(dot_father));
+            self.get_cur_mut_frame().exp.push(SValue::Global(id.load(Ordering::Relaxed)));
+            
             // if let SValue::Stack(s) = dot_father_svalue {
             //     let state = self.get_cur_mut_frame();
             //     state
@@ -1495,43 +1503,43 @@ impl<'a> FSRThreadRuntime<'a> {
                 .middle_value
                 .push(id.load(Ordering::Relaxed));
         } else {
-            //context.exp.push(SValue::Global(dot_father));
-            let new_attr = self.thread_allocator.new_box_attr(
-                attr_id.attr_id,
-                dot_father,
-                attr_id.attr_object_id,
-                name,
-                true,
-            );
-            self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
-            // if let SValue::Stack(s) = dot_father_svalue {
-            //     let state = self.get_cur_mut_frame();
-            //     state.attr_map.insert(
-            //         s.0 as usize,
-            //         attr_id.attr_id as usize,
-            //         attr_id.attr_object_id,
-            //     );
-            // }
+            panic!("not found")
+            // //context.exp.push(SValue::Global(dot_father));
+            // // let new_attr = self.thread_allocator.new_box_attr(
+            // //     attr_id.attr_id,
+            // //     dot_father,
+            // //     attr_id.attr_object_id,
+            // //     name,
+            // //     true,
+            // // );
+            // self.get_cur_mut_frame().exp.push(SValue::Global(new_attr));
+            // // if let SValue::Stack(s) = dot_father_svalue {
+            // //     let state = self.get_cur_mut_frame();
+            // //     state.attr_map.insert(
+            // //         s.0 as usize,
+            // //         attr_id.attr_id as usize,
+            // //         attr_id.attr_object_id,
+            // //     );
+            // // }
 
-            self.get_cur_mut_frame().middle_value.push(dot_father);
+            // self.get_cur_mut_frame().middle_value.push(dot_father);
         }
 
-        // self.get_cur_mut_frame().middle_value.push(SValue::Attr(attr_id).get_global_id(self).unwrap());
-        // self.get_cur_mut_frame().middle_value.push(dot_father_svalue.get_global_id(self).unwrap());
+        // self.get_cur_mut_frame().middle_value.push(SValue::Attr(attr_id).get_global_id().unwrap());
+        // self.get_cur_mut_frame().middle_value.push(dot_father_svalue.get_global_id().unwrap());
 
         Ok(false)
     }
 
-    fn binary_get_cls_attr_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
-        let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
-            // SValue::Stack(_) => unimplemented!(),
-            SValue::Global(_) => unimplemented!(),
-            SValue::Attr(id) => id,
-            // SValue::Reference(_) => todo!(),
+    fn binary_get_cls_attr_process(self: &mut FSRThreadRuntime<'a>, bytecode: &'a BytecodeArg) -> Result<bool, FSRError> {
+        let attr_id = if let ArgType::Attr(attr_id, name) = bytecode.get_arg() {
+            (attr_id, name)
+        } else {
+            unimplemented!()
         };
 
         let dot_father = match self.get_cur_mut_frame().exp.pop() {
-            Some(s) => s.get_global_id(self).unwrap(),
+            Some(s) => s.get_global_id().unwrap(),
             None => {
                 return Err(FSRError::new(
                     "error in dot operator",
@@ -1542,7 +1550,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
 
-        let name = attr_id.name;
+        let name = &attr_id.1;
         let id = dot_father_obj.get_attr(name);
 
         if dot_father_obj.is_code() {
@@ -1561,33 +1569,35 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_frame()
                 .exp
                 .push(SValue::Global(id.load(Ordering::Relaxed)));
-            self.thread_allocator.free_box_attr(attr_id);
+            //self.thread_allocator.free_box_attr(attr_id);
             return Ok(false);
         }
         if let Some(id) = id {
-            let new_attr = self.thread_allocator.new_box_attr(
-                attr_id.attr_id,
-                dot_father,
-                Some(id),
-                name,
-                false,
-            );
-            self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
+            // let new_attr = self.thread_allocator.new_box_attr(
+            //     attr_id.attr_id,
+            //     dot_father,
+            //     Some(id),
+            //     name,
+            //     false,
+            // );
+            self.get_cur_mut_frame().exp.push(SValue::Global(dot_father));
+            self.get_cur_mut_frame().exp.push(SValue::Global(id.load(Ordering::Relaxed)));
             self.get_cur_mut_frame().middle_value.push(dot_father);
             self.get_cur_mut_frame()
                 .middle_value
                 .push(id.load(Ordering::Relaxed));
         } else {
             //context.exp.push(SValue::Global(dot_father));
-            let new_attr = self.thread_allocator.new_box_attr(
-                attr_id.attr_id,
-                dot_father,
-                attr_id.attr_object_id,
-                name,
-                false,
-            );
-            self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
-            self.get_cur_mut_frame().middle_value.push(dot_father);
+            // let new_attr = self.thread_allocator.new_box_attr(
+            //     attr_id.attr_id,
+            //     dot_father,
+            //     attr_id.attr_object_id,
+            //     name,
+            //     false,
+            // );
+            // self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
+            // self.get_cur_mut_frame().middle_value.push(dot_father);
+            panic!("not found object")
         }
 
         Ok(false)
@@ -1619,8 +1629,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let lhs_id = lhs.get_global_id(self).unwrap();
-        let rhs_id = rhs.get_global_id(self).unwrap();
+        let lhs_id = lhs.get_global_id().unwrap();
+        let rhs_id = rhs.get_global_id().unwrap();
 
         let start = FSRObject::id_to_obj(lhs_id);
         let end = FSRObject::id_to_obj(rhs_id);
@@ -1685,7 +1695,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 //     }
                 // },
                 SValue::Global(g) => *g,
-                SValue::Attr(a) => a.attr_object_id.unwrap().load(Ordering::Relaxed),
+                // SValue::Attr(a) => a.attr_object_id.unwrap().load(Ordering::Relaxed),
                 // SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
             };
             thread.get_cur_mut_frame().middle_value.push(a_id);
@@ -1720,7 +1730,6 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     fn process_fsr_cls(
         self: &mut FSRThreadRuntime<'a>,
-
         cls_id: ObjId,
         args: &mut SmallVec<[ObjId; 4]>,
     ) -> Result<bool, FSRError> {
@@ -1790,7 +1799,7 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_obj: &'a FSRObject<'a>,
         args: &mut SmallVec<[usize; 4]>,
     ) -> Result<bool, FSRError> {
-        // let obj_id = context.exp.pop().unwrap().get_global_id(self).unwrap();
+        // let obj_id = context.exp.pop().unwrap().get_global_id().unwrap();
 
         //args.insert(0, obj_id);
         args.push(obj_id);
@@ -1924,33 +1933,33 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         var: &Option<&(usize, u64, String, bool)>,
         module: &FSRModule,
-        object_id: &mut Option<ObjId>,
-    ) -> Result<(ObjId, bool), FSRError> {
-        let mut call_method = false;
+        object_id: Option<ObjId>,
+        call_method: bool
+    ) -> Result<(ObjId), FSRError> {
         if let Some(var) = var {
             let var_id = var.1;
             let fn_id = self.try_get_obj_by_name(var.1, &var.2, module).unwrap();
-            Ok((fn_id, call_method))
+            Ok((fn_id))
         } else {
             let fn_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
             let fn_id = match &fn_svalue {
                 // SValue::Stack(s) => self.try_get_obj_by_name(s.0, &s.1, module).unwrap(),
                 SValue::Global(id) => *id,
-                SValue::Attr(attr) => {
-                    call_method = attr.call_method;
+                // SValue::Attr(attr) => {
+                //     //call_method = attr.call_method;
 
-                    let id = if !call_method {
-                        let cls_obj = FSRObject::id_to_obj(attr.father).as_class();
-                        cls_obj.get_attr(attr.name).unwrap().load(Ordering::Relaxed)
-                    } else {
-                        *object_id = Some(attr.father);
-                        attr.attr_object_id.unwrap().load(Ordering::Relaxed)
-                    };
+                //     let id = if !call_method {
+                //         let cls_obj = FSRObject::id_to_obj(attr.father).as_class();
+                //         cls_obj.get_attr(attr.name).unwrap().load(Ordering::Relaxed)
+                //     } else {
+                //         //*object_id = Some(attr.father);
+                //         attr.attr_object_id.unwrap().load(Ordering::Relaxed)
+                //     };
 
-                    //self.thread_allocator.free_box_attr(attr);
+                //     //self.thread_allocator.free_box_attr(attr);
 
-                    id
-                }
+                //     id
+                // }
                 // SValue::Reference(ref refer) => {
                 //     call_method = refer.call_method;
 
@@ -1958,7 +1967,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 // }
             };
             self.get_cur_mut_frame().middle_value.push(fn_id);
-            Ok((fn_id, call_method))
+            Ok((fn_id))
         }
     }
 
@@ -1971,6 +1980,7 @@ impl<'a> FSRThreadRuntime<'a> {
         call_method: bool,
     ) -> Result<bool, FSRError> {
         let fn_obj = FSRObject::id_to_obj(fn_id);
+        let call_method = false;
         if fn_obj.is_fsr_function() && !call_method {
             self.process_fsr_fn(fn_id, fn_obj, args)?;
             return Ok(true);
@@ -2031,9 +2041,41 @@ impl<'a> FSRThreadRuntime<'a> {
                 .module,
         )
         .as_module();
-        let (fn_id, call_method) = self.get_call_fn_id(&var, module, &mut object_id)?;
+        let (fn_id) = self.get_call_fn_id(&var, module, object_id,  false)?;
 
-        self.call_process_ret(fn_id, &mut args, &object_id, call_method)
+        self.call_process_ret(fn_id, &mut args, &object_id, false)
+    }
+
+    #[inline(always)]
+    fn call_method_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &'a BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let mut var: Option<&(usize, u64, String, bool)> = None;
+        let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
+
+        if let ArgType::CallArgsNumber(args_num) = *bytecode.get_arg() {
+            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            //args.reverse();
+        } else if let ArgType::CallArgsNumberWithVar(pack) = bytecode.get_arg() {
+            let args_num = pack.0;
+            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            var = Some(pack);
+            //args.reverse();
+        };
+
+        let father = self.get_cur_mut_frame().exp.last().unwrap().get_global_id().unwrap();
+        let mut object_id: Option<ObjId> = Some(father);
+        // let module = FSRObject::id_to_obj(self.get_context().code).as_code();
+        let module = FSRObject::id_to_obj(
+            FSRObject::id_to_obj(self.get_context().code)
+                .as_code()
+                .module,
+        )
+        .as_module();
+        let (fn_id) = self.get_call_fn_id(&var, module, object_id, true)?;
+
+        self.call_process_ret(fn_id, &mut args, &object_id, false)
     }
 
     fn try_process(
@@ -2244,7 +2286,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let iter_obj = self.get_cur_mut_frame().exp.pop().unwrap();
         let iter_id = {
-            let id = iter_obj.get_global_id(self).unwrap();
+            let id = iter_obj.get_global_id().unwrap();
             //FSRObject::id_to_obj(id).ref_add();
             id
         };
@@ -2456,8 +2498,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 )
             })?;
 
-            let right_id = right.get_global_id(self).unwrap();
-            let left_id = left.get_global_id(self).unwrap();
+            let right_id = right.get_global_id().unwrap();
+            let left_id = left.get_global_id().unwrap();
 
             let v = Self::compare(left_id, right_id, *op, self)?;
 
@@ -2519,11 +2561,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 //     }
                 // }
                 SValue::Global(id) => id,
-                SValue::Attr(args) => {
-                    let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
-                    self.thread_allocator.free_box_attr(args);
-                    id
-                }
+                // SValue::Attr(args) => {
+                //     let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
+                //     self.thread_allocator.free_box_attr(args);
+                //     id
+                // }
                 // SValue::BoxObject(obj) => FSRVM::leak_object(obj),
                 // SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
             }
@@ -2590,7 +2632,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let obj_id = svalue.get_global_id(self).unwrap();
+        let obj_id = svalue.get_global_id().unwrap();
         self.get_cur_mut_frame().middle_value.push(obj_id);
         // FSRObject::id_to_obj(obj_id).ref_add();
         let fn_obj = self.get_cur_frame().fn_obj;
@@ -2646,7 +2688,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         FSRErrCode::EmptyExpStack,
                     )
                 })?;
-                let v_id = v.get_global_id(self).unwrap();
+                let v_id = v.get_global_id().unwrap();
 
                 list.push(v_id);
                 self.get_cur_mut_frame().middle_value.push(v_id);
@@ -2816,7 +2858,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .exp
             .pop()
             .unwrap()
-            .get_global_id(self)
+            .get_global_id()
             .unwrap();
         if first == 0 || first == 2 {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
@@ -2838,7 +2880,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .exp
             .pop()
             .unwrap()
-            .get_global_id(self)
+            .get_global_id()
             .unwrap();
         if first != 0 && first != 2 {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
@@ -2927,7 +2969,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             BytecodeOperator::BinaryDiv => Self::binary_div_process(self, bytecode),
             BytecodeOperator::NotOperator => Self::not_process(self),
-            BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr_process(self),
+            BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr_process(self, bytecode),
             BytecodeOperator::Getter => Self::getter_process(self, bytecode),
             BytecodeOperator::Try => Self::try_process(self, bytecode),
             BytecodeOperator::EndTry => Self::try_end(self),
@@ -2938,6 +2980,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
+            BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3063,12 +3106,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 let obj = module.get_const(*index as usize).unwrap();
                 self.get_cur_mut_frame().exp.push(SValue::Global(obj));
             }
-            ArgType::Attr(attr_id, name) => {
-                let new_attr = self
-                    .thread_allocator
-                    .new_box_attr(*attr_id, 0, None, name, true);
-                self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
-            }
+            // ArgType::Attr(attr_id, name) => {
+            //     let new_attr = self
+            //         .thread_allocator
+            //         .new_box_attr(*attr_id, 0, None, name, true);
+            //     self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
+            // }
             ArgType::ClosureVar(v) => {
                 let fn_id = self.get_cur_frame().fn_obj;
                 if fn_id == 0 {
