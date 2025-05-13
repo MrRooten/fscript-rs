@@ -844,6 +844,12 @@ impl<'a> FSRThreadRuntime<'a> {
             .exp
             .get(len - 3)
             .unwrap();
+        let i = obj_cls!(container_obj);
+        let j = obj_cls!(index_obj);
+        if let Some(set_item) = self.op_quick.get_set_item(i, j) {
+            let res = set_item(&[container_obj, index_obj, value_obj], self, self.get_context().code)?;
+            return Ok(false)
+        } 
         let set_item = FSRObject::id_to_obj(container_obj)
             .get_cls_offset_attr(BinaryOffset::SetItem)
             .unwrap()
@@ -2122,6 +2128,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::Compare(op) = bytecode.get_arg() {
+            let len = self.get_cur_mut_frame().exp.len();
             let right_id = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
                 FSRError::new(
                     "Failed to pop right operand from stack in compare_test",
@@ -2572,6 +2579,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
             BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
+            BytecodeOperator::Load => Self::load_var(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -2874,21 +2882,30 @@ impl<'a> FSRThreadRuntime<'a> {
             {
                 self.bytecode_counter[*arg.get_operator() as usize] += 1;
             }
-            match arg.get_operator() {
-                BytecodeOperator::Load => {
-                    Self::load_var(self, arg)?;
-                }
-                _ => {
-                    v = self.process(arg)?;
-                    if self.get_cur_frame().ret_val.is_some() {
-                        return Ok(true);
-                    }
+            // match arg.get_operator() {
+            //     BytecodeOperator::Load => {
+            //         Self::load_var(self, arg)?;
+            //     }
+            //     _ => {
+            //         v = self.process(arg)?;
+            //         if self.get_cur_frame().ret_val.is_some() {
+            //             return Ok(true);
+            //         }
 
-                    if v {
-                        self.get_cur_mut_frame().exp.clear();
-                        return Ok(false);
-                    }
-                }
+            //         if v {
+            //             self.get_cur_mut_frame().exp.clear();
+            //             return Ok(false);
+            //         }
+            //     }
+            // }
+            v = self.process(arg)?;
+            if self.get_cur_frame().ret_val.is_some() {
+                return Ok(true);
+            }
+
+            if v {
+                self.get_cur_mut_frame().exp.clear();
+                return Ok(false);
             }
 
             if Self::exception_process(self) {

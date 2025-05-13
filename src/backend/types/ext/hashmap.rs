@@ -766,6 +766,8 @@ impl FSRHashMap {
         cls.insert_attr("new", new);
         let insert = FSRFn::from_rust_fn_static(fsr_fn_hashmap_insert, "insert");
         cls.insert_attr("insert", insert);
+        let set_item = FSRFn::from_rust_fn_static(fsr_fn_hashmap_insert, "hashmap__setitem__");
+        cls.insert_offset_attr(BinaryOffset::SetItem, set_item);
         let get = FSRFn::from_rust_fn_static(fsr_fn_hashmap_get, "get");
         cls.insert_attr("get", get);
         let get_item = FSRFn::from_rust_fn_static(fsr_fn_hashmap_get, "__getitem__");

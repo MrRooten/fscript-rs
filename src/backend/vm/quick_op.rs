@@ -15,6 +15,7 @@ pub struct Ops {
     pub(crate) next: Lookup1D,
     pub(crate) equal: Lookup2D,
     pub(crate) reminder: Lookup2D,
+    pub(crate) set_item: Lookup2D
 }
 
 impl Ops {
@@ -112,6 +113,11 @@ impl Ops {
             &mut reminder,
             crate::backend::types::integer::reminder,
         );
+
+        let mut set_item = [[None; OP_LEN]; OP_LEN];
+        set_item[FSRGlobalObjId::ListCls as usize][FSRGlobalObjId::IntegerCls as usize] =
+            Some(crate::backend::types::list::set_item as FSRRustFn);
+
         Self {
             add,
             less,
@@ -121,6 +127,7 @@ impl Ops {
             equal,
             reminder,
             sub,
+            set_item,
         }
 
         
@@ -196,6 +203,15 @@ impl Ops {
     pub fn get_sub(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         if i < OP_LEN && j < OP_LEN {
             return self.sub[i][j];
+        }
+        None
+    }
+
+
+    #[inline(always)]
+    pub fn get_set_item(&self, i: usize, j: usize) -> Option<FSRRustFn> {
+        if i < OP_LEN && j < OP_LEN {
+            return self.set_item[i][j];
         }
         None
     }
