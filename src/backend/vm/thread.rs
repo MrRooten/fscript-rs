@@ -274,7 +274,7 @@ pub struct ReferenceArgs<'a> {
 
 #[derive(Debug)]
 pub enum SValue<'a> {
-    Stack(&'a (u64, String, bool)),
+    //Stack(&'a (u64, String, bool)),
     Attr(Box<AttrArgs<'a>>), // father, attr, name, call_method
     Global(ObjId),
     //Reference(Box<ReferenceArgs<'a>>), // Owner, ref, call_method
@@ -314,14 +314,14 @@ impl<'a> SValue<'a> {
     #[inline(always)]
     pub fn get_global_id(&self, thread: &FSRThreadRuntime) -> Option<ObjId> {
         Some(match self {
-            SValue::Stack(s) => {
-                let state = thread.get_cur_frame();
-                if let Some(id) = state.get_var(&s.0) {
-                    id.load(Ordering::Relaxed)
-                } else {
-                    Self::get_chains(self, thread, state, s)?
-                }
-            }
+            // SValue::Stack(s) => {
+            //     let state = thread.get_cur_frame();
+            //     if let Some(id) = state.get_var(&s.0) {
+            //         id.load(Ordering::Relaxed)
+            //     } else {
+            //         Self::get_chains(self, thread, state, s)?
+            //     }
+            // }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id?.load(Ordering::Relaxed),
             // SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
@@ -514,46 +514,18 @@ impl<'a> FSRThreadRuntime<'a> {
         unsafe { VM.as_ref().unwrap().clone() }
     }
 
-    fn get_chains(
-        thread: &FSRThreadRuntime,
-        state: &CallFrame<'_>,
-        var: &(u64, String, bool),
-    ) -> Option<ObjId> {
-        let fn_id = state.fn_obj;
-        // if in __main__ the module base code
-        if fn_id != 0 {
-            let obj = FSRObject::id_to_obj(fn_id).as_fn();
-            if let Some(s) = obj.get_closure_var(var.1.as_str()) {
-                return Some(s);
-            }
-        }
-        // let module = FSRObject::id_to_obj(state.code).as_code();
-        let module =
-            FSRObject::id_to_obj(FSRObject::id_to_obj(state.code).as_code().module).as_module();
-        let vm = thread.get_vm();
-        let v = match module.get_object(&var.1) {
-            Some(s) => s.load(Ordering::Relaxed),
-            None => match vm.get_global_obj_by_name(&var.1) {
-                Some(s) => *s,
-                None => {
-                    unimplemented!("not found var: {}", var.1);
-                }
-            },
-        };
-
-        Some(v)
-    }
+    
 
     pub fn get_global_id(&self, value: &SValue<'a>) -> Result<ObjId, FSRError> {
         Ok(match value {
-            SValue::Stack(s) => {
-                let state = self.get_cur_frame();
-                if let Some(id) = state.get_var(&s.0) {
-                    id.load(Ordering::Relaxed)
-                } else {
-                    Self::get_chains(self, state, s).unwrap()
-                }
-            }
+            // SValue::Stack(s) => {
+            //     let state = self.get_cur_frame();
+            //     if let Some(id) = state.get_var(&s.0) {
+            //         id.load(Ordering::Relaxed)
+            //     } else {
+            //         Self::get_chains(self, state, s).unwrap()
+            //     }
+            // }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             //SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
@@ -870,10 +842,10 @@ impl<'a> FSRThreadRuntime<'a> {
         let index_obj = self.get_cur_mut_frame().exp.pop().unwrap();
 
         let index_id = match &index_obj {
-            SValue::Stack(s) => {
-                let state = self.get_cur_mut_frame();
-                state.get_var(&s.0).unwrap().load(Ordering::Relaxed)
-            }
+            // SValue::Stack(s) => {
+            //     let state = self.get_cur_mut_frame();
+            //     state.get_var(&s.0).unwrap().load(Ordering::Relaxed)
+            // }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             //SValue::BoxObject(obj) => FSRObject::obj_to_id(obj),
@@ -882,10 +854,10 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let list_obj = self.get_cur_mut_frame().exp.pop().unwrap();
         let list_id = match &list_obj {
-            SValue::Stack(s) => {
-                let state = self.get_cur_mut_frame();
-                state.get_var(&s.0).unwrap().load(Ordering::Relaxed)
-            }
+            // SValue::Stack(s) => {
+            //     let state = self.get_cur_mut_frame();
+            //     state.get_var(&s.0).unwrap().load(Ordering::Relaxed)
+            // }
             SValue::Global(id) => *id,
             SValue::Attr(args) => args.attr_object_id.unwrap().load(Ordering::Relaxed),
             //SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
@@ -1053,26 +1025,26 @@ impl<'a> FSRThreadRuntime<'a> {
         let to_assign_obj_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
 
         let to_assign_obj_id = match &to_assign_obj_svalue {
-            SValue::Stack(s) => {
-                let state = self.get_cur_frame();
-                if let Some(id) = state.get_var(&s.0) {
-                    id.load(Ordering::Relaxed)
-                } else {
-                    let module = FSRObject::id_to_obj(
-                        FSRObject::id_to_obj(self.get_context().code)
-                            .as_code()
-                            .module,
-                    )
-                    .as_module();
-                    let vm = self.get_vm();
-                    let v = match module.get_object(&s.1) {
-                        Some(s) => s.load(Ordering::Relaxed),
-                        None => *vm.get_global_obj_by_name(&s.1).unwrap(),
-                    };
+            // SValue::Stack(s) => {
+            //     let state = self.get_cur_frame();
+            //     if let Some(id) = state.get_var(&s.0) {
+            //         id.load(Ordering::Relaxed)
+            //     } else {
+            //         let module = FSRObject::id_to_obj(
+            //             FSRObject::id_to_obj(self.get_context().code)
+            //                 .as_code()
+            //                 .module,
+            //         )
+            //         .as_module();
+            //         let vm = self.get_vm();
+            //         let v = match module.get_object(&s.1) {
+            //             Some(s) => s.load(Ordering::Relaxed),
+            //             None => *vm.get_global_obj_by_name(&s.1).unwrap(),
+            //         };
 
-                    v
-                }
-            }
+            //         v
+            //     }
+            // }
             SValue::Global(id) => *id,
             SValue::Attr(args) => {
                 let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
@@ -1084,12 +1056,12 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         match &assign_id {
-            SValue::Stack(v) => {
-                let state = &mut self.cur_frame;
-                state.insert_var(v.0, to_assign_obj_id);
-                state.attr_map.clear_var(v.0 as usize);
-                //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
-            }
+            // SValue::Stack(v) => {
+            //     let state = &mut self.cur_frame;
+            //     state.insert_var(v.0, to_assign_obj_id);
+            //     state.attr_map.clear_var(v.0 as usize);
+            //     //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
+            // }
             SValue::Attr(attr) => {
                 let father_obj =
                     FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
@@ -1455,11 +1427,10 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn binary_dot_process(
         self: &mut FSRThreadRuntime<'a>,
-
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
-            SValue::Stack(_) => unimplemented!(),
+            //SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
             SValue::Attr(id) => id,
             // SValue::Reference(_) => todo!(),
@@ -1501,14 +1472,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let name = attr_id.name;
 
-        let id = if let SValue::Stack(s) = dot_father_svalue {
-            let state = self.get_cur_mut_frame();
-            if let Some(s) = state.get_attr(s.0 as usize, attr_id.attr_id as usize) {
-                Some(s)
-            } else {
-                dot_father_obj.get_attr(name)
-            }
-        } else {
+        let id = {
             dot_father_obj.get_attr(name)
         };
         if let Some(id) = id {
@@ -1520,12 +1484,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 true,
             );
             self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
-            if let SValue::Stack(s) = dot_father_svalue {
-                let state = self.get_cur_mut_frame();
-                state
-                    .attr_map
-                    .insert(s.0 as usize, attr_id.attr_id as usize, Some(id));
-            }
+            // if let SValue::Stack(s) = dot_father_svalue {
+            //     let state = self.get_cur_mut_frame();
+            //     state
+            //         .attr_map
+            //         .insert(s.0 as usize, attr_id.attr_id as usize, Some(id));
+            // }
             self.get_cur_mut_frame().middle_value.push(dot_father);
             self.get_cur_mut_frame()
                 .middle_value
@@ -1540,14 +1504,14 @@ impl<'a> FSRThreadRuntime<'a> {
                 true,
             );
             self.get_cur_mut_frame().exp.push(SValue::Attr(new_attr));
-            if let SValue::Stack(s) = dot_father_svalue {
-                let state = self.get_cur_mut_frame();
-                state.attr_map.insert(
-                    s.0 as usize,
-                    attr_id.attr_id as usize,
-                    attr_id.attr_object_id,
-                );
-            }
+            // if let SValue::Stack(s) = dot_father_svalue {
+            //     let state = self.get_cur_mut_frame();
+            //     state.attr_map.insert(
+            //         s.0 as usize,
+            //         attr_id.attr_id as usize,
+            //         attr_id.attr_object_id,
+            //     );
+            // }
 
             self.get_cur_mut_frame().middle_value.push(dot_father);
         }
@@ -1560,7 +1524,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn binary_get_cls_attr_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let attr_id = match self.get_cur_mut_frame().exp.pop().unwrap() {
-            SValue::Stack(_) => unimplemented!(),
+            // SValue::Stack(_) => unimplemented!(),
             SValue::Global(_) => unimplemented!(),
             SValue::Attr(id) => id,
             // SValue::Reference(_) => todo!(),
@@ -1711,15 +1675,15 @@ impl<'a> FSRThreadRuntime<'a> {
         while i < args_num {
             let arg = thread.get_cur_mut_frame().exp.pop().unwrap();
             let a_id = match &arg {
-                SValue::Stack(s) => match Self::chain_get_variable(s, thread, code) {
-                    Some(s) => s,
-                    None => {
-                        return Err(FSRError::new(
-                            format!("not found variable in set args: `{}`", s.1),
-                            FSRErrCode::NoSuchObject,
-                        ))
-                    }
-                },
+                // SValue::Stack(s) => match Self::chain_get_variable(s, thread, code) {
+                //     Some(s) => s,
+                //     None => {
+                //         return Err(FSRError::new(
+                //             format!("not found variable in set args: `{}`", s.1),
+                //             FSRErrCode::NoSuchObject,
+                //         ))
+                //     }
+                // },
                 SValue::Global(g) => *g,
                 SValue::Attr(a) => a.attr_object_id.unwrap().load(Ordering::Relaxed),
                 // SValue::Reference(ref refer) => refer.atomic_usize.load(Ordering::Relaxed),
@@ -1970,7 +1934,7 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             let fn_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
             let fn_id = match &fn_svalue {
-                SValue::Stack(s) => self.try_get_obj_by_name(s.0, &s.1, module).unwrap(),
+                // SValue::Stack(s) => self.try_get_obj_by_name(s.0, &s.1, module).unwrap(),
                 SValue::Global(id) => *id,
                 SValue::Attr(attr) => {
                     call_method = attr.call_method;
@@ -2117,17 +2081,17 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = self.get_cur_mut_frame().exp.pop().unwrap();
         let mut name = "";
         let test_val = match &v {
-            SValue::Stack(s) => {
-                name = &s.1;
-                // let module = FSRObject::id_to_obj(self.get_context().code).as_code();
-                let module = FSRObject::id_to_obj(
-                    FSRObject::id_to_obj(self.get_context().code)
-                        .as_code()
-                        .module,
-                )
-                .as_module();
-                self.try_get_obj_by_name(s.0, name, module)
-            }
+            // SValue::Stack(s) => {
+            //     name = &s.1;
+            //     // let module = FSRObject::id_to_obj(self.get_context().code).as_code();
+            //     let module = FSRObject::id_to_obj(
+            //         FSRObject::id_to_obj(self.get_context().code)
+            //             .as_code()
+            //             .module,
+            //     )
+            //     .as_module();
+            //     self.try_get_obj_by_name(s.0, name, module)
+            // }
             SValue::Global(id) => Some(*id),
             _ => {
                 unimplemented!()
@@ -2172,17 +2136,17 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let test_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
         let test_val = match &test_svalue {
-            SValue::Stack(s) => {
-                let state = self.get_cur_mut_frame();
-                if let Some(id) = state.get_var(&s.0) {
-                    id.load(Ordering::Relaxed)
-                } else {
-                    return Err(FSRError::new(
-                        format!("Not found variable in else if test process `{}`", s.1),
-                        FSRErrCode::NoSuchObject,
-                    ));
-                }
-            }
+            // SValue::Stack(s) => {
+            //     let state = self.get_cur_mut_frame();
+            //     if let Some(id) = state.get_var(&s.0) {
+            //         id.load(Ordering::Relaxed)
+            //     } else {
+            //         return Err(FSRError::new(
+            //             format!("Not found variable in else if test process `{}`", s.1),
+            //             FSRErrCode::NoSuchObject,
+            //         ));
+            //     }
+            // }
             SValue::Global(id) => *id,
             _ => {
                 return Err(FSRError::new(
@@ -2316,17 +2280,17 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let test_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
         let test_val = match test_svalue {
-            SValue::Stack(s) => {
-                let state = self.get_cur_mut_frame();
-                if let Some(id) = state.get_var(&s.0) {
-                    id.load(Ordering::Relaxed)
-                } else {
-                    return Err(FSRError::new(
-                        format!("Not found variable in while test process `{}`", s.1),
-                        FSRErrCode::NoSuchObject,
-                    ));
-                }
-            }
+            // SValue::Stack(s) => {
+            //     let state = self.get_cur_mut_frame();
+            //     if let Some(id) = state.get_var(&s.0) {
+            //         id.load(Ordering::Relaxed)
+            //     } else {
+            //         return Err(FSRError::new(
+            //             format!("Not found variable in while test process `{}`", s.1),
+            //             FSRErrCode::NoSuchObject,
+            //         ));
+            //     }
+            // }
             SValue::Global(id) => id,
             _ => {
                 unimplemented!()
@@ -2528,32 +2492,32 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRObject::none_id()
         } else {
             match self.get_cur_mut_frame().exp.pop().unwrap() {
-                SValue::Stack(s) => {
-                    let state = self.get_cur_frame();
-                    if let Some(id) = state.get_var(&s.0) {
-                        id.load(Ordering::Relaxed)
-                    } else {
-                        //let code = FSRObject::id_to_obj(state.code).as_code();
-                        // let module = self.get_module(state.code);
-                        let module = FSRObject::id_to_obj(
-                            FSRObject::id_to_obj(self.get_context().code)
-                                .as_code()
-                                .module,
-                        )
-                        .as_module();
-                        let vm = self.get_vm();
-                        let v = match module.get_object(&s.1) {
-                            Some(s) => s.load(Ordering::Relaxed),
-                            None => *vm.get_global_obj_by_name(&s.1).ok_or_else(|| {
-                                FSRError::new(
-                                    format!("not found object in test: {}", s.1),
-                                    FSRErrCode::NoSuchObject,
-                                )
-                            })?,
-                        };
-                        v
-                    }
-                }
+                // SValue::Stack(s) => {
+                //     let state = self.get_cur_frame();
+                //     if let Some(id) = state.get_var(&s.0) {
+                //         id.load(Ordering::Relaxed)
+                //     } else {
+                //         //let code = FSRObject::id_to_obj(state.code).as_code();
+                //         // let module = self.get_module(state.code);
+                //         let module = FSRObject::id_to_obj(
+                //             FSRObject::id_to_obj(self.get_context().code)
+                //                 .as_code()
+                //                 .module,
+                //         )
+                //         .as_module();
+                //         let vm = self.get_vm();
+                //         let v = match module.get_object(&s.1) {
+                //             Some(s) => s.load(Ordering::Relaxed),
+                //             None => *vm.get_global_obj_by_name(&s.1).ok_or_else(|| {
+                //                 FSRError::new(
+                //                     format!("not found object in test: {}", s.1),
+                //                     FSRErrCode::NoSuchObject,
+                //                 )
+                //             })?,
+                //         };
+                //         v
+                //     }
+                // }
                 SValue::Global(id) => id,
                 SValue::Attr(args) => {
                     let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
@@ -3048,12 +3012,47 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    fn get_chains(
+        thread: &FSRThreadRuntime,
+        state: &CallFrame<'_>,
+        var: &(u64, String, bool),
+    ) -> Option<ObjId> {
+        let fn_id = state.fn_obj;
+        // if in __main__ the module base code
+        if fn_id != 0 {
+            let obj = FSRObject::id_to_obj(fn_id).as_fn();
+            if let Some(s) = obj.get_closure_var(var.1.as_str()) {
+                return Some(s);
+            }
+        }
+        // let module = FSRObject::id_to_obj(state.code).as_code();
+        let module =
+            FSRObject::id_to_obj(FSRObject::id_to_obj(state.code).as_code().module).as_module();
+        let vm = thread.get_vm();
+        let v = match module.get_object(&var.1) {
+            Some(s) => s.load(Ordering::Relaxed),
+            None => match vm.get_global_obj_by_name(&var.1) {
+                Some(s) => *s,
+                None => {
+                    unimplemented!("not found var: {}", var.1);
+                }
+            },
+        };
+
+        Some(v)
+    }
+
     #[inline(always)]
     fn load_var(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
         //let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
             ArgType::Variable(var) => {
-                let id = SValue::Stack(var).get_global_id(self).unwrap();
+                let state = self.get_cur_frame();
+                let id = if let Some(s) = state.get_var(&var.0) {
+                    s.load(Ordering::Relaxed)
+                } else {
+                    Self::get_chains(self, state, var).unwrap()
+                };
                 self.get_cur_mut_frame().exp.push(SValue::Global(id));
             }
             ArgType::Const(index) => {
