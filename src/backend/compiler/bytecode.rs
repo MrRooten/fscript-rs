@@ -278,6 +278,7 @@ pub enum ArgType {
     FnLines(usize),
     CallArgsNumber(usize),
     CallArgsNumberWithVar((usize, u64, String, bool)), // number size, Variable
+    CallArgsNumberWithAttr((usize, u64, String)),
     DefineFnArgs(u64, String, String, Vec<String>, bool), // function len, args len, identify function name
     DefineClassLine(u64),
     LoadListNumber(usize),
@@ -708,6 +709,7 @@ impl<'a> Bytecode {
         let name = call.get_name();
         let mut is_var = false;
         let mut var_id = 0;
+        let mut attr_id_arg = None;
         if !name.is_empty() {
             if is_attr {
                 if !var_map.last_mut().unwrap().has_attr(name) {
@@ -720,13 +722,13 @@ impl<'a> Bytecode {
                 //     arg: ArgType::Attr(*id, name.to_string()),
                 //     info: FSRByteInfo::new(call.get_meta().clone()),
                 // });
-
+                attr_id_arg = Some((*id, name.to_string()));
                 if is_method_call {
-                    result.push(BytecodeArg {
-                        operator: BytecodeOperator::BinaryDot,
-                        arg: ArgType::Attr(*id, name.to_string()),
-                        info: FSRByteInfo::new(call.get_meta().clone()),
-                    });
+                    // result.push(BytecodeArg {
+                    //     operator: BytecodeOperator::BinaryDot,
+                    //     arg: ArgType::Attr(*id, name.to_string()),
+                    //     info: FSRByteInfo::new(call.get_meta().clone()),
+                    // });
                 } else {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryClassGetter,
@@ -779,24 +781,38 @@ impl<'a> Bytecode {
             BytecodeOperator::Call
         };
 
-        if is_var {
-            result.push(BytecodeArg {
-                operator: call_or_callmethod,
-                arg: ArgType::CallArgsNumberWithVar((
+        let arg = if is_method_call {
+            ArgType::CallArgsNumberWithAttr((
+                call.get_args().len(),
+                attr_id_arg.as_ref().unwrap().0,
+                attr_id_arg.unwrap().1,
+            ))
+        } else {
+            if is_var {
+                ArgType::CallArgsNumberWithVar((
                     call.get_args().len(),
                     var_id,
                     name.to_string(),
                     false,
-                )),
-                info: FSRByteInfo::new(call.get_meta().clone()),
-            });
-        } else {
-            result.push(BytecodeArg {
-                operator: call_or_callmethod,
-                arg: ArgType::CallArgsNumber(call.get_args().len()),
-                info: FSRByteInfo::new(call.get_meta().clone()),
-            });
-        }
+                ))
+            } else {
+                ArgType::CallArgsNumber(call.get_args().len())
+            }
+        };
+
+        // if is_var {
+        result.push(BytecodeArg {
+            operator: call_or_callmethod,
+            arg: arg,
+            info: FSRByteInfo::new(call.get_meta().clone()),
+        });
+        // } else {
+        //     result.push(BytecodeArg {
+        //         operator: call_or_callmethod,
+        //         arg: ArgType::CallArgsNumber(call.get_args().len()),
+        //         info: FSRByteInfo::new(call.get_meta().clone()),
+        //     });
+        // }
 
         (result)
     }
@@ -860,7 +876,10 @@ impl<'a> Bytecode {
                         .unwrap()
                         .get_attr(var.get_name())
                         .unwrap();
-                    return AttrIdOrCode::AttrId(ArgType::Attr(*arg_id, var.get_name().to_string()));
+                    return AttrIdOrCode::AttrId(ArgType::Attr(
+                        *arg_id,
+                        var.get_name().to_string(),
+                    ));
                 }
                 false => BytecodeArg {
                     operator: BytecodeOperator::Load,
@@ -1009,10 +1028,9 @@ impl<'a> Bytecode {
             match v {
                 AttrIdOrCode::Bytecode(mut bytecode_args) => {
                     op_code.append(&mut bytecode_args);
-                },
+                }
                 AttrIdOrCode::AttrId(arg_type) => todo!(),
             }
-            
         } else if let FSRToken::Call(c) = expr.get_left() {
             let mut v = Self::load_call(c, var_map, false, false, const_map);
             op_code.append(&mut v);
@@ -1048,23 +1066,23 @@ impl<'a> Bytecode {
             match v {
                 AttrIdOrCode::Bytecode(mut bytecode_args) => {
                     second.append(&mut bytecode_args);
-                },
-                AttrIdOrCode::AttrId(arg_type) => {
-                    attr_id = Some(arg_type)
-                },
+                }
+                AttrIdOrCode::AttrId(arg_type) => attr_id = Some(arg_type),
             }
-            
+
             //
         } else if let FSRToken::Call(c) = expr.get_right() {
             let mut is_attr = false;
-            let mut is_method_call = true;
+            let mut is_method_call = false;
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 is_attr = true;
             }
 
-            if expr.get_op().eq("::") {
-                is_method_call = false;
+            if expr.get_op().eq(".") {
+                is_method_call = true;
             }
+
+            //println!("call: {:#?}", expr);
 
             let mut v = Self::load_call(c, var_map, is_attr, is_method_call, const_map);
             second.append(&mut v);
@@ -1172,9 +1190,11 @@ impl<'a> Bytecode {
         }
 
         op_code.append(&mut second);
-        if let Some(s) =
-            BytecodeOperator::get_op(expr.get_op(), FSRByteInfo::new(expr.get_meta().clone()), attr_id)
-        {
+        if let Some(s) = BytecodeOperator::get_op(
+            expr.get_op(),
+            FSRByteInfo::new(expr.get_meta().clone()),
+            attr_id,
+        ) {
             op_code.push(s);
         } else {
             unimplemented!()
@@ -1511,9 +1531,7 @@ impl<'a> Bytecode {
         } else if let FSRToken::Variable(v) = token {
             let v = Self::load_variable(v, var_map, false, byte_context);
             match v {
-                AttrIdOrCode::Bytecode(bytecode_args) => {
-                    return vec![bytecode_args]
-                },
+                AttrIdOrCode::Bytecode(bytecode_args) => return vec![bytecode_args],
                 AttrIdOrCode::AttrId(arg_type) => todo!(),
             }
         } else if let FSRToken::Module(m) = token {
@@ -2434,7 +2452,7 @@ a[0] = 1
     #[test]
     fn test_method_call_or_not() {
         let expr = "
-        a.c.d[1]
+        t.index = t.index + t.abc()
         ";
 
         let meta = FSRPosition::new();

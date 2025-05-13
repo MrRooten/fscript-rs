@@ -1,22 +1,22 @@
-class Ddc {
-    fn __new__(self) {
-        self.ddc = 123 + 1
-        return self
+class Test {
+    fn abc(self) {
+        a = 1
+	    return a
+    }
+
+    fn __add__(self, other) {
+        return 1
     }
 }
 
-class Abc {
-    fn __new__(self) {
-        self.abc = Ddc()
-        return self
-    }
-    fn __str__(self) {
-        return 'return string'
-    }
+t = Test()
+t.abc()
+t.index = 1
+b = 1
+while t.index < 30 {
+    t.index = t.index + t.abc()
 }
 
+println(t.index)
 
-
-a = Abc()
-
-a.__str__()
+gc_info()
