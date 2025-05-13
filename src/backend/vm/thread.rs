@@ -2882,22 +2882,7 @@ impl<'a> FSRThreadRuntime<'a> {
             {
                 self.bytecode_counter[*arg.get_operator() as usize] += 1;
             }
-            // match arg.get_operator() {
-            //     BytecodeOperator::Load => {
-            //         Self::load_var(self, arg)?;
-            //     }
-            //     _ => {
-            //         v = self.process(arg)?;
-            //         if self.get_cur_frame().ret_val.is_some() {
-            //             return Ok(true);
-            //         }
 
-            //         if v {
-            //             self.get_cur_mut_frame().exp.clear();
-            //             return Ok(false);
-            //         }
-            //     }
-            // }
             v = self.process(arg)?;
             if self.get_cur_frame().ret_val.is_some() {
                 return Ok(true);
@@ -2905,6 +2890,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if v {
                 self.get_cur_mut_frame().exp.clear();
+                self.get_cur_mut_frame().middle_value.clear();
                 return Ok(false);
             }
 
