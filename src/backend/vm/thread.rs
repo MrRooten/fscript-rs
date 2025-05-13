@@ -967,71 +967,11 @@ impl<'a> FSRThreadRuntime<'a> {
         let to_assign_obj_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
 
         let to_assign_obj_id = match &to_assign_obj_svalue {
-            // SValue::Stack(s) => {
-            //     let state = self.get_cur_frame();
-            //     if let Some(id) = state.get_var(&s.0) {
-            //         id.load(Ordering::Relaxed)
-            //     } else {
-            //         let module = FSRObject::id_to_obj(
-            //             FSRObject::id_to_obj(self.get_context().code)
-            //                 .as_code()
-            //                 .module,
-            //         )
-            //         .as_module();
-            //         let vm = self.get_vm();
-            //         let v = match module.get_object(&s.1) {
-            //             Some(s) => s.load(Ordering::Relaxed),
-            //             None => *vm.get_global_obj_by_name(&s.1).unwrap(),
-            //         };
-
-            //         v
-            //     }
-            // }
             SValue::Global(id) => *id,
-            // SValue::Attr(args) => {
-            //     let id = args.attr_object_id.unwrap().load(Ordering::Relaxed);
-            //     //self.thread_allocator.free_box_attr(args);
-            //     id
-            // }
-            //SValue::BoxObject(fsrobject) => FSRVM::leak_object(fsrobject),
-            // SValue::Reference(refer) => refer.atomic_usize.load(Ordering::Relaxed),
         };
 
         match &assign_id {
-            // SValue::Stack(v) => {
-            //     let state = &mut self.cur_frame;
-            //     state.insert_var(v.0, to_assign_obj_id);
-            //     state.attr_map.clear_var(v.0 as usize);
-            //     //FSRObject::id_to_obj(context.module.unwrap()).as_module().register_object(name, fnto_a_id);
-            // }
-            // SValue::Attr(attr) => {
-            //     let father_obj =
-            //         FSRObject::id_to_mut_obj(attr.father).expect("not a class instance");
-            //     if father_obj.area.is_long()
-            //         && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
-            //     {
-            //         father_obj.set_write_barrier(true);
-            //     }
-            //     if let Some(s) = attr.attr_object_id {
-            //         s.store(to_assign_obj_id, Ordering::Relaxed);
-            //     } else {
-            //         father_obj.set_attr(attr.name, to_assign_obj_id);
-            //     }
-
-            //     //self.thread_allocator.free_box_attr(attr);
-            // }
             SValue::Global(_) => todo!(),
-            // SValue::Reference(ref refer) => {
-            //     let owner = FSRObject::id_to_obj(refer.father);
-            //     if owner.area.is_long()
-            //         && FSRObject::id_to_obj(to_assign_obj_id).area == Area::Minjor
-            //     {
-            //         owner.set_write_barrier(true);
-            //     }
-            //     refer
-            //         .atomic_usize
-            //         .store(to_assign_obj_id, Ordering::Relaxed);
-            // }
         }
 
         self.get_cur_mut_frame().middle_value.push(to_assign_obj_id);
@@ -1869,28 +1809,7 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             let fn_svalue = self.get_cur_mut_frame().exp.pop().unwrap();
             let fn_id = match &fn_svalue {
-                // SValue::Stack(s) => self.try_get_obj_by_name(s.0, &s.1, module).unwrap(),
                 SValue::Global(id) => *id,
-                // SValue::Attr(attr) => {
-                //     //call_method = attr.call_method;
-
-                //     let id = if !call_method {
-                //         let cls_obj = FSRObject::id_to_obj(attr.father).as_class();
-                //         cls_obj.get_attr(attr.name).unwrap().load(Ordering::Relaxed)
-                //     } else {
-                //         //*object_id = Some(attr.father);
-                //         attr.attr_object_id.unwrap().load(Ordering::Relaxed)
-                //     };
-
-                //     //self.thread_allocator.free_box_attr(attr);
-
-                //     id
-                // }
-                // SValue::Reference(ref refer) => {
-                //     call_method = refer.call_method;
-
-                //     refer.atomic_usize.load(Ordering::Relaxed)
-                // }
             };
             self.get_cur_mut_frame().middle_value.push(fn_id);
             Ok((fn_id))
