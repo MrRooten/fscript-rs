@@ -2,14 +2,13 @@
 use crate::backend::{
     types::base::{AtomicObjId, FSRObject, FSRValue, ObjId}
     ,
-    vm::thread::{AttrArgs, FSCodeContext},
+    vm::thread::{FSCodeContext},
 };
 
 
 #[allow(clippy::vec_box)]
 pub struct FSRObjectAllocator<'a> {
     object_bins: Vec<Box<FSRObject<'a>>>,
-    box_attr_bins: Vec<Box<AttrArgs<'a>>>,
     code_context_bins: Vec<Box<FSCodeContext>>,
 }
 
@@ -18,7 +17,6 @@ impl<'a> FSRObjectAllocator<'a> {
     pub fn new() -> Self {
         Self {
             object_bins: vec![],
-            box_attr_bins: vec![],
             code_context_bins: vec![],
         }
     }
@@ -41,29 +39,6 @@ impl<'a> FSRObjectAllocator<'a> {
         self.object_bins.push(obj);
     }
 
-    pub fn new_box_attr(
-        &mut self,
-        attr_id: u64,
-        father: ObjId,
-        attr: Option<&'a AtomicObjId>,
-        name: &'a str,
-        call_method: bool,
-    ) -> Box<AttrArgs<'a>> {
-        if let Some(mut s) = self.box_attr_bins.pop() {
-            s.attr_id = attr_id;
-            s.father = father;
-            s.attr_object_id = attr;
-            s.name = name;
-            s.call_method = call_method;
-            return s;
-        }
-
-        AttrArgs::new(attr_id, father, attr, name, call_method)
-    }
-
-    pub fn free_box_attr(&mut self, obj: Box<AttrArgs<'a>>) {
-        self.box_attr_bins.push(obj);
-    }
 
     pub fn new_code_context(
         &mut self,

@@ -13,9 +13,9 @@ use crate::{
 };
 
 
-pub fn fn_gc_info<'a>(
+pub fn fn_gc_info(
     _args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     // thread.garbage_collect.init_size();
@@ -29,9 +29,9 @@ pub fn fn_gc_info<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fn_gc_collect<'a>(
+pub fn fn_gc_collect(
     _args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     thread.garbage_collect.clear_marks();
@@ -40,9 +40,9 @@ pub fn fn_gc_collect<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fn_minjor_gc_collect<'a>(
+pub fn fn_minjor_gc_collect(
     _args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     thread.garbage_collect.clear_marks();
@@ -51,9 +51,9 @@ pub fn fn_minjor_gc_collect<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fn_gc_shrink<'a>(
+pub fn fn_gc_shrink(
     _args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     thread.garbage_collect.shrink();
@@ -61,7 +61,7 @@ pub fn fn_gc_shrink<'a>(
 }
 
 
-pub fn init_gc<'a>() -> HashMap<&'static str, FSRObject<'a>> {
+pub fn init_gc() -> HashMap<&'static str, FSRObject<'static>> {
     let gc_info = FSRFn::from_rust_fn_static(fn_gc_info, "gc_info");
     let gc_collect = FSRFn::from_rust_fn_static(fn_gc_collect, "gc_collect");
     let gc_minjor_collect = FSRFn::from_rust_fn_static(fn_minjor_gc_collect, "gc_minjor_collect");

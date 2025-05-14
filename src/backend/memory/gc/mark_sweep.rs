@@ -135,7 +135,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
                 self.tracker.memory_size += obj.get_size();
             }
             self.tracker.minjar_object_count += 1;
-            return FSRObject::obj_to_id(obj);
+            FSRObject::obj_to_id(obj)
         } else {
             let mut obj = self.allocator.new_object(value, cls);
             obj.cls = cls;
@@ -147,7 +147,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             }
             self.tracker.minjar_object_count += 1;
             self.objects[free_idx] = Some(obj);
-            return FSRObject::obj_to_id(self.objects[free_idx].as_ref().unwrap());
+            FSRObject::obj_to_id(self.objects[free_idx].as_ref().unwrap())
         }
     }
 
@@ -203,11 +203,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.free_slots.clear();
         self.objects.retain(|obj| {
             if let Some(obj) = obj {
-                if obj.free {
-                    return false;
-                } else {
-                    return true;
-                }
+                return !obj.free
             }
             false
         });
@@ -282,7 +278,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
 
 
         self.tracker.minjar_object_count += 1;
-        return self.alloc_object_in_place();
+        self.alloc_object_in_place()
 
     }
 

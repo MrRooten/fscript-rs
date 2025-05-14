@@ -31,9 +31,9 @@ impl Debug for FSRInnerIterator {
     }
 }
 #[inline(always)]
-pub fn next_obj<'a>(
+pub fn next_obj(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
@@ -69,9 +69,9 @@ pub fn next_obj<'a>(
     })
 }
 
-pub fn map<'a>(
+pub fn map(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -98,9 +98,9 @@ pub fn map<'a>(
     Ok(FSRRetValue::GlobalId(object))
 }
 
-pub fn filter<'a>(
+pub fn filter(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {

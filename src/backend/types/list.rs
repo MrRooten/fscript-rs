@@ -62,9 +62,9 @@ impl Debug for FSRList {
     }
 }
 
-fn list_len<'a>(
+fn list_len(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -85,9 +85,9 @@ fn list_len<'a>(
     unimplemented!()
 }
 
-fn list_string<'a>(
+fn list_string(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let mut s = FSRInnerString::new("");
@@ -116,9 +116,9 @@ fn list_string<'a>(
     Ok(FSRRetValue::GlobalId(obj_id))
 }
 
-fn iter<'a>(
+fn iter(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     __module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_id = args[0];
@@ -140,9 +140,9 @@ fn iter<'a>(
     unimplemented!()
 }
 
-pub fn get_item<'a>(
+pub fn get_item(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_id = args[0];
@@ -168,9 +168,9 @@ pub fn get_item<'a>(
     unimplemented!()
 }
 
-pub fn set_item<'a>(
+pub fn set_item(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 3 {
@@ -200,9 +200,9 @@ pub fn set_item<'a>(
     unimplemented!()
 }
 
-pub fn sort<'a>(
+pub fn sort(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 1 {
@@ -222,18 +222,18 @@ pub fn sort<'a>(
             )
             .unwrap();
             if v {
-                return std::cmp::Ordering::Greater;
+                std::cmp::Ordering::Greater
             } else {
-                return std::cmp::Ordering::Less;
+                std::cmp::Ordering::Less
             }
         });
     }
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn sort_by<'a>(
+pub fn sort_by(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -247,7 +247,7 @@ pub fn sort_by<'a>(
     let compare_fn_id = args[1];
     let compare_fn = FSRObject::id_to_obj(compare_fn_id);
     if let FSRValue::List(l) = &mut obj.value {
-        //let thread_ptr = thread as *mut FSRThreadRuntime<'a>;
+        //let thread_ptr = thread as *mut FSRThreadRuntime;
         l.vs.sort_by(|a, b| {
             let l_id = a.load(Ordering::Relaxed);
             let r_id = b.load(Ordering::Relaxed);
@@ -257,18 +257,18 @@ pub fn sort_by<'a>(
                 .call(&[l_id, r_id], thread, module, compare_fn_id)
                 .unwrap();
             if !FSRObject::id_to_obj(ret.get_id()).is_false() {
-                return std::cmp::Ordering::Greater;
+                std::cmp::Ordering::Greater
             } else {
-                return std::cmp::Ordering::Less;
+                std::cmp::Ordering::Less
             }
         });
     }
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn reverse<'a>(
+pub fn reverse(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let obj_id = args[0];
@@ -284,9 +284,9 @@ pub fn reverse<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn sort_key<'a>(
+pub fn sort_key(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -325,9 +325,9 @@ pub fn sort_key<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn push<'a>(
+pub fn push(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -344,9 +344,9 @@ pub fn push<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn map<'a>(
+pub fn map(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -375,9 +375,9 @@ pub fn map<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn filter<'a>(
+pub fn filter(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -408,9 +408,9 @@ pub fn filter<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn equal<'a>(
+pub fn equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -483,13 +483,13 @@ impl FSRList {
     }
 
     pub fn get_items(&self) -> Vec<&AtomicObjId> {
-        self.vs.iter().map(|x| x).collect()
+        self.vs.iter().collect()
     }
 
     pub fn new_value(vs: Vec<ObjId>) -> FSRValue<'static> {
         let vs = vs
             .into_iter()
-            .map(|s| AtomicObjId::new(s))
+            .map(AtomicObjId::new)
             .collect::<Vec<_>>();
         FSRValue::List(Box::new(Self { vs }))
     }

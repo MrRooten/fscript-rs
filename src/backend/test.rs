@@ -15,7 +15,7 @@ pub mod tests {
                 module::FSRModule,
             },
             vm::{
-                thread::{CallFrame, FSRThreadRuntime, SValue},
+                thread::{CallFrame, FSRThreadRuntime},
                 virtual_machine::FSRVM,
             },
         },
@@ -180,7 +180,7 @@ pub mod tests {
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
-        let mut runtime = FSRThreadRuntime::new();
+        let mut runtime = FSRThreadRuntime::new_runtime();
         runtime.start(obj_id).unwrap();
     }
 
@@ -220,7 +220,7 @@ pub mod tests {
             let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
             let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
             obj.as_mut_module().init_fn_map(v);
-            let mut runtime = FSRThreadRuntime::new();
+            let mut runtime = FSRThreadRuntime::new_runtime();
 
             let start = Instant::now();
             //runtime.start(&v, &mut vm).unwrap();
@@ -250,7 +250,6 @@ pub mod tests {
                  */
         println!("FSRObject size: {}", std::mem::size_of::<FSRObject>());
         println!("CallFrame size: {}", std::mem::size_of::<CallFrame>());
-        println!("SValue: {}", std::mem::size_of::<SValue>());
         println!("FSRValue size: {}", std::mem::size_of::<FSRValue>());
         println!("Cowstr size: {}", std::mem::size_of::<Cow<str>>());
         println!("FSRFn size: {}", std::mem::size_of::<FSRFn>());
@@ -278,7 +277,7 @@ pub mod tests {
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
         //let obj_id = FSRVM::leak_object(obj);
-        let mut runtime = FSRThreadRuntime::new();
+        let mut runtime = FSRThreadRuntime::new_runtime();
         //runtime.start(&v, &mut vm).unwrap();
 
         runtime.start(obj_id).unwrap();
@@ -297,7 +296,7 @@ pub mod tests {
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
-        let mut runtime = FSRThreadRuntime::new();
+        let mut runtime = FSRThreadRuntime::new_runtime();
 
         //runtime.start(&v, &mut vm).unwrap();
 
@@ -317,7 +316,7 @@ pub mod tests {
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
 
-        let mut runtime = FSRThreadRuntime::new();
+        let mut runtime = FSRThreadRuntime::new_runtime();
 
         //runtime.start(&v, &mut vm).unwrap();
 

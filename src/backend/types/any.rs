@@ -76,9 +76,9 @@ impl GetReference for FSRThreadHandle {
     fn set_undirty(&mut self) {}
 }
 
-fn join<'a>(
+fn join(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");

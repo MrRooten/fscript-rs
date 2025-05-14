@@ -43,7 +43,7 @@ mod test {
         obj.as_mut_module().init_fn_map(v);
         let vm = FSRVM::single();
         let vm2 = vm.clone();
-        let runtime = FSRThreadRuntime::new();
+        let runtime = FSRThreadRuntime::new_runtime();
         let tid = vm2.add_thread(runtime);
         let th = std::thread::spawn(move || {
             let binding = vm2.clone();
@@ -92,7 +92,7 @@ fn main() {
     let mut source_code = String::new();
     f.read_to_string(&mut source_code).unwrap();
 
-    let rt = FSRThreadRuntime::new();
+    let rt = FSRThreadRuntime::new_runtime();
     let tid = vm.add_thread(rt);
     // let runtime = Arc::new(rt);
 

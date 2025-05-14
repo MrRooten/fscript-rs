@@ -101,11 +101,13 @@ impl AnyDebugSend for FSRHashMap {
     }
 }
 
+type HashMapIterType<'a> = Iter<'a, u64, SmallVec<[(AtomicObjId, AtomicObjId); 1]>>;
+
 struct FSRHashMapRefIterator<'a> {
     hashmap: &'a FSRHashMap,
     segment_idx: usize,
     vec_iter: Option<std::slice::Iter<'a, (AtomicObjId, AtomicObjId)>>,
-    hash_iter: Option<Iter<'a, u64, SmallVec<[(AtomicObjId, AtomicObjId); 1]>>>,
+    hash_iter: Option<HashMapIterType<'a>>,
     current_pair: Option<&'a (AtomicObjId, AtomicObjId)>,
     yield_key: bool,
 }
@@ -167,7 +169,7 @@ impl<'a> FSRHashMapRefIterator<'a> {
     }
 }
 
-impl<'a> Iterator for FSRHashMapRefIterator<'a> {
+impl Iterator for FSRHashMapRefIterator<'_> {
     type Item = ObjId;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -202,6 +204,7 @@ impl GetReference for FSRHashMap {
                 for (key, value) in vec.iter() {
                     //v.push(key.load(Ordering::Relaxed));
                     //v.push(value.load(Ordering::Relaxed));
+                    #[allow(clippy::never_loop)]
                     loop {
                         let ref_id = key.load(Ordering::Relaxed);
                         let obj = FSRObject::id_to_obj(ref_id);
@@ -279,9 +282,9 @@ impl FSRIterator for FSRHashMapIterator<'_> {
     }
 }
 
-pub fn fsr_fn_hashmap_iter<'a>(
+pub fn fsr_fn_hashmap_iter(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRObject::id_to_obj(args[0]);
@@ -307,7 +310,7 @@ pub fn fsr_fn_hashmap_iter<'a>(
                 })),
                 FSRGlobalObjId::InnerIterator as ObjId,
             );
-            return Ok(FSRRetValue::GlobalId(object));
+            Ok(FSRRetValue::GlobalId(object))
         } else {
             unimplemented!()
         }
@@ -316,12 +319,12 @@ pub fn fsr_fn_hashmap_iter<'a>(
     }
 }
 
-pub fn fsr_fn_hashmap_new<'a>(
+pub fn fsr_fn_hashmap_new(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let hashmap = FSRHashMap::new();
+    let hashmap = FSRHashMap::new_hashmap();
     let object = thread
         .garbage_collect
         .new_object(hashmap.to_any_type(), FSRGlobalObjId::HashMapCls as ObjId);
@@ -333,9 +336,9 @@ pub fn fsr_fn_hashmap_new<'a>(
 /// 1. hashmap object
 /// 2. key
 /// 3. value
-pub fn fsr_fn_hashmap_insert<'a>(
+pub fn fsr_fn_hashmap_insert(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 3 {
@@ -370,9 +373,9 @@ pub fn fsr_fn_hashmap_insert<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-pub fn fsr_fn_hashmap_get<'a>(
+pub fn fsr_fn_hashmap_get(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRObject::id_to_obj(args[0]);
@@ -394,9 +397,9 @@ pub fn fsr_fn_hashmap_get<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-pub fn fsr_fn_hashmap_get_reference<'a>(
+pub fn fsr_fn_hashmap_get_reference(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let hashmap_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
@@ -414,9 +417,9 @@ pub fn fsr_fn_hashmap_get_reference<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-pub fn fsr_fn_hashmap_contains<'a>(
+pub fn fsr_fn_hashmap_contains(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRObject::id_to_obj(args[0]);
@@ -436,9 +439,9 @@ pub fn fsr_fn_hashmap_contains<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
-pub fn fsr_fn_hashmap_remove<'a>(
+pub fn fsr_fn_hashmap_remove(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
@@ -457,7 +460,7 @@ pub fn fsr_fn_hashmap_remove<'a>(
 }
 
 impl FSRHashMap {
-    pub fn new() -> Self {
+    pub fn new_hashmap() -> Self {
         Self {
             segment_map: vec![SegmentHashMap::new()],
         }
@@ -471,6 +474,10 @@ impl FSRHashMap {
 
     pub fn len(&self) -> usize {
         self.segment_map.iter().map(|s| s.len()).sum()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn get_item(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
@@ -511,7 +518,7 @@ impl FSRHashMap {
         // new_segment.is_dirty = true;
         self.segment_map.push(new_segment);
 
-        return Some(())
+        Some(())
     }
 
     pub fn try_insert_item(&mut self, hash: u64, key: ObjId, value: ObjId) -> Option<()> {
@@ -541,7 +548,7 @@ impl FSRHashMap {
         // new_segment.is_dirty = true;
         self.segment_map.push(new_segment);
 
-        return Some(())
+        Some(())
     }
 
     pub fn remove_item(&mut self, key: u64) {
@@ -590,7 +597,7 @@ impl FSRHashMap {
     ) -> Result<(), FSRError> {
         let hash = Self::call_hash(key, thread)?;
 
-        if let None = self.get_item(hash) {
+        if self.get_item(hash).is_none() {
             self.insert_item(hash, key, value);
             return Ok(());
         }
@@ -638,7 +645,7 @@ impl FSRHashMap {
         let hash = Self::call_hash(key, thread)?;
 
         // if let None = self.get_mut(hash) {
-        if let Some(_) = self.try_insert_item(hash, key, value) {
+        if self.try_insert_item(hash, key, value).is_some() {
             return Ok(());
         }
 
@@ -720,7 +727,7 @@ impl FSRHashMap {
             unimplemented!()
         };
 
-        if let None = self.get_item(hash) {
+        if self.get_item(hash).is_none() {
             return;
         }
 

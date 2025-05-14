@@ -11,9 +11,9 @@ use crate::{
 };
 
 
-pub fn fsr_fn_print<'a>(
+pub fn fsr_fn_print(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
@@ -26,10 +26,10 @@ pub fn fsr_fn_print<'a>(
     let mut ret = FSRInnerString::new("");
 
     if let FSRValue::String(s) = &obj {
-        ret.push_inner_str(&s);
+        ret.push_inner_str(s);
         for r in res_obj {
             if let FSRValue::String(s) = &r {
-                ret.push_inner_str(&s);
+                ret.push_inner_str(s);
             }
         }
         print!("{}", ret);
@@ -37,9 +37,9 @@ pub fn fsr_fn_print<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fsr_fn_println<'a>(
+pub fn fsr_fn_println(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
@@ -52,10 +52,10 @@ pub fn fsr_fn_println<'a>(
     let mut ret = FSRInnerString::new("");
 
     if let FSRValue::String(s) = &obj {
-        ret.push_inner_str(&s);
+        ret.push_inner_str(s);
         for r in res_obj {
             if let FSRValue::String(s) = &r {
-                ret.push_inner_str(&s);
+                ret.push_inner_str(s);
             }
         }
         println!("{}", ret);
@@ -63,9 +63,9 @@ pub fn fsr_fn_println<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fsr_fn_dump<'a>(
+pub fn fsr_fn_dump(
     args: &[ObjId],
-    _thread: &mut FSRThreadRuntime<'a>,
+    _thread: &mut FSRThreadRuntime,
     _module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
@@ -73,9 +73,9 @@ pub fn fsr_fn_dump<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fsr_fn_format<'a>(
+pub fn fsr_fn_format(
     args: &[ObjId],
-    _thread: &mut FSRThreadRuntime<'a>,
+    _thread: &mut FSRThreadRuntime,
     _module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     
@@ -84,9 +84,9 @@ pub fn fsr_fn_format<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fsr_fn_str<'a>(
+pub fn fsr_fn_str(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     
@@ -99,9 +99,9 @@ pub fn fsr_fn_str<'a>(
     Ok(FSRRetValue::GlobalId(obj_id))
 }
 
-pub fn fsr_fn_throw_error<'a>(
+pub fn fsr_fn_throw_error(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if args.is_empty() || args[0] == 0 {
@@ -112,16 +112,16 @@ pub fn fsr_fn_throw_error<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fsr_fn_get_error<'a>(
+pub fn fsr_fn_get_error(
     _args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let ret = thread.get_cur_mut_frame().handling_exception;
     Ok(FSRRetValue::GlobalId(ret))
 }
 
-pub fn init_io<'a>() -> HashMap<&'static str, FSRObject<'a>> {
+pub fn init_io() -> HashMap<&'static str, FSRObject<'static>> {
     let print_fn = FSRFn::from_rust_fn_static(fsr_fn_print, "print");
     let println_fn = FSRFn::from_rust_fn_static(fsr_fn_println, "println");
     let dump_fn = FSRFn::from_rust_fn_static(fsr_fn_dump, "dump");

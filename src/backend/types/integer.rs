@@ -27,9 +27,9 @@ use super::{
 
 pub struct FSRInteger {}
 
-pub fn add<'a>(
+pub fn add(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -54,9 +54,9 @@ pub fn add<'a>(
     unimplemented!()
 }
 
-pub fn sub<'a>(
+pub fn sub(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -80,9 +80,9 @@ pub fn sub<'a>(
     unimplemented!()
 }
 
-fn mul<'a>(
+fn mul(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -103,9 +103,9 @@ fn mul<'a>(
     unimplemented!()
 }
 
-fn div<'a>(
+fn div(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -126,9 +126,9 @@ fn div<'a>(
     unimplemented!()
 }
 
-pub fn reminder<'a>(
+pub fn reminder(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -149,9 +149,9 @@ pub fn reminder<'a>(
     unimplemented!()
 }
 
-fn left_shift<'a>(
+fn left_shift(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -172,9 +172,9 @@ fn left_shift<'a>(
     unimplemented!()
 }
 
-fn right_shift<'a>(
+fn right_shift(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -194,9 +194,9 @@ fn right_shift<'a>(
     unimplemented!()
 }
 
-pub fn greater<'a>(
+pub fn greater(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -216,9 +216,9 @@ pub fn greater<'a>(
     unimplemented!()
 }
 
-pub fn less<'a>(
+pub fn less(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -238,9 +238,9 @@ pub fn less<'a>(
     unimplemented!()
 }
 
-pub fn greater_equal<'a>(
+pub fn greater_equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -260,9 +260,9 @@ pub fn greater_equal<'a>(
     unimplemented!()
 }
 
-pub fn less_equal<'a>(
+pub fn less_equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -280,9 +280,9 @@ pub fn less_equal<'a>(
     unimplemented!()
 }
 
-pub fn equal<'a>(
+pub fn equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -301,9 +301,9 @@ pub fn equal<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
-pub fn not_equal<'a>(
+pub fn not_equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -322,9 +322,9 @@ pub fn not_equal<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
 }
 
-pub fn sorted_value<'a>(
+pub fn sorted_value(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -335,9 +335,9 @@ pub fn sorted_value<'a>(
     unimplemented!()
 }
 
-fn hash_integer<'a>(
+fn hash_integer(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);

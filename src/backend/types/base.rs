@@ -81,7 +81,7 @@ pub enum FSRValue<'a> {
     None,
 }
 
-impl<'a> FSRValue<'a> {
+impl FSRValue<'_> {
     #[inline(always)]
     pub fn get_size(&self) -> usize {
         match self {
@@ -110,7 +110,7 @@ pub enum FSRRetValue {
     //Reference(&'a AtomicObjId),
 }
 
-impl<'a> FSRRetValue {
+impl FSRRetValue {
     pub fn get_id(&self) -> ObjId {
         match self {
             FSRRetValue::GlobalId(id) => *id,
@@ -696,10 +696,10 @@ impl<'a> FSRObject<'a> {
         //     self.cls, self as *const Self
         // )))
 
-        return FSRString::new_value(&format!(
+        FSRString::new_value(&format!(
             "<`{}` Object at {:?}>",
             self.cls, self as *const Self
-        ));
+        ))
         //return self.invoke("__str__", vec![]);
     }
 
@@ -795,11 +795,8 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn undirty_object(&mut self) {
-        match &mut self.value {
-            FSRValue::Any(any) => {
-                any.undirty();
-            }
-            _ => {}
+        if let FSRValue::Any(any) = &mut self.value {
+            any.undirty();
         }
     }
 }

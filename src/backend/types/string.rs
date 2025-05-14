@@ -41,6 +41,10 @@ impl FSRInnerString {
         self.chars.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.chars.is_empty()
+    }
+
     pub fn push_inner_str(&mut self, s: &FSRInnerString) {
         self.chars.push_str(&s.chars);
     }
@@ -99,9 +103,9 @@ impl FSRIterator for FSRStringIterator<'_> {
 
 pub struct FSRString {}
 
-fn string_iter<'a>(
+fn string_iter(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_id = args[0];
@@ -122,9 +126,9 @@ fn string_iter<'a>(
     unimplemented!()
 }
 
-fn string_len<'a>(
+fn string_len(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -139,9 +143,9 @@ fn string_len<'a>(
     unimplemented!()
 }
 
-pub fn add<'a>(
+pub fn add(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -174,9 +178,9 @@ pub fn add<'a>(
     unimplemented!()
 }
 
-fn eq<'a>(
+fn eq(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -197,9 +201,9 @@ fn eq<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
-fn neq<'a>(
+fn neq(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -220,9 +224,9 @@ fn neq<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
 }
 
-fn get_sub_char<'a>(
+fn get_sub_char(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -240,31 +244,31 @@ fn get_sub_char<'a>(
                     ))),
                     FSRGlobalObjId::StringCls as ObjId,
                 );
-                return Ok(FSRRetValue::GlobalId(obj_id));
+                Ok(FSRRetValue::GlobalId(obj_id))
             } else {
-                return Err(FSRError::new(
+                Err(FSRError::new(
                     "index out of range of string",
                     crate::utils::error::FSRErrCode::IndexOutOfRange,
-                ));
+                ))
             }
         } else {
-            return Err(FSRError::new(
+            Err(FSRError::new(
                 "index is not an integer of string",
                 crate::utils::error::FSRErrCode::NotValidArgs,
-            ));
+            ))
         }
     } else {
-        return Err(FSRError::new(
+        Err(FSRError::new(
             "left value is not a string",
             crate::utils::error::FSRErrCode::NotValidArgs,
-        ));
+        ))
     }
 
 }
 
-fn hash_string<'a>(
+fn hash_string(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);

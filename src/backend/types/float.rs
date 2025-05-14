@@ -13,9 +13,9 @@ pub struct FSRFloat {
     pub(crate) value: f64,
 }
 
-pub fn add<'a>(
+pub fn add(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let _ = thread;
@@ -38,9 +38,9 @@ pub fn add<'a>(
     unimplemented!()
 }
 
-pub fn sub<'a>(
+pub fn sub(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let _ = module;
@@ -63,9 +63,9 @@ pub fn sub<'a>(
     unimplemented!()
 }
 
-pub fn mul<'a>(
+pub fn mul(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let _ = module;
@@ -87,9 +87,9 @@ pub fn mul<'a>(
     unimplemented!()
 }
 
-fn div<'a>(
+fn div(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let _ = module;
@@ -114,9 +114,9 @@ fn div<'a>(
 
 
 
-pub fn greater<'a>(
+pub fn greater(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let _ = thread;
@@ -138,9 +138,9 @@ pub fn greater<'a>(
     unimplemented!()
 }
 
-pub fn less<'a>(
+pub fn less(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let _ = module;
@@ -162,9 +162,9 @@ pub fn less<'a>(
     unimplemented!()
 }
 
-fn greater_equal<'a>(
+fn greater_equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let _ = module;
@@ -186,9 +186,9 @@ fn greater_equal<'a>(
     unimplemented!()
 }
 
-fn less_equal<'a>(
+fn less_equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -208,9 +208,9 @@ fn less_equal<'a>(
     unimplemented!()
 }
 
-fn equal<'a>(
+fn equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -230,9 +230,9 @@ fn equal<'a>(
     unimplemented!()
 }
 
-fn not_equal<'a>(
+fn not_equal(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);

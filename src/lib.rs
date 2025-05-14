@@ -1,6 +1,7 @@
 #![allow(unused)]
 #![allow(static_mut_refs)]
 #![allow(clippy::vec_box)]
+#![allow(clippy::ptr_arg)]
 pub mod frontend;
 pub mod backend;
 pub mod utils;

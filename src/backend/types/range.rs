@@ -52,9 +52,9 @@ impl FSRIterator for FSRRangeIterator {
     }
 }
 
-fn iter_obj<'a>(
+fn iter_obj(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let self_id = args[0];
@@ -81,19 +81,10 @@ fn iter_obj<'a>(
     //Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))))
 }
 
-fn next_obj<'a>(
-    args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId,
-) -> Result<FSRRetValue, FSRError> {
-    let iterator = FSRObject::id_to_mut_obj(args[0]);
-    let a = (0..3).into_iter();
-    unimplemented!()
-}
 
-fn filter<'a>(
+fn filter(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let iterator = iter_obj(args, thread, module)?.get_id();
@@ -114,9 +105,9 @@ fn filter<'a>(
     Ok(FSRRetValue::GlobalId(filter_iterator_id))
 }
 
-fn map<'a>(
+fn map(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let iterator = iter_obj(args, thread, module)?.get_id();

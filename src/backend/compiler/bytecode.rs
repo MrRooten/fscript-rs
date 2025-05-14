@@ -244,7 +244,7 @@ pub enum CompareOperator {
 }
 
 impl CompareOperator {
-    pub fn from_str(op: &str) -> Option<Self> {
+    pub fn new_from_str(op: &str) -> Option<Self> {
         match op {
             "==" => Some(CompareOperator::Equal),
             "!=" => Some(CompareOperator::NotEqual),
@@ -393,7 +393,7 @@ impl BytecodeOperator {
         {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::CompareTest,
-                arg: ArgType::Compare(CompareOperator::from_str(op).unwrap()),
+                arg: ArgType::Compare(CompareOperator::new_from_str(op).unwrap()),
                 info,
             });
         } else if op.eq("<<") {
@@ -787,23 +787,21 @@ impl<'a> Bytecode {
                 attr_id_arg.as_ref().unwrap().0,
                 attr_id_arg.unwrap().1,
             ))
+        } else if is_var {
+            ArgType::CallArgsNumberWithVar((
+                call.get_args().len(),
+                var_id,
+                name.to_string(),
+                false,
+            ))
         } else {
-            if is_var {
-                ArgType::CallArgsNumberWithVar((
-                    call.get_args().len(),
-                    var_id,
-                    name.to_string(),
-                    false,
-                ))
-            } else {
-                ArgType::CallArgsNumber(call.get_args().len())
-            }
+            ArgType::CallArgsNumber(call.get_args().len())
         };
 
         // if is_var {
         result.push(BytecodeArg {
             operator: call_or_callmethod,
-            arg: arg,
+            arg,
             info: FSRByteInfo::new(call.get_meta().clone()),
         });
         // } else {
@@ -957,7 +955,7 @@ impl<'a> Bytecode {
             }
         }
 
-        return (AttrIdOrCode::Bytecode(ans));
+        (AttrIdOrCode::Bytecode(ans))
     }
 
     fn load_assign_arg(
@@ -1260,7 +1258,6 @@ impl<'a> Bytecode {
 
         for token in try_def.get_catch().body.get_tokens() {
             let lines = Self::load_token_with_map(token, var_map, const_map);
-            let lines = lines;
             for line in lines {
                 vs.push(line);
             }
@@ -1583,12 +1580,11 @@ impl<'a> Bytecode {
                     .get_var(fn_def.get_name())
                     .cloned()
                     .unwrap();
-                let mut result = vec![];
-                result.push(BytecodeArg {
+                let mut result = vec![BytecodeArg {
                     operator: BytecodeOperator::Load,
                     arg: ArgType::Variable((c_id, fn_def.get_name().to_string(), false)),
                     info: FSRByteInfo::new(fn_def.get_meta().clone()),
-                });
+                }];
                 return (vec![result]);
             }
 
@@ -1666,7 +1662,7 @@ impl<'a> Bytecode {
                 arg: ArgType::Attr(attr_id, attr_name.to_string()),
                 info: FSRByteInfo::new(v.get_meta().clone()),
             });
-            return Some((result_list));
+            return Some(result_list);
         }
         None
     }
@@ -1691,7 +1687,7 @@ impl<'a> Bytecode {
                 arg: ArgType::None,
                 info: FSRByteInfo::new(v.get_meta().clone()),
             });
-            return Some((result_list));
+            return Some(result_list);
         }
         None
     }
@@ -1760,69 +1756,12 @@ impl<'a> Bytecode {
         }
         let id = *const_map.const_map.get(&c.to_2()).unwrap();
 
-        let mut result_list = Vec::new();
-        result_list.push(BytecodeArg {
+        let mut result_list = vec![BytecodeArg {
             operator: BytecodeOperator::Load,
             arg: ArgType::Const(id),
             info: FSRByteInfo::new(token.get_meta().clone()),
-        });
-        // if let FSRConstantType::Integer(i) = token.get_constant() {
-        //     // let i = if token.single_op.is_some() && token.single_op.unwrap().eq("-") {
-        //     //     -1 * *i
-        //     // } else {
-        //     //     *i
-        //     // };
-        //     // let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
-        //     //     obj
-        //     // } else {
-        //     //     let mut obj = FSRInteger::new_inst(i);
-        //     //     // obj.ref_add();
-        //     //     obj.area = Area::Global;
-        //     //     let ptr = FSRVM::leak_object(Box::new(obj));
-        //     //     const_map.insert_table(id as usize, ptr);
-        //     //     ptr
-        //     // };
+        }];
 
-        //     result_list.push(BytecodeArg {
-        //         operator: BytecodeOperator::Load,
-        //         arg: ArgType::Const(i)
-        //         info: FSRByteInfo::new(token.get_meta().clone()),
-        //     });
-        // } else if let FSRConstantType::String(s) = token.get_constant() {
-        //     let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
-        //         obj
-        //     } else {
-        //         let obj = FSRString::new_value(&String::from_utf8_lossy(s));
-        //         // obj.ref_add();
-        //         let obj = FSRObject::new_inst(obj, FSRGlobalObjId::StringCls as ObjId);
-        //         let ptr = FSRVM::leak_object(Box::new(obj));
-        //         const_map.insert_table(id as usize, ptr);
-        //         ptr
-        //     };
-
-        //     result_list.push(BytecodeArg {
-        //         operator: BytecodeOperator::Load,
-        //         arg: ArgType::String(id, ptr),
-        //         info: FSRByteInfo::new(token.get_meta().clone()),
-        //     });
-        // } else if let FSRConstantType::Float(f) = token.get_constant() {
-        //     let ptr = if let Some(obj) = const_map.get_from_table(id as usize) {
-        //         obj
-        //     } else {
-        //         let mut obj = FSRFloat::new_inst(*f);
-        //         // obj.ref_add();
-        //         obj.area = Area::Global;
-        //         let ptr = FSRVM::leak_object(Box::new(obj));
-        //         const_map.insert_table(id as usize, ptr);
-        //         ptr
-        //     };
-
-        //     result_list.push(BytecodeArg {
-        //         operator: BytecodeOperator::Load,
-        //         arg: ArgType::Float(id, ptr),
-        //         info: FSRByteInfo::new(token.get_meta().clone()),
-        //     });
-        // }
 
         (result_list)
     }

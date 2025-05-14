@@ -11,9 +11,9 @@ use crate::{
     utils::error::FSRError,
 };
 
-pub fn fsr_get_cur_thread_id<'a>(
+pub fn fsr_get_cur_thread_id(
     _args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let id = thread.get_thread_id();
@@ -24,9 +24,9 @@ pub fn fsr_get_cur_thread_id<'a>(
     Ok(FSRRetValue::GlobalId(obj))
 }
 
-pub fn fsr_new_thread<'a>(
+pub fn fsr_new_thread(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let fn_id = args[0];
@@ -35,7 +35,7 @@ pub fn fsr_new_thread<'a>(
     let vm = thread.get_vm();
     let th = std::thread::spawn(move || {
         
-        let runtime = FSRThreadRuntime::new();
+        let runtime = FSRThreadRuntime::new_runtime();
         let thread_id = vm.add_thread(runtime);
         let th = vm.get_thread(thread_id).unwrap();
         let fn_obj = FSRObject::id_to_obj(fn_id);

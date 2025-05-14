@@ -14,20 +14,18 @@ use crate::{
     utils::error::{FSRErrCode, FSRError},
 };
 
-pub fn fsr_fn_assert<'a>(
+pub fn fsr_fn_assert(
     args: &[ObjId],
-    _thread: &mut FSRThreadRuntime<'a>,
+    _thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
-    if args.len() == 2 {
-        if value.is_false() {
-            let message = args[1];
-            if let FSRValue::String(cow) = &FSRObject::id_to_obj(message).value {
-                panic!("{}", cow);
-            } else {
-                return Err(FSRError::new("not a string", FSRErrCode::NotValidArgs));
-            }
+    if args.len() == 2 && value.is_false() {
+        let message = args[1];
+        if let FSRValue::String(cow) = &FSRObject::id_to_obj(message).value {
+            panic!("{}", cow);
+        } else {
+            return Err(FSRError::new("not a string", FSRErrCode::NotValidArgs));
         }
     }
     if value.is_false() {
@@ -36,9 +34,9 @@ pub fn fsr_fn_assert<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fsr_fn_export<'a>(
+pub fn fsr_fn_export(
     args: &[ObjId],
-    _thread: &mut FSRThreadRuntime<'a>,
+    _thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let name = match &FSRObject::id_to_obj(args[0]).value {
@@ -63,9 +61,9 @@ pub fn fsr_fn_export<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn fsr_fn_range<'a>(
+pub fn fsr_fn_range(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -91,9 +89,9 @@ pub fn fsr_fn_range<'a>(
     unimplemented!()
 }
 
-pub fn fsr_fn_type<'a>(
+pub fn fsr_fn_type(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 1 {
@@ -171,9 +169,9 @@ pub fn fsr_fn_type<'a>(
     }
 }
 
-pub fn fsr_fn_id<'a>(
+pub fn fsr_fn_id(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 1 {
@@ -187,9 +185,9 @@ pub fn fsr_fn_id<'a>(
     Ok(FSRRetValue::GlobalId(integer))
 }
 
-fn fsr_is_class<'a>(
+fn fsr_is_class(
     args: &[ObjId],
-    _thread: &mut FSRThreadRuntime<'a>,
+    _thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -205,9 +203,9 @@ fn fsr_is_class<'a>(
     Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
-pub fn fsr_timeit<'a>(
+pub fn fsr_timeit(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if args.len() != 2 {
@@ -218,7 +216,7 @@ pub fn fsr_timeit<'a>(
     if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[1]).value {
         let start = std::time::Instant::now();
         for _ in 0..*count {
-            let _ = match fn_def.call(&[], thread, module, args[0])? {
+            match fn_def.call(&[], thread, module, args[0])? {
                 FSRRetValue::GlobalId(id) => {
                     if FSRObject::is_sp_object(id) {
                         continue;
@@ -239,9 +237,9 @@ pub fn fsr_timeit<'a>(
     unimplemented!()
 }
 
-pub fn fsr_sleep<'a>(
+pub fn fsr_sleep(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if let FSRValue::Integer(i) = &FSRObject::id_to_obj(args[0]).value {
@@ -254,7 +252,7 @@ pub fn fsr_sleep<'a>(
     Ok(FSRRetValue::GlobalId(0))
 }
 
-pub fn init_utils<'a>() -> HashMap<&'static str, FSRObject<'a>> {
+pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
     let export_fn = FSRFn::from_rust_fn_static(fsr_fn_export, "export");
     let sleep_fn = FSRFn::from_rust_fn_static(fsr_sleep, "sleep");

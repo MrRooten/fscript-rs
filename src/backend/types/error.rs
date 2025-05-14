@@ -7,9 +7,9 @@ pub struct FSRException {
     
 }
 
-fn kind<'a>(
+fn kind(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -29,9 +29,9 @@ fn kind<'a>(
     unimplemented!()
 }
 
-fn message<'a>(
+fn message(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let message_object = FSRObject::id_to_obj(args[0]);
@@ -52,9 +52,9 @@ fn message<'a>(
     unimplemented!()
 }
 
-fn new<'a>(
+fn new(
     args: &[ObjId],
-    thread: &mut FSRThreadRuntime<'a>,
+    thread: &mut FSRThreadRuntime,
     module: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     
