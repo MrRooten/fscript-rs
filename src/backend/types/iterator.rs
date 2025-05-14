@@ -30,7 +30,7 @@ impl Debug for FSRInnerIterator {
         write!(f, "FSRInnerIterator {{ obj: {} }}", self.obj)
     }
 }
-#[inline(always)]
+#[cfg_attr(feature = "more_inline", inline(always))]
 pub fn next_obj(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime,

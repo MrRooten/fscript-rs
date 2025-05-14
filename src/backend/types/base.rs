@@ -82,7 +82,7 @@ pub enum FSRValue<'a> {
 }
 
 impl FSRValue<'_> {
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_size(&self) -> usize {
         match self {
             FSRValue::Class(_) => std::mem::size_of::<FSRClass>(),
@@ -295,7 +295,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_size(&self) -> usize {
         std::mem::size_of::<Self>() + self.value.get_size()
     }
@@ -350,7 +350,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn is_code(&self) -> bool {
         // matches!(&self.value, FSRValue::Code(_fsrmodule))
         if let FSRValue::Code(_) = &self.value {
@@ -377,17 +377,17 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn is_marked(&self) -> bool {
         self.mark.load(Ordering::Relaxed)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn mark(&self) {
         self.mark.store(true, Ordering::Relaxed);
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn unmark(&self) {
         self.mark.store(false, Ordering::Relaxed);
     }
@@ -408,12 +408,12 @@ impl<'a> FSRObject<'a> {
         1
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn set_value(&mut self, value: FSRValue<'a>) {
         self.value = value;
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn set_cls(&mut self, cls: ObjId) {
         self.cls = cls
     }
@@ -498,12 +498,12 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn is_sp_object(id: ObjId) -> bool {
         id < 10000
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
         if id >= 1000 {
             return unsafe { &*(id as *const FSRObject) };
@@ -518,7 +518,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn id_to_mut_obj(id: ObjId) -> Option<&'a mut FSRObject<'a>> {
         if id < 1000 {
             return None;
@@ -550,7 +550,7 @@ impl<'a> FSRObject<'a> {
         Ok(v)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn invoke_binary_method(
         offset: BinaryOffset,
         left: ObjId,
@@ -651,7 +651,7 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn call(
         &'a self,
         args: &[ObjId],
@@ -746,17 +746,17 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn none_id() -> ObjId {
         0
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn true_id() -> ObjId {
         1
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn false_id() -> ObjId {
         2
     }

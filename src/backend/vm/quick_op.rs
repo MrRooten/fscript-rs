@@ -142,7 +142,7 @@ impl Ops {
         ops[i][j] = Some(op);
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_add(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         // is the square matrix, so self.add len is the same as self.add[i].len()
         if i < OP_LEN && j < OP_LEN {
@@ -151,7 +151,7 @@ impl Ops {
         None
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_less(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         // is the square matrix, so self.add len is the same as self.add[i].len()
         if i < OP_LEN && j < OP_LEN {
@@ -160,7 +160,7 @@ impl Ops {
         None
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_equal(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         // is the square matrix, so self.add len is the same as self.add[i].len()
         if i < OP_LEN && j < OP_LEN {
@@ -169,7 +169,7 @@ impl Ops {
         None
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_greater(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         // is the square matrix, so self.add len is the same as self.add[i].len()
         if i < OP_LEN && j < OP_LEN {
@@ -178,12 +178,12 @@ impl Ops {
         None
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_next(&self, i: usize) -> Option<FSRRustFn> {
         self.next.get(i).cloned()?
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_getter(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         if i < OP_LEN && j < OP_LEN {
             return self.getter[i][j];
@@ -191,7 +191,7 @@ impl Ops {
         None
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_reminder(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         if i < OP_LEN && j < OP_LEN {
             return self.reminder[i][j];
@@ -199,7 +199,7 @@ impl Ops {
         None
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_sub(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         if i < OP_LEN && j < OP_LEN {
             return self.sub[i][j];
@@ -208,7 +208,7 @@ impl Ops {
     }
 
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_set_item(&self, i: usize, j: usize) -> Option<FSRRustFn> {
         if i < OP_LEN && j < OP_LEN {
             return self.set_item[i][j];

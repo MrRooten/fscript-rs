@@ -104,7 +104,7 @@ impl<'a> FSRVM<'a> {
         id
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_true_id(&self) -> ObjId {
         1
     }
@@ -131,12 +131,12 @@ impl<'a> FSRVM<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_false_id(&self) -> ObjId {
         2
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_none_id(&self) -> ObjId {
         0
     }

@@ -21,7 +21,7 @@ impl<'a> FSRObjectAllocator<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> Box<FSRObject<'a>> {
         // self.allocator_count.fetch_add(1, Ordering::Relaxed);
         if let Some(mut s) = self.object_bins.pop() {
@@ -34,7 +34,7 @@ impl<'a> FSRObjectAllocator<'a> {
         Box::new(FSRObject::new_inst(value, cls))
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn free_object(&mut self, obj: Box<FSRObject<'a>>) {
         self.object_bins.push(obj);
     }

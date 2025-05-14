@@ -60,7 +60,7 @@ pub struct IndexIterator<'a> {
 #[allow(clippy::new_without_default)]
 #[allow(unused)]
 impl IndexMap {
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get(&self, i: &u64) -> Option<&AtomicObjId> {
         match self.vs.get(*i as usize) {
             Some(Some(s)) => Some(s),
@@ -69,7 +69,7 @@ impl IndexMap {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn insert(&mut self, i: u64, v: ObjId) {
         if i as usize >= self.vs.len() {
             let new_capacity = (i + 1) + (4 - (i + 1) % 4);
@@ -83,7 +83,7 @@ impl IndexMap {
         self.vs[i as usize] = Some(AtomicObjId::new(v));
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn contains_key(&self, i: &u64) -> bool {
         if self.vs.get(*i as usize).is_none() {
             return false;
@@ -100,7 +100,7 @@ impl IndexMap {
         IndexIterator { vs: self.vs.iter() }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear(&mut self) {
         self.vs.fill_with(|| None);
     }
@@ -131,7 +131,7 @@ impl<'a> AttrMap<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn insert(&mut self, i: usize, j: usize, v: Option<&'a AtomicObjId>) {
         if i >= self.attr_map.len() {
             let new_capacity = (i + 1) + (4 - (i + 1) % 4);
@@ -144,12 +144,12 @@ impl<'a> AttrMap<'a> {
         self.attr_map[i][j] = v;
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear(&mut self) {
         self.attr_map.clear();
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear_var(&mut self, i: usize) {
         if i < self.attr_map.len() {
             self.attr_map[i].clear();
@@ -182,7 +182,7 @@ pub struct CallFrame<'a> {
 }
 
 impl<'a> CallFrame<'a> {
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear(&mut self) {
         self.var_map.clear();
         self.args.clear();
@@ -194,7 +194,7 @@ impl<'a> CallFrame<'a> {
         self.middle_value.clear();
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_var(&self, id: &u64) -> Option<&AtomicObjId> {
         self.var_map.get(id)
     }
@@ -203,13 +203,13 @@ impl<'a> CallFrame<'a> {
         self.attr_map.get_attr(i, j)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn insert_var(&mut self, id: u64, obj_id: ObjId) {
         self.var_map.insert(id, obj_id);
         self.attr_map.clear_var(id as usize);
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn has_var(&self, id: &u64) -> bool {
         self.var_map.contains_key(id)
     }
@@ -261,7 +261,7 @@ impl FSCodeContext {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear_exp(&mut self) {
         // if self.exp.is_empty() {
         //     return;
@@ -303,19 +303,19 @@ impl FlowTracker {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn false_last_if_test(&mut self) {
         let l = self.last_if_test.len() - 1;
         self.last_if_test[l] = false;
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn true_last_if_test(&mut self) {
         let l = self.last_if_test.len() - 1;
         self.last_if_test[l] = true;
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn peek_last_if_test(&self) -> bool {
         if self.last_if_test.is_empty() {
             return false;
@@ -324,12 +324,12 @@ impl FlowTracker {
         self.last_if_test[self.last_if_test.len() - 1]
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn push_last_if_test(&mut self, test: bool) {
         self.last_if_test.push(test)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn pop_last_if_test(&mut self) {
         self.last_if_test.pop();
     }
@@ -459,26 +459,26 @@ impl<'a> FSRThreadRuntime<'a> {
         fns
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_cur_mut_frame(&mut self) -> &mut CallFrame<'a> {
         &mut self.cur_frame
     }
 
     /// Push new call frame to call stack, and replace current call frame with new one
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn push_frame(&mut self, frame: Box<CallFrame<'a>>) {
         let old_frame = std::mem::replace(&mut self.cur_frame, frame);
         self.call_frames.push(old_frame);
     }
 
     /// Pop current call frame and replace with the last one
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn pop_frame(&mut self) -> Box<CallFrame<'a>> {
         let v = self.call_frames.pop().unwrap();
         std::mem::replace(&mut self.cur_frame, v)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_cur_mut_context(&mut self) -> &mut FSCodeContext {
         self.thread_context.as_mut().unwrap()
     }
@@ -503,17 +503,17 @@ impl<'a> FSRThreadRuntime<'a> {
         // std::mem::replace(&mut self.thread_context, v)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_context(&self) -> &FSCodeContext {
         self.thread_context.as_ref().unwrap()
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_cur_frame(&self) -> &CallFrame<'a> {
         &self.cur_frame
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn mark(&self, id: ObjId) -> Option<()> {
         let obj = FSRObject::id_to_mut_obj(id)?;
         obj.mark();
@@ -612,7 +612,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn compare(
         left: ObjId,
         right: ObjId,
@@ -736,7 +736,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     // like a[0] = 1
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn getter_assign_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &'a BytecodeArg,
@@ -780,7 +780,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn attr_assign_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
@@ -803,7 +803,7 @@ impl<'a> FSRThreadRuntime<'a> {
         unimplemented!()
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn assign_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
@@ -846,7 +846,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_add_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let v1_id = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
@@ -913,7 +913,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_sub_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
@@ -978,7 +978,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_mul_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
@@ -1021,7 +1021,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_div_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
@@ -1064,7 +1064,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_reminder_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
@@ -1328,7 +1328,7 @@ impl<'a> FSRThreadRuntime<'a> {
         state.code = code;
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn process_fsr_cls(
         self: &mut FSRThreadRuntime<'a>,
         cls_id: ObjId,
@@ -1393,7 +1393,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn process_fn_is_attr(
         self: &mut FSRThreadRuntime<'a>,
         obj_id: ObjId,
@@ -1476,7 +1476,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn process_fsr_fn(
         &mut self,
         fn_id: ObjId,
@@ -1502,7 +1502,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn get_fn_args(
         &mut self,
         var: &mut Option<&'a (usize, u64, String, bool)>,
@@ -1529,7 +1529,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(args)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn get_call_fn_id(
         &mut self,
         var: &Option<&(usize, u64, String, bool)>,
@@ -1548,7 +1548,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn call_process_ret(
         &mut self,
         fn_id: ObjId,
@@ -1592,7 +1592,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn call_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
@@ -1623,7 +1623,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.call_process_ret(fn_id, &mut args, &object_id, false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn call_method_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &'a BytecodeArg,
@@ -1717,13 +1717,13 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn if_end(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
         self.flow_tracker.pop_last_if_test();
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn else_if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -1742,7 +1742,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn else_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -1759,7 +1759,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn else_if_match(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -1775,7 +1775,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn break_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
@@ -1787,7 +1787,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn continue_process(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
@@ -1810,7 +1810,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn load_for_iter(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -1841,7 +1841,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn while_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -1967,7 +1967,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn compare_test(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -2240,7 +2240,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn special_load_for(
         self: &mut FSRThreadRuntime<'a>,
         arg: &BytecodeArg,
@@ -2342,7 +2342,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn process(&mut self, bytecode: &'a BytecodeArg) -> Result<bool, FSRError> {
         let op = bytecode.get_operator();
 
@@ -2498,7 +2498,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Some(v)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn load_var(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
         //let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
@@ -2548,7 +2548,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn set_exp_stack_ret(&mut self) {
         let state = self.get_cur_frame();
         // if state.exp.is_some() {
@@ -2562,7 +2562,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn exception_process(&mut self) -> bool {
         if self.exception_flag {
             if !self.get_cur_mut_frame().catch_ends.is_empty() {
@@ -2661,7 +2661,7 @@ impl<'a> FSRThreadRuntime<'a> {
         println!("thread {}: is stopped", self.thread_id);
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr_wrapper(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
         if self.counter - self.last_aquire_counter > 100 {
             self.rt_yield();
@@ -2670,7 +2670,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.run_expr(expr)
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
         let mut v;
 
@@ -2700,7 +2700,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().middle_value.clear();
                 return Ok(false);
             }
-
+            
             if Self::exception_process(self) {
                 return Ok(true);
             }

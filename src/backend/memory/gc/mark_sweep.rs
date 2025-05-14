@@ -121,7 +121,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         });
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn alloc_object(&mut self, free_idx: usize, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         debug_assert!(free_idx < self.objects.len(), "free_idx out of bounds");
         let obj = &mut self.objects[free_idx];
@@ -151,7 +151,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn alloc_when_full(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         let slot_idx = self.objects.len();
         let obj = self
@@ -302,7 +302,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
 }
 
 impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         // Reuse free slot if available
         self.tracker.object_count += 1;

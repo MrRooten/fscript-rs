@@ -105,7 +105,7 @@ impl<'a> FSRClass<'a> {
         s.as_ref()
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn try_get_offset_attr(&self, offset: BinaryOffset) -> Option<&AtomicObjId> {
         match self.get_offset_attr(offset) {
             Some(s) => Some(s),

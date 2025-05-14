@@ -187,7 +187,7 @@ impl<'a> FSRFn<'a> {
         FSRClass::new("Fn")
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn invoke(
         &'a self,
         args: &[ObjId],
@@ -211,7 +211,7 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn invoke_binary(
         &'a self,
         left: ObjId,

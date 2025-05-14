@@ -57,7 +57,7 @@ pub enum BinaryOffset {
 }
 
 impl BinaryOffset {
-    #[inline(always)]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn alias_name(&self) -> &'static str {
         match self {
             BinaryOffset::Add => "__add__",
