@@ -1145,8 +1145,9 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
-        if dot_father_obj.is_code() {
-            let name = attr_id.1;
+        let name = &attr_id.1;
+        let id = if dot_father_obj.is_code() {
+            //let name = attr_id.1;
             let id = dot_father_obj.get_attr(name);
             let id = match id {
                 Some(s) => s,
@@ -1157,31 +1158,23 @@ impl<'a> FSRThreadRuntime<'a> {
                     ))
                 }
             };
-            self.get_cur_mut_frame()
-                .exp
-                .push(id.load(Ordering::Relaxed));
-            self.get_cur_mut_frame().middle_value.push(dot_father);
-            self.get_cur_mut_frame()
-                .middle_value
-                .push(id.load(Ordering::Relaxed));
-            //self.thread_allocator.free_box_attr(attr_id);
-            return Ok(false);
-        }
 
-        let name = &attr_id.1;
-
-        let id = { dot_father_obj.get_attr(name) };
-        if let Some(id) = id {
-            self.get_cur_mut_frame()
-                .exp
-                .push(id.load(Ordering::Relaxed));
-            self.get_cur_mut_frame().middle_value.push(dot_father);
-            self.get_cur_mut_frame()
-                .middle_value
-                .push(id.load(Ordering::Relaxed));
+            id
         } else {
-            panic!("not found")
-        }
+            let id = dot_father_obj
+                .get_attr(name)
+                .expect(&format!("unfound attr: {}", name));
+
+            id
+        };
+
+        self.get_cur_mut_frame()
+            .exp
+            .push(id.load(Ordering::Relaxed));
+        self.get_cur_mut_frame().middle_value.push(dot_father);
+        self.get_cur_mut_frame()
+            .middle_value
+            .push(id.load(Ordering::Relaxed));
 
         Ok(false)
     }
@@ -2700,7 +2693,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().middle_value.clear();
                 return Ok(false);
             }
-            
+
             if Self::exception_process(self) {
                 return Ok(true);
             }

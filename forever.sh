@@ -10,10 +10,10 @@ while true; do
     $PROGRAM
     status=$?
     if [ $status -ne 0 ]; then
-        echo "❌ Program exited with non-zero status: $status"
+        echo "Program exited with non-zero status: $status"
         break
     fi
     i=$((i+1))
 done
 
-echo "🛑 Program crashed or exited with error after $i runs."
+echo "Program crashed or exited with error after $i runs."
