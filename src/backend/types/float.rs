@@ -208,7 +208,7 @@ fn less_equal(
     unimplemented!()
 }
 
-fn equal(
+pub fn equal(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime,
     module: ObjId

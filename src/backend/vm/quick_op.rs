@@ -95,6 +95,20 @@ impl Ops {
             crate::backend::types::integer::equal,
         );
 
+        Self::insert(
+            FSRGlobalObjId::FloatCls as usize,
+            FSRGlobalObjId::FloatCls as usize,
+            &mut equal,
+            crate::backend::types::float::equal,
+        );
+
+        Self::insert(
+            FSRGlobalObjId::StringCls as usize,
+            FSRGlobalObjId::StringCls as usize,
+            &mut equal,
+            crate::backend::types::string::equal,
+        );
+
         let mut next = [None; OP_LEN];
         next[FSRGlobalObjId::InnerIterator as usize] =
             Some(crate::backend::types::iterator::next_obj as FSRRustFn);

@@ -868,13 +868,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        // let v1_obj = FSRObject::id_to_obj(v1_id);
-        // let v2_obj = FSRObject::id_to_obj(v2_id);
-        // println!("v1: {:#?}", v1_obj);
-        // println!("v2: {:#?}", v2_obj);
-        let v1_cls = obj_cls!(v1_id);
-        let v2_cls = obj_cls!(v2_id);
-        if let Some(op_quick) = self.op_quick.get_add(v1_cls, v2_cls) {
+        if let Some(op_quick) = self.op_quick.get_add(obj_cls!(v1_id), obj_cls!(v2_id)) {
             let res = op_quick(&[v2_id, v1_id], self, self.get_context().code)?;
 
             match res {
@@ -885,8 +879,8 @@ impl<'a> FSRThreadRuntime<'a> {
                   // }
             };
 
-            self.get_cur_mut_frame().middle_value.push(v2_id);
-            self.get_cur_mut_frame().middle_value.push(v1_id);
+            // self.get_cur_mut_frame().middle_value.push(v2_id);
+            // self.get_cur_mut_frame().middle_value.push(v1_id);
 
             return Ok(false);
         }
@@ -899,8 +893,8 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
         )?;
 
-        self.get_cur_mut_frame().middle_value.push(v1_id);
-        self.get_cur_mut_frame().middle_value.push(v2_id);
+        // self.get_cur_mut_frame().middle_value.push(v1_id);
+        // self.get_cur_mut_frame().middle_value.push(v2_id);
 
         match res {
             FSRRetValue::GlobalId(res_id) => {
@@ -1999,6 +1993,35 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[inline(always)]
+    fn compare_equal_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let right = self.get_cur_mut_frame().exp.pop().unwrap();
+        let left = *self.get_cur_mut_frame().exp.last().unwrap();
+
+        let v = if let Some(equal) = self.op_quick.get_equal(obj_cls!(left), obj_cls!(right)) {
+            equal(&[left, right], self, self.get_context().code)?.get_id() == FSRObject::true_id()
+        } else {
+            FSRObject::invoke_offset_method(
+                BinaryOffset::Equal,
+                &[left, right],
+                self,
+                self.get_context().code,
+            )?.get_id() == FSRObject::true_id()
+        };
+
+
+        if v {
+            self.get_cur_mut_frame().exp.push(FSRObject::true_id())
+        } else {
+            self.get_cur_mut_frame().exp.push(FSRObject::false_id())
+        }
+
+        Ok(false)
+    }
+
     fn ret_value(
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
@@ -2388,6 +2411,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
             BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
+            BytecodeOperator::CompareEqual => Self::compare_equal_process(self, bytecode),
             BytecodeOperator::Load => Self::load_var(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);

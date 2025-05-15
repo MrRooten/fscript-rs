@@ -178,7 +178,7 @@ pub fn add(
     unimplemented!()
 }
 
-fn eq(
+pub fn equal(
     args: &[ObjId],
     thread: &mut FSRThreadRuntime<'_>,
     module: ObjId,
@@ -297,7 +297,7 @@ impl FSRString {
         //cls.insert_attr("__add__", add_fn);
         cls.insert_offset_attr(BinaryOffset::Add, add_fn);
 
-        let eq_fn = FSRFn::from_rust_fn_static(eq, "string_eq");
+        let eq_fn = FSRFn::from_rust_fn_static(equal, "string_eq");
         //cls.insert_attr("__add__", add_fn);
         cls.insert_offset_attr(BinaryOffset::Equal, eq_fn);
 

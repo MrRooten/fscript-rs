@@ -170,6 +170,7 @@ pub enum BytecodeOperator {
     AssignContainer = 47,
     AssignAttr = 48,
     CallMethod = 49,
+    CompareEqual = 50,
     Load = 254,
 }
 
@@ -388,7 +389,7 @@ impl BytecodeOperator {
             || op.eq("<")
             || op.eq(">=")
             || op.eq("<=")
-            || op.eq("==")
+            // || op.eq("==")
             || op.eq("!=")
         {
             return Some(BytecodeArg {
@@ -429,6 +430,12 @@ impl BytecodeOperator {
         } else if op.eq("%") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryReminder,
+                arg: ArgType::None,
+                info,
+            });
+        } else if op.eq("==") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::CompareEqual,
                 arg: ArgType::None,
                 info,
             });
