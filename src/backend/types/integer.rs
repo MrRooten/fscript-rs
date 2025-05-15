@@ -288,13 +288,25 @@ pub fn equal(
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
 
-    if let FSRValue::Integer(self_int) = self_object.value {
-        if let FSRValue::Integer(other_int) = other_object.value {
-            if self_int == other_int {
+    // if let FSRValue::Integer(self_int) = self_object.value {
+    //     if let FSRValue::Integer(other_int) = other_object.value {
+    //         if self_int == other_int {
+    //             return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+    //         } else {
+    //             return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+    //         }
+    //     }
+    // }
+    match (&self_object.value, &other_object.value) {
+        (FSRValue::Integer(self_int), FSRValue::Integer(other_int)) => {
+            if *self_int == *other_int {
                 return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             } else {
                 return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
+        },
+        _ => {
+            return Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
         }
     }
 

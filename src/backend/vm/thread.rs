@@ -499,8 +499,6 @@ impl<'a> FSRThreadRuntime<'a> {
             return s;
         }
         panic!("pop empty context");
-        // let v = self.thread_context_stack.pop();
-        // std::mem::replace(&mut self.thread_context, v)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -511,13 +509,6 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_cur_frame(&self) -> &CallFrame<'a> {
         &self.cur_frame
-    }
-
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    fn mark(&self, id: ObjId) -> Option<()> {
-        let obj = FSRObject::id_to_mut_obj(id)?;
-        obj.mark();
-        Some(())
     }
 
     fn process_callframe(&self, work_list: &mut Vec<ObjId>, it: &CallFrame<'a>) {
@@ -1994,7 +1985,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline(always)]
-    fn compare_equal_process(
+    pub fn compare_equal_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
