@@ -26,7 +26,7 @@ pub fn fn_gc_info(
     );
 
 
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fn_gc_collect(
@@ -37,7 +37,7 @@ pub fn fn_gc_collect(
     thread.garbage_collect.clear_marks();
     thread.set_ref_objects_mark(true);
     thread.collect_gc(true);
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fn_minjor_gc_collect(
@@ -48,7 +48,7 @@ pub fn fn_minjor_gc_collect(
     thread.garbage_collect.clear_marks();
     thread.set_ref_objects_mark(false);
     thread.collect_gc(false);
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fn_gc_shrink(
@@ -57,7 +57,7 @@ pub fn fn_gc_shrink(
     _module: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     thread.garbage_collect.shrink();
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 

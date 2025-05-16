@@ -65,7 +65,7 @@ pub fn next_obj(
 
     Ok(match result {
         Some(s) => s,
-        None => FSRRetValue::GlobalId(0),
+        None => FSRRetValue::GlobalId(FSRObject::none_id()),
     })
 }
 

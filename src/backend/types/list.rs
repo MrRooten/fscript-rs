@@ -189,7 +189,7 @@ pub fn set_item(
             let index = *i as usize;
             if let Some(s) = l.vs.get(index) {
                 s.store(target_id, Ordering::Relaxed);
-                return Ok(FSRRetValue::GlobalId(0));
+                return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
             } else {
                 return Err(FSRError::new("list index of range", FSRErrCode::OutOfRange));
             }
@@ -228,7 +228,7 @@ pub fn sort(
             }
         });
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn sort_by(
@@ -263,7 +263,7 @@ pub fn sort_by(
             }
         });
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn reverse(
@@ -281,7 +281,7 @@ pub fn reverse(
             FSRErrCode::RuntimeError,
         ));
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn sort_key(
@@ -322,7 +322,7 @@ pub fn sort_key(
             panic!("only support integer as order")
         });
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn push(
@@ -341,7 +341,7 @@ pub fn push(
     if let FSRValue::List(l) = &mut obj.value {
         l.vs.push(AtomicObjId::new(args[1]));
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn map(
@@ -372,7 +372,7 @@ pub fn map(
             ),
         ));
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn filter(
@@ -405,7 +405,7 @@ pub fn filter(
             ),
         ));
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn equal(

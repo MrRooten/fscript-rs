@@ -870,8 +870,6 @@ impl<'a> FSRThreadRuntime<'a> {
                   // }
             };
 
-            // self.get_cur_mut_frame().middle_value.push(v2_id);
-            // self.get_cur_mut_frame().middle_value.push(v1_id);
 
             return Ok(false);
         }
@@ -2292,7 +2290,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bc: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let first = self.get_cur_mut_frame().exp.pop().unwrap();
-        if first == 0 || first == 2 {
+        if first == FSRObject::none_id() || first == FSRObject::false_id() {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
                 self.get_cur_mut_context().ip.1 += *offset;
                 self.get_cur_mut_frame().exp.push(FSRObject::false_id());
@@ -2308,7 +2306,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bc: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let first = self.get_cur_mut_frame().exp.pop().unwrap();
-        if first != 0 && first != 2 {
+        if first != FSRObject::none_id() && first != FSRObject::false_id() {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
                 self.get_cur_mut_context().ip.1 += *offset;
                 self.get_cur_mut_frame().exp.push(FSRObject::true_id());
@@ -2530,7 +2528,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             ArgType::ClosureVar(v) => {
                 let fn_id = self.get_cur_frame().fn_obj;
-                if fn_id == 0 {
+                if fn_id == FSRObject::none_id() {
                     panic!("not found function object");
                 }
                 let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
@@ -2539,7 +2537,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             ArgType::CurrentFn => {
                 let fn_id = self.get_cur_frame().fn_obj;
-                if fn_id == 0 {
+                if fn_id == FSRObject::none_id() {
                     panic!("not found function object");
                 }
                 self.get_cur_mut_frame().exp.push(fn_id);

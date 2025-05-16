@@ -34,7 +34,7 @@ pub fn fsr_fn_print(
         }
         print!("{}", ret);
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fsr_fn_println(
@@ -60,7 +60,7 @@ pub fn fsr_fn_println(
         }
         println!("{}", ret);
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fsr_fn_dump(
@@ -70,7 +70,7 @@ pub fn fsr_fn_dump(
 ) -> Result<FSRRetValue, FSRError> {
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fsr_fn_format(
@@ -81,7 +81,7 @@ pub fn fsr_fn_format(
     
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fsr_fn_str(
@@ -109,7 +109,7 @@ pub fn fsr_fn_throw_error(
     } else {
         thread.exception = args[0];
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fsr_fn_get_error(

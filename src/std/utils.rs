@@ -31,7 +31,7 @@ pub fn fsr_fn_assert(
     if value.is_false() {
         panic!("assert error")
     }
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fsr_fn_export(
@@ -58,7 +58,7 @@ pub fn fsr_fn_export(
     .as_mut_module();
     module.register_object(name.as_str(), obj);
 
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fsr_fn_range(
@@ -232,7 +232,7 @@ pub fn fsr_timeit(
             end - start,
             *count as f64 / (end - start).as_secs_f64()
         );
-        return Ok(FSRRetValue::GlobalId(0));
+        return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
     }
     unimplemented!()
 }
@@ -249,7 +249,7 @@ pub fn fsr_sleep(
         thread.acquire();
     }
 
-    Ok(FSRRetValue::GlobalId(0))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {

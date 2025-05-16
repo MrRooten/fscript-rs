@@ -129,9 +129,9 @@ pub fn greater(
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
             if self_int > other_int {
-                return Ok(FSRRetValue::GlobalId(1));
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             } else {
-                return Ok(FSRRetValue::GlobalId(2));
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
         }
     }
@@ -153,9 +153,9 @@ pub fn less(
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
             if self_int < other_int {
-                return Ok(FSRRetValue::GlobalId(1));
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             } else {
-                return Ok(FSRRetValue::GlobalId(2));
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
         }
     }
@@ -177,9 +177,9 @@ fn greater_equal(
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
             if self_int >= other_int {
-                return Ok(FSRRetValue::GlobalId(1));
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             } else {
-                return Ok(FSRRetValue::GlobalId(2));
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
         }
     }
@@ -199,9 +199,9 @@ fn less_equal(
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
             if self_int <= other_int {
-                return Ok(FSRRetValue::GlobalId(1));
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             } else {
-                return Ok(FSRRetValue::GlobalId(2));
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
         }
     }
@@ -221,9 +221,9 @@ pub fn equal(
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
             if self_int == other_int {
-                return Ok(FSRRetValue::GlobalId(1));
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             } else {
-                return Ok(FSRRetValue::GlobalId(2));
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
         }
     }
@@ -243,9 +243,9 @@ fn not_equal(
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
             if self_int != other_int {
-                return Ok(FSRRetValue::GlobalId(1));
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             } else {
-                return Ok(FSRRetValue::GlobalId(2));
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
         }
     }
