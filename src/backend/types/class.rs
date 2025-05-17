@@ -17,7 +17,7 @@ pub struct FSRClass<'a> {
     pub(crate) name: &'a str,
     pub(crate) attrs: AHashMap<&'a str, AtomicObjId>,
     pub(crate) offset_attrs: Vec<Option<AtomicObjId>>,
-    pub(crate) offset_rust_fn: Vec<Option<FSRRustFn>>,
+    pub(crate) offset_rust_fn: [Option<FSRRustFn>; 30],
 }
 
 #[allow(unused)]
@@ -57,7 +57,7 @@ impl<'a> FSRClass<'a> {
             name,
             attrs: AHashMap::new(),
             offset_attrs: vec![],
-            offset_rust_fn: vec![],
+            offset_rust_fn: [None; 30],
         }
     }
 
@@ -77,8 +77,8 @@ impl<'a> FSRClass<'a> {
                 // } else {
                 //     self.offset_rust_fn.push(None);
                 // }
-                self.offset_rust_fn
-                    .resize_with(offset as usize + 1, || None);
+                // self.offset_rust_fn
+                //     .resize_with(offset as usize + 1, || None);
                 self.offset_rust_fn[offset as usize] = Some(rust_fn.1);
             }
         }
@@ -88,12 +88,10 @@ impl<'a> FSRClass<'a> {
         self.offset_attrs[offset as usize] = Some(AtomicUsize::new(obj_id));
     }
 
-    pub fn get_rust_fn(&self, offset: BinaryOffset) -> Option<&FSRRustFn> {
-        if self.offset_rust_fn.len() <= offset as usize {
-            return None;
-        }
-
-        self.offset_rust_fn[offset as usize].as_ref()
+    #[inline(always)]
+    pub fn get_rust_fn(&self, offset: BinaryOffset) -> Option<FSRRustFn> {
+        // self.offset_rust_fn.get(offset as usize).and_then(|s| s.as_ref())
+        self.offset_rust_fn[offset as usize]
     }
 
     pub fn insert_offset_attr_obj_id(&mut self, offset: BinaryOffset, id: ObjId) {

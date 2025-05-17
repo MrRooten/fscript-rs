@@ -467,6 +467,7 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
+    #[inline(always)]
     pub fn as_class(&self) -> &FSRClass {
         if let FSRValue::Class(cls) = &self.value {
             return cls;
@@ -538,11 +539,11 @@ impl<'a> FSRObject<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
-        if id >= 1000 {
+        //if id >= 1000 {
             return unsafe { &*(id as *const FSRObject) };
-        } else {
-            panic!("Invalid object ID: {}", id);
-        }
+        // } else {
+        //     panic!("Invalid object ID: {}", id);
+        // }
 
         // unsafe {
         //     if let Some(obj) = OBJECTS.get(id) {

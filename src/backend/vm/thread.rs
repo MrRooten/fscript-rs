@@ -615,12 +615,28 @@ impl<'a> FSRThreadRuntime<'a> {
                 // if let Some(equal) = thread.op_quick.get_equal(obj_cls!(left), obj_cls!(right)) {
                 //     equal(&[left, right], thread, thread.get_context().code)?
                 // } else {
-                FSRObject::invoke_offset_method(
-                    BinaryOffset::Equal,
-                    &[left, right],
-                    thread,
-                    thread.get_context().code,
-                )?
+                if let Some(rust_fn) = obj_cls!(left)
+                    .get_rust_fn(BinaryOffset::Equal)
+                {
+                    rust_fn(
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                } else {
+                    FSRObject::invoke_offset_method(
+                        BinaryOffset::Equal,
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                }
+                // FSRObject::invoke_offset_method(
+                //     BinaryOffset::Equal,
+                //     &[left, right],
+                //     thread,
+                //     thread.get_context().code,
+                // )?
                 //}
             }
             CompareOperator::Greater => {
@@ -628,25 +644,59 @@ impl<'a> FSRThreadRuntime<'a> {
                 // {
                 //     greater(&[left, right], thread, thread.get_context().code)?
                 // } else {
-                FSRObject::invoke_offset_method(
-                    BinaryOffset::Greater,
-                    &[left, right],
-                    thread,
-                    thread.get_context().code,
-                )?
+                // FSRObject::invoke_offset_method(
+                //     BinaryOffset::Greater,
+                //     &[left, right],
+                //     thread,
+                //     thread.get_context().code,
+                // )?
+
                 //}
+
+                if let Some(rust_fn) = obj_cls!(left)
+                    .get_rust_fn(BinaryOffset::Greater)
+                {
+                    rust_fn(
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                } else {
+                    FSRObject::invoke_offset_method(
+                        BinaryOffset::Greater,
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                }
             }
             CompareOperator::Less => {
                 // if let Some(less) = thread.op_quick.get_less(obj_cls!(left), obj_cls!(right)) {
                 //     less(&[left, right], thread, thread.get_context().code)?
                 // } else {
-                FSRObject::invoke_offset_method(
-                    BinaryOffset::Less,
-                    &[left, right],
-                    thread,
-                    thread.get_context().code,
-                )?
+                // FSRObject::invoke_offset_method(
+                //     BinaryOffset::Less,
+                //     &[left, right],
+                //     thread,
+                //     thread.get_context().code,
+                // )?
                 //}
+                if let Some(rust_fn) = obj_cls!(left)
+                    .get_rust_fn(BinaryOffset::Less)
+                {
+                    rust_fn(
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                } else {
+                    FSRObject::invoke_offset_method(
+                        BinaryOffset::Less,
+                        &[left, right],
+                        thread,
+                        thread.get_context().code,
+                    )?
+                }
             }
             CompareOperator::GreaterEqual => FSRObject::invoke_offset_method(
                 BinaryOffset::GreatEqual,
@@ -859,19 +909,20 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        // if let Some(op_quick) = self.op_quick.get_add(obj_cls!(v1_id), obj_cls!(v2_id)) {
-        //     let res = op_quick(&[v2_id, v1_id], self, self.get_context().code)?;
+        if let Some(rust_fn) = obj_cls!(v1_id).get_rust_fn(BinaryOffset::Add) {
+            let res = rust_fn(&[v1_id, v2_id], self, self.get_context().code)?;
 
-        //     match res {
-        //         FSRRetValue::GlobalId(res_id) => {
-        //             self.get_cur_mut_frame().exp.push(res_id);
-        //         } // FSRRetValue::Reference(_) => {
-        //           //     panic!("not support reference return, in add process")
-        //           // }
-        //     };
+            match res {
+                FSRRetValue::GlobalId(res_id) => {
+                    self.get_cur_mut_frame().exp.push(res_id);
+                }
+            };
 
-        //     return Ok(false);
-        // }
+            self.get_cur_mut_frame().middle_value.push(v1_id);
+            self.get_cur_mut_frame().middle_value.push(v2_id);
+
+            return Ok(false);
+        }
 
         let res = FSRObject::invoke_binary_method(
             BinaryOffset::Add,
