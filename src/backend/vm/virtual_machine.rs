@@ -230,6 +230,12 @@ impl<'a> FSRVM<'a> {
                     //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::HashMapCls)),
                     FSRValue::Class(Box::new(FSRHashMap::get_class())),
                 ));
+
+                for object in OBJECTS.iter_mut() {
+                    if let FSRValue::Class(_) = object.value {
+                        object.cls = get_object_by_global_id(FSRGlobalObjId::ClassCls);
+                    }
+                }
             }
         }
     }

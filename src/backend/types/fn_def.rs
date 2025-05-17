@@ -51,7 +51,7 @@ pub enum FSRnE<'a> {
 }
 
 pub struct FSRFn<'a> {
-    fn_def: FSRnE<'a>,
+    pub(crate) fn_def: FSRnE<'a>,
     pub(crate) code: ObjId,
     pub(crate) closure_fn: Vec<ObjId>, // fn define chain
     /// Store cells for closure variables

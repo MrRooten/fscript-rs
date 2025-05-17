@@ -327,7 +327,7 @@ pub fn fsr_fn_hashmap_new(
     let hashmap = FSRHashMap::new_hashmap();
     let object = thread
         .garbage_collect
-        .new_object(hashmap.to_any_type(), get_object_by_global_id(FSRGlobalObjId::HashMapCls) as ObjId);
+        .new_object(hashmap.to_any_type(), get_object_by_global_id(FSRGlobalObjId::HashMapCls));
     Ok(FSRRetValue::GlobalId(object))
 }
 

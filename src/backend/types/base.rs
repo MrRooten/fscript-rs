@@ -544,13 +544,13 @@ impl<'a> FSRObject<'a> {
             panic!("Invalid object ID: {}", id);
         }
 
-        unsafe {
-            if let Some(obj) = OBJECTS.get(id) {
-                return obj;
-            }
+        // unsafe {
+        //     if let Some(obj) = OBJECTS.get(id) {
+        //         return obj;
+        //     }
 
-            panic!("Invalid special object ID: {}", id);
-        }
+        //     panic!("Invalid special object ID: {}", id);
+        // }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]

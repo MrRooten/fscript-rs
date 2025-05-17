@@ -7,13 +7,17 @@ use ahash::AHashMap;
 
 use crate::backend::{compiler::bytecode::BinaryOffset, vm::virtual_machine::FSRVM};
 
-use super::base::{AtomicObjId, FSRObject, FSRValue, ObjId};
+use super::{
+    base::{AtomicObjId, FSRObject, FSRValue, ObjId},
+    fn_def::{FSRFn, FSRRustFn, FSRnE},
+};
 use std::fmt::Debug;
 
 pub struct FSRClass<'a> {
     pub(crate) name: &'a str,
     pub(crate) attrs: AHashMap<&'a str, AtomicObjId>,
     pub(crate) offset_attrs: Vec<Option<AtomicObjId>>,
+    pub(crate) offset_rust_fn: Vec<Option<FSRRustFn>>,
 }
 
 #[allow(unused)]
@@ -53,6 +57,7 @@ impl<'a> FSRClass<'a> {
             name,
             attrs: AHashMap::new(),
             offset_attrs: vec![],
+            offset_rust_fn: vec![],
         }
     }
 
@@ -65,10 +70,30 @@ impl<'a> FSRClass<'a> {
         if self.offset_attrs.len() <= offset as usize {
             self.offset_attrs.resize_with(offset as usize + 1, || None);
         }
+
+        if let FSRValue::Function(f) = &object.value {
+            if let FSRnE::RustFn(rust_fn) = &f.fn_def {
+                // self.offset_rust_fn.push(Some(rust_fn.1));
+                // } else {
+                //     self.offset_rust_fn.push(None);
+                // }
+                self.offset_rust_fn
+                    .resize_with(offset as usize + 1, || None);
+                self.offset_rust_fn[offset as usize] = Some(rust_fn.1);
+            }
+        }
         let obj_id = FSRVM::register_object(object);
-        self.attrs.insert(offset.alias_name(), AtomicUsize::new(obj_id));
+        self.attrs
+            .insert(offset.alias_name(), AtomicUsize::new(obj_id));
         self.offset_attrs[offset as usize] = Some(AtomicUsize::new(obj_id));
-        
+    }
+
+    pub fn get_rust_fn(&self, offset: BinaryOffset) -> Option<&FSRRustFn> {
+        if self.offset_rust_fn.len() <= offset as usize {
+            return None;
+        }
+
+        self.offset_rust_fn[offset as usize].as_ref()
     }
 
     pub fn insert_offset_attr_obj_id(&mut self, offset: BinaryOffset, id: ObjId) {
@@ -116,5 +141,4 @@ impl<'a> FSRClass<'a> {
     pub fn get_name(&self) -> &str {
         self.name
     }
-
 }

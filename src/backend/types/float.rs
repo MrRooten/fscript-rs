@@ -29,7 +29,7 @@ pub fn add(
         if let FSRValue::Float(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int + other_int),
-                get_object_by_global_id(FSRGlobalObjId::FloatCls) as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::FloatCls),
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -54,7 +54,7 @@ pub fn sub(
         if let FSRValue::Float(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int - other_int),
-                get_object_by_global_id(FSRGlobalObjId::FloatCls) as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::FloatCls)
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -78,7 +78,7 @@ pub fn mul(
         if let FSRValue::Float(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int * other_int),
-                get_object_by_global_id(FSRGlobalObjId::FloatCls) as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::FloatCls)
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -103,7 +103,7 @@ fn div(
         if let FSRValue::Float(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int / other_int),
-                get_object_by_global_id(FSRGlobalObjId::FloatCls) as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::FloatCls)
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -264,7 +264,7 @@ impl<'a> FSRFloat {
 
     pub fn new_inst(f: f64) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls(get_object_by_global_id(FSRGlobalObjId::FloatCls) as ObjId);
+        object.set_cls(get_object_by_global_id(FSRGlobalObjId::FloatCls));
         object.set_value(FSRValue::Float(f));
         object
     }
