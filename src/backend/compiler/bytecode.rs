@@ -469,9 +469,9 @@ pub struct BytecodeContext {
 impl BytecodeContext {
     pub fn new() -> Self {
         let mut v = HashMap::new();
-        v.insert("true", FSRObject::true_id());
-        v.insert("false", FSRObject::false_id());
-        v.insert("none", FSRObject::none_id());
+        // v.insert("true", FSRObject::true_id());
+        // v.insert("false", FSRObject::false_id());
+        // v.insert("none", FSRObject::none_id());
         Self {
             const_map: HashMap::new(),
             table: vec![0],

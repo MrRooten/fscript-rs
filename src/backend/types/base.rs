@@ -15,7 +15,7 @@ use crate::{
         types::fn_def::FSRnE,
         vm::{
             thread::FSRThreadRuntime,
-            virtual_machine::{FSRVM, OBJECTS},
+            virtual_machine::{get_object_by_global_id, FSRVM, OBJECTS},
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -41,25 +41,58 @@ pub struct Pointer<'a> {
     pointer: *const FSRObject<'a>,
 }
 
+// pub enum FSRGlobalObjId {
+//     None = 0,
+//     True = 1,
+//     False = 2,
+//     IntegerCls = 3,
+//     FnCls = 4,
+//     InnerIterator = 5,
+//     ListCls = 6,
+//     StringCls = 7,
+//     ClassCls = 8,
+//     CodeCls = 9,
+//     BoolCls = 10,
+//     FloatCls = 11,
+//     Exception = 12,
+//     RangeCls = 13,
+//     ModuleCls = 14,
+//     ThreadCls = 15,
+//     HashMapCls = 16,
+//     MapIterator = 17
+// }
+
 pub enum FSRGlobalObjId {
     None = 0,
     True = 1,
     False = 2,
-    IntegerCls = 3,
-    FnCls = 4,
-    InnerIterator = 5,
-    ListCls = 6,
-    StringCls = 7,
-    ClassCls = 8,
-    CodeCls = 9,
-    BoolCls = 10,
-    FloatCls = 11,
-    Exception = 12,
-    RangeCls = 13,
-    ModuleCls = 14,
-    ThreadCls = 15,
-    HashMapCls = 16,
-    MapIterator = 17
+    FnCls = 3,
+    ClassCls,
+    IntegerCls,
+    InnerIterator,
+    ListCls,
+    StringCls,
+
+    CodeCls,
+    BoolCls,
+    FloatCls,
+    Exception,
+    RangeCls,
+    ModuleCls,
+    ThreadCls,
+    HashMapCls,
+}
+
+pub fn get_true() -> ObjId {
+    get_object_by_global_id(FSRGlobalObjId::True)
+}
+
+pub fn get_false() -> ObjId {
+    get_object_by_global_id(FSRGlobalObjId::False)
+}
+
+pub fn get_none() -> ObjId {
+    get_object_by_global_id(FSRGlobalObjId::None)
 }
 
 #[derive(Debug)]
@@ -507,6 +540,8 @@ impl<'a> FSRObject<'a> {
     pub fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
         if id >= 1000 {
             return unsafe { &*(id as *const FSRObject) };
+        } else {
+            panic!("Invalid object ID: {}", id);
         }
 
         unsafe {
@@ -746,19 +781,34 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
+    // #[cfg_attr(feature = "more_inline", inline(always))]
+    // pub fn none_id() -> ObjId {
+    //     0
+    // }
+
+    // #[cfg_attr(feature = "more_inline", inline(always))]
+    // pub fn true_id() -> ObjId {
+    //     1
+    // }
+
+    // #[cfg_attr(feature = "more_inline", inline(always))]
+    // pub fn false_id() -> ObjId {
+    //     2
+    // }
+
+    #[inline(always)]
     pub fn none_id() -> ObjId {
-        0
+        get_none()
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
+    #[inline(always)]
     pub fn true_id() -> ObjId {
-        1
+        get_true()
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
+    #[inline(always)]
     pub fn false_id() -> ObjId {
-        2
+        get_false()
     }
 
     pub fn iter_object(&self) -> impl Iterator<Item = &AtomicObjId> {

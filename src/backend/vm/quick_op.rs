@@ -1,5 +1,7 @@
 use crate::backend::types::{base::FSRGlobalObjId, fn_def::FSRRustFn};
 
+use super::virtual_machine::get_object_by_global_id;
+
 const OP_LEN: usize = 20;
 
 pub type Lookup2D = [[Option<FSRRustFn>; OP_LEN]; OP_LEN];
@@ -29,8 +31,8 @@ impl Ops {
         );
 
         Self::insert(
-            FSRGlobalObjId::FloatCls as usize,
-            FSRGlobalObjId::FloatCls as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
             &mut add,
             crate::backend::types::float::add,
         );
@@ -50,8 +52,8 @@ impl Ops {
             crate::backend::types::integer::sub,
         );
         Self::insert(
-            FSRGlobalObjId::FloatCls as usize,
-            FSRGlobalObjId::FloatCls as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
             &mut sub,
             crate::backend::types::float::sub,
         );
@@ -66,8 +68,8 @@ impl Ops {
         );
 
         Self::insert(
-            FSRGlobalObjId::FloatCls as usize,
-            FSRGlobalObjId::FloatCls as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
             &mut less,
             crate::backend::types::float::less,
         );
@@ -81,8 +83,8 @@ impl Ops {
         );
 
         Self::insert(
-            FSRGlobalObjId::FloatCls as usize,
-            FSRGlobalObjId::FloatCls as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
             &mut greater,
             crate::backend::types::float::greater,
         );
@@ -96,8 +98,8 @@ impl Ops {
         );
 
         Self::insert(
-            FSRGlobalObjId::FloatCls as usize,
-            FSRGlobalObjId::FloatCls as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
+            get_object_by_global_id(FSRGlobalObjId::FloatCls) as usize,
             &mut equal,
             crate::backend::types::float::equal,
         );
@@ -114,9 +116,9 @@ impl Ops {
             Some(crate::backend::types::iterator::next_obj as FSRRustFn);
 
         let mut getter = [[None; OP_LEN]; OP_LEN];
-        getter[FSRGlobalObjId::ListCls as usize][FSRGlobalObjId::IntegerCls as usize] =
+        getter[get_object_by_global_id(FSRGlobalObjId::ListCls) as usize][FSRGlobalObjId::IntegerCls as usize] =
             Some(crate::backend::types::list::get_item as FSRRustFn);
-        getter[FSRGlobalObjId::HashMapCls as usize][FSRGlobalObjId::IntegerCls as usize] =
+        getter[get_object_by_global_id(FSRGlobalObjId::HashMapCls) as usize][FSRGlobalObjId::IntegerCls as usize] =
             Some(crate::backend::types::ext::hashmap::fsr_fn_hashmap_get_reference as FSRRustFn);
 
 
@@ -129,7 +131,7 @@ impl Ops {
         );
 
         let mut set_item = [[None; OP_LEN]; OP_LEN];
-        set_item[FSRGlobalObjId::ListCls as usize][FSRGlobalObjId::IntegerCls as usize] =
+        set_item[get_object_by_global_id(FSRGlobalObjId::ListCls) as usize][FSRGlobalObjId::IntegerCls as usize] =
             Some(crate::backend::types::list::set_item as FSRRustFn);
 
         Self {

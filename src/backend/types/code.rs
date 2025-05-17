@@ -11,7 +11,7 @@ use std::{
 use ahash::AHashMap;
 
 use crate::{
-    backend::compiler::bytecode::{Bytecode, BytecodeArg},
+    backend::{compiler::bytecode::{Bytecode, BytecodeArg}, vm::virtual_machine::get_object_by_global_id},
     utils::error::FSRError,
 };
 
@@ -70,7 +70,7 @@ impl<'a> FSRCode<'a> {
             // object.delete_flag.store(false, std::sync::atomic::Ordering::Relaxed);
             let tmp = code.name.to_string();
             object.value = FSRValue::Code(Box::new(code));
-            object.cls = FSRGlobalObjId::CodeCls as ObjId;
+            object.cls = get_object_by_global_id(FSRGlobalObjId::CodeCls) as ObjId;
             res.insert(tmp.to_string(), object);
         }
         Ok(res)

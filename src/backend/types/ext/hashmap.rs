@@ -21,7 +21,7 @@ use crate::{
             iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences},
             list::FSRList,
         },
-        vm::thread::FSRThreadRuntime,
+        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
     utils::error::FSRError,
 };
@@ -266,7 +266,7 @@ impl FSRIterator for FSRHashMapIterator<'_> {
         //     let list = FSRList::new_value(vs);
         //     let ret = thread
         //         .garbage_collect
-        //         .new_object(list, FSRGlobalObjId::ListCls as ObjId);
+        //         .new_object(list, get_object_by_global_id(FSRGlobalObjId::ListCls) as ObjId);
         //     Ok(ret)
         // })
         if let Some((key, value)) = c {
@@ -274,7 +274,7 @@ impl FSRIterator for FSRHashMapIterator<'_> {
             let list = FSRList::new_value(vs);
             let ret = thread
                 .garbage_collect
-                .new_object(list, FSRGlobalObjId::ListCls as ObjId);
+                .new_object(list, get_object_by_global_id(FSRGlobalObjId::ListCls) as ObjId);
             Ok(Some(ret))
         } else {
             Ok(None)
@@ -308,7 +308,7 @@ pub fn fsr_fn_hashmap_iter(
                     obj: args[0],
                     iterator: Some(Box::new(iter_obj)),
                 })),
-                FSRGlobalObjId::InnerIterator as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::InnerIterator),
             );
             Ok(FSRRetValue::GlobalId(object))
         } else {
@@ -327,7 +327,7 @@ pub fn fsr_fn_hashmap_new(
     let hashmap = FSRHashMap::new_hashmap();
     let object = thread
         .garbage_collect
-        .new_object(hashmap.to_any_type(), FSRGlobalObjId::HashMapCls as ObjId);
+        .new_object(hashmap.to_any_type(), get_object_by_global_id(FSRGlobalObjId::HashMapCls) as ObjId);
     Ok(FSRRetValue::GlobalId(object))
 }
 

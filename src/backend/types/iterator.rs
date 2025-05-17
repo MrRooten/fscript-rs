@@ -1,7 +1,7 @@
 use std::{any::Any, fmt::Debug, sync::atomic::Ordering};
 
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::thread::FSRThreadRuntime},
+    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}},
     utils::error::{FSRErrCode, FSRError},
 };
 
@@ -92,7 +92,7 @@ pub fn map(
             obj: args[0],
             iterator: Some(Box::new(map_iterator)),
         })),
-        FSRGlobalObjId::InnerIterator as ObjId,
+        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
     );
 
     Ok(FSRRetValue::GlobalId(object))
@@ -121,7 +121,7 @@ pub fn filter(
             obj: args[0],
             iterator: Some(Box::new(filter_iterator)),
         })),
-        FSRGlobalObjId::InnerIterator as ObjId,
+        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
     );
 
     Ok(FSRRetValue::GlobalId(object))
@@ -144,7 +144,7 @@ impl FSRInnerIterator {
 
     pub fn new_inst<'a>(iterator: FSRInnerIterator) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls(FSRGlobalObjId::InnerIterator as ObjId);
+        object.set_cls(get_object_by_global_id(FSRGlobalObjId::InnerIterator));
         object.set_value(FSRValue::Iterator(Box::new(iterator)));
         object
     }

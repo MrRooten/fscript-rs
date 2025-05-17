@@ -8,7 +8,7 @@ use std::{
 use ahash::AHashMap;
 
 use crate::{
-    backend::{compiler::bytecode::Bytecode, vm::thread::FSRThreadRuntime},
+    backend::{compiler::bytecode::Bytecode, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}},
     utils::error::FSRError,
 };
 
@@ -172,7 +172,7 @@ impl<'a> FSRFn<'a> {
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
-            cls: FSRGlobalObjId::FnCls as ObjId,
+            cls: get_object_by_global_id(FSRGlobalObjId::FnCls),
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,

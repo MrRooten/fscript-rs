@@ -53,6 +53,22 @@ impl Default for FSRVM<'_> {
     }
 }
 
+pub fn get_object_by_global_id(id: FSRGlobalObjId) -> ObjId {
+    unsafe { FSRObject::obj_to_id(OBJECTS.get(id as usize).unwrap()) }
+}
+
+pub fn get_true() -> ObjId {
+    get_object_by_global_id(FSRGlobalObjId::True)
+}
+
+pub fn get_false() -> ObjId {
+    get_object_by_global_id(FSRGlobalObjId::False)
+}
+
+pub fn get_none() -> ObjId {
+    get_object_by_global_id(FSRGlobalObjId::None)
+}
+
 impl<'a> FSRVM<'a> {
     fn new() -> Self {
         Self::init_static_object();
@@ -145,76 +161,74 @@ impl<'a> FSRVM<'a> {
         unsafe {
             if OBJECTS.is_empty() {
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::None as ObjId,
+                    //FSRGlobalObjId::None as ObjId,
                     FSRValue::None,
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::True as ObjId,
+                    //FSRGlobalObjId::True as ObjId,
                     FSRValue::Bool(true),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::False as ObjId,
+                    //FSRGlobalObjId::False as ObjId,
                     FSRValue::Bool(false),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::IntegerCls as ObjId,
-                    FSRValue::Class(Box::new(FSRInteger::get_class())),
-                ));
-                OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::FnCls as ObjId,
+                    //get_object_by_global_id(FSRGlobalObjId::FnCls),
                     FSRValue::Class(Box::new(FSRFn::get_class())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::InnerIterator as ObjId,
-                    FSRValue::Class(Box::new(FSRInnerIterator::get_class())),
-                ));
-                OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::ListCls as ObjId,
-                    FSRValue::Class(Box::new(FSRList::get_class())),
-                ));
-                OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::StringCls as ObjId,
-                    FSRValue::Class(Box::new(FSRString::get_class())),
-                ));
-                OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::ClassCls as ObjId,
+                    //get_object_by_global_id(FSRGlobalObjId::ClassCls),
                     FSRValue::Class(Box::new(FSRClass::new("Class"))),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::CodeCls as ObjId,
+                    //get_object_by_global_id(FSRGlobalObjId::IntegerCls),
+                    FSRValue::Class(Box::new(FSRInteger::get_class())),
+                ));
+                
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    //get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+                    FSRValue::Class(Box::new(FSRInnerIterator::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::ListCls)),
+                    FSRValue::Class(Box::new(FSRList::get_class())),
+                ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    //get_object_by_global_id(FSRGlobalObjId::StringCls),
+                    FSRValue::Class(Box::new(FSRString::get_class())),
+                ));
+                
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::CodeCls)),
                     FSRValue::Class(Box::new(FSRCode::get_class())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::BoolCls as ObjId,
+                    //get_object_by_global_id(FSRGlobalObjId::BoolCls) as ObjId,
                     FSRValue::Class(Box::new(FSRBool::get_class())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::FloatCls as ObjId,
+                    //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::FloatCls)),
                     FSRValue::Class(Box::new(FSRFloat::get_class())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::Exception as ObjId,
+                    //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::Exception)),
                     FSRValue::Class(Box::new(FSRException::get_class())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::RangeCls as ObjId,
+                    //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::RangeCls)),
                     FSRValue::Class(Box::new(FSRRange::get_class())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::ModuleCls as ObjId,
+                    //get_object_by_global_id(FSRGlobalObjId::ModuleCls) as ObjId,
                     FSRValue::Class(Box::new(FSRModule::get_class())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::ThreadCls as ObjId,
+                    //get_object_by_global_id(FSRGlobalObjId::ThreadCls) as ObjId,
                     FSRValue::Class(Box::new(FSRThreadHandle::thread_cls())),
                 ));
                 OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::HashMapCls as ObjId,
+                    //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::HashMapCls)),
                     FSRValue::Class(Box::new(FSRHashMap::get_class())),
-                ));
-                OBJECTS.push(Self::new_stataic_object_with_id(
-                    FSRGlobalObjId::MapIterator as ObjId,
-                    FSRValue::Class(Box::new(FSRMapIter::get_class())),
                 ));
             }
         }
@@ -225,13 +239,13 @@ impl<'a> FSRVM<'a> {
     */
 
     fn init_global_object(&mut self) {
-        self.global.insert("true".to_string(), self.get_true_id());
-        self.global.insert("false".to_owned(), self.get_false_id());
-        self.global.insert("none".to_string(), self.get_none_id());
+        self.global.insert("true".to_string(), FSRObject::true_id());
+        self.global.insert("false".to_owned(), FSRObject::false_id());
+        self.global.insert("none".to_string(), FSRObject::none_id());
         self.global
-            .insert("Exception".to_string(), FSRGlobalObjId::Exception as ObjId);
+            .insert("Exception".to_string(), get_object_by_global_id(FSRGlobalObjId::Exception) as ObjId);
         self.global
-            .insert("HashMap".to_string(), FSRGlobalObjId::HashMapCls as ObjId);
+            .insert("HashMap".to_string(), get_object_by_global_id(FSRGlobalObjId::HashMapCls) as ObjId);
     }
 
     pub fn init(&mut self) {
@@ -276,7 +290,7 @@ impl<'a> FSRVM<'a> {
         None
     }
 
-    fn new_stataic_object_with_id(_id: ObjId, value: FSRValue<'static>) -> FSRObject<'static> {
+    fn new_stataic_object_with_id(value: FSRValue<'static>) -> FSRObject<'static> {
         FSRObject {
             value,
             cls: 0,

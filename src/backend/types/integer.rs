@@ -12,7 +12,7 @@ use crate::{
         types::float::FSRFloat,
         vm::{
             thread::{CallFrame, FSRThreadRuntime},
-            virtual_machine::FSRVM,
+            virtual_machine::{get_object_by_global_id, FSRVM},
         },
     },
     utils::error::FSRError,
@@ -117,7 +117,7 @@ fn div(
         if let FSRValue::Integer(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int as f64 / other_int as f64),
-                FSRGlobalObjId::FloatCls as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::FloatCls) as ObjId,
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -362,7 +362,7 @@ fn hash_integer(
         // let hash = hasher.finish();
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(*self_int),
-            FSRGlobalObjId::IntegerCls as ObjId,
+            get_object_by_global_id(FSRGlobalObjId::IntegerCls),
         )));
     }
 
@@ -413,7 +413,7 @@ impl<'a> FSRInteger {
 
     pub fn new_inst(i: i64) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls(FSRGlobalObjId::IntegerCls as ObjId);
+        object.set_cls(get_object_by_global_id(FSRGlobalObjId::IntegerCls));
         object.set_value(FSRValue::Integer(i));
         object
     }

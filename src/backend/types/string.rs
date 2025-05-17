@@ -7,7 +7,7 @@ use crate::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
         types::base::FSRValue,
-        vm::thread::FSRThreadRuntime,
+        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
     utils::error::FSRError,
 };
@@ -85,14 +85,14 @@ impl FSRIterator for FSRStringIterator<'_> {
         // c.map(|x| {
         //     let obj_id = thread.garbage_collect.new_object(
         //         FSRValue::String(Arc::new(FSRInnerString::new_from_char(x))),
-        //         FSRGlobalObjId::StringCls as ObjId,
+        //         get_object_by_global_id(FSRGlobalObjId::StringCls),
         //     );
         //     Ok(obj_id)
         // })
         if let Some(c) = self.iter.next() {
             let obj_id = thread.garbage_collect.new_object(
                 FSRValue::String(Arc::new(FSRInnerString::new_from_char(c))),
-                FSRGlobalObjId::StringCls as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::StringCls),
             );
             Ok(Some(obj_id))
         } else {
@@ -119,7 +119,7 @@ fn string_iter(
                 obj: self_id,
                 iterator: Some(Box::new(iterator)),
             })),
-            FSRGlobalObjId::InnerIterator as ObjId,
+            get_object_by_global_id(FSRGlobalObjId::InnerIterator),
         );
         return Ok(FSRRetValue::GlobalId(inner_obj));
     }
@@ -136,7 +136,7 @@ fn string_len(
     if let FSRValue::String(self_s) = &self_object.value {
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(self_s.len() as i64),
-            FSRGlobalObjId::IntegerCls as ObjId,
+            get_object_by_global_id(FSRGlobalObjId::IntegerCls),
         )));
     }
 
@@ -158,7 +158,7 @@ pub fn add(
             let s = FSRInnerString::new(format!("{}{}", self_str.chars, other_str.chars));
             let obj_id = thread.garbage_collect.new_object(
                 FSRValue::String(Arc::new(s)),
-                FSRGlobalObjId::StringCls as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::StringCls),
             );
 
             return Ok(FSRRetValue::GlobalId(obj_id));
@@ -242,7 +242,7 @@ fn get_sub_char(
                     FSRValue::String(Arc::new(FSRInnerString::new_from_char(
                         self_str.chars.chars().nth(index).unwrap(),
                     ))),
-                    FSRGlobalObjId::StringCls as ObjId,
+                    get_object_by_global_id(FSRGlobalObjId::StringCls),
                 );
                 Ok(FSRRetValue::GlobalId(obj_id))
             } else {
@@ -281,7 +281,7 @@ fn hash_string(
         let hash = hasher.finish();
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(hash as i64),
-            FSRGlobalObjId::IntegerCls as ObjId,
+            get_object_by_global_id(FSRGlobalObjId::IntegerCls),
         )));
     }
 

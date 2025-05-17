@@ -3,7 +3,7 @@ use std::{ops::Range, sync::atomic::AtomicUsize};
 use crate::{
     backend::{
         compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::base::FSRObject,
-        vm::thread::FSRThreadRuntime,
+        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
     utils::error::FSRError,
 };
@@ -34,17 +34,17 @@ impl FSRIterator for FSRRangeIterator {
         // c.map(|x| {
         //     // let obj_id = thread
         //     //     .garbage_collect
-        //     //     .new_object(FSRValue::Integer(x), FSRGlobalObjId::IntegerCls as ObjId);
+        //     //     .new_object(FSRValue::Integer(x), get_object_by_global_id(FSRGlobalObjId::IntegerCls));
         //     let obj = thread.garbage_collect.new_object_in_place();
         //     obj.value = FSRValue::Integer(x);
-        //     obj.cls = FSRGlobalObjId::IntegerCls as ObjId;
+        //     obj.cls = get_object_by_global_id(FSRGlobalObjId::IntegerCls);
         //     Ok(FSRObject::obj_to_id(obj))
         // })
         let c = self.iter.next();
         if let Some(x) = c {
             let obj = thread.garbage_collect.new_object_in_place();
             obj.value = FSRValue::Integer(x);
-            obj.cls = FSRGlobalObjId::IntegerCls as ObjId;
+            obj.cls = get_object_by_global_id(FSRGlobalObjId::IntegerCls);
             Ok(Some(FSRObject::obj_to_id(obj)))
         } else {
             Ok(None)
@@ -72,7 +72,7 @@ fn iter_obj(
 
         let inner_obj = thread.garbage_collect.new_object(
             FSRValue::Iterator(Box::new(iterator)),
-            FSRGlobalObjId::InnerIterator as ObjId,
+            get_object_by_global_id(FSRGlobalObjId::InnerIterator),
         );
         return Ok(FSRRetValue::GlobalId(inner_obj));
     }
@@ -98,7 +98,7 @@ fn filter(
             obj: iterator,
             iterator: Some(Box::new(filter_iterator)),
         })),
-        FSRGlobalObjId::InnerIterator as ObjId,
+        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
     );
 
 
@@ -121,7 +121,7 @@ fn map(
             obj: iterator,
             iterator: Some(Box::new(map_iterator)),
         })),
-        FSRGlobalObjId::InnerIterator as ObjId,
+        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
     );
 
 

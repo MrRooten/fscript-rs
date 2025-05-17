@@ -5,7 +5,7 @@ use crate::{
         memory::GarbageCollector, types::{
             base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
             fn_def::FSRFn, string::{FSRInnerString, FSRString},
-        }, vm::thread::FSRThreadRuntime
+        }, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}
     },
     utils::error::FSRError,
 };
@@ -94,7 +94,7 @@ pub fn fsr_fn_str(
     let s = value.to_string(thread, module);
     let obj_id = thread.garbage_collect.new_object(
         s,
-        FSRGlobalObjId::StringCls as ObjId,
+        get_object_by_global_id(FSRGlobalObjId::StringCls),
     );
     Ok(FSRRetValue::GlobalId(obj_id))
 }

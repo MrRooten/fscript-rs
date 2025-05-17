@@ -13,7 +13,7 @@ use crate::{
             base::{FSRObject, FSRValue},
             iterator::FSRInnerIterator,
         },
-        vm::thread::FSRThreadRuntime,
+        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
     utils::error::{FSRErrCode, FSRError},
 };
@@ -78,7 +78,7 @@ fn list_len(
         // ));
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(self_s.get_items().len() as i64),
-            FSRGlobalObjId::IntegerCls as ObjId,
+            get_object_by_global_id(FSRGlobalObjId::IntegerCls),
         )));
     }
 
@@ -111,7 +111,7 @@ fn list_string(
     s.push(']');
     let obj_id = thread.garbage_collect.new_object(
         FSRValue::String(Arc::new(s)),
-        FSRGlobalObjId::StringCls as ObjId,
+        get_object_by_global_id(FSRGlobalObjId::StringCls),
     );
     Ok(FSRRetValue::GlobalId(obj_id))
 }
@@ -133,7 +133,7 @@ fn iter(
                 obj: self_id,
                 iterator: Some(Box::new(iterator)),
             })),
-            FSRGlobalObjId::InnerIterator as ObjId,
+            get_object_by_global_id(FSRGlobalObjId::InnerIterator),
         );
         return Ok(FSRRetValue::GlobalId(inner_obj));
     }
@@ -161,7 +161,7 @@ pub fn get_item(
             let start = range.range.start as usize;
             let end = range.range.end as usize;
             let sub = l.vs[start..end].iter().map(|x| AtomicObjId::new(x.load(Ordering::Relaxed))).collect::<Vec<_>>();
-            let range = thread.garbage_collect.new_object(FSRList::new_value_ref(sub), FSRGlobalObjId::ListCls as ObjId);
+            let range = thread.garbage_collect.new_object(FSRList::new_value_ref(sub), get_object_by_global_id(FSRGlobalObjId::ListCls) as ObjId);
             return Ok(FSRRetValue::GlobalId(range));
         }
     }
@@ -368,7 +368,7 @@ pub fn map(
         return Ok(FSRRetValue::GlobalId(
             thread.garbage_collect.new_object(
                 FSRList::new_value_ref(ret_list),
-                FSRGlobalObjId::ListCls as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::ListCls) as ObjId,
             ),
         ));
     }
@@ -401,7 +401,7 @@ pub fn filter(
         return Ok(FSRRetValue::GlobalId(
             thread.garbage_collect.new_object(
                 FSRList::new_value_ref(ret_list),
-                FSRGlobalObjId::ListCls as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::ListCls) as ObjId,
             ),
         ));
     }
