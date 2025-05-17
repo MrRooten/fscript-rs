@@ -203,9 +203,7 @@ impl<'a> FSRFn<'a> {
                 .frame_free_list
                 .new_frame(code, fn_id);
             thread.push_frame(frame);
-            //thread.rt_unlock();
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code)?;
-            //thread.rt_lock();
             return Ok(FSRRetValue::GlobalId(v));
         }
         unimplemented!()

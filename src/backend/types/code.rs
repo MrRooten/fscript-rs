@@ -79,8 +79,8 @@ impl<'a> FSRCode<'a> {
     
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_expr(&self, ip_1: usize) -> Option<&Vec<BytecodeArg>> {
-        self.bytecode.get(ip_1)
+    pub fn get_expr(&self, first_ip: usize) -> Option<&Vec<BytecodeArg>> {
+        self.bytecode.get(first_ip)
     }
 
     pub fn get_bytecode(&self) -> &Bytecode {
