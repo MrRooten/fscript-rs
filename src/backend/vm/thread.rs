@@ -1118,23 +1118,20 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let left_cls = obj_cls!(left_id);
-        let right_cls = obj_cls!(right_id);
-        // if let Some(op_quick) = self.op_quick.get_reminder(left_cls, right_cls) {
-        //     let res = op_quick(&[left_id, right_id], self, self.get_context().code)?;
+        if let Some(rust_fn) = obj_cls!(left_id).get_rust_fn(BinaryOffset::Reminder) {
+            let res = rust_fn(&[left_id, right_id], self, self.get_context().code)?;
 
-        //     self.get_cur_mut_frame().middle_value.push(right_id);
-        //     self.get_cur_mut_frame().middle_value.push(left_id);
-        //     match res {
-        //         FSRRetValue::GlobalId(res_id) => {
-        //             self.get_cur_mut_frame().exp.push(res_id);
-        //         } // FSRRetValue::Reference(_) => {
-        //           //     panic!("not support reference return, in reminder process")
-        //           // }
-        //     };
+            match res {
+                FSRRetValue::GlobalId(res_id) => {
+                    self.get_cur_mut_frame().exp.push(res_id);
+                }
+            };
 
-        //     return Ok(false);
-        // }
+            self.get_cur_mut_frame().middle_value.push(right_id);
+            self.get_cur_mut_frame().middle_value.push(left_id);
+
+            return Ok(false);
+        }
 
         let res = FSRObject::invoke_binary_method(
             BinaryOffset::Reminder,
