@@ -572,6 +572,7 @@ impl<'a> FSRObject<'a> {
         module: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
+
         let self_method = match self_object.get_cls_attr(name) {
             Some(s) => s.load(Ordering::Relaxed),
             None => {
@@ -586,52 +587,53 @@ impl<'a> FSRObject<'a> {
         Ok(v)
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn invoke_binary_method(
-        offset: BinaryOffset,
-        left: ObjId,
-        right: ObjId,
-        thread: &mut FSRThreadRuntime<'a>,
-        module: ObjId,
-    ) -> Result<FSRRetValue, FSRError> {
-        let left_object = Self::id_to_obj(left);
+    // #[cfg_attr(feature = "more_inline", inline(always))]
+    // pub fn invoke_binary_method(
+    //     offset: BinaryOffset,
+    //     left: ObjId,
+    //     right: ObjId,
+    //     thread: &mut FSRThreadRuntime<'a>,
+    //     code: ObjId,
+    // ) -> Result<FSRRetValue, FSRError> {
+    //     let left_object: &FSRObject<'_> = Self::id_to_obj(left);
+    //     if let Some(left_method) = FSRObject::id_to_obj(left_object.cls).as_class().get_rust_fn(offset) {
+    //         return left_method(&[left, right], thread, code);
+    //     }
+    //     if let Some(left_method) = left_object.get_cls_offset_attr(offset) {
+    //         let left_method = left_method.load(Ordering::Relaxed);
+    //         let method_object = Self::id_to_obj(left_method).as_fn();
+    //         let v = method_object.invoke_binary(left, right, thread, code, left_method)?;
+    //         return Ok(v);
+    //     }
 
-        if let Some(left_method) = left_object.get_cls_offset_attr(offset) {
-            let left_method = left_method.load(Ordering::Relaxed);
-            let method_object = Self::id_to_obj(left_method).as_fn();
-            let v = method_object.invoke_binary(left, right, thread, module, left_method)?;
-            return Ok(v);
-        }
+    //     let left_method = match left_object.get_cls_attr(offset.alias_name()) {
+    //         Some(s) => s,
+    //         None => {
+    //             return Err(FSRError::new(
+    //                 format!("no such a method `{}`", offset.alias_name()),
+    //                 FSRErrCode::NoSuchMethod,
+    //             ))
+    //         }
+    //     };
+    //     let left_method = left_method.load(Ordering::Relaxed);
 
-        let left_method = match left_object.get_cls_attr(offset.alias_name()) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    format!("no such a method `{}`", offset.alias_name()),
-                    FSRErrCode::NoSuchMethod,
-                ))
-            }
-        };
-        let left_method = left_method.load(Ordering::Relaxed);
-
-        let method_object = Self::id_to_obj(left_method).as_fn();
-        let v = method_object.invoke(&[left, right], thread, module, left_method)?;
-        Ok(v)
-    }
+    //     let method_object = Self::id_to_obj(left_method).as_fn();
+    //     let v = method_object.invoke(&[left, right], thread, code, left_method)?;
+    //     Ok(v)
+    // }
 
     #[inline]
     pub fn invoke_offset_method(
         offset: BinaryOffset,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: ObjId,
+        code: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
-
         if let Some(self_method) = self_object.get_cls_offset_attr(offset) {
             let self_method = self_method.load(Ordering::Relaxed);
             let method_object = Self::id_to_obj(self_method);
-            let v = method_object.call(args, thread, module, self_method)?;
+            let v = method_object.call(args, thread, code, self_method)?;
             return Ok(v);
         }
 
@@ -646,7 +648,7 @@ impl<'a> FSRObject<'a> {
         };
         let self_method = self_method.load(Ordering::Relaxed);
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, thread, module, self_method)?;
+        let v = method_object.call(args, thread, code, self_method)?;
         Ok(v)
     }
 

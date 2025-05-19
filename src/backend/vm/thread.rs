@@ -612,9 +612,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let res = match op {
             CompareOperator::Equal => {
-                // if let Some(equal) = thread.op_quick.get_equal(obj_cls!(left), obj_cls!(right)) {
-                //     equal(&[left, right], thread, thread.get_context().code)?
-                // } else {
+
                 if let Some(rust_fn) = obj_cls!(left)
                     .get_rust_fn(BinaryOffset::Equal)
                 {
@@ -631,28 +629,8 @@ impl<'a> FSRThreadRuntime<'a> {
                         thread.get_context().code,
                     )?
                 }
-                // FSRObject::invoke_offset_method(
-                //     BinaryOffset::Equal,
-                //     &[left, right],
-                //     thread,
-                //     thread.get_context().code,
-                // )?
-                //}
             }
             CompareOperator::Greater => {
-                // if let Some(greater) = thread.op_quick.get_greater(obj_cls!(left), obj_cls!(right))
-                // {
-                //     greater(&[left, right], thread, thread.get_context().code)?
-                // } else {
-                // FSRObject::invoke_offset_method(
-                //     BinaryOffset::Greater,
-                //     &[left, right],
-                //     thread,
-                //     thread.get_context().code,
-                // )?
-
-                //}
-
                 if let Some(rust_fn) = obj_cls!(left)
                     .get_rust_fn(BinaryOffset::Greater)
                 {
@@ -671,16 +649,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
             CompareOperator::Less => {
-                // if let Some(less) = thread.op_quick.get_less(obj_cls!(left), obj_cls!(right)) {
-                //     less(&[left, right], thread, thread.get_context().code)?
-                // } else {
-                // FSRObject::invoke_offset_method(
-                //     BinaryOffset::Less,
-                //     &[left, right],
-                //     thread,
-                //     thread.get_context().code,
-                // )?
-                //}
                 if let Some(rust_fn) = obj_cls!(left)
                     .get_rust_fn(BinaryOffset::Less)
                 {
@@ -889,7 +857,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_add_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
-        let v1_id = match self.get_cur_mut_frame().exp.pop() {
+        let right = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -899,7 +867,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let v2_id = match self.get_cur_mut_frame().exp.pop() {
+        let left = match self.get_cur_mut_frame().exp.pop() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -909,8 +877,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        if let Some(rust_fn) = obj_cls!(v1_id).get_rust_fn(BinaryOffset::Add) {
-            let res = rust_fn(&[v1_id, v2_id], self, self.get_context().code)?;
+        if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Add) {
+            let res = rust_fn(&[left, right], self, self.get_context().code)?;
 
             match res {
                 FSRRetValue::GlobalId(res_id) => {
@@ -918,16 +886,15 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            self.get_cur_mut_frame().middle_value.push(v1_id);
-            self.get_cur_mut_frame().middle_value.push(v2_id);
+            self.get_cur_mut_frame().middle_value.push(left);
+            self.get_cur_mut_frame().middle_value.push(right);
 
             return Ok(false);
         }
 
-        let res = FSRObject::invoke_binary_method(
+        let res = FSRObject::invoke_offset_method(
             BinaryOffset::Add,
-            v2_id,
-            v1_id,
+            &[left, right],
             self,
             self.get_context().code,
         )?;
@@ -971,25 +938,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Sub) {
-            let res = rust_fn(&[left, right], self, self.get_context().code)?;
-
-            match res {
-                FSRRetValue::GlobalId(res_id) => {
-                    self.get_cur_mut_frame().exp.push(res_id);
-                }
-            };
-
-            self.get_cur_mut_frame().middle_value.push(right);
-            self.get_cur_mut_frame().middle_value.push(left);
-
-            return Ok(false);
-        }
-
-        let res = FSRObject::invoke_binary_method(
+        let res = FSRObject::invoke_offset_method(
             BinaryOffset::Sub,
-            left,
-            right,
+            &[left, right],
             self,
             self.get_context().code,
         )?;
@@ -1032,10 +983,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let res = FSRObject::invoke_binary_method(
+        let res = FSRObject::invoke_offset_method(
             BinaryOffset::Mul,
-            left_id,
-            right_id,
+            &[left_id, right_id],
             self,
             self.get_context().code,
         )?;
@@ -1075,10 +1025,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let res = FSRObject::invoke_binary_method(
+        let res = FSRObject::invoke_offset_method(
             BinaryOffset::Div,
-            left_id,
-            right_id,
+            &[left_id, right_id],
             self,
             self.get_context().code,
         )?;
@@ -1133,10 +1082,9 @@ impl<'a> FSRThreadRuntime<'a> {
             return Ok(false);
         }
 
-        let res = FSRObject::invoke_binary_method(
+        let res = FSRObject::invoke_offset_method(
             BinaryOffset::Reminder,
-            left_id,
-            right_id,
+            &[left_id, right_id],
             self,
             self.get_context().code,
         )?;
@@ -2033,9 +1981,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let right = self.get_cur_mut_frame().exp.pop().unwrap();
         let left = *self.get_cur_mut_frame().exp.last().unwrap();
 
-        // let v = if let Some(equal) = self.op_quick.get_equal(obj_cls!(left), obj_cls!(right)) {
-        //     equal(&[left, right], self, self.get_context().code)?.get_id() == FSRObject::true_id()
-        // } else {
+
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Equal) {
             let res = rust_fn(&[left, right], self, self.get_context().code)?;
 
