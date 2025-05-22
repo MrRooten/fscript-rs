@@ -168,7 +168,7 @@ pub struct CallFrame<'a> {
     pub(crate) var_map: IndexMap,
     attr_map: AttrMap<'a>,
     reverse_ip: (usize, usize),
-    args: SmallVec<[ObjId; 4]>,
+    args: Vec<ObjId>,
     cur_cls: Option<Box<FSRClass<'a>>>,
     pub(crate) ret_val: Option<ObjId>,
     pub(crate) exp: Vec<ObjId>,
@@ -222,7 +222,7 @@ impl<'a> CallFrame<'a> {
         Self {
             var_map: IndexMap::new(),
             reverse_ip: (0, 0),
-            args: SmallVec::new(),
+            args: Vec::with_capacity(4),
             cur_cls: None,
             ret_val: None,
             exp: vec![],
@@ -612,15 +612,8 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let res = match op {
             CompareOperator::Equal => {
-
-                if let Some(rust_fn) = obj_cls!(left)
-                    .get_rust_fn(BinaryOffset::Equal)
-                {
-                    rust_fn(
-                        &[left, right],
-                        thread,
-                        thread.get_context().code,
-                    )?
+                if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Equal) {
+                    rust_fn(&[left, right], thread, thread.get_context().code)?
                 } else {
                     FSRObject::invoke_offset_method(
                         BinaryOffset::Equal,
@@ -631,14 +624,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
             CompareOperator::Greater => {
-                if let Some(rust_fn) = obj_cls!(left)
-                    .get_rust_fn(BinaryOffset::Greater)
-                {
-                    rust_fn(
-                        &[left, right],
-                        thread,
-                        thread.get_context().code,
-                    )?
+                if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Greater) {
+                    rust_fn(&[left, right], thread, thread.get_context().code)?
                 } else {
                     FSRObject::invoke_offset_method(
                         BinaryOffset::Greater,
@@ -649,14 +636,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
             CompareOperator::Less => {
-                if let Some(rust_fn) = obj_cls!(left)
-                    .get_rust_fn(BinaryOffset::Less)
-                {
-                    rust_fn(
-                        &[left, right],
-                        thread,
-                        thread.get_context().code,
-                    )?
+                if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Less) {
+                    rust_fn(&[left, right], thread, thread.get_context().code)?
                 } else {
                     FSRObject::invoke_offset_method(
                         BinaryOffset::Less,
@@ -1260,9 +1241,8 @@ impl<'a> FSRThreadRuntime<'a> {
     fn call_process_set_args(
         args_num: usize,
         thread: &mut Self,
-        code: ObjId,
         args: &mut SmallVec<[ObjId; 4]>,
-    ) -> Result<(), FSRError> {
+    ) {
         let mut i = 0;
         while i < args_num {
             let a_id = thread.get_cur_mut_frame().exp.pop().unwrap();
@@ -1270,8 +1250,6 @@ impl<'a> FSRThreadRuntime<'a> {
             args.push(a_id);
             i += 1;
         }
-
-        Ok(())
     }
 
     // exp will be cleared after call
@@ -1421,14 +1399,19 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline]
-    fn try_get_obj_by_name(&mut self, c_id: u64, name: &str, module: &FSRModule) -> Option<ObjId> {
+    fn try_get_obj_by_name(&mut self, c_id: u64, name: &str) -> Option<ObjId> {
         {
             let state = self.get_cur_mut_frame();
             if let Some(id) = state.get_var(&c_id) {
                 return Some(id.load(Ordering::Relaxed));
             }
         }
-
+        let module = FSRObject::id_to_obj(
+            FSRObject::id_to_obj(self.get_context().code)
+                .as_code()
+                .module,
+        )
+        .as_module();
         match module.get_object(name) {
             Some(s) => Some(s.load(Ordering::Relaxed)),
             None => {
@@ -1459,6 +1442,7 @@ impl<'a> FSRThreadRuntime<'a> {
         for arg in args.iter() {
             self.get_cur_mut_frame().args.push(*arg);
         }
+
         //let offset = fn_obj.get_fsr_offset();
         //let offset = fn_obj.get_fsr_offset().1;
         //if let FSRValue::Function(obj) = &fn_obj.value {
@@ -1470,43 +1454,15 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn get_fn_args(
-        &mut self,
-        var: &mut Option<&'a (usize, u64, String, bool)>,
-        arg: &'a ArgType,
-    ) -> Result<SmallVec<[usize; 4]>, FSRError> {
-        let mut args = if let ArgType::CallArgsNumber(n) = *arg {
-            // in case of method call like `obj.method()`, reserve the first arg for `self`
-            let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
-            let args_num = n;
-            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
-            args.reverse();
-            args
-        } else if let ArgType::CallArgsNumberWithVar(pack) = arg {
-            let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
-            let args_num = pack.0;
-            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
-            *var = Some(pack);
-            args.reverse();
-            args
-        } else {
-            SmallVec::new()
-        };
-
-        Ok(args)
-    }
-
-    #[cfg_attr(feature = "more_inline", inline(always))]
     fn get_call_fn_id(
         &mut self,
         var: &Option<&(usize, u64, String, bool)>,
-        module: &FSRModule,
-        object_id: Option<ObjId>,
         call_method: bool,
     ) -> Result<(ObjId), FSRError> {
         if let Some(var) = var {
             let var_id = var.1;
-            let fn_id = self.try_get_obj_by_name(var.1, &var.2, module).unwrap();
+
+            let fn_id = self.try_get_obj_by_name(var.1, &var.2).unwrap();
             Ok(fn_id)
         } else {
             let fn_id = self.get_cur_mut_frame().exp.pop().unwrap();
@@ -1568,26 +1524,18 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
         //let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
         if let ArgType::CallArgsNumber(args_num) = *bytecode.get_arg() {
-            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            Self::call_process_set_args(args_num, self, &mut args);
             //args.reverse();
         } else if let ArgType::CallArgsNumberWithVar(pack) = bytecode.get_arg() {
             let args_num = pack.0;
-            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            Self::call_process_set_args(args_num, self, &mut args);
             var = Some(pack);
             //args.reverse();
         };
 
-        let mut object_id: Option<ObjId> = None;
-        // let module = FSRObject::id_to_obj(self.get_context().code).as_code();
-        let module = FSRObject::id_to_obj(
-            FSRObject::id_to_obj(self.get_context().code)
-                .as_code()
-                .module,
-        )
-        .as_module();
-        let (fn_id) = self.get_call_fn_id(&var, module, object_id, false)?;
+        let fn_id = self.get_call_fn_id(&var, false)?;
 
-        self.call_process_ret(fn_id, &mut args, &object_id, false)
+        self.call_process_ret(fn_id, &mut args, &None, false)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -1600,7 +1548,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let father;
         let method = if let ArgType::CallArgsNumberWithAttr(pack) = bytecode.get_arg() {
             let args_num = pack.0;
-            Self::call_process_set_args(args_num, self, self.get_context().code, &mut args)?;
+            Self::call_process_set_args(args_num, self, &mut args);
 
             father = self.get_cur_mut_frame().exp.pop().unwrap();
             let father_obj = FSRObject::id_to_obj(father);
@@ -1610,17 +1558,7 @@ impl<'a> FSRThreadRuntime<'a> {
             unimplemented!()
         };
 
-        //let method = self.get_cur_mut_frame().exp.pop().unwrap().get_global_id();
-
         let mut object_id: Option<ObjId> = Some(father);
-        // let module = FSRObject::id_to_obj(self.get_context().code).as_code();
-        let module = FSRObject::id_to_obj(
-            FSRObject::id_to_obj(self.get_context().code)
-                .as_code()
-                .module,
-        )
-        .as_module();
-        //let (fn_id) = self.get_call_fn_id(&var, module, object_id, true)?;
 
         self.call_process_ret(method, &mut args, &object_id, true)
     }
@@ -1980,7 +1918,6 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let right = self.get_cur_mut_frame().exp.pop().unwrap();
         let left = *self.get_cur_mut_frame().exp.last().unwrap();
-
 
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Equal) {
             let res = rust_fn(&[left, right], self, self.get_context().code)?;

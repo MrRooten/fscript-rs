@@ -83,14 +83,17 @@ pub enum FSRGlobalObjId {
     HashMapCls,
 }
 
+#[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_true() -> ObjId {
     get_object_by_global_id(FSRGlobalObjId::True)
 }
 
+#[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_false() -> ObjId {
     get_object_by_global_id(FSRGlobalObjId::False)
 }
 
+#[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_none() -> ObjId {
     get_object_by_global_id(FSRGlobalObjId::None)
 }
