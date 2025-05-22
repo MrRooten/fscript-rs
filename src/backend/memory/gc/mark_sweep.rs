@@ -335,6 +335,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         self.tracker_process(freed_count);
     }
 
+    #[inline]
     fn will_collect(&self) -> bool {
         self.tracker.object_count as usize > self.tracker.throld * 2 || self.gc_reason.is_some()
     }

@@ -386,7 +386,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) last_aquire_counter: usize,
     pub(crate) til: ThreadLockerState,
     pub(crate) thread_context_stack: Vec<Box<FSCodeContext>>,
-    pub(crate) thread_context: Option<Box<FSCodeContext>>,
+    pub(crate) thread_context: Box<FSCodeContext>,
     pub(crate) gc_context: GcContext,
     #[cfg(feature = "count_bytecode")]
     pub(crate) bytecode_counter: Vec<usize>,
@@ -434,7 +434,7 @@ impl<'a> FSRThreadRuntime<'a> {
             til: ThreadLockerState::new_state(),
             last_aquire_counter: 0,
             thread_context_stack: Vec::with_capacity(8),
-            thread_context: None,
+            thread_context: Box::new(FSCodeContext::new_context(0)),
             gc_context: GcContext::new_context(),
             #[cfg(feature = "count_bytecode")]
             bytecode_counter: vec![0; 256],
@@ -480,30 +480,38 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_cur_mut_context(&mut self) -> &mut FSCodeContext {
-        self.thread_context.as_mut().unwrap()
+        &mut self.thread_context
     }
 
     pub fn push_context(&mut self, context: Box<FSCodeContext>) {
-        if self.thread_context.is_none() {
-            self.thread_context = Some(context);
-        } else if let Some(s) = self.thread_context.take() {
-            self.thread_context = Some(context);
-            self.thread_context_stack.push(s);
-        }
+        // if self.thread_context.is_none() {
+        //     self.thread_context = Some(context);
+        // } else if let Some(s) = self.thread_context.take() {
+        //     self.thread_context = Some(context);
+        //     self.thread_context_stack.push(s);
+        // }
+
+        let out = std::mem::replace(&mut self.thread_context, context);
+        self.thread_context_stack.push(out);
     }
 
     pub fn pop_context(&mut self) -> Box<FSCodeContext> {
-        if let Some(s) = self.thread_context.take() {
-            // self.thread_context_stack.push(s);
-            self.thread_context = self.thread_context_stack.pop();
-            return s;
+        // if let Some(s) = self.thread_context.take() {
+        //     // self.thread_context_stack.push(s);
+        //     self.thread_context = self.thread_context_stack.pop();
+        //     return s;
+        // }
+        // panic!("pop empty context");
+        if let Some(s) = self.thread_context_stack.pop() {
+            let out = std::mem::replace(&mut self.thread_context, s);
+            return out;
         }
         panic!("pop empty context");
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_context(&self) -> &FSCodeContext {
-        self.thread_context.as_ref().unwrap()
+        &self.thread_context
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -1238,11 +1246,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline]
-    fn call_process_set_args(
-        args_num: usize,
-        thread: &mut Self,
-        args: &mut SmallVec<[ObjId; 4]>,
-    ) {
+    fn call_process_set_args(args_num: usize, thread: &mut Self, args: &mut SmallVec<[ObjId; 4]>) {
         let mut i = 0;
         while i < args_num {
             let a_id = thread.get_cur_mut_frame().exp.pop().unwrap();
@@ -2639,11 +2643,11 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             v = self.process(arg)?;
-            if self.get_cur_frame().ret_val.is_some() {
-                return Ok(true);
-            }
 
             if v {
+                if self.get_cur_frame().ret_val.is_some() {
+                    return Ok(true);
+                }
                 self.get_cur_mut_frame().exp.clear();
                 self.get_cur_mut_frame().middle_value.clear();
                 return Ok(false);
