@@ -225,7 +225,7 @@ impl<'a> CallFrame<'a> {
             args: Vec::with_capacity(4),
             cur_cls: None,
             ret_val: None,
-            exp: vec![],
+            exp: Vec::with_capacity(8),
             code,
             catch_ends: vec![],
             handling_exception: FSRObject::none_id(),
