@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRPosition, FSRToken},
+    base::{FSRPosition, FSRToken, FSRType},
     ASTContext,
 };
 
@@ -136,6 +136,8 @@ impl<'a> FSRFnDef<'a> {
                 let mut variable = FSRVariable::parse(
                     arg,
                     meta.from_offset(0),
+                    FSRType::new("Function")
+
                 )?;
                 variable.is_defined = true;
                 arg_collect.push(FSRToken::Variable(variable));

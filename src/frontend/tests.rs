@@ -508,4 +508,20 @@ abc()
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
     }
+
+    #[test]
+    fn test_typehint() {
+        let c = r#"a: Abc"#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
+
+    #[test]
+    fn test_typehint2() {
+        let c = r#"a: Abc = 123 * 123"#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
 }

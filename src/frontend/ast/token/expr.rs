@@ -12,7 +12,7 @@ use crate::frontend::ast::{parse::ASTParser, token::constant::FSRConstant};
 use crate::utils::error::{SyntaxErrType, SyntaxError};
 use std::str;
 
-use super::base::FSRPosition;
+use super::base::{FSRPosition, FSRType};
 use super::ASTContext;
 use super::{base::FSRToken, call::FSRCall, variable::FSRVariable};
 
@@ -204,8 +204,12 @@ impl<'a> Node<'a> {
             return -3;
         }
 
+        if op.eq(":") {
+            return 4;
+        }
+
         if op.eq(",") {
-            return -4;
+            return -5;
         }
 
         -1
@@ -464,7 +468,10 @@ impl<'a> FSRExpr<'a> {
             ctx.start += ctx.length;
             ctx.length = 0;
         } else {
-            if ctx.single_op.is_some() && Node::get_single_op_level(ctx.single_op.as_ref().unwrap()) > Node::get_op_level(op) {
+            if ctx.single_op.is_some()
+                && Node::get_single_op_level(ctx.single_op.as_ref().unwrap())
+                    > Node::get_op_level(op)
+            {
                 ctx.candidates[0].set_single_op(ctx.single_op.unwrap());
                 ctx.single_op = None;
             }
@@ -514,9 +521,11 @@ impl<'a> FSRExpr<'a> {
             ctx.start += ctx.length;
             ctx.length = 0;
         } else {
-            if ctx.single_op.is_some() && Node::get_single_op_level(ctx.single_op.as_ref().unwrap()) < Node::get_op_level(op) {
+            if ctx.single_op.is_some()
+                && Node::get_single_op_level(ctx.single_op.as_ref().unwrap())
+                    < Node::get_op_level(op)
+            {
                 println!("sdfsdf");
-                
             }
             ctx.operators.push((op, ctx.start));
             ctx.states.pop_state();
@@ -647,14 +656,14 @@ impl<'a> FSRExpr<'a> {
                     ctx.start += ctx.length;
                     ctx.length = 0;
                     ctx.states.pop_state();
-                    return Ok(())
+                    return Ok(());
                 }
                 Self::end_of_operator(source, ignore_nline, meta, ctx)?;
                 return Ok(());
                 //ctx.states.pop_state();
             }
             let mut sub_meta = meta.from_offset(ctx.start);
-            let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
+            let mut variable = FSRVariable::parse(name, sub_meta, FSRType::new("None")).unwrap();
             if context.is_variable_defined_in_curr(variable.get_name()) {
                 variable.is_defined = true;
             } else {
@@ -810,7 +819,6 @@ impl<'a> FSRExpr<'a> {
                 continue;
             }
 
-            
             if t_i as char == '('
                 && (ctx.states.eq_peek(&ExprState::Bracket)
                     || ctx.states.eq_peek(&ExprState::WaitToken))
@@ -923,7 +931,6 @@ impl<'a> FSRExpr<'a> {
                     ctx.single_op = None;
                 }
 
-
                 // escape blank char, case like a[1] (1 + 2)
                 while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]) {
                     ctx.start += 1;
@@ -1005,7 +1012,8 @@ impl<'a> FSRExpr<'a> {
                 }
 
                 let mut sub_meta = meta.from_offset(ctx.start);
-                let mut variable = FSRVariable::parse(name, sub_meta).unwrap();
+                let mut variable =
+                    FSRVariable::parse(name, sub_meta, FSRType::new("None")).unwrap();
                 if context.is_variable_defined_in_curr(variable.get_name()) {
                     variable.is_defined = true;
                 } else {
@@ -1013,7 +1021,7 @@ impl<'a> FSRExpr<'a> {
                 }
                 variable.single_op = ctx.single_op;
                 ctx.single_op = None;
-                
+
                 ctx.candidates.push(FSRToken::Variable(variable));
                 ctx.start += ctx.length;
                 ctx.length = 0;
@@ -1109,6 +1117,30 @@ impl<'a> FSRExpr<'a> {
                     ));
                 }
             }
+
+            if op.eq(":") {
+                if let FSRToken::Variable(name) = &left {
+                    let name = name.get_name();
+                    if let FSRToken::Variable(type_name) = &right {
+                        return Ok((
+                            FSRToken::Variable(
+                                FSRVariable::parse(
+                                    name,
+                                    left.get_meta().clone(),
+                                    FSRType::new(type_name.get_name()),
+                                )
+                                .unwrap(),
+                            ),
+                            ctx.start + ctx.length,
+                        ));
+                    } else {
+                        panic!("Type name must be a string")
+                    }
+                } else {
+                    unimplemented!()
+                }
+            }
+
             return Ok((
                 FSRToken::Expr(Self {
                     single_op: ctx.single_op,
@@ -1191,6 +1223,29 @@ impl<'a> FSRExpr<'a> {
                 ));
             }
         }
+
+        if operator.0.eq(":") {
+            if let FSRToken::Variable(name) = &left {
+                let name = name.get_name();
+                if let FSRToken::Variable(type_name) = &right {
+                    return Ok((
+                        FSRToken::Variable(
+                            FSRVariable::parse(
+                                name,
+                                left.get_meta().clone(),
+                                FSRType::new(type_name.get_name()),
+                            )
+                            .unwrap(),
+                        ),
+                        ctx.start + ctx.length,
+                    ));
+                } else {
+                    panic!("Type name must be a string")
+                }
+            } else {
+                unimplemented!()
+            }
+        }
         Ok((
             FSRToken::Expr(Self {
                 single_op: ctx.single_op,
@@ -1208,4 +1263,3 @@ impl<'a> FSRExpr<'a> {
         self.op.unwrap()
     }
 }
-

@@ -156,3 +156,15 @@ impl Display for FSRPosition {
         write!(f, "{}", self.offset)
     }
 }
+
+
+#[derive(Debug, Clone)]
+pub struct FSRType {
+    pub(crate) name: String,
+}
+
+impl FSRType {
+    pub fn new(name: &str) -> Self {
+        Self { name: name.to_string() }
+    }
+}

@@ -18,7 +18,7 @@ mod test {
     };
 
     pub fn bench() {
-        let vm = FSRVM::single();
+        let _ = FSRVM::single();
         let p_st = Instant::now();
         let module1 = r#"
         import thread

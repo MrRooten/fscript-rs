@@ -349,6 +349,8 @@ impl BytecodeOperator {
             return "!=";
         } else if op.eq("::") {
             return "::";
+        } else if op.eq(":") {
+            return ":"
         }
 
         unimplemented!()
