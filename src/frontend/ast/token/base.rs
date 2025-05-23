@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::{frontend::ast::token::block::FSRBlock, utils::error::SyntaxError};
@@ -49,6 +50,27 @@ impl<'a> FSRToken<'a> {
             _ => panic!("Not an expression"),
         }
 
+    }
+
+    pub fn as_variable(&self) -> &FSRVariable<'a> {
+        match self {
+            FSRToken::Variable(e) => e,
+            _ => panic!("Not a variable"),
+        }
+    }
+
+    pub fn as_mut_variable(&mut self) -> &mut FSRVariable<'a> {
+        match self {
+            FSRToken::Variable(e) => e,
+            _ => panic!("Not a variable"),
+        }
+    }
+
+    pub fn deduction_type(&self) -> Option<FSRType> {
+        match self {
+            FSRToken::Variable(e) => e.var_type.clone(),
+            _ => None,
+        }
     }
 
     pub fn get_meta(&self) -> &FSRPosition {
@@ -160,11 +182,12 @@ impl Display for FSRPosition {
 
 #[derive(Debug, Clone)]
 pub struct FSRType {
-    pub(crate) name: String,
+    pub(crate) name: Rc<String>,
+    pub(crate) subtype: Option<Vec<Box<FSRType>>>,
 }
 
 impl FSRType {
     pub fn new(name: &str) -> Self {
-        Self { name: name.to_string() }
+        Self { name: Rc::new(name.to_string()), subtype: None }
     }
 }

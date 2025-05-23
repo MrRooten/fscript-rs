@@ -663,7 +663,7 @@ impl<'a> FSRExpr<'a> {
                 //ctx.states.pop_state();
             }
             let mut sub_meta = meta.from_offset(ctx.start);
-            let mut variable = FSRVariable::parse(name, sub_meta, FSRType::new("None")).unwrap();
+            let mut variable = FSRVariable::parse(name, sub_meta, None).unwrap();
             if context.is_variable_defined_in_curr(variable.get_name()) {
                 variable.is_defined = true;
             } else {
@@ -1012,8 +1012,7 @@ impl<'a> FSRExpr<'a> {
                 }
 
                 let mut sub_meta = meta.from_offset(ctx.start);
-                let mut variable =
-                    FSRVariable::parse(name, sub_meta, FSRType::new("None")).unwrap();
+                let mut variable = FSRVariable::parse(name, sub_meta, None).unwrap();
                 if context.is_variable_defined_in_curr(variable.get_name()) {
                     variable.is_defined = true;
                 } else {
@@ -1080,7 +1079,7 @@ impl<'a> FSRExpr<'a> {
             if right.is_empty() {
                 return Ok((left, ctx.start + ctx.length));
             }
-            let n_left = left.clone();
+            let mut n_left = left.clone();
             if ctx.operators.is_empty() {
                 let mut stack_expr = vec![left, right];
 
@@ -1093,6 +1092,7 @@ impl<'a> FSRExpr<'a> {
             if op.eq("=") {
                 if let FSRToken::Variable(mut name) = left {
                     context.add_variable(name.get_name());
+                    n_left.as_mut_variable().set_type_hint(right.deduction_type());
                     return Ok((
                         FSRToken::Assign(FSRAssign {
                             left: Rc::new(n_left),
@@ -1122,17 +1122,14 @@ impl<'a> FSRExpr<'a> {
                 if let FSRToken::Variable(name) = &left {
                     let name = name.get_name();
                     if let FSRToken::Variable(type_name) = &right {
-                        return Ok((
-                            FSRToken::Variable(
-                                FSRVariable::parse(
-                                    name,
-                                    left.get_meta().clone(),
-                                    FSRType::new(type_name.get_name()),
-                                )
-                                .unwrap(),
-                            ),
-                            ctx.start + ctx.length,
-                        ));
+                        let mut var = FSRVariable::parse(
+                            name,
+                            left.get_meta().clone(),
+                            Some(FSRType::new(type_name.get_name())),
+                        )
+                        .unwrap();
+                        var.force_type = true;
+                        return Ok((FSRToken::Variable(var), ctx.start + ctx.length));
                     } else {
                         panic!("Type name must be a string")
                     }
@@ -1195,11 +1192,12 @@ impl<'a> FSRExpr<'a> {
             context,
         )?
         .0;
-        let n_left = left.clone();
+        let mut n_left = left.clone();
 
         if operator.0.eq("=") {
             if let FSRToken::Variable(name) = left {
                 context.add_variable(name.get_name());
+                n_left.as_mut_variable().set_type_hint(right.deduction_type());
                 return Ok((
                     FSRToken::Assign(FSRAssign {
                         left: Rc::new(n_left),
@@ -1228,17 +1226,14 @@ impl<'a> FSRExpr<'a> {
             if let FSRToken::Variable(name) = &left {
                 let name = name.get_name();
                 if let FSRToken::Variable(type_name) = &right {
-                    return Ok((
-                        FSRToken::Variable(
-                            FSRVariable::parse(
-                                name,
-                                left.get_meta().clone(),
-                                FSRType::new(type_name.get_name()),
-                            )
-                            .unwrap(),
-                        ),
-                        ctx.start + ctx.length,
-                    ));
+                    let mut var = FSRVariable::parse(
+                        name,
+                        left.get_meta().clone(),
+                        Some(FSRType::new(type_name.get_name())),
+                    )
+                    .unwrap();
+                    var.force_type = true;
+                    return Ok((FSRToken::Variable(var), ctx.start + ctx.length));
                 } else {
                     panic!("Type name must be a string")
                 }

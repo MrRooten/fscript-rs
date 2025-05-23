@@ -32,6 +32,7 @@ use crate::{
         try_expr::FSRTryBlock,
         variable::FSRVariable,
         while_statement::FSRWhile,
+        ASTVariableState,
     },
 };
 
@@ -350,7 +351,7 @@ impl BytecodeOperator {
         } else if op.eq("::") {
             return "::";
         } else if op.eq(":") {
-            return ":"
+            return ":";
         }
 
         unimplemented!()
@@ -462,7 +463,7 @@ pub struct BytecodeContext {
     pub(crate) const_map: HashMap<FSROrinStr2, u64>,
     pub(crate) table: Vec<ObjId>,
     pub(crate) fn_def_map: HashMap<String, Vec<Vec<BytecodeArg>>>,
-    pub(crate) ref_map_stack: Vec<HashMap<String, bool>>,
+    pub(crate) ref_map_stack: Vec<HashMap<String, ASTVariableState>>,
     pub(crate) cur_fn_name: Vec<String>,
     pub(crate) key_map: HashMap<&'static str, ObjId>,
 }
@@ -504,7 +505,7 @@ impl BytecodeContext {
     pub fn contains_variable_in_ref_stack(&self, name: &str) -> bool {
         for i in &self.ref_map_stack {
             if let Some(v) = i.get(name) {
-                if *v {
+                if v.is_defined {
                     return true;
                 }
             }
@@ -519,7 +520,7 @@ impl BytecodeContext {
         }
         for i in &self.ref_map_stack[..self.ref_map_stack.len() - 1] {
             if let Some(v) = i.get(name) {
-                if *v {
+                if v.is_defined {
                     return true;
                 }
             }
@@ -531,7 +532,7 @@ impl BytecodeContext {
     pub fn contains_in_cur_ref(&self, name: &str) -> bool {
         if let Some(ref_map) = self.ref_map_stack.last() {
             if let Some(v) = ref_map.get(name) {
-                return *v;
+                return v.is_defined;
             }
         }
         false
@@ -797,12 +798,7 @@ impl<'a> Bytecode {
                 attr_id_arg.unwrap().1,
             ))
         } else if is_var {
-            ArgType::CallArgsNumberWithVar((
-                call.get_args().len(),
-                var_id,
-                name.to_string(),
-                false,
-            ))
+            ArgType::CallArgsNumberWithVar((call.get_args().len(), var_id, name.to_string(), false))
         } else {
             ArgType::CallArgsNumber(call.get_args().len())
         };
@@ -978,7 +974,12 @@ impl<'a> Bytecode {
         }
 
         if let Some(ref_map) = context.ref_map_stack.last_mut() {
-            if ref_map.get(var.get_name()).cloned().unwrap_or(false) {
+            if ref_map
+                .get(var.get_name())
+                .cloned()
+                .map(|x| x.is_defined)
+                .unwrap_or(false)
+            {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
                 let op_arg = BytecodeArg {
                     operator: BytecodeOperator::AssignArgs,
@@ -1713,7 +1714,7 @@ impl<'a> Bytecode {
             var_map.last_mut().unwrap().insert_var(v.get_name());
             let id = var_map.last_mut().unwrap().get_var(v.get_name()).unwrap();
             if let Some(ref_map) = const_map.ref_map_stack.last() {
-                if ref_map.get(v.get_name()).cloned().unwrap_or(false)
+                if ref_map.get(v.get_name()).map(|x| x.is_defined).unwrap_or(false)
                     && const_map.contains_variable_in_ref_stack(v.get_name())
                 {
                     result_list.push(BytecodeArg {
@@ -1770,7 +1771,6 @@ impl<'a> Bytecode {
             arg: ArgType::Const(id),
             info: FSRByteInfo::new(token.get_meta().clone()),
         }];
-
 
         (result_list)
     }
@@ -1830,7 +1830,7 @@ impl<'a> Bytecode {
 
         let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
         let store_to_cell = if let Some(ref_map) = bytecontext.ref_map_stack.last() {
-            if ref_map.get(name).cloned().unwrap_or(false)
+            if ref_map.get(name).map(|x| x.is_defined).unwrap_or(false)
                 && bytecontext.contains_variable_in_ref_stack(name)
             {
                 true
@@ -1973,7 +1973,7 @@ impl<'a> Bytecode {
         let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
 
         let store_to_cell = if let Some(ref_map) = const_map.ref_map_stack.last() {
-            if ref_map.get(name).cloned().unwrap_or(false)
+            if ref_map.get(name).map(|x| x.is_defined).unwrap_or(false)
                 && const_map.contains_variable_in_ref_stack(name)
             {
                 true

@@ -1,5 +1,5 @@
-fn test() {
-    123
+fn abc(a: Integer) -> Integer {
+    return a
 }
 
-println(test())
+println(abc(1))

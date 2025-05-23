@@ -12,7 +12,7 @@ use crate::{
 
 use super::{
     base::{FSRPosition, FSRToken, FSRType},
-    ASTContext,
+    ASTContext, ASTVariableState,
 };
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,7 @@ pub struct FSRFnDef<'a> {
     len: usize,
     meta: FSRPosition,
     ret_type: Option<FSRType>,
-    pub(crate) ref_map: Rc<RefCell<HashMap<String, bool>>>,
+    pub(crate) ref_map: Rc<RefCell<HashMap<String, ASTVariableState>>>,
 }
 
 #[derive(PartialEq, Clone)]
@@ -37,7 +37,7 @@ enum State {
 }
 
 impl<'a> FSRFnDef<'a> {
-    pub fn clone_ref_map(&self) -> HashMap<String, bool> {
+    pub fn clone_ref_map(&self) -> HashMap<String, ASTVariableState> {
         self.ref_map.borrow().clone()
     }
 
@@ -135,7 +135,7 @@ impl<'a> FSRFnDef<'a> {
                     i += 1;
                 }
                 let mut variable =
-                    FSRVariable::parse(arg, meta.from_offset(0), FSRType::new("Function"))?;
+                    FSRVariable::parse(arg, meta.from_offset(0), Some(FSRType::new("Function")))?;
                 variable.is_defined = true;
                 arg_collect.push(FSRToken::Variable(variable));
             }
