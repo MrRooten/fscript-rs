@@ -18,6 +18,7 @@ mod test {
     };
 
     pub fn bench() {
+        let vm = FSRVM::single();
         let p_st = Instant::now();
         let module1 = r#"
         import thread
@@ -97,20 +98,14 @@ fn main() {
     // let runtime = Arc::new(rt);
 
     let start = Instant::now();
-    let vm2 = vm.clone();
-    //runtime.start(&v, &mut vm).unwrap();
-    let th = std::thread::spawn(move || {
-        let binding = vm2.clone();
-        let thread = binding.get_thread(tid).unwrap();
+    let thread = vm.get_thread(tid).unwrap();
 
-        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
-        let obj_id = FSRVM::leak_object(obj);
-        let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
-        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
-        obj.as_mut_module().init_fn_map(v);
-        thread.start(obj_id).unwrap();
-    });
-    let _ = th.join();
+    let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+    let obj_id = FSRVM::leak_object(obj);
+    let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
+    let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+    obj.as_mut_module().init_fn_map(v);
+    thread.start(obj_id).unwrap();
 
     let end = Instant::now();
     println!("{:?}", end - start);

@@ -179,6 +179,7 @@ pub struct CallFrame<'a> {
     pub(crate) handling_exception: ObjId,
     // Record current call fn_obj
     pub(crate) fn_obj: ObjId,
+    pub(crate) last_expr_val: ObjId
 }
 
 impl<'a> CallFrame<'a> {
@@ -192,6 +193,7 @@ impl<'a> CallFrame<'a> {
         self.attr_map.clear();
         self.handling_exception = FSRObject::none_id();
         self.middle_value.clear();
+        self.last_expr_val = FSRObject::none_id();
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -232,6 +234,7 @@ impl<'a> CallFrame<'a> {
             fn_obj,
             attr_map: AttrMap::new(),
             middle_value: vec![],
+            last_expr_val: FSRObject::none_id(),
         }
     }
 }
@@ -534,6 +537,10 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if it.handling_exception != 0 {
             work_list.push(it.handling_exception);
+        }
+
+        if it.last_expr_val != FSRObject::none_id() {
+            work_list.push(it.last_expr_val);
         }
 
         for value in &it.middle_value {
@@ -1979,13 +1986,14 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn end_fn(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
+        let last_expr_val = self.get_cur_frame().last_expr_val;
         self.pop_stack();
         let cur = self.get_cur_mut_frame();
         let ip_0 = cur.reverse_ip.0;
         let ip_1 = cur.reverse_ip.1;
         let code = cur.code;
-        cur.ret_val = Some(FSRObject::none_id());
-        self.get_cur_mut_context().ip = (ip_0, ip_1 + 1);
+        cur.ret_val = Some(last_expr_val);
+        self.get_cur_mut_context().ip = (ip_0, ip_1);
         self.get_cur_mut_context().code = code;
         self.get_cur_mut_context().call_end -= 1;
         Ok(true)
@@ -2547,6 +2555,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     pub fn release(&mut self) {}
 
+    #[inline(never)]
     pub fn acquire(&mut self) {
         //{
         let mut in_rt_cxt = self.til.in_rt_cxt.0.lock().unwrap();
@@ -2556,9 +2565,9 @@ impl<'a> FSRThreadRuntime<'a> {
             // sleep(Duration::from_secs(1));
             *self.til.is_stop.0.lock().unwrap() = true;
             self.til.is_stop.1.notify_all();
-            println!("wait runtime: {}", self.thread_id);
+            // println!("wait runtime: {}", self.thread_id);
             in_rt_cxt = self.til.in_rt_cxt.1.wait(in_rt_cxt).unwrap();
-            println!("receive runtime: {}, {}", self.thread_id, *in_rt_cxt);
+            // println!("receive runtime: {}, {}", self.thread_id, *in_rt_cxt);
         }
 
         *self.til.is_stop.0.lock().unwrap() = false;
@@ -2572,6 +2581,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.acquire();
     }
 
+    #[inline(never)]
     pub fn safe_point_to_stop(&self) {
         // let mut in_rt_ctx = self.til.in_rt_cxt.0.lock().unwrap();
         // *in_rt_ctx = false;
@@ -2590,7 +2600,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn rt_continue(&self) {
-        println!("continue thread {}", self.thread_id);
+        //println!("continue thread {}", self.thread_id);
         {
             let mut locker = self.til.in_rt_cxt.0.lock().unwrap();
             while !*locker {
@@ -2598,10 +2608,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        println!("send notify thread {}", self.thread_id);
+        //println!("send notify thread {}", self.thread_id);
 
         self.til.in_rt_cxt.1.notify_all();
-        println!("continued thread {}", self.thread_id);
+        //println!("continued thread {}", self.thread_id);
     }
 
     pub fn rt_wait_stop(&self) {
@@ -2615,7 +2625,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr_wrapper(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
-        if self.counter - self.last_aquire_counter > 100 {
+        if self.counter - self.last_aquire_counter > 200 {
             self.rt_yield();
         }
 
@@ -2641,7 +2651,7 @@ impl<'a> FSRThreadRuntime<'a> {
             {
                 self.bytecode_counter[*arg.get_operator() as usize] += 1;
             }
-
+            
             v = self.process(arg)?;
 
             if v {
@@ -2653,12 +2663,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(false);
             }
 
-            if Self::exception_process(self) {
+            if self.exception_flag && Self::exception_process(self) {
                 return Ok(true);
             }
         }
         self.get_cur_mut_context().ip.0 += 1;
         self.get_cur_mut_context().ip.1 = 0;
+        self.get_cur_mut_frame().last_expr_val = self.get_cur_mut_frame().exp.last().cloned().unwrap_or(FSRObject::none_id());
         self.get_cur_mut_frame().exp.clear();
         self.get_cur_mut_frame().middle_value.clear();
 

@@ -108,6 +108,7 @@ pub fn fsr_fn_throw_error(
         thread.exception = FSRObject::none_id();
     } else {
         thread.exception = args[0];
+        thread.exception_flag = true;
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }

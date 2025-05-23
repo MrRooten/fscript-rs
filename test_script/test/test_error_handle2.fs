@@ -7,7 +7,7 @@ fn abc() {
 i = 0
 while i < 3 {
     try {
-        timeit(abc, 1)
+        abc()
         println('should not print')
         assert(false)
     } catch {
