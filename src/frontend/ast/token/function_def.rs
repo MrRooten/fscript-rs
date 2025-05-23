@@ -23,7 +23,8 @@ pub struct FSRFnDef<'a> {
     body: Rc<FSRBlock<'a>>,
     len: usize,
     meta: FSRPosition,
-    pub(crate) ref_map: Rc<RefCell<HashMap<String, bool>>>
+    ret_type: Option<FSRType>,
+    pub(crate) ref_map: Rc<RefCell<HashMap<String, bool>>>,
 }
 
 #[derive(PartialEq, Clone)]
@@ -133,12 +134,8 @@ impl<'a> FSRFnDef<'a> {
 
                     i += 1;
                 }
-                let mut variable = FSRVariable::parse(
-                    arg,
-                    meta.from_offset(0),
-                    FSRType::new("Function")
-
-                )?;
+                let mut variable =
+                    FSRVariable::parse(arg, meta.from_offset(0), FSRType::new("Function"))?;
                 variable.is_defined = true;
                 arg_collect.push(FSRToken::Variable(variable));
             }
@@ -174,7 +171,44 @@ impl<'a> FSRFnDef<'a> {
             meta,
             lambda: true,
             ref_map: scope,
+            ret_type: None,
         })
+    }
+
+    fn parse_ret_type(
+        source: &'a [u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<Option<FSRType>, SyntaxError> {
+        // 实现 -> 解析返回值类型, 去除左右空字符
+
+        let process_str = std::str::from_utf8(source).unwrap();
+        let process_str = process_str.trim();
+
+        if process_str.is_empty() {
+            return Ok(None);
+        }
+
+        if process_str.starts_with("->") {
+            let mut start = 2;
+            while start < process_str.len() && ASTParser::is_blank_char(process_str.as_bytes()[start]) {
+                start += 1;
+            }
+            let mut end = process_str.len();
+
+            let type_name = &process_str[start..end];
+            let type_name = type_name.trim();
+            if type_name.is_empty() {
+                return Ok(None);
+            }
+            let type_name = FSRType::new(type_name);
+            return Ok(Some(type_name));
+        }
+        
+        Err(SyntaxError::new(
+            &meta,
+            "Invalid return type, should start with '->'",
+        ))
     }
 
     pub fn parse(
@@ -248,17 +282,32 @@ impl<'a> FSRFnDef<'a> {
             }
         }
 
-        let fn_args = &source[2..2 + len];
-        let mut sub_meta = meta.from_offset(2);
-        
-        
+        let mut start_fn_name = "fn".len();
+        while !ASTParser::is_name_letter_first(source[2..][start_fn_name]) {
+            start_fn_name += 1;
+        }
+
+        let fn_args = &source[start_fn_name..start_fn_name + len];
+        let mut sub_meta = meta.from_offset(start_fn_name);
+
         context.push_scope();
         let mut fn_call = FSRCall::parse(fn_args, sub_meta, context, true)?;
-
+        let call_len = fn_call.get_len();
         let name = fn_call.get_name();
+
+        let mut gap_call_len = 0;
+        while call_len + gap_call_len + 1 < len
+            && source[start_fn_name + call_len + gap_call_len + 1] != b'{'
+        {
+            gap_call_len += 1;
+        }
+
+        let ret_type_str = &source[start_fn_name + call_len + 1..start_fn_name + call_len + 1 + gap_call_len];
+        let ret_type = Self::parse_ret_type(ret_type_str, meta.from_offset(start_fn_name + call_len), context)?;
+
         context.add_variable_prev_one(name);
-        
-        let fn_block_start = 2 + len;
+
+        let fn_block_start = start_fn_name + len;
         let mut sub_meta = meta.from_offset(fn_block_start);
 
         let fn_block_len =
@@ -276,7 +325,7 @@ impl<'a> FSRFnDef<'a> {
             }
         }
         let cur = context.pop_scope();
-        
+
         Ok(Self {
             name: name.to_string(),
             args: fn_call.get_args().clone(),
@@ -285,6 +334,7 @@ impl<'a> FSRFnDef<'a> {
             meta,
             lambda: false,
             ref_map: cur,
+            ret_type,
         })
     }
 }
@@ -301,6 +351,4 @@ mod test {
         assert!(result.is_ok());
         println!("{:#?}", result.unwrap());
     }
-
-    
 }

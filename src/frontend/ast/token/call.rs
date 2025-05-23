@@ -89,7 +89,7 @@ impl<'a> FSRCall<'a> {
         let tmp = std::str::from_utf8(args).unwrap();
         let sub_meta = meta.from_offset(start);
         //let exprs = ASTParser::split_by_comma(args, sub_meta)?;
-        let (expr, _) = FSRExpr::parse(args, true, sub_meta, context).unwrap();
+        let (expr, expr_len) = FSRExpr::parse(args, true, sub_meta, context).unwrap();
         let expr = Box::new(expr);
         let expr = Box::leak(expr);
         let fn_args = expr.flatten_comma();
@@ -125,7 +125,7 @@ impl<'a> FSRCall<'a> {
         Ok(Self {
             name,
             args: fn_args,
-            len: 0,
+            len: start + expr_len,
             single_op: None,
             meta,
             is_defined: false,

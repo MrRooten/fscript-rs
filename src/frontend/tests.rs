@@ -524,4 +524,28 @@ abc()
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
     }
+
+    #[test]
+    fn test_typehint3() {
+        let c = r#"
+        fn abc(a: Abc, b: Abc) {
+            return a
+        }
+        "#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
+
+    #[test]
+    fn test_typehint4() {
+        let c = r#"
+        fn abc(a: Abc, b: Abc) -> Abc {
+            return a
+        }
+        "#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
 }
