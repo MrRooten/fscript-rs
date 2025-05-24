@@ -16,11 +16,11 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub struct FSRFnDef<'a> {
+pub struct FSRFnDef {
     lambda: bool,
     name: String,
-    args: Vec<FSRToken<'a>>,
-    body: Rc<FSRBlock<'a>>,
+    args: Vec<FSRToken>,
+    body: Rc<FSRBlock>,
     len: usize,
     meta: FSRPosition,
     ret_type: Option<FSRType>,
@@ -36,7 +36,7 @@ enum State {
     Continue,
 }
 
-impl<'a> FSRFnDef<'a> {
+impl FSRFnDef {
     pub fn clone_ref_map(&self) -> HashMap<String, ASTVariableState> {
         self.ref_map.borrow().clone()
     }
@@ -57,16 +57,16 @@ impl<'a> FSRFnDef<'a> {
         self.len
     }
 
-    pub fn get_args(&self) -> &Vec<FSRToken<'a>> {
+    pub fn get_args(&self) -> &Vec<FSRToken> {
         &self.args
     }
 
-    pub fn get_body(&self) -> &FSRBlock<'a> {
+    pub fn get_body(&self) -> &FSRBlock {
         &self.body
     }
 
     pub fn parse_lambda(
-        source: &'a [u8],
+        source: &[u8],
         meta: FSRPosition,
         name: &str,
         context: &mut ASTContext,
@@ -176,7 +176,7 @@ impl<'a> FSRFnDef<'a> {
     }
 
     fn parse_ret_type(
-        source: &'a [u8],
+        source: &[u8],
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<Option<FSRType>, SyntaxError> {
@@ -212,7 +212,7 @@ impl<'a> FSRFnDef<'a> {
     }
 
     pub fn parse(
-        source: &'a [u8],
+        source: &[u8],
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {
@@ -293,7 +293,7 @@ impl<'a> FSRFnDef<'a> {
         context.push_scope();
         let mut fn_call = FSRCall::parse(fn_args, sub_meta, context, true)?;
         let call_len = fn_call.get_len();
-        let name = fn_call.get_name();
+        let name = fn_call.get_name().to_string();
 
         let mut gap_call_len = 0;
         while call_len + gap_call_len + 1 < len
@@ -305,7 +305,7 @@ impl<'a> FSRFnDef<'a> {
         let ret_type_str = &source[start_fn_name + call_len + 1..start_fn_name + call_len + 1 + gap_call_len];
         let ret_type = Self::parse_ret_type(ret_type_str, meta.from_offset(start_fn_name + call_len), context)?;
 
-        context.add_variable_prev_one(name);
+        context.add_variable_prev_one(&name);
 
         let fn_block_start = start_fn_name + len;
         let mut sub_meta = meta.from_offset(fn_block_start);
@@ -327,7 +327,7 @@ impl<'a> FSRFnDef<'a> {
         let cur = context.pop_scope();
 
         Ok(Self {
-            name: name.to_string(),
+            name: name,
             args: fn_call.get_args().clone(),
             body: Rc::new(fn_block),
             len: fn_block_start + fn_block_len,

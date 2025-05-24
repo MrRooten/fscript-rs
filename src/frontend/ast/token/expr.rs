@@ -19,26 +19,26 @@ use super::{base::FSRToken, call::FSRCall, variable::FSRVariable};
 static mut LAMBDA_NUMBER: i32 = 0;
 
 #[derive(Debug, Clone)]
-pub struct FSRExpr<'a> {
-    pub(crate) single_op: Option<&'a str>,
-    pub(crate) left: Box<FSRToken<'a>>,
-    pub(crate) right: Box<FSRToken<'a>>,
-    pub(crate) op: Option<&'a str>,
+pub struct FSRExpr {
+    pub(crate) single_op: Option<&'static str>,
+    pub(crate) left: Box<FSRToken>,
+    pub(crate) right: Box<FSRToken>,
+    pub(crate) op: Option<&'static str>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
 }
 
-impl<'a> FSRExpr<'a> {
+impl FSRExpr {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
-    pub fn get_left(&self) -> &FSRToken<'a> {
+    pub fn get_left(&self) -> &FSRToken {
         &self.left
     }
 }
 
-impl Display for FSRExpr<'_> {
+impl Display for FSRExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
@@ -119,7 +119,7 @@ struct Node<'a> {
     op: &'a str,
     left: Option<Box<Node<'a>>>,
     right: Option<Box<Node<'a>>>,
-    value: Option<FSRToken<'a>>,
+    value: Option<FSRToken>,
     is_leaf: bool,
 }
 
@@ -131,7 +131,7 @@ struct TreeNode<'a> {
 }
 
 impl<'a> Node<'a> {
-    pub fn from_value(value: FSRToken<'a>) -> Node<'a> {
+    pub fn from_value(value: FSRToken) -> Node<'a> {
         Self {
             op: "",
             left: None,
@@ -232,24 +232,24 @@ type FSROpreatorTree<'a> = Node<'a>;
 impl FSROpreatorTree<'_> {}
 
 #[derive(Debug)]
-pub enum FSRBinOpResult<'a> {
-    BinOp(FSRExpr<'a>),
-    Constant(FSRConstant<'a>),
+pub enum FSRBinOpResult {
+    BinOp(FSRExpr),
+    Constant(FSRConstant),
 }
 
-struct StmtContext<'a> {
+struct StmtContext {
     states: ExprStates,
     start: usize,
     length: usize,
     bracket_count: i32,
-    candidates: Vec<FSRToken<'a>>,
+    candidates: Vec<FSRToken>,
     operators: Vec<(&'static str, usize)>,
-    single_op: Option<&'a str>,
+    single_op: Option<&'static str>,
     last_loop: bool,
     single_op_level: Option<i32>,
 }
 
-impl StmtContext<'_> {
+impl StmtContext {
     pub fn new() -> Self {
         let mut states = ExprStates::new();
         states.push_state(ExprState::WaitToken);
@@ -267,8 +267,8 @@ impl StmtContext<'_> {
     }
 }
 
-impl<'a> FSRExpr<'a> {
-    pub fn get_single_op(&self) -> Option<&'a str> {
+impl FSRExpr {
+    pub fn get_single_op(&self) -> Option<&'static str> {
         self.single_op
     }
 
@@ -324,10 +324,10 @@ impl<'a> FSRExpr<'a> {
 
     #[inline]
     fn double_quote_loop(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
             let mut sub_meta = meta.from_offset(ctx.start);
@@ -377,10 +377,10 @@ impl<'a> FSRExpr<'a> {
 
     #[inline]
     fn single_quote_loop(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
             let mut sub_meta = meta.from_offset(ctx.start);
@@ -432,10 +432,10 @@ impl<'a> FSRExpr<'a> {
 
     #[inline]
     fn end_of_operator(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
     ) -> Result<(), SyntaxError> {
         let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
         let op = ASTParser::get_static_op(op);
@@ -485,10 +485,10 @@ impl<'a> FSRExpr<'a> {
 
     #[inline]
     fn process_operator(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
     ) -> Result<(), SyntaxError> {
         let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
         let op = ASTParser::get_static_op(op);
@@ -537,10 +537,10 @@ impl<'a> FSRExpr<'a> {
 
     #[inline]
     fn end_of_bracket(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         ctx.states.pop_state();
@@ -576,10 +576,10 @@ impl<'a> FSRExpr<'a> {
     }
 
     fn end_of_square_bracket(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         ctx.states.pop_state();
@@ -626,10 +626,10 @@ impl<'a> FSRExpr<'a> {
 
     #[inline]
     fn variable_process(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         ctx.states.push_state(ExprState::Variable);
@@ -648,11 +648,11 @@ impl<'a> FSRExpr<'a> {
         if ctx.start + ctx.length >= source.len()
             || (source[ctx.start + ctx.length] != b'(' && source[ctx.start + ctx.length] != b'[')
         {
-            let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap().to_string();
             if name.eq("and") || name.eq("or") || name.eq("not") {
                 if name.eq("not") {
-                    ctx.single_op_level = Some(Node::get_single_op_level(name));
-                    ctx.single_op = Some(name);
+                    ctx.single_op_level = Some(Node::get_single_op_level(&name));
+                    ctx.single_op = Some("not");
                     ctx.start += ctx.length;
                     ctx.length = 0;
                     ctx.states.pop_state();
@@ -663,7 +663,7 @@ impl<'a> FSRExpr<'a> {
                 //ctx.states.pop_state();
             }
             let mut sub_meta = meta.from_offset(ctx.start);
-            let mut variable = FSRVariable::parse(name, sub_meta, None).unwrap();
+            let mut variable = FSRVariable::parse(&name, sub_meta, None).unwrap();
             if context.is_variable_defined_in_curr(variable.get_name()) {
                 variable.is_defined = true;
             } else {
@@ -683,10 +683,10 @@ impl<'a> FSRExpr<'a> {
 
     #[inline]
     fn number_process(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
     ) -> Result<(), SyntaxError> {
         let mut is_float = false;
         loop {
@@ -734,10 +734,10 @@ impl<'a> FSRExpr<'a> {
 
     #[inline]
     fn stmt_loop(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext<'a>,
+        ctx: &mut StmtContext,
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         loop {
@@ -1050,11 +1050,11 @@ impl<'a> FSRExpr<'a> {
     }
 
     pub fn parse(
-        source: &'a [u8],
+        source: &[u8],
         ignore_nline: bool,
         meta: FSRPosition,
         context: &mut ASTContext,
-    ) -> Result<(FSRToken<'a>, usize), SyntaxError> {
+    ) -> Result<(FSRToken, usize), SyntaxError> {
         let mut ctx = StmtContext::new();
         Self::stmt_loop(source, ignore_nline, &meta, &mut ctx, context)?;
 
@@ -1098,7 +1098,7 @@ impl<'a> FSRExpr<'a> {
                     return Ok((
                         FSRToken::Assign(FSRAssign {
                             left: Rc::new(n_left),
-                            name: name.get_name(),
+                            name: name.get_name().to_string(),
                             expr: Rc::new(right),
                             len: ctx.start + ctx.length,
                             meta,
@@ -1110,7 +1110,7 @@ impl<'a> FSRExpr<'a> {
                     return Ok((
                         FSRToken::Assign(FSRAssign {
                             left: Rc::new(n_left),
-                            name: getter.get_name(),
+                            name: getter.get_name().to_string(),
                             expr: Rc::new(right),
                             len: ctx.start + ctx.length,
                             meta,
@@ -1205,7 +1205,7 @@ impl<'a> FSRExpr<'a> {
                 return Ok((
                     FSRToken::Assign(FSRAssign {
                         left: Rc::new(n_left),
-                        name: name.get_name(),
+                        name: name.get_name().to_string(),
                         expr: Rc::new(right),
                         len: ctx.start + ctx.length,
                         meta,
@@ -1216,7 +1216,7 @@ impl<'a> FSRExpr<'a> {
                 return Ok((
                     FSRToken::Assign(FSRAssign {
                         left: Rc::new(n_left),
-                        name: "",
+                        name: "".to_string(),
                         expr: Rc::new(right),
                         len: ctx.start + ctx.length,
                         meta,

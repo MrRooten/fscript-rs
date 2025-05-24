@@ -3,9 +3,9 @@ use crate::utils::error::SyntaxError;
 use super::base::{FSRPosition, FSRType};
 
 #[derive(Debug, Clone)]
-pub struct FSRVariable<'a> {
-    pub(crate) name: &'a str,
-    pub(crate) single_op: Option<&'a str>,
+pub struct FSRVariable {
+    pub(crate) name: String,
+    pub(crate) single_op: Option<&'static str>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
     pub(crate) is_defined: bool,
@@ -13,14 +13,14 @@ pub struct FSRVariable<'a> {
     pub(crate) force_type: bool
 }
 
-impl<'a> FSRVariable<'a> {
+impl FSRVariable {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
-    pub fn parse(name: &'a str, meta: FSRPosition, var_type: Option<FSRType>) -> Result<FSRVariable<'a>, SyntaxError> {
+    pub fn parse(name: &str, meta: FSRPosition, var_type: Option<FSRType>) -> Result<FSRVariable, SyntaxError> {
         
         Ok(Self {
-            name,
+            name: name.to_string(),
             single_op: None,
             len: 0,
             meta,
@@ -30,8 +30,8 @@ impl<'a> FSRVariable<'a> {
         })
     }
 
-    pub fn get_name(&self) -> &'a str {
-        self.name
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
     }
 
     pub fn get_len(&self) -> usize {

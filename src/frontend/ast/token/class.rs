@@ -7,18 +7,18 @@ use crate::{
 use super::{base::FSRPosition, ASTContext};
 use std::str;
 #[derive(Debug, Clone)]
-pub struct FSRClassFrontEnd<'a> {
-    name: &'a str,
-    block: FSRBlock<'a>,
+pub struct FSRClassFrontEnd {
+    name: String,
+    block: FSRBlock,
     meta: FSRPosition,
 }
 
-impl<'a> FSRClassFrontEnd<'a> {
-    pub fn get_name(&self) -> &'a str {
-        self.name
+impl FSRClassFrontEnd {
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
     }
 
-    pub fn get_block(&self) -> &FSRBlock<'a> {
+    pub fn get_block(&self) -> &FSRBlock {
         &self.block
     }
 
@@ -26,7 +26,7 @@ impl<'a> FSRClassFrontEnd<'a> {
         &self.meta
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
         let start_token = str::from_utf8(&source[0..5]).unwrap();
         if !start_token.eq("class") {
             unimplemented!()
@@ -70,6 +70,6 @@ impl<'a> FSRClassFrontEnd<'a> {
         let sub_meta = meta.from_offset(start);
         let block = FSRBlock::parse(&source[start..start + len], sub_meta, context)?;
         context.add_variable(name);
-        Ok((Self { name, block, meta }, start + len))
+        Ok((Self { name: name.to_string(), block, meta }, start + len))
     }
 }

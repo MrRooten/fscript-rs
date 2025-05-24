@@ -6,21 +6,21 @@ use super::{
 };
 use std::str;
 #[derive(Debug, Clone)]
-pub struct FSRReturn<'a> {
-    expr: Box<FSRToken<'a>>,
+pub struct FSRReturn {
+    expr: Box<FSRToken>,
     meta: FSRPosition,
 }
 
-impl<'a> FSRReturn<'a> {
+impl FSRReturn {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
-    pub fn get_return_expr(&self) -> &FSRToken<'a> {
+    pub fn get_return_expr(&self) -> &FSRToken {
         &self.expr
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
         let sub = &source[0..6];
         let first_6_char = str::from_utf8(sub).unwrap();

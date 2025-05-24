@@ -10,33 +10,33 @@ use super::{
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub struct ElseIf<'a> {
-    test: Option<Box<FSRToken<'a>>>,
-    body: Box<FSRBlock<'a>>,
+pub struct ElseIf {
+    test: Option<Box<FSRToken>>,
+    body: Box<FSRBlock>,
 }
 
-impl<'a> ElseIf<'a> {
-    pub fn get_test(&self) -> Option<&FSRToken<'a>> {
+impl ElseIf {
+    pub fn get_test(&self) -> Option<&FSRToken> {
         match &self.test {
             Some(s) => Some(s),
             None => None
         }
     }
 
-    pub fn get_block(&self) -> &FSRBlock<'a> {
+    pub fn get_block(&self) -> &FSRBlock {
         &self.body
     }
 }
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub struct FSRElse<'a> {
-    else_ifs: Vec<ElseIf<'a>>,
+pub struct FSRElse {
+    else_ifs: Vec<ElseIf>,
     len: usize,
     meta: FSRPosition,
 }
 
-impl<'a> FSRElse<'a> {
+impl FSRElse {
 
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
@@ -46,12 +46,12 @@ impl<'a> FSRElse<'a> {
         self.len
     }
 
-    pub fn get_elses(&self) -> &Vec<ElseIf<'a>> {
+    pub fn get_elses(&self) -> &Vec<ElseIf> {
         &self.else_ifs
     }
 
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRElse<'a>, SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRElse, SyntaxError> {
         let mut else_ifs = vec![];
         let mut s = std::str::from_utf8(&source[0..4]).unwrap();
         let mut start = 0;

@@ -59,18 +59,18 @@ impl BlockStates {
 }
 
 #[derive(Debug, Clone)]
-pub struct FSRBlock<'a> {
-    tokens: Vec<FSRToken<'a>>,
+pub struct FSRBlock {
+    tokens: Vec<FSRToken>,
     len: usize,
     meta: FSRPosition,
 }
 
-impl<'a> FSRBlock<'a> {
+impl FSRBlock {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
-    pub fn get_tokens(&self) -> &Vec<FSRToken<'a>> {
+    pub fn get_tokens(&self) -> &Vec<FSRToken> {
         &self.tokens
     }
 
@@ -79,7 +79,7 @@ impl<'a> FSRBlock<'a> {
     }
 
     pub fn parse(
-        source: &'a [u8],
+        source: &[u8],
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {

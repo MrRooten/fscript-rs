@@ -5,7 +5,7 @@ use super::Optimizer;
 pub struct ConstFoldOptimizer;
 
 impl Optimizer for ConstFoldOptimizer {
-    fn optimize<'a>(&self, token: &FSRToken<'a>) -> Result<FSRToken<'a>, FSRError> {
+    fn optimize(&self, token: &FSRToken) -> Result<FSRToken, FSRError> {
         // Implement the constant folding optimization logic here
         Ok(token.clone())
     }

@@ -66,14 +66,14 @@ impl ModuleStates {
 }
 
 #[derive(Debug, Clone)]
-pub struct FSRModuleFrontEnd<'a> {
-    pub(crate) tokens: Vec<FSRToken<'a>>,
+pub struct FSRModuleFrontEnd {
+    pub(crate) tokens: Vec<FSRToken>,
     pub(crate) lambda_define_lines: Vec<usize>,
     len: usize,
     meta: FSRPosition,
 }
 
-impl<'a> FSRModuleFrontEnd<'a> {
+impl FSRModuleFrontEnd {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
@@ -83,9 +83,9 @@ impl<'a> FSRModuleFrontEnd<'a> {
     }
 
     pub fn parse(
-        source: &'a [u8],
+        source: &[u8],
         meta: FSRPosition,
-    ) -> Result<FSRModuleFrontEnd<'a>, SyntaxError> {
+    ) -> Result<FSRModuleFrontEnd, SyntaxError> {
         let mut trie = FSTrie::new();
         let mut start = 0;
         let mut length = 0;

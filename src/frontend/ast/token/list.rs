@@ -6,16 +6,16 @@ use crate::{
 use super::{base::{FSRPosition, FSRToken}, ASTContext};
 
 #[derive(Debug, Clone)]
-pub struct FSRListFrontEnd<'a> {
-    items: Vec<FSRToken<'a>>,
+pub struct FSRListFrontEnd {
+    items: Vec<FSRToken>,
     #[allow(unused)]
     pub(crate) len: usize,
 
     meta: FSRPosition,
 }
 
-impl<'a> FSRListFrontEnd<'a> {
-    pub fn get_items(&self) -> &Vec<FSRToken<'a>> {
+impl FSRListFrontEnd {
+    pub fn get_items(&self) -> &Vec<FSRToken> {
         &self.items
     }
 
@@ -23,7 +23,7 @@ impl<'a> FSRListFrontEnd<'a> {
         &self.meta
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRListFrontEnd<'a>, SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRListFrontEnd, SyntaxError> {
         let mut vs = vec![];
         let mut sub_meta = meta.clone();
         sub_meta.offset += 1;

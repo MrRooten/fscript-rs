@@ -576,7 +576,7 @@ impl VarMap {
     //     self.const_map.get(c).copied()
     // }
 
-    // pub fn insert_const(&mut self, c: &FSROrinStr2<'a>) {
+    // pub fn insert_const(&mut self, c: &FSROrinStr2) {
     //     if self.has_const(c) {
     //         return;
     //     }
@@ -635,7 +635,7 @@ impl<'a> Bytecode {
     }
 
     fn load_list_getter(
-        getter: &FSRGetter<'a>,
+        getter: &FSRGetter,
         var_map: &mut Vec<VarMap>,
         is_attr: bool,
         is_method_call: bool,
@@ -708,7 +708,7 @@ impl<'a> Bytecode {
     }
 
     fn load_call(
-        call: &FSRCall<'a>,
+        call: &FSRCall,
         var_map: &mut Vec<VarMap>,
         is_attr: bool,
         is_method_call: bool,
@@ -821,7 +821,7 @@ impl<'a> Bytecode {
     }
 
     fn load_variable(
-        var: &FSRVariable<'a>,
+        var: &FSRVariable,
         var_map: &mut Vec<VarMap>,
         is_attr: bool,
         context: &mut BytecodeContext,
@@ -964,7 +964,7 @@ impl<'a> Bytecode {
     }
 
     fn load_assign_arg(
-        var: &'a FSRVariable<'a>,
+        var: &'a FSRVariable,
         var_map: &mut Vec<VarMap>,
         context: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
@@ -1005,7 +1005,7 @@ impl<'a> Bytecode {
     }
 
     fn load_stack_expr(
-        var: &(Option<&'a str>, Vec<FSRToken<'a>>),
+        var: &(Option<&'a str>, Vec<FSRToken>),
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
@@ -1023,7 +1023,7 @@ impl<'a> Bytecode {
     }
 
     fn load_expr(
-        expr: &FSRExpr<'a>,
+        expr: &FSRExpr,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
@@ -1221,7 +1221,7 @@ impl<'a> Bytecode {
     }
 
     fn load_block(
-        block: &FSRBlock<'a>,
+        block: &FSRBlock,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
@@ -1245,7 +1245,7 @@ impl<'a> Bytecode {
     }
 
     fn load_try_def(
-        try_def: &'a FSRTryBlock<'a>,
+        try_def: &'a FSRTryBlock,
         var_map: &'a mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
@@ -1292,7 +1292,7 @@ impl<'a> Bytecode {
     }
 
     fn load_if_def(
-        if_def: &FSRIf<'a>,
+        if_def: &FSRIf,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
@@ -1364,7 +1364,7 @@ impl<'a> Bytecode {
 
     #[allow(unused)]
     fn load_for_def(
-        for_def: &FSRFor<'a>,
+        for_def: &FSRFor,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
@@ -1450,7 +1450,7 @@ impl<'a> Bytecode {
     }
 
     fn load_while_def(
-        while_def: &FSRWhile<'a>,
+        while_def: &FSRWhile,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
@@ -1528,7 +1528,7 @@ impl<'a> Bytecode {
     // }
 
     fn load_token_with_map(
-        token: &FSRToken<'a>,
+        token: &FSRToken,
         var_map: &mut Vec<VarMap>,
         byte_context: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
@@ -1635,7 +1635,7 @@ impl<'a> Bytecode {
     }
 
     fn load_dot_assign(
-        token: &FSRAssign<'a>,
+        token: &FSRAssign,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> Option<(Vec<BytecodeArg>)> {
@@ -1678,7 +1678,7 @@ impl<'a> Bytecode {
     }
 
     fn load_getter_assign(
-        token: &FSRAssign<'a>,
+        token: &FSRAssign,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> Option<(Vec<BytecodeArg>)> {
@@ -1703,7 +1703,7 @@ impl<'a> Bytecode {
     }
 
     fn load_assign(
-        token: &FSRAssign<'a>,
+        token: &FSRAssign,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
@@ -1817,7 +1817,7 @@ impl<'a> Bytecode {
     }
 
     fn load_function(
-        fn_def: &FSRFnDef<'a>,
+        fn_def: &FSRFnDef,
         var_map: &mut Vec<VarMap>,
         bytecontext: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
@@ -1960,7 +1960,7 @@ impl<'a> Bytecode {
     }
 
     fn load_class(
-        class_def: &FSRClassFrontEnd<'a>,
+        class_def: &FSRClassFrontEnd,
         mut var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
@@ -2048,7 +2048,7 @@ impl<'a> Bytecode {
     }
 
     fn load_isolate_block(
-        token: &FSRToken<'a>,
+        token: &FSRToken,
         const_map: &mut BytecodeContext,
     ) -> (Vec<Vec<BytecodeArg>>) {
         let mut var_map = vec![VarMap::new("__main__")];
@@ -2061,7 +2061,7 @@ impl<'a> Bytecode {
         (v)
     }
 
-    pub fn load_ast(_name: &str, token: FSRToken<'a>) -> HashMap<String, Bytecode> {
+    pub fn load_ast(_name: &str, token: FSRToken) -> HashMap<String, Bytecode> {
         let mut const_table = BytecodeContext::new();
         let vs = Self::load_isolate_block(&token, &mut const_table);
         let mut result = vec![];

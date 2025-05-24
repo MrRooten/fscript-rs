@@ -22,14 +22,14 @@ enum State {
 }
 
 #[derive(Debug, Clone)]
-pub struct FSRCatch<'a> {
-    pub(crate) body: Box<FSRBlock<'a>>,
+pub struct FSRCatch {
+    pub(crate) body: Box<FSRBlock>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
 }
 
-impl<'a> FSRCatch<'a> {
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRCatch<'a>, SyntaxError> {
+impl FSRCatch {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRCatch, SyntaxError> {
         let s = std::str::from_utf8(&source[0..5]).unwrap();
         if source.len() < 5 {
             let sub_meta = meta.from_offset(0);
@@ -76,15 +76,15 @@ impl<'a> FSRCatch<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct FSRTryBlock<'a> {
-    pub(crate) body: Box<FSRBlock<'a>>,
+pub struct FSRTryBlock {
+    pub(crate) body: Box<FSRBlock>,
     #[allow(unused)]
-    catch: Box<FSRCatch<'a>>,
+    catch: Box<FSRCatch>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
 }
 
-impl<'a> FSRTryBlock<'a> {
+impl FSRTryBlock {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
@@ -93,7 +93,7 @@ impl<'a> FSRTryBlock<'a> {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRTryBlock<'a>, SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRTryBlock, SyntaxError> {
         let s = std::str::from_utf8(&source[0..3]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.from_offset(0);

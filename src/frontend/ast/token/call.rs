@@ -7,11 +7,11 @@ use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 use std::str;
 
 #[derive(Debug, Clone)]
-pub struct FSRCall<'a> {
-    name: &'a str,
-    args: Vec<FSRToken<'a>>,
+pub struct FSRCall {
+    name: String,
+    args: Vec<FSRToken>,
     pub(crate) len: usize,
-    pub(crate) single_op: Option<&'a str>,
+    pub(crate) single_op: Option<&'static str>,
     meta: FSRPosition,
     pub(crate) is_defined: bool,
 }
@@ -24,24 +24,24 @@ enum CallState {
     _WaitToken,
 }
 
-impl<'a> FSRCall<'a> {
+impl FSRCall {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
 
-    pub fn get_args(&self) -> &Vec<FSRToken<'a>> {
+    pub fn get_args(&self) -> &Vec<FSRToken> {
         &self.args
     }
 
-    pub fn get_args_mut(&mut self) -> &mut Vec<FSRToken<'a>> {
+    pub fn get_args_mut(&mut self) -> &mut Vec<FSRToken> {
         &mut self.args
     }
 
-    pub fn get_name(&self) -> &'a str {
-        self.name
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext, pre_args: bool) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext, pre_args: bool) -> Result<Self, SyntaxError> {
         let mut state = CallState::Start;
         let mut start = 0;
         let mut length = 0;
@@ -123,7 +123,7 @@ impl<'a> FSRCall<'a> {
         // }
 
         Ok(Self {
-            name,
+            name: name.to_string(),
             args: fn_args,
             len: start + expr_len,
             single_op: None,

@@ -14,18 +14,18 @@ enum GetterState {
 }
 
 #[derive(Debug, Clone)]
-pub struct FSRGetter<'a> {
-    name: &'a str,
-    getter: Box<FSRToken<'a>>,
+pub struct FSRGetter {
+    name: String,
+    getter: Box<FSRToken>,
     len: usize,
-    pub(crate)single_op: Option<&'a str>,
+    pub(crate)single_op: Option<&'static str>,
     meta: FSRPosition,
     pub(crate) is_defined: bool,
 }
 
-impl<'a> FSRGetter<'a> {
-    pub fn get_name(&self) -> &'a str {
-        self.name
+impl FSRGetter {
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
     }
 
     pub fn get_meta(&self) -> &FSRPosition {
@@ -36,11 +36,11 @@ impl<'a> FSRGetter<'a> {
         self.name.is_empty()
     }
 
-    pub fn get_getter(&self) -> &FSRToken<'a> {
+    pub fn get_getter(&self) -> &FSRToken {
         &self.getter
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
         let mut state = GetterState::Start;
         let mut start = 0;
         let mut length = 0;
@@ -82,7 +82,7 @@ impl<'a> FSRGetter<'a> {
         let sub_meta = meta.from_offset(start);
         let getter = FSRExpr::parse(args, true, sub_meta, context)?;
         Ok(Self {
-            name,
+            name: name.to_string(),
             len: 0,
             single_op: None,
             meta,

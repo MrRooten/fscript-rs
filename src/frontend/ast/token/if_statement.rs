@@ -13,11 +13,11 @@ use super::statement::ASTTokenInterface;
 use super::ASTContext;
 
 #[derive(Debug, Clone)]
-pub struct FSRIf<'a> {
-    pub(crate) test: Box<FSRToken<'a>>,
-    pub(crate) body: Box<FSRBlock<'a>>,
+pub struct FSRIf {
+    pub(crate) test: Box<FSRToken>,
+    pub(crate) body: Box<FSRBlock>,
     #[allow(unused)]
-    elses        : Option<Box<FSRElse<'a>>>,
+    elses        : Option<Box<FSRElse>>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
 }
@@ -31,7 +31,7 @@ enum State {
     Continue,
 }
 
-impl<'a> FSRIf<'a> {
+impl FSRIf {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
@@ -44,7 +44,7 @@ impl<'a> FSRIf<'a> {
         &self.body
     }
 
-    pub fn parse_without_else(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf<'a>, SyntaxError> {
+    pub fn parse_without_else(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.from_offset(0);
@@ -138,7 +138,7 @@ impl<'a> FSRIf<'a> {
         })
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf<'a>, SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.from_offset(0);

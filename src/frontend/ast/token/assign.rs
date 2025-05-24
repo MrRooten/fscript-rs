@@ -10,10 +10,10 @@ use crate::{
 use super::{base::{FSRPosition, FSRToken}, ASTContext};
 
 #[derive(Debug, Clone)]
-pub struct FSRAssign<'a> {
-    pub(crate) expr: Rc<FSRToken<'a>>,
-    pub(crate) left: Rc<FSRToken<'a>>,
-    pub(crate) name: &'a str,
+pub struct FSRAssign {
+    pub(crate) expr: Rc<FSRToken>,
+    pub(crate) left: Rc<FSRToken>,
+    pub(crate) name: String,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
 }
@@ -29,8 +29,8 @@ enum FSRAssignState {
     RightValue,
 }
 
-impl<'a> FSRAssign<'a> {
-    pub fn get_left(&self) -> &Rc<FSRToken<'a>> {
+impl FSRAssign {
+    pub fn get_left(&self) -> &Rc<FSRToken> {
         &self.left
     }
 
@@ -39,17 +39,17 @@ impl<'a> FSRAssign<'a> {
     }
 
     pub fn get_name(&self) -> &str {
-        self.name
+        self.name.as_str()
     }
 
-    pub fn get_assign_expr(&self) -> &Rc<FSRToken<'a>> {
+    pub fn get_assign_expr(&self) -> &Rc<FSRToken> {
         &self.expr
     }
 
     pub fn get_len(&self) -> usize {
         self.len
     }
-    pub fn parse(source: &'a [u8], meta: &FSRPosition, context: &mut ASTContext) -> Result<FSRAssign<'a>, SyntaxError> {
+    pub fn parse(source: &[u8], meta: &FSRPosition, context: &mut ASTContext) -> Result<FSRAssign, SyntaxError> {
         let mut start = 0;
         let mut length = 0;
         let mut state = FSRAssignState::Start;

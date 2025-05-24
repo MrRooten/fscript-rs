@@ -8,9 +8,9 @@ use super::base::FSRToken;
 use super::ASTContext;
 
 #[derive(Debug, Clone)]
-pub struct FSRWhile<'a> {
-    pub(crate) test: Box<FSRToken<'a>>,
-    pub(crate) body: Box<FSRBlock<'a>>,
+pub struct FSRWhile {
+    pub(crate) test: Box<FSRToken>,
+    pub(crate) body: Box<FSRBlock>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
 }
@@ -24,7 +24,7 @@ enum State {
     Continue,
 }
 
-impl<'a> FSRWhile<'a> {
+impl FSRWhile {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
@@ -37,7 +37,7 @@ impl<'a> FSRWhile<'a> {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition,context: &mut ASTContext) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition,context: &mut ASTContext) -> Result<Self, SyntaxError> {
         let s = std::str::from_utf8(&source[0..5]).unwrap();
         if source.len() < 5 {
             unimplemented!()

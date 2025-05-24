@@ -4,10 +4,10 @@ use super::{base::{FSRPosition, FSRToken}, block::FSRBlock, ASTContext};
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub struct FSRFor<'a> {
+pub struct FSRFor {
     var_name: String,
-    expr: Box<FSRToken<'a>>,
-    body: Box<FSRBlock<'a>>,
+    expr: Box<FSRToken>,
+    body: Box<FSRBlock>,
     len: usize,
     meta: FSRPosition,
 }
@@ -28,7 +28,7 @@ enum Bracket {
     Curly,
 }
 
-impl<'a> FSRFor<'a> {
+impl FSRFor {
     pub fn get_len(&self) -> usize {
         self.len
     }
@@ -45,11 +45,11 @@ impl<'a> FSRFor<'a> {
         &self.expr
     }
 
-    pub fn get_block(&self) -> &FSRBlock<'a> {
+    pub fn get_block(&self) -> &FSRBlock {
         &self.body
     }
 
-    pub fn parse(source: &'a [u8], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
         let s = std::str::from_utf8(&source[0..3]).unwrap();
         
         if s != "for" {

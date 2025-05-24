@@ -12,33 +12,33 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub enum FSRToken<'a> {
-    FunctionDef(FSRFnDef<'a>),
-    IfExp(FSRIf<'a>),
-    Constant(FSRConstant<'a>),
-    Assign(FSRAssign<'a>),
+pub enum FSRToken {
+    FunctionDef(FSRFnDef),
+    IfExp(FSRIf),
+    Constant(FSRConstant),
+    Assign(FSRAssign),
     Break(FSRPosition),
     Continue(FSRPosition),
-    Expr(FSRExpr<'a>),
-    StackExpr((Option<&'a str>, Vec<FSRToken<'a>>)),
-    ForBlock(FSRFor<'a>),
-    Call(FSRCall<'a>),
-    Variable(FSRVariable<'a>),
-    Return(FSRReturn<'a>),
-    Block(FSRBlock<'a>),
-    WhileExp(FSRWhile<'a>),
-    Module(FSRModuleFrontEnd<'a>),
-    Import(FSRImport<'a>),
-    List(FSRListFrontEnd<'a>),
-    Class(FSRClassFrontEnd<'a>),
-    Getter(FSRGetter<'a>),
-    TryBlock(FSRTryBlock<'a>),
+    Expr(FSRExpr),
+    StackExpr((Option<&'static str>, Vec<FSRToken>)),
+    ForBlock(FSRFor),
+    Call(FSRCall),
+    Variable(FSRVariable),
+    Return(FSRReturn),
+    Block(FSRBlock),
+    WhileExp(FSRWhile),
+    Module(FSRModuleFrontEnd),
+    Import(FSRImport),
+    List(FSRListFrontEnd),
+    Class(FSRClassFrontEnd),
+    Getter(FSRGetter),
+    TryBlock(FSRTryBlock),
     EmptyExpr,
     None,
 }
 
-impl<'a> FSRToken<'a> {
-    pub fn set_single_op(&mut self, op: &'a str) {
+impl FSRToken {
+    pub fn set_single_op(&mut self, op: &'static str) {
         match self {
             FSRToken::Expr(e) => e.single_op = Some(op),
             FSRToken::StackExpr(e) => e.0 = Some(op),
@@ -51,14 +51,14 @@ impl<'a> FSRToken<'a> {
 
     }
 
-    pub fn as_variable(&self) -> &FSRVariable<'a> {
+    pub fn as_variable(&self) -> &FSRVariable {
         match self {
             FSRToken::Variable(e) => e,
             _ => panic!("Not a variable"),
         }
     }
 
-    pub fn as_mut_variable(&mut self) -> &mut FSRVariable<'a> {
+    pub fn as_mut_variable(&mut self) -> &mut FSRVariable {
         match self {
             FSRToken::Variable(e) => e,
             _ => panic!("Not a variable"),
@@ -115,7 +115,7 @@ impl<'a> FSRToken<'a> {
         matches!(self, FSRToken::EmptyExpr)
     }
 
-    pub fn try_push_stack_expr(&mut self, value: FSRToken<'a>) -> Result<(), SyntaxError> {
+    pub fn try_push_stack_expr(&mut self, value: FSRToken) -> Result<(), SyntaxError> {
         if let FSRToken::StackExpr(e) = self {
             e.1.push(value);
             return Ok(());
@@ -123,7 +123,7 @@ impl<'a> FSRToken<'a> {
         Err(SyntaxError::new(value.get_meta(), "Empty stack expression"))
     }
 
-    pub fn flatten_comma(&'a self) -> Vec<FSRToken<'a>> {
+    pub fn flatten_comma(&self) -> Vec<FSRToken> {
         let mut v = vec![];
         match self {
             FSRToken::Expr(e) => {
