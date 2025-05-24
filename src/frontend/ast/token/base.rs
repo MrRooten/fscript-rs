@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::rc::Rc;
 
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::{frontend::ast::token::block::FSRBlock, utils::error::SyntaxError};
@@ -94,7 +93,7 @@ impl<'a> FSRToken<'a> {
             FSRToken::Break(e) => e,
             FSRToken::Continue(e) => e,
             FSRToken::ForBlock(b) => b.get_meta(),
-            FSRToken::Getter(fsrslice) => fsrslice.get_meta(),
+            FSRToken::Getter(fsrgetter) => fsrgetter.get_meta(),
             FSRToken::StackExpr(fsrexprs) => fsrexprs.1.first().unwrap().get_meta(),
             FSRToken::TryBlock(fsrtry_block) => fsrtry_block.get_meta(),
         }
@@ -182,12 +181,12 @@ impl Display for FSRPosition {
 
 #[derive(Debug, Clone)]
 pub struct FSRType {
-    pub(crate) name: Rc<String>,
+    pub(crate) name: String,
     pub(crate) subtype: Option<Vec<Box<FSRType>>>,
 }
 
 impl FSRType {
     pub fn new(name: &str) -> Self {
-        Self { name: Rc::new(name.to_string()), subtype: None }
+        Self { name: name.to_string(), subtype: None }
     }
 }

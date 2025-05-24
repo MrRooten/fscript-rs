@@ -41,8 +41,8 @@ impl ASTVariableState {
         }
     }
 
-    pub fn set_type(&mut self, var_type: FSRType) {
-        self.var_type = Some(var_type);
+    pub fn set_type(&mut self, var_type: Option<FSRType>) {
+        self.var_type = var_type;
     }
 }
 
@@ -67,7 +67,7 @@ impl ASTContext {
         self.variable_define.last().unwrap().borrow_mut().insert(name.to_string(), ASTVariableState::new(false));
     }
 
-    pub fn set_variable_type(&self, name: &str, var_type: FSRType) {
+    pub fn set_variable_type(&self, name: &str, var_type: Option<FSRType>) {
         self.variable_define.last().unwrap().borrow_mut().get_mut(name).map(|x| {
             x.set_type(var_type);
         });

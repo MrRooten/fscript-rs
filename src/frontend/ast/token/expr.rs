@@ -1092,7 +1092,9 @@ impl<'a> FSRExpr<'a> {
             if op.eq("=") {
                 if let FSRToken::Variable(mut name) = left {
                     context.add_variable(name.get_name());
-                    n_left.as_mut_variable().set_type_hint(right.deduction_type());
+                    let type_hint = right.deduction_type();
+                    context.set_variable_type(name.get_name(), type_hint.clone());
+                    n_left.as_mut_variable().set_type_hint(type_hint);
                     return Ok((
                         FSRToken::Assign(FSRAssign {
                             left: Rc::new(n_left),
@@ -1197,7 +1199,9 @@ impl<'a> FSRExpr<'a> {
         if operator.0.eq("=") {
             if let FSRToken::Variable(name) = left {
                 context.add_variable(name.get_name());
-                n_left.as_mut_variable().set_type_hint(right.deduction_type());
+                let type_hint = right.deduction_type();
+                context.set_variable_type(name.get_name(), type_hint.clone());
+                n_left.as_mut_variable().set_type_hint(type_hint);
                 return Ok((
                     FSRToken::Assign(FSRAssign {
                         left: Rc::new(n_left),
