@@ -20,7 +20,7 @@ use crate::{
         call::FSRCall,
         class::FSRClassFrontEnd,
         constant::{FSRConstant, FSRConstantType, FSROrinStr, FSROrinStr2},
-        expr::FSRExpr,
+        expr::{FSRExpr, SingleOp},
         for_statement::FSRFor,
         function_def::FSRFnDef,
         if_statement::FSRIf,
@@ -266,8 +266,8 @@ pub enum ArgType {
     Lambda((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
-    ConstInteger(u64, String, Option<String>),
-    ConstFloat(u64, String, Option<String>),
+    ConstInteger(u64, String, Option<SingleOp>),
+    ConstFloat(u64, String, Option<SingleOp>),
     ConstString(u64, String),
     Const(u64),
     Attr(u64, String),
@@ -842,14 +842,7 @@ impl<'a> Bytecode {
             let mut ans = vec![op_arg];
             if let Some(single_op) = var.single_op {
                 match single_op {
-                    "!" => {
-                        ans.push(BytecodeArg {
-                            operator: BytecodeOperator::NotOperator,
-                            arg: ArgType::None,
-                            info: FSRByteInfo::new(var.get_meta().clone()),
-                        });
-                    }
-                    "not" => {
+                    SingleOp::Not => {
                         ans.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: ArgType::None,
@@ -857,7 +850,7 @@ impl<'a> Bytecode {
                         });
                     }
                     _ => {
-                        panic!("not support single op {}", single_op);
+                        panic!("not support single op {:?}", single_op);
                     }
                 }
             }
@@ -891,14 +884,7 @@ impl<'a> Bytecode {
             let mut ans = vec![op_arg];
             if let Some(single_op) = var.single_op {
                 match single_op {
-                    "!" => {
-                        ans.push(BytecodeArg {
-                            operator: BytecodeOperator::NotOperator,
-                            arg: ArgType::None,
-                            info: FSRByteInfo::new(var.get_meta().clone()),
-                        });
-                    }
-                    "not" => {
+                    SingleOp::Not => {
                         ans.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: ArgType::None,
@@ -906,7 +892,7 @@ impl<'a> Bytecode {
                         });
                     }
                     _ => {
-                        panic!("not support single op {}", single_op);
+                        panic!("not support single op {:?}", single_op);
                     }
                 }
             }
@@ -935,14 +921,7 @@ impl<'a> Bytecode {
         let mut ans = vec![op_arg];
         if let Some(single_op) = var.single_op {
             match single_op {
-                "!" => {
-                    ans.push(BytecodeArg {
-                        operator: BytecodeOperator::NotOperator,
-                        arg: ArgType::None,
-                        info: FSRByteInfo::new(var.get_meta().clone()),
-                    });
-                }
-                "not" => {
+                SingleOp::Not => {
                     ans.push(BytecodeArg {
                         operator: BytecodeOperator::NotOperator,
                         arg: ArgType::None,
@@ -950,7 +929,7 @@ impl<'a> Bytecode {
                     });
                 }
                 _ => {
-                    panic!("not support single op {}", single_op);
+                    panic!("not support single op {:?}", single_op);
                 }
             }
         }
@@ -1000,7 +979,7 @@ impl<'a> Bytecode {
     }
 
     fn load_stack_expr(
-        var: &(Option<&'a str>, Vec<FSRToken>),
+        var: &(Option<SingleOp>, Vec<FSRToken>),
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
@@ -1094,14 +1073,14 @@ impl<'a> Bytecode {
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 if let Some(single_op) = expr.get_single_op() {
-                    if single_op.eq("not") || single_op.eq("!") {
+                    if single_op.eq(&SingleOp::Not) {
                         op_code.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: ArgType::None,
                             info: FSRByteInfo::new(expr.get_meta().clone()),
                         });
                     } else {
-                        panic!("not support this single op: {}", single_op);
+                        panic!("not support this single op: {:?}", single_op);
                     }
                 }
                 return (op_code);
@@ -1124,14 +1103,14 @@ impl<'a> Bytecode {
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 if let Some(single_op) = expr.get_single_op() {
-                    if single_op.eq("not") || single_op.eq("!") {
+                    if single_op.eq(&SingleOp::Not) {
                         op_code.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: ArgType::None,
                             info: FSRByteInfo::new(expr.get_meta().clone()),
                         });
                     } else {
-                        panic!("not support this single op: {}", single_op);
+                        panic!("not support this single op: {:?}", single_op);
                     }
                 }
                 return (op_code);
@@ -1160,14 +1139,14 @@ impl<'a> Bytecode {
             });
             op_code.append(&mut second);
             if let Some(single_op) = expr.get_single_op() {
-                if single_op.eq("not") || single_op.eq("!") {
+                if single_op.eq(&SingleOp::Not) {
                     op_code.push(BytecodeArg {
                         operator: BytecodeOperator::NotOperator,
                         arg: ArgType::None,
                         info: FSRByteInfo::new(expr.get_meta().clone()),
                     });
                 } else {
-                    panic!("not support this single op: {}", single_op);
+                    panic!("not support this single op: {:?}", single_op);
                 }
             }
             return (op_code);
@@ -1179,14 +1158,14 @@ impl<'a> Bytecode {
             });
             op_code.append(&mut second);
             if let Some(single_op) = expr.get_single_op() {
-                if single_op.eq("not") || single_op.eq("!") {
+                if single_op.eq(&SingleOp::Not) {
                     op_code.push(BytecodeArg {
                         operator: BytecodeOperator::NotOperator,
                         arg: ArgType::None,
                         info: FSRByteInfo::new(expr.get_meta().clone()),
                     });
                 } else {
-                    panic!("not support this single op: {}", single_op);
+                    panic!("not support this single op: {:?}", single_op);
                 }
             }
             return (op_code);
@@ -1204,7 +1183,7 @@ impl<'a> Bytecode {
         }
 
         if let Some(single_op) = expr.get_single_op() {
-            if single_op.eq("not") || single_op.eq("!") {
+            if single_op.eq(&SingleOp::Not) {
                 op_code.push(BytecodeArg {
                     operator: BytecodeOperator::NotOperator,
                     arg: ArgType::None,

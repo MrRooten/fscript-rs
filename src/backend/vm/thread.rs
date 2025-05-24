@@ -32,8 +32,7 @@ use crate::{
             range::FSRRange,
             string::FSRString,
         },
-    },
-    utils::error::{FSRErrCode, FSRError},
+    }, frontend::ast::token::expr::SingleOp, utils::error::{FSRErrCode, FSRError}
 };
 
 use super::{
@@ -2383,7 +2382,7 @@ impl<'a> FSRThreadRuntime<'a> {
         match arg.get_arg() {
             ArgType::ConstInteger(index, obj, single_op) => {
                 let i = obj.parse::<i64>().unwrap();
-                let i = if single_op.is_some() && single_op.as_ref().unwrap().eq("-") {
+                let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
                     -i
                 } else {
                     i
@@ -2399,7 +2398,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             ArgType::ConstFloat(index, obj, single_op) => {
                 let i = obj.parse::<f64>().unwrap();
-                let i = if single_op.is_some() && single_op.as_ref().unwrap().eq("-") {
+                let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
                     -1.0 * i
                 } else {
                     i

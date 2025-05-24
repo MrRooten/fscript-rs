@@ -4,6 +4,7 @@ use std::rc::Rc;
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::{frontend::ast::token::block::FSRBlock, utils::error::SyntaxError};
 
+use super::expr::SingleOp;
 use super::try_expr::FSRTryBlock;
 use super::ASTContext;
 use super::{
@@ -22,7 +23,7 @@ pub enum FSRToken {
     Break(FSRPosition),
     Continue(FSRPosition),
     Expr(FSRExpr),
-    StackExpr((Option<&'static str>, Vec<FSRToken>)),
+    StackExpr((Option<SingleOp>, Vec<FSRToken>)),
     ForBlock(FSRFor),
     Call(FSRCall),
     Variable(FSRVariable),
@@ -40,7 +41,7 @@ pub enum FSRToken {
 }
 
 impl FSRToken {
-    pub fn set_single_op(&mut self, op: &'static str) {
+    pub fn set_single_op(&mut self, op: SingleOp) {
         match self {
             FSRToken::Expr(e) => e.single_op = Some(op),
             FSRToken::StackExpr(e) => e.0 = Some(op),
@@ -84,6 +85,9 @@ impl FSRToken {
                 }
 
                 return None
+            }
+            FSRToken::Constant(c) => {
+                return Some(c.deduction());
             }
             _ => None,
         }

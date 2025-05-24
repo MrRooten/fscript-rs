@@ -555,7 +555,20 @@ abc()
     fn test_typehint5() {
         let c = r#"
         a : Abc = 1
-        b = a
+        b: Ddc = a
+        c = b
+        "#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
+
+    #[test]
+    fn test_typehint6() {
+        let c = r#"
+        fn abc(a: Abc, b: Abc) -> Abc {
+            c = a
+        }
         "#;
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();

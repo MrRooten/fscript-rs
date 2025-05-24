@@ -20,7 +20,7 @@ static mut LAMBDA_NUMBER: i32 = 0;
 
 #[derive(Debug, Clone)]
 pub struct FSRExpr {
-    pub(crate) single_op: Option<&'static str>,
+    pub(crate) single_op: Option<SingleOp>,
     pub(crate) left: Box<FSRToken>,
     pub(crate) right: Box<FSRToken>,
     pub(crate) op: Option<&'static str>,
@@ -151,18 +151,18 @@ impl<'a> Node<'a> {
         }
     }
 
-    pub fn get_single_op_level(op: &str) -> i32 {
-        if op.eq("not") || op.eq("!") {
+    pub fn get_single_op_level(op: &SingleOp) -> i32 {
+        if op.eq(&SingleOp::Not) {
             return 1;
         }
 
-        if op.eq("-") {
+        if op.eq(&SingleOp::Minus) {
             return 2;
         }
 
-        if op.eq("~") {
-            return 2;
-        }
+        // if op.eq("~") {
+        //     return 2;
+        // }
 
         -1
     }
@@ -237,6 +237,13 @@ pub enum FSRBinOpResult {
     Constant(FSRConstant),
 }
 
+#[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
+pub enum SingleOp {
+    Not,
+    Minus,
+}
+
+
 struct StmtContext {
     states: ExprStates,
     start: usize,
@@ -244,7 +251,7 @@ struct StmtContext {
     bracket_count: i32,
     candidates: Vec<FSRToken>,
     operators: Vec<(&'static str, usize)>,
-    single_op: Option<&'static str>,
+    single_op: Option<SingleOp>,
     last_loop: bool,
     single_op_level: Option<i32>,
 }
@@ -268,7 +275,7 @@ impl StmtContext {
 }
 
 impl FSRExpr {
-    pub fn get_single_op(&self) -> Option<&'static str> {
+    pub fn get_single_op(&self) -> Option<SingleOp> {
         self.single_op
     }
 
@@ -333,7 +340,7 @@ impl FSRExpr {
             let mut sub_meta = meta.from_offset(ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
-                format!("{} can not follow string", s_op),
+                format!("{:?} can not follow string", s_op),
             ));
         }
         ctx.start += 1;
@@ -386,7 +393,7 @@ impl FSRExpr {
             let mut sub_meta = meta.from_offset(ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
-                format!("{} can not follow string", s_op),
+                format!("{:?} can not follow string", s_op),
             ));
         }
         ctx.start += 1;
@@ -448,7 +455,7 @@ impl FSRExpr {
         }
 
         if op.eq("-") && (source[ctx.start + ctx.length] as char).is_ascii_digit() {
-            ctx.single_op = Some(op);
+            ctx.single_op = Some(SingleOp::Minus);
             ctx.states.pop_state();
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -457,11 +464,11 @@ impl FSRExpr {
 
         if Self::is_single_op(op) && !op.eq("-") {
             if ctx.single_op.is_some()
-                && (ctx.single_op.unwrap().eq("not") || ctx.single_op.unwrap().eq("!"))
+                && (ctx.single_op.unwrap().eq(&SingleOp::Not))
             {
                 ctx.single_op = None;
             } else {
-                ctx.single_op = Some(op);
+                ctx.single_op = Some(SingleOp::Not);
             }
 
             ctx.states.pop_state();
@@ -501,7 +508,7 @@ impl FSRExpr {
         }
 
         if op.eq("-") && (source[ctx.start + ctx.length] as char).is_ascii_digit() {
-            ctx.single_op = Some(op);
+            ctx.single_op = Some(SingleOp::Minus);
             ctx.states.pop_state();
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -510,11 +517,11 @@ impl FSRExpr {
 
         if Self::is_single_op(op) && !op.eq("-") {
             if ctx.single_op.is_some()
-                && (ctx.single_op.unwrap().eq("not") || ctx.single_op.unwrap().eq("!"))
+                && ctx.single_op.unwrap().eq(&SingleOp::Not)
             {
                 ctx.single_op = None;
             } else {
-                ctx.single_op = Some(op);
+                ctx.single_op = Some(SingleOp::Not);
             }
 
             ctx.states.pop_state();
@@ -651,8 +658,8 @@ impl FSRExpr {
             let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap().to_string();
             if name.eq("and") || name.eq("or") || name.eq("not") {
                 if name.eq("not") {
-                    ctx.single_op_level = Some(Node::get_single_op_level(&name));
-                    ctx.single_op = Some("not");
+                    ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
+                    ctx.single_op = Some(SingleOp::Not);
                     ctx.start += ctx.length;
                     ctx.length = 0;
                     ctx.states.pop_state();
@@ -663,7 +670,8 @@ impl FSRExpr {
                 //ctx.states.pop_state();
             }
             let mut sub_meta = meta.from_offset(ctx.start);
-            let mut variable = FSRVariable::parse(&name, sub_meta, None).unwrap();
+            let fsr_type = context.get_token_var_type(&name, &context);
+            let mut variable = FSRVariable::parse(&name, sub_meta, fsr_type).unwrap();
             if context.is_variable_defined_in_curr(variable.get_name()) {
                 variable.is_defined = true;
             } else {
@@ -1005,7 +1013,7 @@ impl FSRExpr {
 
                 if name.eq("and") || name.eq("or") || name.eq("not") {
                     if name.eq("not") {
-                        ctx.single_op_level = Some(Node::get_single_op_level("not"));
+                        ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
                     }
                     Self::end_of_operator(source, ignore_nline, meta, ctx)?;
                     continue;

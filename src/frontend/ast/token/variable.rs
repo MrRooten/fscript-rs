@@ -1,11 +1,11 @@
 use crate::utils::error::SyntaxError;
 
-use super::base::{FSRPosition, FSRType};
+use super::{base::{FSRPosition, FSRType}, expr::SingleOp};
 
 #[derive(Debug, Clone)]
 pub struct FSRVariable {
     pub(crate) name: String,
-    pub(crate) single_op: Option<&'static str>,
+    pub(crate) single_op: Option<SingleOp>,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
     pub(crate) is_defined: bool,

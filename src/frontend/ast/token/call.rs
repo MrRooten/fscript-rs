@@ -1,7 +1,7 @@
 
 use super::{
     base::{FSRPosition, FSRToken},
-    expr::FSRExpr, ASTContext,
+    expr::{FSRExpr, SingleOp}, ASTContext,
 };
 use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 use std::str;
@@ -11,7 +11,7 @@ pub struct FSRCall {
     name: String,
     args: Vec<FSRToken>,
     pub(crate) len: usize,
-    pub(crate) single_op: Option<&'static str>,
+    pub(crate) single_op: Option<SingleOp>,
     meta: FSRPosition,
     pub(crate) is_defined: bool,
 }
@@ -80,8 +80,6 @@ impl FSRCall {
 
         let end_blasket = ASTParser::read_valid_bracket(&source[start-1..], meta.from_offset(start)).unwrap();
 
-        
-
         let s = str::from_utf8(source).unwrap();
         let first = s.find('(').unwrap();
         //let last = s.rfind(')').unwrap();
@@ -98,29 +96,6 @@ impl FSRCall {
         } else {
             fn_args
         };
-        // for s in exprs {
-        //     let sub_meta = meta.from_offset(first);
-        //     let mut expr = FSRExpr::parse(s, true, sub_meta, context)?;
-        //     if pre_args {
-        //         match &expr.0 {
-        //             FSRToken::Variable(v) => {
-        //                 context.add_variable(v.get_name());
-        //             },
-        //             FSRToken::Assign(a) => {
-        //                 context.add_variable(a.get_name());
-        //             },
-        //             _ => {}
-        //         }
-        //     } else if let FSRToken::Variable(v) = &mut expr.0 {
-        //         if context.is_variable_defined_in_curr(v.get_name()) {
-        //             v.is_defined = true
-        //         } else {
-        //             context.ref_variable(v.get_name());
-        //         }
-        //     }
-            
-        //     fn_args.push(expr.0);
-        // }
 
         Ok(Self {
             name: name.to_string(),

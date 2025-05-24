@@ -2,7 +2,7 @@ use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 
 use super::{
     base::{FSRPosition, FSRToken},
-    expr::FSRExpr, ASTContext,
+    expr::{FSRExpr, SingleOp}, ASTContext,
 };
 
 #[derive(PartialEq)]
@@ -18,7 +18,7 @@ pub struct FSRGetter {
     name: String,
     getter: Box<FSRToken>,
     len: usize,
-    pub(crate)single_op: Option<&'static str>,
+    pub(crate)single_op: Option<SingleOp>,
     meta: FSRPosition,
     pub(crate) is_defined: bool,
 }

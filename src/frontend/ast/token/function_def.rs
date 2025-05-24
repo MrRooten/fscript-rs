@@ -311,17 +311,22 @@ impl FSRFnDef {
         let fn_block_len =
             ASTParser::read_valid_bracket(&source[fn_block_start..], sub_meta.clone())?;
         let block_meta = sub_meta.from_offset(0);
+        for arg in fn_call.get_args_mut() {
+            if let FSRToken::Variable(v) = arg {
+                let clone = v.clone();
+                v.is_defined = true;
+                context.add_variable(v.get_name() , Some(FSRToken::Variable(clone)));
+            }
+
+            
+        }
         let fn_block = FSRBlock::parse(
             &source[fn_block_start..fn_block_start + fn_block_len],
             block_meta,
             context,
         )?;
 
-        for args in fn_call.get_args_mut() {
-            if let FSRToken::Variable(v) = args {
-                v.is_defined = true;
-            }
-        }
+        
         let cur = context.pop_scope();
         
         let fn_def = Self {

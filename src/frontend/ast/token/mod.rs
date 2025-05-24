@@ -84,6 +84,15 @@ impl ASTContext {
         None
     }
 
+    pub fn get_token_var_type(&self, name: &str, context: &ASTContext) -> Option<FSRType> {
+        for scope in self.variable_define.iter().rev() {
+            if scope.borrow().contains_key(name) {
+                return scope.borrow().get(name).unwrap().token.as_ref().and_then(|x| x.deduction_type(context));
+            }
+        }
+        None
+    }
+
     pub fn add_variable_prev_one(&self, name: &str, token: Option<FSRToken>) {
         if let Some(s) = self.variable_define.get(self.variable_define.len() - 2) {
             if s.borrow().contains_key(name) {
