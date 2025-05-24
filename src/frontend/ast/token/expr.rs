@@ -761,6 +761,7 @@ impl FSRExpr {
             let t_i = source[ctx.start + ctx.length];
             let t_c = t_i as char;
 
+            // Process comment
             if (t_c == '#'
                 && !(ctx.states.eq_peek(&ExprState::SingleString)
                     || ctx.states.eq_peek(&ExprState::DoubleString)))
@@ -916,6 +917,8 @@ impl FSRExpr {
                     context,
                     false,
                 )?;
+
+                // if reference to defined variable, will set is_defined to true
                 if context.is_variable_defined_in_curr(call.get_name()) {
                     call.is_defined = true;
                 } else {
@@ -997,10 +1000,6 @@ impl FSRExpr {
             if (ctx.states.eq_peek(&ExprState::Variable) && !ASTParser::is_name_letter(t_i))
                 || ctx.last_loop
             {
-                // if ASTParser::is_blank_char(t_i) {
-                //     ctx.length += 1;
-                //     continue;
-                // }
                 if !ctx.candidates.is_empty() {
                     let c = ctx.candidates.first().unwrap();
                     // case like a[1][1] + 2

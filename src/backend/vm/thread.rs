@@ -263,15 +263,6 @@ impl FSCodeContext {
         }
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn clear_exp(&mut self) {
-        // if self.exp.is_empty() {
-        //     return;
-        // }
-
-        // self.exp.clear();
-    }
-
     pub fn clear(&mut self) {
         //self.exp.clear();
         self.ip = (0, 0);
@@ -486,24 +477,11 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn push_context(&mut self, context: Box<FSCodeContext>) {
-        // if self.thread_context.is_none() {
-        //     self.thread_context = Some(context);
-        // } else if let Some(s) = self.thread_context.take() {
-        //     self.thread_context = Some(context);
-        //     self.thread_context_stack.push(s);
-        // }
-
         let out = std::mem::replace(&mut self.thread_context, context);
         self.thread_context_stack.push(out);
     }
 
     pub fn pop_context(&mut self) -> Box<FSCodeContext> {
-        // if let Some(s) = self.thread_context.take() {
-        //     // self.thread_context_stack.push(s);
-        //     self.thread_context = self.thread_context_stack.pop();
-        //     return s;
-        // }
-        // panic!("pop empty context");
         if let Some(s) = self.thread_context_stack.pop() {
             let out = std::mem::replace(&mut self.thread_context, s);
             return out;
@@ -711,21 +689,12 @@ impl<'a> FSRThreadRuntime<'a> {
         let index_obj_v = FSRObject::id_to_obj(index);
         let list_obj_v = FSRObject::id_to_obj(container);
 
-        // let res = if let Some(get_item) = self
-        //     .op_quick
-        //     .get_getter(list_obj_v.cls as ObjId, index_obj_v.cls as ObjId)
-        // {
-        //     get_item(&[container, index], self, self.get_context().code)?
-        // } else {
         let res = FSRObject::invoke_offset_method(
             BinaryOffset::GetItem,
             &[container, index],
             self,
             self.get_context().code,
         )?;
-        //};
-
-        // pop after finish invoke
 
         self.get_cur_mut_frame().middle_value.push(container);
         self.get_cur_mut_frame().middle_value.push(index);
@@ -757,17 +726,6 @@ impl<'a> FSRThreadRuntime<'a> {
             containter_obj_v.set_write_barrier(true);
         }
 
-        // if let Some(set_item) = self
-        //     .op_quick
-        //     .get_set_item(containter_obj_v.cls, index_obj_v.cls)
-        // {
-        //     let res = set_item(
-        //         &[container_obj, index_obj, value_obj],
-        //         self,
-        //         self.get_context().code,
-        //     )?;
-        //     return Ok(false);
-        // }
         let set_item = FSRObject::id_to_obj(container_obj)
             .get_cls_offset_attr(BinaryOffset::SetItem)
             .unwrap()
