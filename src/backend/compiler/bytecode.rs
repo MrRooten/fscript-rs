@@ -32,7 +32,6 @@ use crate::{
         try_expr::FSRTryBlock,
         variable::FSRVariable,
         while_statement::FSRWhile,
-        ASTVariableState,
     },
 };
 
@@ -463,7 +462,7 @@ pub struct BytecodeContext {
     pub(crate) const_map: HashMap<FSROrinStr2, u64>,
     pub(crate) table: Vec<ObjId>,
     pub(crate) fn_def_map: HashMap<String, Vec<Vec<BytecodeArg>>>,
-    pub(crate) ref_map_stack: Vec<HashMap<String, ASTVariableState>>,
+    pub(crate) ref_map_stack: Vec<HashMap<String, bool>>,
     pub(crate) cur_fn_name: Vec<String>,
     pub(crate) key_map: HashMap<&'static str, ObjId>,
 }
@@ -505,9 +504,7 @@ impl BytecodeContext {
     pub fn contains_variable_in_ref_stack(&self, name: &str) -> bool {
         for i in &self.ref_map_stack {
             if let Some(v) = i.get(name) {
-                if v.is_defined {
-                    return true;
-                }
+                return *v
             }
         }
 
@@ -520,9 +517,7 @@ impl BytecodeContext {
         }
         for i in &self.ref_map_stack[..self.ref_map_stack.len() - 1] {
             if let Some(v) = i.get(name) {
-                if v.is_defined {
-                    return true;
-                }
+                return *v
             }
         }
 
@@ -532,7 +527,7 @@ impl BytecodeContext {
     pub fn contains_in_cur_ref(&self, name: &str) -> bool {
         if let Some(ref_map) = self.ref_map_stack.last() {
             if let Some(v) = ref_map.get(name) {
-                return v.is_defined;
+                return *v
             }
         }
         false
@@ -977,7 +972,7 @@ impl<'a> Bytecode {
             if ref_map
                 .get(var.get_name())
                 .cloned()
-                .map(|x| x.is_defined)
+                .map(|x| x)
                 .unwrap_or(false)
             {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
@@ -1714,7 +1709,7 @@ impl<'a> Bytecode {
             var_map.last_mut().unwrap().insert_var(v.get_name());
             let id = var_map.last_mut().unwrap().get_var(v.get_name()).unwrap();
             if let Some(ref_map) = const_map.ref_map_stack.last() {
-                if ref_map.get(v.get_name()).map(|x| x.is_defined).unwrap_or(false)
+                if ref_map.get(v.get_name()).map(|x| *x).unwrap_or(false)
                     && const_map.contains_variable_in_ref_stack(v.get_name())
                 {
                     result_list.push(BytecodeArg {
@@ -1830,7 +1825,7 @@ impl<'a> Bytecode {
 
         let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
         let store_to_cell = if let Some(ref_map) = bytecontext.ref_map_stack.last() {
-            if ref_map.get(name).map(|x| x.is_defined).unwrap_or(false)
+            if ref_map.get(name).map(|x| *x).unwrap_or(false)
                 && bytecontext.contains_variable_in_ref_stack(name)
             {
                 true
@@ -1844,7 +1839,11 @@ impl<'a> Bytecode {
 
         let fn_var_map = VarMap::new(fn_def.get_name());
         var_map.push(fn_var_map);
-        bytecontext.ref_map_stack.push(fn_def.clone_ref_map());
+        let mut hash_map_ref_map = HashMap::new();
+        for arg in fn_def.ref_map.borrow().iter() {
+            hash_map_ref_map.insert(arg.0.to_string(), arg.1.is_defined);
+        }
+        bytecontext.ref_map_stack.push(hash_map_ref_map);
         let args = fn_def.get_args();
         for arg in args {
             if let FSRToken::Variable(v) = arg {
@@ -1973,7 +1972,7 @@ impl<'a> Bytecode {
         let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
 
         let store_to_cell = if let Some(ref_map) = const_map.ref_map_stack.last() {
-            if ref_map.get(name).map(|x| x.is_defined).unwrap_or(false)
+            if ref_map.get(name).cloned().unwrap_or(false)
                 && const_map.contains_variable_in_ref_stack(name)
             {
                 true

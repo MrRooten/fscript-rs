@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
-use base::FSRType;
+use base::{FSRToken, FSRType};
 
 pub mod if_statement;
 pub mod statement;
@@ -30,19 +30,19 @@ pub mod match_pattern;
 #[derive(Debug, Clone)]
 pub struct ASTVariableState {
     pub(crate) is_defined: bool,
-    pub(crate) var_type: Option<FSRType>,
+    pub(crate) token: Option<FSRToken>,
 }
 
 impl ASTVariableState {
-    pub fn new(is_defined: bool) -> Self {
+    pub fn new(is_defined: bool, token: Option<FSRToken>) -> Self {
         Self {
             is_defined,
-            var_type: None,
+            token,
         }
     }
 
-    pub fn set_type(&mut self, var_type: Option<FSRType>) {
-        self.var_type = var_type;
+    pub fn set_token(&mut self, token: Option<FSRToken>) {
+        self.token = token;
     }
 }
 
@@ -57,36 +57,49 @@ impl ASTContext {
         }
     }
 
-    pub fn add_variable(&self, name: &str) {
+    pub fn add_variable(&self, name: &str, token: Option<FSRToken>) {
         if let Some(s) = self.variable_define.last() {
-            if s.borrow().contains_key(name) {
+            if let Some(s) = s.borrow_mut().get_mut(name) {
                 // variable already defined, keep closure ref
+                s.token = token;
                 return ;
             }
         }
-        self.variable_define.last().unwrap().borrow_mut().insert(name.to_string(), ASTVariableState::new(false));
+        self.variable_define.last().unwrap().borrow_mut().insert(name.to_string(), ASTVariableState::new(false, token));
     }
 
-    pub fn set_variable_type(&self, name: &str, var_type: Option<FSRType>) {
+
+    pub fn set_variable_token(&self, name: &str, token: Option<FSRToken>) {
         self.variable_define.last().unwrap().borrow_mut().get_mut(name).map(|x| {
-            x.set_type(var_type);
+            x.set_token(token);
         });
     }
 
-    pub fn add_variable_prev_one(&self, name: &str) {
+    pub fn get_token(&self, name: &str) -> Option<FSRToken> {
+        for scope in self.variable_define.iter().rev() {
+            if scope.borrow().contains_key(name) {
+                return scope.borrow().get(name).unwrap().token.clone();
+            }
+        }
+        None
+    }
+
+    pub fn add_variable_prev_one(&self, name: &str, token: Option<FSRToken>) {
         if let Some(s) = self.variable_define.get(self.variable_define.len() - 2) {
             if s.borrow().contains_key(name) {
                 // variable already defined, keep closure ref
                 return ;
             }
         }
-        self.variable_define.get(self.variable_define.len() - 2).unwrap().borrow_mut().insert(name.to_string(), ASTVariableState::new(false));
+        self.variable_define.get(self.variable_define.len() - 2).unwrap().borrow_mut().insert(name.to_string(), ASTVariableState::new(false, token));
     }
 
     pub fn ref_variable(&self, name: &str) {
         for scope in self.variable_define.iter().rev() {
             if scope.borrow().contains_key(name) {
-                scope.borrow_mut().insert(name.to_string(), ASTVariableState::new(true));
+                scope.borrow_mut().get_mut(name).map(|x| {
+                    x.is_defined = true;
+                });
                 return;
             }
         }
@@ -116,7 +129,10 @@ impl ASTContext {
     pub fn set_variable_be_ref(&mut self, name: &str) -> Option<()> {
         for scope in self.variable_define.iter_mut().rev() {
             if scope.borrow().contains_key(name) {
-                scope.borrow_mut().insert(name.to_string(), ASTVariableState::new(true));
+                // scope.borrow_mut().insert(name.to_string(), ASTVariableState::new(true));
+                scope.borrow_mut().get_mut(name).map(|x| {
+                    x.is_defined = true;
+                });
                 return Some(());
             }
         }

@@ -1,9 +1,11 @@
 use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
 use crate::{frontend::ast::token::block::FSRBlock, utils::error::SyntaxError};
 
 use super::try_expr::FSRTryBlock;
+use super::ASTContext;
 use super::{
     assign::FSRAssign, call::FSRCall, class::FSRClassFrontEnd, constant::FSRConstant,
     expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf,
@@ -13,7 +15,7 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub enum FSRToken {
-    FunctionDef(FSRFnDef),
+    FunctionDef(Rc<FSRFnDef>),
     IfExp(FSRIf),
     Constant(FSRConstant),
     Assign(FSRAssign),
@@ -65,9 +67,24 @@ impl FSRToken {
         }
     }
 
-    pub fn deduction_type(&self) -> Option<FSRType> {
+    pub fn deduction_type(&self, context: &ASTContext) -> Option<FSRType> {
         match self {
-            FSRToken::Variable(e) => e.var_type.clone(),
+            FSRToken::Variable(e) => {
+                let name = e.get_name();
+                if let FSRToken::Variable(v) = context.get_token(name)? {
+                    return v.var_type.clone()
+                }
+
+                return None
+            },
+            FSRToken::Call(c) => {
+                let state = context.get_token(c.get_name())?;
+                if let FSRToken::FunctionDef(c) = &state {
+                    return c.ret_type.clone()
+                }
+
+                return None
+            }
             _ => None,
         }
     }

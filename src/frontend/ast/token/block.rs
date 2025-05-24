@@ -15,6 +15,7 @@ use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::utils::automaton::{FSTrie, NodeType};
 use crate::frontend::ast::{parse::ASTParser, token::expr::FSRExpr};
 use crate::utils::error::SyntaxError;
+use std::rc::Rc;
 use std::str;
 
 #[derive(PartialEq)]

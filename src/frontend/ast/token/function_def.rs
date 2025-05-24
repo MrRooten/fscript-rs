@@ -23,7 +23,7 @@ pub struct FSRFnDef {
     body: Rc<FSRBlock>,
     len: usize,
     meta: FSRPosition,
-    ret_type: Option<FSRType>,
+    pub(crate) ret_type: Option<FSRType>,
     pub(crate) ref_map: Rc<RefCell<HashMap<String, ASTVariableState>>>,
 }
 
@@ -180,8 +180,6 @@ impl FSRFnDef {
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<Option<FSRType>, SyntaxError> {
-        // 实现 -> 解析返回值类型, 去除左右空字符
-
         let process_str = std::str::from_utf8(source).unwrap();
         let process_str = process_str.trim();
 
@@ -215,7 +213,7 @@ impl FSRFnDef {
         source: &[u8],
         meta: FSRPosition,
         context: &mut ASTContext,
-    ) -> Result<Self, SyntaxError> {
+    ) -> Result<Rc<Self>, SyntaxError> {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
             let mut sub_meta = meta.from_offset(0);
@@ -305,7 +303,7 @@ impl FSRFnDef {
         let ret_type_str = &source[start_fn_name + call_len + 1..start_fn_name + call_len + 1 + gap_call_len];
         let ret_type = Self::parse_ret_type(ret_type_str, meta.from_offset(start_fn_name + call_len), context)?;
 
-        context.add_variable_prev_one(&name);
+        context.add_variable_prev_one(&name, None);
 
         let fn_block_start = start_fn_name + len;
         let mut sub_meta = meta.from_offset(fn_block_start);
@@ -325,9 +323,9 @@ impl FSRFnDef {
             }
         }
         let cur = context.pop_scope();
-
-        Ok(Self {
-            name: name,
+        
+        let fn_def = Self {
+            name: name.to_string(),
             args: fn_call.get_args().clone(),
             body: Rc::new(fn_block),
             len: fn_block_start + fn_block_len,
@@ -335,7 +333,12 @@ impl FSRFnDef {
             lambda: false,
             ref_map: cur,
             ret_type,
-        })
+        };
+        
+
+        let fn_def = Rc::new(fn_def);
+        context.set_variable_token(&name, Some(FSRToken::FunctionDef(fn_def.clone())));
+        Ok(fn_def)
     }
 }
 

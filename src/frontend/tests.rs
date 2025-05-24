@@ -543,6 +543,8 @@ abc()
         fn abc(a: Abc, b: Abc) -> Abc {
             return a
         }
+
+        a = abc(1, 2)
         "#;
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();

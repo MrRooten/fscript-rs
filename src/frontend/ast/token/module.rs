@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     frontend::ast::{
         parse::ASTParser,

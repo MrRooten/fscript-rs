@@ -799,7 +799,7 @@ impl FSRExpr {
                         LAMBDA_NUMBER += 1;
                     }
                     ctx.start += fn_def.get_len();
-                    ctx.candidates.push(FSRToken::FunctionDef(fn_def));
+                    ctx.candidates.push(FSRToken::FunctionDef(Rc::new(fn_def)));
                     continue;
                 }
             }
@@ -1091,10 +1091,9 @@ impl FSRExpr {
             let op = ctx.operators.remove(0).0;
             if op.eq("=") {
                 if let FSRToken::Variable(mut name) = left {
-                    context.add_variable(name.get_name());
-                    let type_hint = right.deduction_type();
-                    context.set_variable_type(name.get_name(), type_hint.clone());
+                    let type_hint = right.deduction_type(&context);
                     n_left.as_mut_variable().set_type_hint(type_hint);
+                    context.add_variable(name.get_name(), Some(n_left.clone()));
                     return Ok((
                         FSRToken::Assign(FSRAssign {
                             left: Rc::new(n_left),
@@ -1198,10 +1197,11 @@ impl FSRExpr {
 
         if operator.0.eq("=") {
             if let FSRToken::Variable(name) = left {
-                context.add_variable(name.get_name());
-                let type_hint = right.deduction_type();
-                context.set_variable_type(name.get_name(), type_hint.clone());
+                
+                let type_hint = right.deduction_type(&context);
+                // context.set_variable_type(name.get_name(), type_hint.clone());
                 n_left.as_mut_variable().set_type_hint(type_hint);
+                context.add_variable(name.get_name(), Some(n_left.clone()));
                 return Ok((
                     FSRToken::Assign(FSRAssign {
                         left: Rc::new(n_left),
@@ -1237,6 +1237,7 @@ impl FSRExpr {
                     )
                     .unwrap();
                     var.force_type = true;
+                    context.set_variable_token(name, Some(FSRToken::Variable(var.clone())));
                     return Ok((FSRToken::Variable(var), ctx.start + ctx.length));
                 } else {
                     panic!("Type name must be a string")
