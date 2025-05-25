@@ -128,6 +128,74 @@ pub fn filter(
 }
 
 
+pub fn any(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime,
+    module: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    if args.len() != 2 {
+        return Err(FSRError::new(
+            "msg: any function requires 1 argument",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
+    let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
+    let any_fn_id = args[1];
+    let any_fn = FSRObject::id_to_obj(any_fn_id);
+    if let FSRValue::Iterator(it) = &mut self_obj.value {
+        if let Some(it) = it.iterator.as_mut() {
+            let mut result = false;
+            while let Ok(Some(obj)) = it.next(thread) {
+                let res = any_fn.call(&[obj], thread, module, any_fn_id)?;
+                if res.get_id() == FSRObject::true_id() {
+                    result = true;
+                    break;
+                }
+            }
+            if result {
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+            } else {
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+            }
+        }
+    }
+    unimplemented!()
+}
+
+pub fn all(
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime,
+    module: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    if args.len() != 2 {
+        return Err(FSRError::new(
+            "msg: all function requires 1 argument",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
+    let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
+    let all_fn_id = args[1];
+    let all_fn = FSRObject::id_to_obj(all_fn_id);
+    if let FSRValue::Iterator(it) = &mut self_obj.value {
+        if let Some(it) = it.iterator.as_mut() {
+            let mut result = true;
+            while let Ok(Some(obj)) = it.next(thread) {
+                let res = all_fn.call(&[obj], thread, module, all_fn_id)?;
+                if res.get_id() == FSRObject::false_id() {
+                    result = false;
+                    break;
+                }
+            }
+            if result {
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+            } else {
+                return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+            }
+        }
+    }
+    unimplemented!()
+}
+
 impl FSRInnerIterator {
     pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass::new("InnerIterator");
@@ -139,6 +207,8 @@ impl FSRInnerIterator {
         cls.insert_attr("map", map);
         let filter = FSRFn::from_rust_fn_static(filter, "inner_iterator_filter");
         cls.insert_attr("filter", filter);
+        let any = FSRFn::from_rust_fn_static(any, "inner_iterator_any");
+        cls.insert_attr("any", any);
         cls
     }
 

@@ -81,6 +81,7 @@ pub enum FSRGlobalObjId {
     ModuleCls,
     ThreadCls,
     HashMapCls,
+    NoneCls
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]

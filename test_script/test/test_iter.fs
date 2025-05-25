@@ -33,3 +33,7 @@ assert(i == 5)
 for c in "abcd".__iter__() {
     println(c)
 }
+
+
+a = [0, 1, 2, 3].__iter__().any(|x| { return x == 2 })
+assert(a == true)

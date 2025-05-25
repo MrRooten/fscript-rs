@@ -8,21 +8,7 @@ use ahash::AHashMap;
 
 use crate::{
     backend::types::{
-        any::FSRThreadHandle,
-        base::{Area, FSRGlobalObjId, FSRObject, FSRValue, ObjId},
-        bool::FSRBool,
-        class::FSRClass,
-        code::FSRCode,
-        error::FSRException,
-        ext::{hashmap::FSRHashMap, map_iter::FSRMapIter},
-        float::FSRFloat,
-        fn_def::FSRFn,
-        integer::FSRInteger,
-        iterator::FSRInnerIterator,
-        list::FSRList,
-        module::FSRModule,
-        range::FSRRange,
-        string::FSRString,
+        any::FSRThreadHandle, base::{Area, FSRGlobalObjId, FSRObject, FSRValue, ObjId}, bool::FSRBool, class::FSRClass, code::FSRCode, error::FSRException, ext::{hashmap::FSRHashMap, map_iter::FSRMapIter}, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::FSRModule, none::FSRNone, range::FSRRange, string::FSRString
     },
     std::{gc::init_gc, io::init_io, thread::init_thread, utils::init_utils},
 };
@@ -234,12 +220,20 @@ impl<'a> FSRVM<'a> {
                     //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::HashMapCls)),
                     FSRValue::Class(Box::new(FSRHashMap::get_class())),
                 ));
+                OBJECTS.push(Self::new_stataic_object_with_id(
+                    //get_object_by_global_id(get_object_by_global_id(FSRGlobalObjId::MapIterCls)),
+                    FSRValue::Class(Box::new(FSRNone::get_class())),
+                ));
 
                 for object in OBJECTS.iter_mut() {
                     if let FSRValue::Class(_) = object.value {
                         object.cls = get_object_by_global_id(FSRGlobalObjId::ClassCls);
                     }
                 }
+
+                OBJECTS[0].cls = get_object_by_global_id(FSRGlobalObjId::NoneCls);
+                OBJECTS[1].cls = get_object_by_global_id(FSRGlobalObjId::BoolCls);
+                OBJECTS[2].cls = get_object_by_global_id(FSRGlobalObjId::BoolCls);
             }
         }
     }

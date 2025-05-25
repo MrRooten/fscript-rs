@@ -292,7 +292,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             self.tracker.throld /= 5;
         }
 
-        if self.tracker.collect_count % 50 == 0 {
+        if self.tracker.collect_count % 100 == 0 {
             self.shrink();
         }
 
@@ -337,6 +337,6 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
 
     #[inline]
     fn will_collect(&self) -> bool {
-        self.tracker.object_count as usize > self.tracker.throld * 2 || self.gc_reason.is_some()
+        self.tracker.object_count as usize > self.tracker.throld * 3 || self.gc_reason.is_some()
     }
 }
