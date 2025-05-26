@@ -32,7 +32,9 @@ use crate::{
             range::FSRRange,
             string::FSRString,
         },
-    }, frontend::ast::token::expr::SingleOp, utils::error::{FSRErrCode, FSRError}
+    },
+    frontend::ast::token::expr::SingleOp,
+    utils::error::{FSRErrCode, FSRError},
 };
 
 use super::{
@@ -178,7 +180,7 @@ pub struct CallFrame<'a> {
     pub(crate) handling_exception: ObjId,
     // Record current call fn_obj
     pub(crate) fn_obj: ObjId,
-    pub(crate) last_expr_val: ObjId
+    pub(crate) last_expr_val: ObjId,
 }
 
 impl<'a> CallFrame<'a> {
@@ -1113,6 +1115,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let attr_id = if let ArgType::Attr(attr_id, name) = bytecode.get_arg() {
             (attr_id, name)
         } else {
+            //println!("error in get cls attr process: {:#?}", bytecode.get_arg());
             unimplemented!()
         };
 
@@ -1127,7 +1130,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
-        //println!("father: {:#?}", dot_father_obj);
+        // println!("father: {:#?}", dot_father_obj);
         let name = &attr_id.1;
         let id = dot_father_obj.get_attr(name);
 
@@ -1226,18 +1229,12 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         //ip: &mut (usize, usize),
     ) {
-        //Self::call_process_set_args(args_num, self, exp, args);
         let ip = self.get_context().ip;
         let code = self.get_context().code;
 
-        //state.exp = Some(exp.clone());
-        // let store_exp = Some(std::mem::take(
-        //     &mut self.get_cur_mut_frame().exp,
-        //     // Vec::with_capacity(8),
-        // ));
         let state = self.get_cur_mut_frame();
         state.set_reverse_ip(ip);
-        // state.exp = store_exp;
+
         state.code = code;
     }
 
@@ -1247,21 +1244,15 @@ impl<'a> FSRThreadRuntime<'a> {
         cls_id: ObjId,
         args: &mut SmallVec<[ObjId; 4]>,
     ) -> Result<bool, FSRError> {
-        //let mut args = vec![];
         // New a object if fn_obj is fsr_cls
         let cls = FSRObject::id_to_obj(cls_id);
         if let FSRValue::Class(c) = &cls.value {
             if c.get_attr("__new__").is_none() {
-                // let mut self_obj = FSRObject::new();
-                // self_obj.set_cls(cls_id);
-                // self_obj.set_value();
-
                 let self_id = self.garbage_collect.new_object(
                     FSRValue::ClassInst(Box::new(FSRClassInst::new(c.get_name()))),
                     cls_id,
                 );
 
-                //let self_id = FSRVM::register_object(self_obj);
                 self.get_cur_mut_frame().exp.push(self_id);
 
                 return Ok(false);
@@ -1313,17 +1304,11 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_obj: &'a FSRObject<'a>,
         args: &mut SmallVec<[usize; 4]>,
     ) -> Result<bool, FSRError> {
-        // let obj_id = context.exp.pop().unwrap().get_global_id();
-
-        //args.insert(0, obj_id);
+        // push object the call this method, case like a.b(c) will like A::b(a, c)
         args.push(obj_id);
         if fn_obj.is_fsr_function() {
             let ip = self.get_context().ip;
 
-            // let store_exp = Some(std::mem::replace(
-            //     &mut self.get_cur_mut_frame().exp,
-            //     Vec::with_capacity(8),
-            // ));
             let state = self.get_cur_mut_frame();
             //Save callstate
             state.set_reverse_ip(ip);
@@ -1887,6 +1872,11 @@ impl<'a> FSRThreadRuntime<'a> {
         let right = self.get_cur_mut_frame().exp.pop().unwrap();
         let left = *self.get_cur_mut_frame().exp.last().unwrap();
 
+        if right == left {
+            self.get_cur_mut_frame().exp.push(FSRObject::true_id());
+            return Ok(false);
+        }
+
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Equal) {
             let res = rust_fn(&[left, right], self, self.get_context().code)?;
 
@@ -2103,20 +2093,14 @@ impl<'a> FSRThreadRuntime<'a> {
             let module = FSRObject::id_to_mut_obj(module_id).unwrap();
             module.as_mut_module().init_fn_map(fn_map);
 
-            //self.rt_unlock();
             let obj_id = { self.load(module_id)? };
-            //self.rt_lock();
+
             let state = self.get_cur_mut_frame();
-            state.insert_var(*v, obj_id);
-            // FSRObject::id_to_mut_obj(context)
-            //     .expect("not a code object")
-            //     .as_mut_code()
-            //     .register_object(module_name.last().unwrap(), obj_id);
-            // Self::get_mut_module(context).register_object(module_name.last().unwrap(), obj_id);
+            state.insert_var(*v, module_id);
             let module = FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
                 .unwrap()
                 .as_mut_module();
-            module.register_object(module_name.last().unwrap(), obj_id);
+            module.register_object(module_name.last().unwrap(), module_id);
             return Ok(false);
         }
         unimplemented!()
@@ -2608,7 +2592,7 @@ impl<'a> FSRThreadRuntime<'a> {
             {
                 self.bytecode_counter[*arg.get_operator() as usize] += 1;
             }
-            
+
             v = self.process(arg)?;
 
             if v {
@@ -2626,7 +2610,12 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         self.get_cur_mut_context().ip.0 += 1;
         self.get_cur_mut_context().ip.1 = 0;
-        self.get_cur_mut_frame().last_expr_val = self.get_cur_mut_frame().exp.last().cloned().unwrap_or(FSRObject::none_id());
+        self.get_cur_mut_frame().last_expr_val = self
+            .get_cur_mut_frame()
+            .exp
+            .last()
+            .cloned()
+            .unwrap_or(FSRObject::none_id());
         self.get_cur_mut_frame().exp.clear();
         self.get_cur_mut_frame().middle_value.clear();
 

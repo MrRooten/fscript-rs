@@ -378,7 +378,7 @@ impl BytecodeOperator {
         } else if op.eq("::") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryClassGetter,
-                arg: ArgType::None,
+                arg: attr_id.unwrap(),
                 info,
             });
         } else if op.eq("=") {
@@ -2379,6 +2379,18 @@ a[0] = 1
     fn test_method_call_or_not() {
         let expr = "
         t.index = t.index + t.abc()
+        ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_import() {
+        let expr = "
+        thread::Thread::thread_id
         ";
 
         let meta = FSRPosition::new();

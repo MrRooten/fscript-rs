@@ -9,5 +9,5 @@
 def abc():
     pass
 
-for i in range(18000000):
+for i in range(3000000):
     abc()
