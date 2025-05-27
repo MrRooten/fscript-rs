@@ -3,6 +3,7 @@ class Number {
         self.store = s
         return self
     }
+
 }
 
 class Div {

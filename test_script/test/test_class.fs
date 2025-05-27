@@ -6,16 +6,16 @@ class Ddc {
 }
 
 class Abc {
-    fn __new__(self) {
+    fn __new__(self) -> Abc {
         self.abc = Ddc()
         return self
     }
 
-    fn __str__(self) {
+    fn __str__(self) -> String {
         return 'return string'
     }
 
-    fn test(self) {
+    fn test(self) -> Integer {
         return 323
     }
 
@@ -24,7 +24,7 @@ class Abc {
         return 1
     }
 
-    fn __add__(self, other) {
+    fn __add__(self, other: Abc) -> Integer {
         println("add")
         return 1
     }

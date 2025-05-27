@@ -10,7 +10,7 @@ use super::{base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRValue, ObjId}, cla
 pub struct FSRModule<'a> {
     name: String,
     fn_map: HashMap<String, FSRObject<'a>>,
-    object_map: AHashMap<String, AtomicObjId>,
+    pub(crate) object_map: AHashMap<String, AtomicObjId>,
     const_table: Vec<Option<ObjId>>,
 }
 

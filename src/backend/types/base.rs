@@ -84,19 +84,26 @@ pub enum FSRGlobalObjId {
     NoneCls
 }
 
+pub(crate) static mut NONE_ID: ObjId = 0;
+pub(crate) static mut TRUE_ID: ObjId = 0;
+pub(crate) static mut FALSE_ID: ObjId = 0;
+
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_true() -> ObjId {
-    get_object_by_global_id(FSRGlobalObjId::True)
+    // get_object_by_global_id(FSRGlobalObjId::True)
+    unsafe { TRUE_ID }
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_false() -> ObjId {
-    get_object_by_global_id(FSRGlobalObjId::False)
+    // get_object_by_global_id(FSRGlobalObjId::False)
+    unsafe { FALSE_ID }
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_none() -> ObjId {
-    get_object_by_global_id(FSRGlobalObjId::None)
+    // get_object_by_global_id(FSRGlobalObjId::None)
+    unsafe { NONE_ID }
 }
 
 #[derive(Debug)]
@@ -219,15 +226,6 @@ impl<'a> FSRValue<'a> {
 
                         return None;
                     }
-                    // FSRRetValue::Reference(atomic_usize) => {
-                    //     let id = atomic_usize.load(Ordering::Relaxed);
-                    //     let obj = FSRObject::id_to_obj(id);
-                    //     if let FSRValue::String(s) = &obj.value {
-                    //         return Some(s.clone());
-                    //     }
-
-                    //     return None;
-                    // }
                 }
             }
             FSRValue::Iterator(_) => None,

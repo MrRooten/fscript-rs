@@ -25,7 +25,7 @@ use super::{
 pub struct FSRCode<'a> {
     name: Cow<'a, str>,
     bytecode: Bytecode,
-    object_map: AHashMap<String, AtomicObjId>,
+    //object_map: AHashMap<String, AtomicObjId>,
     //const_table: Vec<Option<ObjId>>,
     pub(crate) module: ObjId,
 }
@@ -61,7 +61,7 @@ impl<'a> FSRCode<'a> {
             let code = Self {
                 name: Cow::Owned(code.0),
                 bytecode: code.1,
-                object_map: AHashMap::new(),
+                //object_map: AHashMap::new(),
                 //const_table: vec![],
                 module,
             };
@@ -91,12 +91,4 @@ impl<'a> FSRCode<'a> {
         format!("<Module `{}`>", self.name)
     }
 
-    // pub fn register_object(&mut self, name: &'a str, obj_id: ObjId) {
-    //     self.object_map
-    //         .insert(name.to_string(), AtomicUsize::new(obj_id));
-    // }
-
-    // pub fn get_object(&self, name: &str) -> Option<&AtomicObjId> {
-    //     self.object_map.get(name)
-    // }
 }

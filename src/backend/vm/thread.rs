@@ -525,6 +525,12 @@ impl<'a> FSRThreadRuntime<'a> {
         for value in &it.middle_value {
             work_list.push(*value);
         }
+
+        let module_id = FSRObject::id_to_obj(it.code).as_code().module;
+        let module = FSRObject::id_to_obj(module_id).as_module();
+        for obj in module.object_map.iter().map(|x| x.1.load(Ordering::Relaxed)) {
+            work_list.push(obj);
+        }
     }
 
     /// Add all objects in current call frame to worklist, wait to gc to reference
@@ -841,8 +847,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            self.get_cur_mut_frame().middle_value.push(left);
-            self.get_cur_mut_frame().middle_value.push(right);
+            // self.get_cur_mut_frame().middle_value.push(left);
+            // self.get_cur_mut_frame().middle_value.push(right);
 
             return Ok(false);
         }
@@ -900,8 +906,8 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
         )?;
 
-        self.get_cur_mut_frame().middle_value.push(right);
-        self.get_cur_mut_frame().middle_value.push(left);
+        // self.get_cur_mut_frame().middle_value.push(right);
+        // self.get_cur_mut_frame().middle_value.push(left);
         match res {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(res_id);
@@ -945,8 +951,8 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
         )?;
 
-        self.get_cur_mut_frame().middle_value.push(right_id);
-        self.get_cur_mut_frame().middle_value.push(left_id);
+        // self.get_cur_mut_frame().middle_value.push(right_id);
+        // self.get_cur_mut_frame().middle_value.push(left_id);
         match res {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(res_id);
@@ -992,8 +998,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        self.get_cur_mut_frame().middle_value.push(right_id);
-        self.get_cur_mut_frame().middle_value.push(left_id);
+        // self.get_cur_mut_frame().middle_value.push(right_id);
+        // self.get_cur_mut_frame().middle_value.push(left_id);
         Ok(false)
     }
 
@@ -1031,8 +1037,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            self.get_cur_mut_frame().middle_value.push(right_id);
-            self.get_cur_mut_frame().middle_value.push(left_id);
+            // self.get_cur_mut_frame().middle_value.push(right_id);
+            // self.get_cur_mut_frame().middle_value.push(left_id);
 
             return Ok(false);
         }
@@ -1049,8 +1055,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        self.get_cur_mut_frame().middle_value.push(right_id);
-        self.get_cur_mut_frame().middle_value.push(left_id);
+        // self.get_cur_mut_frame().middle_value.push(right_id);
+        // self.get_cur_mut_frame().middle_value.push(left_id);
         Ok(false)
     }
 
@@ -1134,23 +1140,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let name = &attr_id.1;
         let id = dot_father_obj.get_attr(name);
 
-        if dot_father_obj.is_code() {
-            let id = match id {
-                Some(s) => s,
-                None => {
-                    return Err(FSRError::new(
-                        format!("not have this attr: `{}`", name),
-                        FSRErrCode::NoSuchObject,
-                    ))
-                }
-            };
-
-            self.get_cur_mut_frame()
-                .exp
-                .push(id.load(Ordering::Relaxed));
-            //self.thread_allocator.free_box_attr(attr_id);
-            return Ok(false);
-        }
         if let Some(id) = id {
             self.get_cur_mut_frame()
                 .exp
@@ -2452,10 +2441,6 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn set_exp_stack_ret(&mut self) {
         let state = self.get_cur_frame();
-        // if state.exp.is_some() {
-        //     let v = self.get_cur_mut_frame().exp.take().unwrap();
-        //     self.get_cur_mut_context().exp = v;
-        // }
 
         if self.get_cur_mut_frame().ret_val.is_some() {
             let v = self.get_cur_mut_frame().ret_val.take().unwrap();
@@ -2574,9 +2559,36 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
+    fn end_expr(&mut self) {
+        self.get_cur_mut_context().ip.0 += 1;
+        self.get_cur_mut_context().ip.1 = 0;
+        self.get_cur_mut_frame().last_expr_val = self
+            .get_cur_mut_frame()
+            .exp
+            .last()
+            .cloned()
+            .unwrap_or(FSRObject::none_id());
+        self.get_cur_mut_frame().exp.clear();
+        self.get_cur_mut_frame().middle_value.clear();
+
+        if self.garbage_collect.will_collect() {
+            let st = std::time::Instant::now();
+            if self.gc_context.gc_state == GcState::Stop {
+                self.clear_marks();
+            }
+            self.set_ref_objects_mark(false);
+            if self.gc_context.worklist.is_empty() {
+                self.collect_gc(false);
+                self.gc_context.gc_state = GcState::Stop;
+            }
+
+            self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
+        }
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
         let mut v;
-
         self.set_exp_stack_ret();
         while let Some(arg) = expr.get(self.get_context().ip.1) {
             self.get_cur_mut_context().ip.1 += 1;
@@ -2608,30 +2620,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(true);
             }
         }
-        self.get_cur_mut_context().ip.0 += 1;
-        self.get_cur_mut_context().ip.1 = 0;
-        self.get_cur_mut_frame().last_expr_val = self
-            .get_cur_mut_frame()
-            .exp
-            .last()
-            .cloned()
-            .unwrap_or(FSRObject::none_id());
-        self.get_cur_mut_frame().exp.clear();
-        self.get_cur_mut_frame().middle_value.clear();
-
-        if self.garbage_collect.will_collect() {
-            let st = std::time::Instant::now();
-            if self.gc_context.gc_state == GcState::Stop {
-                self.clear_marks();
-            }
-            self.set_ref_objects_mark(false);
-            if self.gc_context.worklist.is_empty() {
-                self.collect_gc(false);
-                self.gc_context.gc_state = GcState::Stop;
-            }
-
-            self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
-        }
+        self.end_expr();
         Ok(false)
     }
 
