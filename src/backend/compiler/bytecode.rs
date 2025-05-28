@@ -391,7 +391,7 @@ impl BytecodeOperator {
             || op.eq("<")
             || op.eq(">=")
             || op.eq("<=")
-            // || op.eq("==")
+            || op.eq("==")
             || op.eq("!=")
         {
             return Some(BytecodeArg {
@@ -435,13 +435,7 @@ impl BytecodeOperator {
                 arg: ArgType::None,
                 info,
             });
-        } else if op.eq("==") {
-            return Some(BytecodeArg {
-                operator: BytecodeOperator::CompareEqual,
-                arg: ArgType::None,
-                info,
-            });
-        }
+        } 
         // } else if op.eq("&&") || op.eq("and") {
         //     return Some(BytecodeArg {
         //         operator: BytecodeOperator::LoadAnd,

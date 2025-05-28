@@ -181,6 +181,8 @@ pub struct CallFrame<'a> {
     // Record current call fn_obj
     pub(crate) fn_obj: ObjId,
     pub(crate) last_expr_val: ObjId,
+    #[cfg(feature = "predict_op")]
+    pub(crate) next_arg: Option<&'a BytecodeArg>
 }
 
 impl<'a> CallFrame<'a> {
@@ -236,6 +238,8 @@ impl<'a> CallFrame<'a> {
             attr_map: AttrMap::new(),
             middle_value: vec![],
             last_expr_val: FSRObject::none_id(),
+            #[cfg(feature = "predict_op")]
+            next_arg: None,
         }
     }
 }
@@ -1543,12 +1547,13 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn if_test_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let test_val = self.get_cur_mut_frame().exp.pop().unwrap();
-        let mut name = "";
+        //let mut name = "";
 
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
@@ -1559,7 +1564,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        self.get_cur_mut_frame().middle_value.push(test_val);
+        //self.get_cur_mut_frame().middle_value.push(test_val);
         self.flow_tracker.push_last_if_test(true);
         Ok(false)
     }
@@ -1843,6 +1848,17 @@ impl<'a> FSRThreadRuntime<'a> {
             } else {
                 self.get_cur_mut_frame().exp.push(FSRObject::false_id())
             }
+
+            #[cfg(feature = "predict_op")]
+            if let Some(s) = self.get_cur_frame().next_arg {
+                if s.get_operator() == &BytecodeOperator::CompareTest {
+                    self.get_cur_mut_context().ip.1 += 1;
+                    return Self::if_test_process(self, s);
+                } else if s.get_operator() == &BytecodeOperator::OrJump {
+                    self.get_cur_mut_context().ip.1 += 1;
+                    return Self::process_logic_or(self, s);
+                }
+            } 
         } else {
             return Err(FSRError::new(
                 "not a compare test",
@@ -2435,6 +2451,15 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
+        // #[cfg(feature = "predict_op")]
+        // if let Some(s) = self.get_cur_frame().next_arg {
+        //     if s.get_operator() == &BytecodeOperator::CompareTest {
+        //         self.get_cur_mut_context().ip.1 += 1;
+        //         let v = Self::compare_test(self, s);
+        //         return v
+        //     }
+        // }
+
         Ok(false)
     }
 
@@ -2604,7 +2629,10 @@ impl<'a> FSRThreadRuntime<'a> {
             {
                 self.bytecode_counter[*arg.get_operator() as usize] += 1;
             }
-
+            #[cfg(feature = "predict_op")]
+            {
+                self.get_cur_mut_frame().next_arg = expr.get(self.get_context().ip.1);
+            }
             v = self.process(arg)?;
 
             if v {
