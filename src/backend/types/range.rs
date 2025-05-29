@@ -143,4 +143,8 @@ impl FSRRange {
     pub fn new_inst() -> FSRClassInst<'static> {
         unimplemented!()
     }
+
+    pub fn get_references(&self) -> Vec<ObjId> {
+        vec![]
+    }
 }

@@ -11,7 +11,7 @@ pub struct FSRModule<'a> {
     name: String,
     fn_map: HashMap<String, FSRObject<'a>>,
     pub(crate) object_map: AHashMap<String, AtomicObjId>,
-    const_table: Vec<Option<ObjId>>,
+    pub(crate) const_table: Vec<Option<ObjId>>,
 }
 
 impl Debug for FSRModule<'_> {

@@ -535,6 +535,12 @@ impl<'a> FSRThreadRuntime<'a> {
         for obj in module.object_map.iter().map(|x| x.1.load(Ordering::Relaxed)) {
             work_list.push(obj);
         }
+
+        for obj in module.const_table.iter() {
+            if let Some(obj_id) = obj {
+                work_list.push(*obj_id);
+            }
+        }
     }
 
     /// Add all objects in current call frame to worklist, wait to gc to reference
@@ -1189,12 +1195,11 @@ impl<'a> FSRThreadRuntime<'a> {
                     range: Range { start, end },
                 };
 
-                let obj = self.thread_allocator.new_object(
+                let id = self.garbage_collect.new_object(
                     FSRValue::Range(Box::new(range)),
                     get_object_by_global_id(FSRGlobalObjId::RangeCls) as ObjId,
                 );
 
-                let id = FSRVM::leak_object(obj);
 
                 self.get_cur_mut_frame().exp.push(id);
                 self.get_cur_mut_frame().middle_value.push(rhs_id);
@@ -2679,12 +2684,10 @@ impl<'a> FSRThreadRuntime<'a> {
             self.run_expr_wrapper(expr)?;
             code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
-        //self.rt_unlock();
+
         self.pop_frame();
         self.pop_context();
-        // if let Some(s) = self.pop_context() {
-        //     self.thread_allocator.free_code_context(s);
-        // }
+
 
         Ok(code_id)
     }

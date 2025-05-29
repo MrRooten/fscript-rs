@@ -844,6 +844,7 @@ impl<'a> FSRObject<'a> {
             FSRValue::Function(f) => Box::new(f.get_references().into_iter()),
             FSRValue::Iterator(iterator) => Box::new(iterator.get_references().into_iter()),
             FSRValue::Any(any) => Box::new(any.iter_values(full, worklist, is_add)),
+            FSRValue::Range(r) => Box::new(r.get_references().into_iter()),
             _ => Box::new(std::iter::empty()),
         }
         //Box::new(self.value.get_references().into_iter())
