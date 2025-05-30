@@ -19,7 +19,8 @@ pub enum NodeType {
     Break,
     Continue,
     Import,
-    Try
+    Try,
+    Telling
 }
 
 #[allow(unused)]
@@ -66,6 +67,7 @@ impl FSTrie {
         self.insert("continue", NodeType::Continue);
         self.insert("import", NodeType::Import);
         self.insert("try", NodeType::Try);
+        self.insert("@", NodeType::FnState)
     }
 
     pub fn new() -> FSTrie {
@@ -85,6 +87,11 @@ impl FSTrie {
 
     pub fn match_token(&mut self, token: &[u8]) -> Option<&NodeType> {
         let mut cur = &mut self.root;
+
+        if token[0] == b'@' {
+            return Some(&NodeType::FnState)
+        }
+
         for c in token {
             let c = *c;
             let t_c = c as char;

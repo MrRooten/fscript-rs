@@ -12,10 +12,12 @@ use crate::{
 };
 
 pub fn fsr_get_cur_thread_id(
-    _args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    _module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let id = thread.get_thread_id();
     let obj = thread.garbage_collect.new_object(
         FSRValue::Integer(id as i64),
@@ -25,10 +27,12 @@ pub fn fsr_get_cur_thread_id(
 }
 
 pub fn fsr_new_thread(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let fn_id = args[0];
     let args = args[1..].to_vec();
     
@@ -39,10 +43,10 @@ pub fn fsr_new_thread(
         let thread_id = vm.add_thread(runtime);
         let th = vm.get_thread(thread_id).unwrap();
         let fn_obj = FSRObject::id_to_obj(fn_id);
-        let _ = fn_obj.call(&args, th, module, fn_id);
+        let _ = fn_obj.call(&args, th, code, fn_id);
         // vm2.get_thread(thread_id, |x| {
         //     let fn_obj = FSRObject::id_to_obj(fn_id);
-        //     fn_obj.call(&args, x, module, fn_id);
+        //     fn_obj.call(&args, x, code, fn_id);
         // });
     });
     let handle = FSRThreadHandle::new(th);

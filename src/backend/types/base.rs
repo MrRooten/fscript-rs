@@ -147,6 +147,7 @@ impl FSRValue<'_> {
     }
 }
 
+
 #[derive(Debug)]
 pub enum FSRRetValue {
     // Value(Box<FSRObject<'a>>),
@@ -168,7 +169,7 @@ impl<'a> FSRValue<'a> {
         inst: &FSRClassInst,
         self_id: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
-        module: ObjId,
+        code: ObjId,
     ) -> Option<Arc<FSRInnerString>> {
         let _ = inst;
         let cls = FSRObject::id_to_obj(self_id).cls;
@@ -179,7 +180,7 @@ impl<'a> FSRValue<'a> {
         if let Some(obj_id) = v {
             let obj_id = obj_id.load(Ordering::Relaxed);
             let obj = FSRObject::id_to_obj(obj_id);
-            let ret = obj.call(&[self_id], thread, module, obj_id);
+            let ret = obj.call(&[self_id], thread, code, obj_id);
             let ret_value = match ret {
                 Ok(o) => o,
                 Err(_) => {
@@ -204,19 +205,19 @@ impl<'a> FSRValue<'a> {
         &self,
         self_id: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
-        module: ObjId,
+        code: ObjId,
     ) -> Option<Arc<FSRInnerString>> {
         let s = match self {
             FSRValue::Integer(e) => Some(Arc::new(FSRInnerString::new(e.to_string()))),
             FSRValue::Float(e) => Some(Arc::new(FSRInnerString::new(e.to_string()))),
             FSRValue::String(e) => Some(e.clone()),
             FSRValue::Class(_) => None,
-            FSRValue::ClassInst(inst) => Self::inst_to_string(inst, self_id, thread, module),
+            FSRValue::ClassInst(inst) => Self::inst_to_string(inst, self_id, thread, code),
             FSRValue::Function(_) => None,
             FSRValue::None => Some(Arc::new(FSRInnerString::new("None"))),
             FSRValue::Bool(e) => Some(Arc::new(FSRInnerString::new(e.to_string()))),
             FSRValue::List(_) => {
-                let res = FSRObject::invoke_method("__str__", &[self_id], thread, module).unwrap();
+                let res = FSRObject::invoke_method("__str__", &[self_id], thread, code).unwrap();
                 match &res {
                     FSRRetValue::GlobalId(id) => {
                         let obj = FSRObject::id_to_obj(*id);
@@ -571,7 +572,7 @@ impl<'a> FSRObject<'a> {
         name: &str,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        module: ObjId,
+        code: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
 
@@ -585,7 +586,7 @@ impl<'a> FSRObject<'a> {
             }
         };
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, thread, module, self_method)?;
+        let v = method_object.call(args, thread, code, self_method)?;
         Ok(v)
     }
 

@@ -11,12 +11,12 @@ use crate::{
 };
 
 use super::{
-    base::{FSRPosition, FSRToken, FSRType},
-    ASTContext, ASTVariableState,
+    base::{FSRPosition, FSRToken, FSRType}, tell::FSRTell, ASTContext, ASTVariableState
 };
 
 #[derive(Debug, Clone)]
 pub struct FSRFnDef {
+    teller: Option<FSRTell>,
     lambda: bool,
     name: String,
     args: Vec<FSRToken>,
@@ -172,6 +172,7 @@ impl FSRFnDef {
             lambda: true,
             ref_map: scope,
             ret_type: None,
+            teller: None,
         })
     }
 
@@ -214,7 +215,23 @@ impl FSRFnDef {
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<Rc<Self>, SyntaxError> {
+        let mut start = 0;
+        let teller = if source[0] == b'@' {
+            let teller = FSRTell::parse(source, meta.from_offset(0))?;
+            start += teller.len;
+
+
+            while start < source.len() && ASTParser::is_blank_char_with_new_line(source[start]) {
+                start += 1;
+            }
+            Some(teller)
+        } else {
+            None
+        };
+
+        let source = &source[start..];
         let s = std::str::from_utf8(&source[0..2]).unwrap();
+        
         if source.len() < 3 {
             let mut sub_meta = meta.from_offset(0);
             let err = SyntaxError::new(&sub_meta, "fn define body length too small");
@@ -333,11 +350,12 @@ impl FSRFnDef {
             name: name.to_string(),
             args: fn_call.get_args().clone(),
             body: Rc::new(fn_block),
-            len: fn_block_start + fn_block_len,
+            len: start + fn_block_start + fn_block_len,
             meta,
             lambda: false,
             ref_map: cur,
             ret_type,
+            teller,
         };
         
 

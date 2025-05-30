@@ -12,16 +12,18 @@ use crate::{
 
 
 pub fn fsr_fn_print(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let value = FSRObject::id_to_obj(args[0]);
     let rest = args[1..].to_vec();
-    let obj = value.to_string(thread, module);
+    let obj = value.to_string(thread, code);
     let res_obj = rest.iter().map(|x| {
         let obj = FSRObject::id_to_obj(*x);
-        obj.to_string(thread, module)
+        obj.to_string(thread, code)
     }).collect::<Vec<_>>();
     let mut ret = FSRInnerString::new("");
 
@@ -38,16 +40,18 @@ pub fn fsr_fn_print(
 }
 
 pub fn fsr_fn_println(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let value = FSRObject::id_to_obj(args[0]);
     let rest = args[1..].to_vec();
-    let obj = value.to_string(thread, module);
+    let obj = value.to_string(thread, code);
     let res_obj = rest.iter().map(|x| {
         let obj = FSRObject::id_to_obj(*x);
-        obj.to_string(thread, module)
+        obj.to_string(thread, code)
     }).collect::<Vec<_>>();
     let mut ret = FSRInnerString::new("");
 
@@ -64,10 +68,12 @@ pub fn fsr_fn_println(
 }
 
 pub fn fsr_fn_dump(
-    args: &[ObjId],
-    _thread: &mut FSRThreadRuntime,
-    _module: ObjId
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
@@ -76,7 +82,7 @@ pub fn fsr_fn_dump(
 pub fn fsr_fn_format(
     args: &[ObjId],
     _thread: &mut FSRThreadRuntime,
-    _module: ObjId
+    _code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     
     let value = FSRObject::id_to_obj(args[0]);
@@ -85,13 +91,15 @@ pub fn fsr_fn_format(
 }
 
 pub fn fsr_fn_str(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     
     let value = FSRObject::id_to_obj(args[0]);
-    let s = value.to_string(thread, module);
+    let s = value.to_string(thread, code);
     let obj_id = thread.garbage_collect.new_object(
         s,
         get_object_by_global_id(FSRGlobalObjId::StringCls),
@@ -100,10 +108,12 @@ pub fn fsr_fn_str(
 }
 
 pub fn fsr_fn_throw_error(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    _module: ObjId
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.is_empty() || args[0] == 0 {
         thread.exception = FSRObject::none_id();
     } else {
@@ -114,10 +124,12 @@ pub fn fsr_fn_throw_error(
 }
 
 pub fn fsr_fn_get_error(
-    _args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    _module: ObjId
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let ret = thread.get_cur_mut_frame().handling_exception;
     Ok(FSRRetValue::GlobalId(ret))
 }

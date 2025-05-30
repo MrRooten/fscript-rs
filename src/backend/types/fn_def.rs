@@ -18,9 +18,10 @@ use super::{
 };
 
 pub type FSRRustFn = for<'a> fn(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime<'a>,
-    module: ObjId,
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError>;
 
 #[derive(Debug, Clone)]
@@ -196,7 +197,9 @@ impl<'a> FSRFn<'a> {
         fn_id: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
-            let v = f.1(args, thread, code);
+            let len = args.len();
+            let args = args.as_ptr();
+            let v = f.1(args, len, thread, code);
             return v;
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             let frame = thread
@@ -219,7 +222,10 @@ impl<'a> FSRFn<'a> {
         fn_id: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
-            let v = f.1(&[left, right], thread, code);
+            let args = [left, right];
+            let len = args.len();
+            let args = args.as_ptr();
+            let v = f.1(args, len, thread, code);
             return v;
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             let frame = thread

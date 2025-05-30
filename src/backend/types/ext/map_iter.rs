@@ -6,7 +6,7 @@ use crate::{backend::{compiler::bytecode::BinaryOffset, types::{any::{AnyDebugSe
 pub struct FSRMapIter {
     pub(crate) callback: ObjId,
     pub(crate) prev_iterator: ObjId,
-    pub(crate) module: ObjId,
+    pub(crate) code: ObjId,
 }
 
 impl FSRIteratorReferences for FSRMapIter {
@@ -20,13 +20,13 @@ impl FSRIterator for FSRMapIter {
         let prev_iterator = FSRObject::id_to_obj(self.prev_iterator);
         let next_method_id = prev_iterator.get_cls_offset_attr(BinaryOffset::NextObject).unwrap().load(std::sync::atomic::Ordering::Relaxed);
         let next_method = FSRObject::id_to_obj(next_method_id);
-        let ret = next_method.call(&[self.prev_iterator], thread, self.module, next_method_id).unwrap().get_id();
+        let ret = next_method.call(&[self.prev_iterator], thread, self.code, next_method_id).unwrap().get_id();
         if ret == FSRObject::none_id() {
             return Ok(None);
         }
 
         let callback = FSRObject::id_to_obj(self.callback);
-        let map_ret = callback.call(&[ret], thread, self.module, self.callback).unwrap().get_id();
+        let map_ret = callback.call(&[ret], thread, self.code, self.callback).unwrap().get_id();
         if map_ret == FSRObject::none_id() {
             return Ok(None);
         }

@@ -32,10 +32,12 @@ impl Debug for FSRInnerIterator {
 }
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn next_obj(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
     let mut result = None;
     if let FSRValue::Iterator(it) = &mut self_obj.value {
@@ -48,7 +50,7 @@ pub fn next_obj(
             if let Some(obj_id) = v {
                 let obj_id = obj_id.load(Ordering::Relaxed);
                 let obj = FSRObject::id_to_obj(obj_id);
-                let ret = obj.call(&[it.obj], thread, module, obj_id);
+                let ret = obj.call(&[it.obj], thread, code, obj_id);
                 result = Some(ret?);
             }
         } else {
@@ -70,10 +72,12 @@ pub fn next_obj(
 }
 
 pub fn map(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
         return Err(FSRError::new(
             "msg: map function requires 2 arguments",
@@ -85,7 +89,7 @@ pub fn map(
     let map_iterator = FSRMapIter {
         callback: map_fn_id,
         prev_iterator: args[0],
-        module
+        code
     };
     let object = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -99,10 +103,12 @@ pub fn map(
 }
 
 pub fn filter(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
         return Err(FSRError::new(
             "msg: filter function requires 2 arguments",
@@ -114,7 +120,7 @@ pub fn filter(
     let filter_iterator = FSRFilterIter {
         filter: filter_fn_id,
         prev_iterator: args[0],
-        module,
+        code,
     };
     let object = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -129,10 +135,12 @@ pub fn filter(
 
 
 pub fn any(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
         return Err(FSRError::new(
             "msg: any function requires 1 argument",
@@ -146,7 +154,7 @@ pub fn any(
         if let Some(it) = it.iterator.as_mut() {
             let mut result = false;
             while let Ok(Some(obj)) = it.next(thread) {
-                let res = any_fn.call(&[obj], thread, module, any_fn_id)?;
+                let res = any_fn.call(&[obj], thread, code, any_fn_id)?;
                 if res.get_id() == FSRObject::true_id() {
                     result = true;
                     break;
@@ -163,10 +171,12 @@ pub fn any(
 }
 
 pub fn all(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
         return Err(FSRError::new(
             "msg: all function requires 1 argument",
@@ -180,7 +190,7 @@ pub fn all(
         if let Some(it) = it.iterator.as_mut() {
             let mut result = true;
             while let Ok(Some(obj)) = it.next(thread) {
-                let res = all_fn.call(&[obj], thread, module, all_fn_id)?;
+                let res = all_fn.call(&[obj], thread, code, all_fn_id)?;
                 if res.get_id() == FSRObject::false_id() {
                     result = false;
                     break;

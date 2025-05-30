@@ -8,10 +8,12 @@ pub struct FSRException {
 }
 
 fn kind(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_obj(args[0]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
@@ -30,10 +32,12 @@ fn kind(
 }
 
 fn message(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let message_object = FSRObject::id_to_obj(args[0]);
     let kind_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -52,14 +56,6 @@ fn message(
     unimplemented!()
 }
 
-fn new(
-    args: &[ObjId],
-    thread: &mut FSRThreadRuntime,
-    module: ObjId
-) -> Result<FSRRetValue, FSRError> {
-    
-    unimplemented!()
-}
 
 impl FSRException {
     pub fn get_class() -> FSRClass<'static> {
@@ -72,8 +68,6 @@ impl FSRException {
         //cls.insert_attr("__add__", add_fn);
         cls.insert_attr("message", message_fn);
 
-        let new_fn = FSRFn::from_rust_fn_static(new, "__new__");
-        cls.insert_attr("__new__", new_fn);
         cls
     }
 }

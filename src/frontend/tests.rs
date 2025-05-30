@@ -574,4 +574,31 @@ abc()
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
     }
+
+    #[test]
+    fn test_telling() {
+        let c = r#"
+        @static
+        fn abc(a: Abc, b: Abc) -> Abc {
+            c = a
+            return a
+        }
+        "#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
+
+    #[test]
+    fn test_telling2() {
+        let c = r#"
+        @dlopen("abc")
+        fn abc(a: Abc, b: Abc) -> Abc {
+            c = a
+        }
+        "#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
 }

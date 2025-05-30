@@ -437,7 +437,6 @@ impl FSRExpr {
         Ok(())
     }
 
-    #[inline]
     fn end_of_operator(
         source: &[u8],
         ignore_nline: bool,

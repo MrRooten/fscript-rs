@@ -15,10 +15,12 @@ use crate::{
 };
 
 pub fn fsr_fn_assert(
-    args: &[ObjId],
-    _thread: &mut FSRThreadRuntime,
-    _module: ObjId,
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let value = FSRObject::id_to_obj(args[0]);
     if args.len() == 2 && value.is_false() {
         let message = args[1];
@@ -35,10 +37,12 @@ pub fn fsr_fn_assert(
 }
 
 pub fn fsr_fn_export(
-    args: &[ObjId],
-    _thread: &mut FSRThreadRuntime,
-    code: ObjId,
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let name = match &FSRObject::id_to_obj(args[0]).value {
         FSRValue::String(cow) => cow,
         _ => {
@@ -62,10 +66,12 @@ pub fn fsr_fn_export(
 }
 
 pub fn fsr_fn_range(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    _module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -90,10 +96,12 @@ pub fn fsr_fn_range(
 }
 
 pub fn fsr_fn_type(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 1 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -170,10 +178,12 @@ pub fn fsr_fn_type(
 }
 
 pub fn fsr_fn_id(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    _module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 1 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -186,10 +196,12 @@ pub fn fsr_fn_id(
 }
 
 fn fsr_is_class(
-    args: &[ObjId],
-    _thread: &mut FSRThreadRuntime,
-    _module: ObjId,
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -204,10 +216,12 @@ fn fsr_is_class(
 }
 
 pub fn fsr_timeit(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -216,7 +230,7 @@ pub fn fsr_timeit(
     if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[1]).value {
         let start = std::time::Instant::now();
         for _ in 0..*count {
-            match fn_def.call(&[], thread, module, args[0])? {
+            match fn_def.call(&[], thread, code, args[0])? {
                 FSRRetValue::GlobalId(id) => {
                     if FSRObject::is_sp_object(id) {
                         continue;
@@ -238,10 +252,12 @@ pub fn fsr_timeit(
 }
 
 pub fn fsr_sleep(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    _module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     if let FSRValue::Integer(i) = &FSRObject::id_to_obj(args[0]).value {
         //thread.release();
         thread.safe_point_to_stop();

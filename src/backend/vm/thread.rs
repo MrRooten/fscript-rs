@@ -620,10 +620,12 @@ impl<'a> FSRThreadRuntime<'a> {
         op: CompareOperator,
         thread: &mut Self,
     ) -> Result<bool, FSRError> {
+        let args = [left, right];
+        let len = args.len();
         let res = match op {
             CompareOperator::Equal => {
                 if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Equal) {
-                    rust_fn(&[left, right], thread, thread.get_context().code)?
+                    rust_fn(args.as_ptr(), len, thread, thread.get_context().code)?
                 } else {
                     FSRObject::invoke_offset_method(
                         BinaryOffset::Equal,
@@ -635,7 +637,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             CompareOperator::Greater => {
                 if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Greater) {
-                    rust_fn(&[left, right], thread, thread.get_context().code)?
+                    rust_fn(args.as_ptr(), len, thread, thread.get_context().code)?
                 } else {
                     FSRObject::invoke_offset_method(
                         BinaryOffset::Greater,
@@ -647,7 +649,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             CompareOperator::Less => {
                 if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Less) {
-                    rust_fn(&[left, right], thread, thread.get_context().code)?
+                    rust_fn(args.as_ptr(), len, thread, thread.get_context().code)?
                 } else {
                     FSRObject::invoke_offset_method(
                         BinaryOffset::Less,
@@ -847,9 +849,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
-
+        let args = [left, right];
+        let len = args.len();
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Add) {
-            let res = rust_fn(&[left, right], self, self.get_context().code)?;
+            let res = rust_fn(args.as_ptr(), len, self, self.get_context().code)?;
 
             match res {
                 FSRRetValue::GlobalId(res_id) => {
@@ -1038,8 +1041,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
+        let args = [left_id, right_id];
+        let len = args.len();
         if let Some(rust_fn) = obj_cls!(left_id).get_rust_fn(BinaryOffset::Reminder) {
-            let res = rust_fn(&[left_id, right_id], self, self.get_context().code)?;
+            let res = rust_fn(args.as_ptr(), len, self, self.get_context().code)?;
 
             match res {
                 FSRRetValue::GlobalId(res_id) => {
@@ -1887,8 +1892,10 @@ impl<'a> FSRThreadRuntime<'a> {
             return Ok(false);
         }
 
+        let args = [left, right];
+        let len = args.len();
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Equal) {
-            let res = rust_fn(&[left, right], self, self.get_context().code)?;
+            let res = rust_fn(args.as_ptr(), len, self, self.get_context().code)?;
 
             if res.get_id() == FSRObject::true_id() {
                 self.get_cur_mut_frame().exp.push(FSRObject::true_id())
@@ -2158,7 +2165,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let obj_value = FSRObject::id_to_obj(obj);
         let res = if obj_value.cls == get_object_by_global_id(FSRGlobalObjId::InnerIterator) {
             // next_obj(&[obj], self, self.get_context().code)?
-            crate::backend::types::iterator::next_obj(&[obj], self, self.get_context().code)?
+            let args = [obj];
+            let len = args.len();
+            crate::backend::types::iterator::next_obj(args.as_ptr(), len, self, self.get_context().code)?
         } else {
             FSRObject::invoke_offset_method(
                 BinaryOffset::NextObject,

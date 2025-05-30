@@ -77,10 +77,12 @@ impl GetReference for FSRThreadHandle {
 }
 
 fn join(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    _module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
 
     if let FSRValue::Any(any) = &mut self_object.value {

@@ -53,10 +53,12 @@ impl FSRIterator for FSRRangeIterator {
 }
 
 fn iter_obj(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_id = args[0];
     if let FSRValue::Range(it) = &FSRObject::id_to_obj(self_id).value {
         let iterator = FSRInnerIterator {
@@ -83,15 +85,18 @@ fn iter_obj(
 
 
 fn filter(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let iterator = iter_obj(args, thread, module)?.get_id();
+    
+    let iterator = iter_obj(args, len, thread, code)?.get_id();
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let filter_iterator = FSRFilterIter {
         filter: args[1],
         prev_iterator: iterator,
-        module,
+        code,
     };
     let filter_iterator_id = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -106,15 +111,18 @@ fn filter(
 }
 
 fn map(
-    args: &[ObjId],
+    args: *const ObjId,
+    len: usize,
     thread: &mut FSRThreadRuntime,
-    module: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let iterator = iter_obj(args, thread, module)?.get_id();
+    
+    let iterator = iter_obj(args, len, thread, code)?.get_id();
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let map_iterator = FSRMapIter {
         callback: args[1],
         prev_iterator: iterator,
-        module,
+        code,
     };
     let map_iterator_id = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
