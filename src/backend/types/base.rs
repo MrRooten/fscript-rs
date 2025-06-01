@@ -62,6 +62,7 @@ pub struct Pointer<'a> {
 //     MapIterator = 17
 // }
 
+#[repr(C)]
 pub enum FSRGlobalObjId {
     None = 0,
     True = 1,
@@ -461,6 +462,11 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
+    pub extern "C" fn set_attr_c(&mut self, name: *const u8, name_len: usize, obj_id: ObjId) {
+        let name = unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(name, name_len)) };
+        self.set_attr(name, obj_id);
+    }
+
     pub fn set_attr(&mut self, name: &'a str, obj_id: ObjId) {
         if let FSRValue::ClassInst(inst) = &mut self.value {
             inst.set_attr(name, obj_id);
@@ -468,6 +474,14 @@ impl<'a> FSRObject<'a> {
         }
 
         unimplemented!()
+    }
+
+    pub extern "C" fn as_class_c(&self) -> *const FSRClass {
+        if let FSRValue::Class(cls) = &self.value {
+            return cls.as_ref() as *const FSRClass;
+        }
+
+        panic!("Not a Cls object")
     }
 
     #[inline(always)]
