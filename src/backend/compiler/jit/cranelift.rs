@@ -11,12 +11,17 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::Module;
 
 use crate::backend::{
-    compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator},
+    compiler::bytecode::{
+        ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
+    },
     types::base::{FSRObject, ObjId},
     vm::thread::FSRThreadRuntime,
 };
 
-use super::jit_wrapper::{binary_op, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_obj_by_name, is_false, malloc};
+use super::jit_wrapper::{
+    binary_op, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_obj_by_name,
+    is_false, malloc,
+};
 
 struct BuildContext {}
 
@@ -92,7 +97,10 @@ impl JitBuilder<'_> {
             .unwrap();
         let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
         let thread_rt = self.builder.block_params(context.entry_block)[0];
-        let get_global_name = self.builder.ins().call(func_ref, &[name, name_len, thread_rt]);
+        let get_global_name = self
+            .builder
+            .ins()
+            .call(func_ref, &[name, name_len, thread_rt]);
         let global_obj = self.builder.inst_results(get_global_name)[0];
         context.exp.push(global_obj);
     }
@@ -102,9 +110,7 @@ impl JitBuilder<'_> {
         is_true_sig
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // value to check
-        is_true_sig
-            .returns
-            .push(AbiParam::new(types::I32)); // return type (boolean)
+        is_true_sig.returns.push(AbiParam::new(types::I32)); // return type (boolean)
 
         let fn_id = self
             .module
@@ -118,7 +124,7 @@ impl JitBuilder<'_> {
 
     fn load_compare(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
-            // pub extern "C" fn compare_test(thread: &mut FSRThreadRuntime, left: ObjId, right: ObjId, op: CompareOperator)  
+            // pub extern "C" fn compare_test(thread: &mut FSRThreadRuntime, left: ObjId, right: ObjId, op: CompareOperator)
 
             let mut compare_test_sig = self.module.make_signature();
             compare_test_sig
@@ -130,12 +136,8 @@ impl JitBuilder<'_> {
             compare_test_sig
                 .params
                 .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
-            compare_test_sig
-                .params
-                .push(AbiParam::new(types::I64)); // compare operator type
-            compare_test_sig
-                .returns
-                .push(AbiParam::new(types::I32)); // return type (boolean)
+            compare_test_sig.params.push(AbiParam::new(types::I64)); // compare operator type
+            compare_test_sig.returns.push(AbiParam::new(types::I32)); // return type (boolean)
             let fn_id = self
                 .module
                 .declare_function(
@@ -154,10 +156,10 @@ impl JitBuilder<'_> {
             } else {
                 panic!("CompareTest requires a CompareOperator argument")
             };
-            let call = self.builder.ins().call(
-                func_ref,
-                &[thread_runtime, left, right, op],
-            );
+            let call = self
+                .builder
+                .ins()
+                .call(func_ref, &[thread_runtime, left, right, op]);
             let result = self.builder.inst_results(call)[0];
             context.exp.push(result);
         } else {
@@ -222,17 +224,17 @@ impl JitBuilder<'_> {
             .module
             .declare_func_in_func(malloc_id, self.builder.func);
 
-        let size = self
-            .builder
-            .ins()
-            .iconst(types::I64, len as i64);
+        let size = self.builder.ins().iconst(types::I64, len as i64);
         let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
         let malloc_ret = self.builder.inst_results(malloc_call)[0];
 
         for i in 0..len {
             // Assuming we have a way to get the next argument value
             let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
-            let offset = self.builder.ins().iconst(types::I64, i as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, i as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
             let ptr = self.builder.ins().iadd(malloc_ret, offset);
             self.builder
                 .ins()
@@ -248,15 +250,13 @@ impl JitBuilder<'_> {
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // pointer to the list
         free_sig.params.push(AbiParam::new(types::I64)); // size of the list
-        free_sig
-            .returns
-            .push(AbiParam::new(types::I32)); // return type (void)
+        free_sig.returns.push(AbiParam::new(types::I32)); // return type (void)
         let free_id = self
             .module
             .declare_function("free", cranelift_module::Linkage::Import, &free_sig)
             .unwrap();
         let free_func_ref = self.module.declare_func_in_func(free_id, self.builder.func);
-        let size = self.builder.ins().iconst(types::I64, len); 
+        let size = self.builder.ins().iconst(types::I64, len);
         let free_call = self.builder.ins().call(free_func_ref, &[list_ptr, size]);
         let _ = self.builder.inst_results(free_call)[0]; // We don't need the return value, just ensure the call is made
     }
@@ -269,16 +269,26 @@ impl JitBuilder<'_> {
         let mut malloc_sig = self.module.make_signature();
         malloc_sig.params.push(AbiParam::new(types::I64));
         malloc_sig.returns.push(AbiParam::new(ptr_type));
-        let malloc_id = self.module.declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig).unwrap();
-        let malloc_func_ref = self.module.declare_func_in_func(malloc_id, self.builder.func);
+        let malloc_id = self
+            .module
+            .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
+            .unwrap();
+        let malloc_func_ref = self
+            .module
+            .declare_func_in_func(malloc_id, self.builder.func);
         let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
         let arr_ptr = self.builder.inst_results(malloc_call)[0];
 
         for (i, var) in self.variables.values().enumerate() {
             let value = self.builder.use_var(*var);
-            let offset = self.builder.ins().iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
             let ptr = self.builder.ins().iadd(arr_ptr, offset);
-            self.builder.ins().store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
         }
 
         let mut gc_collect_sig = self.module.make_signature();
@@ -290,22 +300,31 @@ impl JitBuilder<'_> {
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // list pointer
         gc_collect_sig.params.push(AbiParam::new(types::I64)); // length of the list
-        
+
         gc_collect_sig
             .returns
             .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (void)
         let gc_collect_id = self
             .module
-            .declare_function("gc_collect", cranelift_module::Linkage::Import, &gc_collect_sig)
+            .declare_function(
+                "gc_collect",
+                cranelift_module::Linkage::Import,
+                &gc_collect_sig,
+            )
             .unwrap();
 
-        let gc_collect_func_ref = self.module.declare_func_in_func(gc_collect_id, self.builder.func);
+        let gc_collect_func_ref = self
+            .module
+            .declare_func_in_func(gc_collect_id, self.builder.func);
         let thread_runtime = self.builder.block_params(context.entry_block)[0];
         let len = self.builder.ins().iconst(types::I64, var_count as i64);
 
-        let gc_call = self.builder.ins().call(gc_collect_func_ref, &[thread_runtime, arr_ptr, len]);
+        let gc_call = self
+            .builder
+            .ins()
+            .call(gc_collect_func_ref, &[thread_runtime, arr_ptr, len]);
         let _ = self.builder.inst_results(gc_call)[0]; // We don't need the return value, just ensure the call is made
-        // Free the allocated array after the GC call
+                                                       // Free the allocated array after the GC call
         self.load_free_arg_list(arr_ptr, context, var_count as i64);
     }
 
@@ -314,9 +333,7 @@ impl JitBuilder<'_> {
         check_gc_sig
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-        check_gc_sig
-            .returns
-            .push(AbiParam::new(types::I32)); // return type (boolean)
+        check_gc_sig.returns.push(AbiParam::new(types::I32)); // return type (boolean)
 
         let fn_id = self
             .module
@@ -329,13 +346,9 @@ impl JitBuilder<'_> {
 
         let then_block = self.builder.create_block();
         let else_block = self.builder.create_block();
-        self.builder.ins().brif(
-            condition,
-            then_block,
-            &[],
-            else_block,
-            &[],
-        );
+        self.builder
+            .ins()
+            .brif(condition, then_block, &[], else_block, &[]);
 
         self.builder.switch_to_block(then_block);
         self.builder.seal_block(then_block);
@@ -437,7 +450,10 @@ impl JitBuilder<'_> {
                         //     .unwrap();
                         // let local_id = self.module.declare_data_in_func(data_id, self.builder.func);
                         // let name_ptr = self.builder.ins().symbol_value(self.module.target_config().pointer_type(), local_id);
-                        let name_ptr = self.builder.ins().iconst(self.module.target_config().pointer_type(), name.as_ptr() as i64);
+                        let name_ptr = self.builder.ins().iconst(
+                            self.module.target_config().pointer_type(),
+                            name.as_ptr() as i64,
+                        );
                         let name_len = self.builder.ins().iconst(types::I64, name.len() as i64);
                         self.load_global_name(name_ptr, name_len, context);
                     } else {
@@ -455,7 +471,7 @@ impl JitBuilder<'_> {
                     }
                 }
                 BytecodeOperator::BinaryAdd => {
-                    if let (Some(left), Some(right)) = (context.exp.pop(), context.exp.pop()) {
+                    if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
                         // let result = self.builder.ins().iadd(left, right);
                         // context.left = Some(result);
                         let mut operator_name_sig = self.module.make_signature();
@@ -488,7 +504,10 @@ impl JitBuilder<'_> {
                             .unwrap();
                         let thread = self.builder.block_params(context.entry_block)[0];
                         let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-                        let add_t = self.builder.ins().iconst(types::I32, 0);
+                        let add_t = self
+                            .builder
+                            .ins()
+                            .iconst(types::I32, BinaryOffset::Add as i64);
                         let call = self
                             .builder
                             .ins()
@@ -687,8 +706,6 @@ impl CraneLiftJitBackend {
         //println!("{}", self.ctx.func.display());
         self.module.define_function(id, &mut self.ctx).unwrap();
 
-        
-
         self.module.clear_context(&mut self.ctx);
         // Tell the builder we're done with this function.
 
@@ -709,8 +726,4 @@ mod test {
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
     };
-
-    
-
-    
 }
