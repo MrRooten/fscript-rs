@@ -358,8 +358,8 @@ pub enum GcState {
 }
 
 pub struct GcContext {
-    worklist: Vec<ObjId>,
-    gc_state: GcState,
+    pub(crate) worklist: Vec<ObjId>,
+    pub(crate) gc_state: GcState,
 }
 
 impl GcContext {
@@ -595,11 +595,11 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn set_ref_objects_mark(&mut self, full: bool, addition: &[ObjId]) {
-        if self.gc_context.gc_state == GcState::Stop {
+        //if self.gc_context.gc_state == GcState::Stop {
             self.gc_context.worklist = self.add_worklist();
             self.gc_context.worklist.extend_from_slice(addition);
-        }
-        self.gc_context.gc_state = GcState::Running;
+        //}
+        //self.gc_context.gc_state = GcState::Running;
 
         while let Some(id) = self.gc_context.worklist.pop() {
             if FSRObject::is_sp_object(id) {
@@ -607,7 +607,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             let obj = FSRObject::id_to_obj(id);
-            // println!("marking object: {:?}", obj);
+            if obj.cls == 0 {
+                continue;
+            }
+            //println!("marking object: {:?}", obj);
             if obj.is_marked() {
                 continue;
             }
@@ -837,20 +840,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    pub extern "C" fn binary_op(
-        left: ObjId,
-        right: ObjId,
-        op: BinaryOffset,
-        thread: &mut Self,
-    ) -> ObjId {
-        let args = [left, right];
-        let len = args.len();
-        if let Some(rust_fn) = obj_cls!(left).get_rust_fn(op) {
-            return rust_fn(args.as_ptr(), len, thread, 0).unwrap().get_id();
-        }
-
-        unimplemented!("binary op {:?} not support in rust fn", op);
-    }
+    
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_add_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {

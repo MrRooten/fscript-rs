@@ -230,6 +230,14 @@ impl<'a> FSRVM<'a> {
                     if let FSRValue::Class(_) = object.value {
                         object.cls = get_object_by_global_id(FSRGlobalObjId::ClassCls);
                     }
+
+                    if let FSRValue::Bool(_) = object.value {
+                        object.cls = get_object_by_global_id(FSRGlobalObjId::BoolCls);
+                    }
+
+                    if let FSRValue::None = object.value {
+                        object.cls = get_object_by_global_id(FSRGlobalObjId::NoneCls);
+                    }
                 }
 
                 OBJECTS[0].cls = get_object_by_global_id(FSRGlobalObjId::NoneCls);

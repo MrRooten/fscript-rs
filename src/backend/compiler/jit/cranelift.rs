@@ -16,7 +16,7 @@ use crate::backend::{
     vm::thread::FSRThreadRuntime,
 };
 
-use super::jit_wrapper::{call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_obj_by_name, is_false, malloc};
+use super::jit_wrapper::{binary_op, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_obj_by_name, is_false, malloc};
 
 struct BuildContext {}
 
@@ -229,10 +229,10 @@ impl JitBuilder<'_> {
         let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
         let malloc_ret = self.builder.inst_results(malloc_call)[0];
 
-        for _ in 0..len {
+        for i in 0..len {
             // Assuming we have a way to get the next argument value
             let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
-            let offset = self.builder.ins().iconst(types::I64, 0); // Replace with actual offset calculation
+            let offset = self.builder.ins().iconst(types::I64, i as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
             let ptr = self.builder.ins().iadd(malloc_ret, offset);
             self.builder
                 .ins()
@@ -588,7 +588,7 @@ impl CraneLiftJitBackend {
             .finish(settings::Flags::new(flag_builder))
             .unwrap();
         let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
-        builder.symbol("binary_op", FSRThreadRuntime::binary_op as *const u8);
+        builder.symbol("binary_op", binary_op as *const u8);
         builder.symbol("get_constant", get_constant as *const u8);
         builder.symbol("call_fn", call_fn as *const u8);
         builder.symbol("malloc", malloc as *const u8);
@@ -684,7 +684,7 @@ impl CraneLiftJitBackend {
             )
             .unwrap();
         println!("Cranelift JIT compiled function: {}", fn_name);
-        println!("{}", self.ctx.func.display());
+        //println!("{}", self.ctx.func.display());
         self.module.define_function(id, &mut self.ctx).unwrap();
 
         
