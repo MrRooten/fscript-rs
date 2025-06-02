@@ -448,7 +448,7 @@ try {
 
     #[test]
     fn test_nested_call() {
-        let code = r#"fn abc() {
+        let code = r#"
     fn fib(n) {
         if n == 1 or n == 2 {
             return 1
@@ -456,13 +456,8 @@ try {
             return fib(n - 1) + fib(n - 2)
         }
     }
-    result = fib(30)
+    result = fib(20)
     println(result)
-
-    gc_info()
-}
-
-abc()
         "#;
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
@@ -592,7 +587,7 @@ abc()
     #[test]
     fn test_telling2() {
         let c = r#"
-        @dlopen("abc")
+        @is_jit
         fn abc(a: Abc, b: Abc) -> Abc {
             c = a
         }

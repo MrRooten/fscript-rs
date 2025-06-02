@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, os::unix::thread};
 
 use cranelift::{
     codegen,
@@ -16,7 +16,7 @@ use crate::backend::{
     vm::thread::FSRThreadRuntime,
 };
 
-use super::jit_wrapper::get_constant;
+use super::jit_wrapper::{call_fn, free, get_constant, get_obj_by_name, malloc};
 
 struct BuildContext {}
 
@@ -34,7 +34,13 @@ struct JitBuilder<'a> {
     module: &'a mut JITModule,
 }
 
-
+struct OperatorContext {
+    exp: Vec<Value>,
+    operator: &'static str,
+    while_blocks: Vec<Block>,
+    exit_blocks: Vec<Block>,
+    entry_block: Block,
+}
 
 impl JitBuilder<'_> {
     fn load_constant(&mut self, c: u64, context: &mut OperatorContext) {
@@ -56,36 +62,201 @@ impl JitBuilder<'_> {
             .unwrap();
         println!("get_constant: {:?}", fn_id);
         let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        let code = self
-            .builder
-            .block_params(self.builder.current_block().unwrap())[1];
+        let code = self.builder.block_params(context.entry_block)[1];
         let index = self.builder.ins().iconst(types::I64, c as i64);
         let call = self.builder.ins().call(func_ref, &[code, index]);
         let ret = self.builder.inst_results(call)[0];
-        if context.left.is_none() {
-            context.left = Some(ret);
-        } else if context.right.is_none() {
-            context.right = Some(ret);
+        context.exp.push(ret);
+    }
+
+    fn load_global_name(&mut self, name: Value, name_len: Value, context: &mut OperatorContext) {
+        // pub extern "C" fn get_obj_by_name(name: *const u8, len: usize, thread: &mut FSRThreadRuntime) -> ObjId
+        let mut get_obj_by_name_sig = self.module.make_signature();
+        get_obj_by_name_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // name pointer
+        get_obj_by_name_sig.params.push(AbiParam::new(types::I64)); // name length
+        get_obj_by_name_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        get_obj_by_name_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
+        let fn_id = self
+            .module
+            .declare_function(
+                "get_obj_by_name",
+                cranelift_module::Linkage::Import,
+                &get_obj_by_name_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let thread_rt = self.builder.block_params(context.entry_block)[0];
+        let get_global_name = self.builder.ins().call(func_ref, &[name, name_len, thread_rt]);
+        let global_obj = self.builder.inst_results(get_global_name)[0];
+        context.exp.push(global_obj);
+    }
+
+    fn load_while(&mut self, context: &mut OperatorContext) {
+        //let header_block = self.builder.create_block();
+        let body_block = self.builder.create_block();
+        let exit_block = self.builder.create_block();
+        self.builder
+            .ins()
+            .brif(context.exp.pop().unwrap(), body_block, &[], exit_block, &[]);
+
+        self.builder.switch_to_block(body_block);
+        self.builder.seal_block(body_block);
+        context.exit_blocks.push(exit_block);
+    }
+
+    fn load_while_end(&mut self, context: &mut OperatorContext) {
+        self.builder
+            .ins()
+            .jump(context.while_blocks.last().unwrap().clone(), &[]);
+
+        //context.is_while = false;
+        let v = context.while_blocks.pop().unwrap();
+        let exit_block = context.exit_blocks.pop().unwrap();
+        self.builder.seal_block(v);
+        self.builder.switch_to_block(exit_block);
+        self.builder.seal_block(exit_block);
+        //self.builder.ins().iconst(self.int, 0);
+    }
+
+    fn load_make_arg_list(&mut self, context: &mut OperatorContext, len: usize) -> Value {
+        let mut malloc_sig = self.module.make_signature();
+        malloc_sig.params.push(AbiParam::new(types::I64)); // size
+        malloc_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
+        let malloc_id = self
+            .module
+            .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
+            .unwrap();
+        let malloc_func_ref = self
+            .module
+            .declare_func_in_func(malloc_id, self.builder.func);
+
+        let size = self
+            .builder
+            .ins()
+            .iconst(types::I64, (len * std::mem::size_of::<ObjId>()) as i64);
+        let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
+        let malloc_ret = self.builder.inst_results(malloc_call)[0];
+
+        for _ in 0..len {
+            // Assuming we have a way to get the next argument value
+            let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
+            let offset = self.builder.ins().iconst(types::I64, 0); // Replace with actual offset calculation
+            let ptr = self.builder.ins().iadd(malloc_ret, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), arg_value, ptr, 0);
+        }
+        malloc_ret
+    }
+
+    fn load_free_arg_list(&mut self, list_ptr: Value) {
+        let mut free_sig = self.module.make_signature();
+        free_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // pointer to free
+        let free_id = self
+            .module
+            .declare_function("free", cranelift_module::Linkage::Import, &free_sig)
+            .unwrap();
+        let free_func_ref = self.module.declare_func_in_func(free_id, self.builder.func);
+        self.builder.ins().call(free_func_ref, &[list_ptr]);
+    }
+
+    fn load_call(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+        if let ArgType::CallArgsNumber(v) = arg.get_arg() {
+            //let variable = self.variables.get(v.2.as_str()).unwrap();
+            // context.left = Some(self.builder.use_var(*variable));
+            //let fn_obj_id = self.builder.use_var(*variable);
+
+            // call_fn(args: *const ObjId, len: usize, fn_id: ObjId, thread: &mut FSRThreadRuntime, code: ObjId) -> ObjId
+            let mut call_fn_sig = self.module.make_signature();
+            call_fn_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // args
+            call_fn_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // len
+            call_fn_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // fn_obj_id
+            call_fn_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            call_fn_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // code object
+            call_fn_sig
+                .returns
+                .push(AbiParam::new(self.module.target_config().pointer_type()));
+
+            let fn_id = self
+                .module
+                .declare_function("call_fn", cranelift_module::Linkage::Import, &call_fn_sig)
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let list_ptr = self.load_make_arg_list(context, *v);
+            let len = self.builder.ins().iconst(types::I64, *v as i64);
+            let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            let code_object = self.builder.block_params(context.entry_block)[1];
+
+            let fn_obj_id = context.exp.pop().unwrap();
+            let call = self.builder.ins().call(
+                func_ref,
+                &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
+            );
+
+            let ret = self.builder.inst_results(call)[0];
+
+            // Free the argument list after the call
+            self.load_free_arg_list(list_ptr);
+
+            context.exp.push(ret);
         } else {
-            panic!("Both left and right operands are already set");
+            unimplemented!()
         }
     }
+
     fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext) {
+        if expr.last().is_none() {
+            return;
+        }
+
+        if expr.last().unwrap().get_operator() == &BytecodeOperator::WhileTest {
+            //context.is_while += 1;
+            let header_block = self.builder.create_block();
+            self.builder.ins().jump(header_block, &[]);
+            self.builder.switch_to_block(header_block);
+            context.while_blocks.push(header_block);
+        }
+
         for arg in expr {
             match arg.get_operator() {
                 BytecodeOperator::Load => {
-                    if let ArgType::Variable(v) = arg.get_arg() {
+                    if let ArgType::Local(v) = arg.get_arg() {
                         let variable = self.variables.get(v.1.as_str()).unwrap();
                         // context.left = Some(self.builder.use_var(*variable));
-                        if context.left.is_none() {
-                            context.left = Some(self.builder.use_var(*variable));
-                        } else if context.right.is_none() {
-                            context.right = Some(self.builder.use_var(*variable));
-                        } else {
-                            panic!("Both left and right operands are already set");
-                        }
+                        let value = self.builder.use_var(*variable);
+                        context.exp.push(value);
                     } else if let ArgType::Const(c) = arg.get_arg() {
                         self.load_constant(*c, context);
+                    } else if let ArgType::Global(name) = arg.get_arg() {
+                        // let data_id = self
+                        //     .module
+                        //     .declare_data(name, cranelift_module::Linkage::Export, false, false)
+                        //     .unwrap();
+                        // let local_id = self.module.declare_data_in_func(data_id, self.builder.func);
+                        // let name_ptr = self.builder.ins().symbol_value(self.module.target_config().pointer_type(), local_id);
+                        let name_ptr = self.builder.ins().iconst(self.module.target_config().pointer_type(), name.as_ptr() as i64);
+                        let name_len = self.builder.ins().iconst(types::I64, name.len() as i64);
+                        self.load_global_name(name_ptr, name_len, context);
                     } else {
                         panic!("Load requires a variable or constant argument");
                     }
@@ -93,16 +264,15 @@ impl JitBuilder<'_> {
                     //unimplemented!()
                 }
                 BytecodeOperator::Assign => {
-                    if let ArgType::Variable(v) = arg.get_arg() {
+                    if let ArgType::Local(v) = arg.get_arg() {
                         let variable = self.variables.get(v.1.as_str()).unwrap();
-                        self.builder
-                            .def_var(*variable, context.left.take().unwrap());
+                        self.builder.def_var(*variable, context.exp.pop().unwrap());
                     } else {
                         panic!("not supported assign type: {:?}", arg.get_arg());
                     }
                 }
                 BytecodeOperator::BinaryAdd => {
-                    if let (Some(left), Some(right)) = (context.left.take(), context.right.take()) {
+                    if let (Some(left), Some(right)) = (context.exp.pop(), context.exp.pop()) {
                         // let result = self.builder.ins().iadd(left, right);
                         // context.left = Some(result);
                         let mut operator_name_sig = self.module.make_signature();
@@ -117,6 +287,9 @@ impl JitBuilder<'_> {
                                                                                   //     .params
                                                                                   //     .push(AbiParam::new(self.module.target_config().pointer_type())); // runtime context
                         operator_name_sig
+                            .params
+                            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+                        operator_name_sig
                             .returns
                             .push(AbiParam::new(self.module.target_config().pointer_type()));
 
@@ -130,11 +303,15 @@ impl JitBuilder<'_> {
                                 &operator_name_sig,
                             )
                             .unwrap();
+                        let thread = self.builder.block_params(context.entry_block)[0];
                         let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
                         let add_t = self.builder.ins().iconst(types::I32, 0);
-                        let call = self.builder.ins().call(func_ref, &[left, right, add_t]);
+                        let call = self
+                            .builder
+                            .ins()
+                            .call(func_ref, &[left, right, add_t, thread]);
                         let ret = self.builder.inst_results(call)[0];
-                        context.left = Some(ret);
+                        context.exp.push(ret);
                     } else {
                         unimplemented!("BinaryAdd requires both left and right operands");
                     }
@@ -142,7 +319,19 @@ impl JitBuilder<'_> {
 
                 BytecodeOperator::AssignArgs => {}
 
-                BytecodeOperator::EndFn => {}
+                BytecodeOperator::EndFn => {
+                    // let null_value = self.builder.ins().iconst(self.int, 0);
+                    // self.builder.ins().return_(&[null_value]);
+                }
+                BytecodeOperator::WhileTest => {
+                    self.load_while(context);
+                }
+                BytecodeOperator::WhileBlockEnd => {
+                    self.load_while_end(context);
+                }
+                BytecodeOperator::Call => {
+                    self.load_call(arg, context);
+                }
                 _ => {
                     unimplemented!("Compile operator: {:?}", arg.get_operator())
                 }
@@ -201,12 +390,6 @@ fn declare_variables(
     variables
 }
 
-struct OperatorContext {
-    left: Option<Value>,
-    right: Option<Value>,
-    operator: &'static str,
-}
-
 impl CraneLiftJitBackend {
     pub fn new() -> Self {
         let mut flag_builder = settings::builder();
@@ -221,6 +404,11 @@ impl CraneLiftJitBackend {
         let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         builder.symbol("binary_op", FSRThreadRuntime::binary_op as *const u8);
         builder.symbol("get_constant", get_constant as *const u8);
+        builder.symbol("call_fn", call_fn as *const u8);
+        builder.symbol("malloc", malloc as *const u8);
+        builder.symbol("free", free as *const u8);
+        builder.symbol("get_obj_by_name", get_obj_by_name as *const u8);
+
         let module = JITModule::new(builder);
 
         CraneLiftJitBackend {
@@ -231,13 +419,7 @@ impl CraneLiftJitBackend {
         }
     }
 
-    pub fn compile(&mut self, code: &Bytecode) -> Result<(), String> {
-        let mut context = OperatorContext {
-            left: None,
-            right: None,
-            operator: "",
-        };
-
+    pub fn compile(&mut self, code: &Bytecode) -> Result<*const u8, String> {
         let ptr = self.module.target_config().pointer_type();
 
         self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
@@ -260,6 +442,13 @@ impl CraneLiftJitBackend {
 
         let entry_block = builder.create_block();
 
+        let mut context = OperatorContext {
+            exp: vec![],
+            operator: "",
+            while_blocks: vec![],
+            exit_blocks: vec![],
+            entry_block: entry_block.clone(),
+        };
         // Since this is the entry block, add block parameters corresponding to
         // the function's parameters.
         //
@@ -286,6 +475,8 @@ impl CraneLiftJitBackend {
             trans.compile_expr(expr, &mut context);
         }
 
+        // let end_block = trans.builder.create_block();
+        // trans.builder.seal_block(end_block);
         let null_value = trans.builder.ins().iconst(ptr, 0);
         trans.builder.ins().return_(&[null_value]);
 
@@ -309,35 +500,26 @@ impl CraneLiftJitBackend {
 
         self.module.clear_context(&mut self.ctx);
         // Tell the builder we're done with this function.
-        Ok(())
+
+        self.module.finalize_definitions().unwrap();
+
+        // We can now retrieve a pointer to the machine code.
+        let code = self.module.get_finalized_function(id);
+        Ok(code)
     }
 }
 
 mod test {
     use crate::backend::{
-        types::{base::FSRObject, code::FSRCode, module::FSRModule},
-        vm::virtual_machine::FSRVM,
+        types::{
+            base::{FSRObject, ObjId},
+            code::FSRCode,
+            module::FSRModule,
+        },
+        vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
     };
 
-    #[test]
-    fn test_module() {
-        let _ = FSRVM::single();
-        let module1 = r#"
-        fn abc() {
-            a = 1 + 2
-            b = 1 + 3
-            c = a + b
-        }
+    
 
-        abc()
-        "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
-        let obj_id = FSRVM::leak_object(obj);
-        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
-        let obj = v.get("abc").unwrap().as_code();
-        let bytecode = obj.get_bytecode();
-        let mut jit = super::CraneLiftJitBackend::new();
-        jit.compile(&bytecode).unwrap();
-        //println!("Code object: {:#?}", obj);
-    }
+    
 }

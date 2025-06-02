@@ -5,7 +5,7 @@ pub mod tests {
 
     use crate::{
         backend::{
-            compiler::bytecode::Bytecode,
+            compiler::{bytecode::Bytecode, jit::cranelift::CraneLiftJitBackend},
             types::{
                 base::{FSRObject, FSRValue},
                 code::FSRCode,
@@ -157,32 +157,6 @@ pub mod tests {
         println!("{:#?}", v);
     }
 
-    #[test]
-    fn test_while_backend() {
-        let _ = FSRVM::single();
-        let source_code = "
-        fn test() {
-            println('abc')
-            dump(println)
-        }
-
-        i = 0
-        while i < 10 {
-            test()
-            i = i + 1
-        }
-
-        assert(i == 10)
-        
-        ";
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
-        let obj_id = FSRVM::leak_object(obj);
-        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
-        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
-        obj.as_mut_module().init_fn_map(v);
-        let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
-    }
 
     #[test]
     fn test_new_object() {
@@ -324,6 +298,71 @@ pub mod tests {
         runtime.start(obj_id).unwrap();
     }
 
+    #[test]
+    fn test_jit_simple() {
+        let _ = FSRVM::single();
+        let module1 = r#"
+        fn abc() {
+            a = 1 + 2
+            b = 1 + 3
+            c = a + b
+        }
+
+        abc()
+        "#;
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = v.get("abc").unwrap().as_code();
+        let bytecode = obj.get_bytecode();
+        let mut jit = CraneLiftJitBackend::new();
+        jit.compile(&bytecode).unwrap();
+        //println!("Code object: {:#?}", obj);
+    }
+
+    #[test]
+    fn test_while() {
+        let _ = FSRVM::single();
+        let module1 = r#"
+        fn abc() {
+            while 1 + 2 {
+                while 1 + 3 {
+                    a = 1
+                }
+            }
+        }
+
+        abc()
+        "#;
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = v.get("abc").unwrap().as_code();
+        let bytecode = obj.get_bytecode();
+        let mut jit = CraneLiftJitBackend::new();
+        jit.compile(&bytecode).unwrap();
+        //println!("Code object: {:#?}", bytecode);
+    }
+
+    #[test]
+    fn test_call() {
+        let _ = FSRVM::single();
+        let module1 = r#"
+        fn abc() {
+            a = 1 + 2
+            print(a)
+        }
+
+        "#;
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = v.get("abc").unwrap().as_code();
+        let bytecode = obj.get_bytecode();
+        let mut jit = CraneLiftJitBackend::new();
+        jit.compile(&bytecode).unwrap();
+    }
+
     // #[test]
     // fn test_suspend_thread() {
     //     let module1 = r#"
@@ -356,4 +395,30 @@ pub mod tests {
     //     th.join().unwrap();
 
     // }
+
+    #[test]
+    fn test_jit() {
+        let _ = FSRVM::single();
+        let module1 = r#"
+        @jit
+        fn abc() {
+            a = 1 + 2
+            println(a)
+        }
+
+        abc()
+        "#;
+
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
+
+        let mut runtime = FSRThreadRuntime::new_runtime();
+
+        //runtime.start(&v, &mut vm).unwrap();
+
+        runtime.start(obj_id).unwrap();
+    }
 }

@@ -16,7 +16,7 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub struct FSRFnDef {
-    teller: Option<FSRTell>,
+    pub(crate) teller: Option<FSRTell>,
     lambda: bool,
     name: String,
     args: Vec<FSRToken>,
@@ -360,7 +360,9 @@ impl FSRFnDef {
         
 
         let fn_def = Rc::new(fn_def);
+        context.add_variable(&name, None);
         context.set_variable_token(&name, Some(FSRToken::FunctionDef(fn_def.clone())));
+        
         Ok(fn_def)
     }
 }

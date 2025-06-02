@@ -714,6 +714,7 @@ impl<'a> FSRObject<'a> {
         code: ObjId,
         fn_id: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
+        println!("call: {:?}", self.value);
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, code, fn_id);
         }

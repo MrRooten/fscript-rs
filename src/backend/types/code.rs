@@ -64,6 +64,7 @@ impl<'a> FSRCode<'a> {
                 //object_map: AHashMap::new(),
                 //const_table: vec![],
                 module,
+
             };
 
             let mut object = FSRObject::new();

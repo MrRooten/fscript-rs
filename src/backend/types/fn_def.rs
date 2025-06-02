@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt::{Debug, Formatter},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{atomic::{AtomicBool, Ordering}, Arc},
 };
 
 use ahash::AHashMap;
@@ -28,6 +28,7 @@ pub type FSRRustFn = for<'a> fn(
 pub struct FSRFnInner<'a> {
     name: Cow<'a, str>,
     fn_ip: (usize, usize),
+    pub(crate) jit_code: Option<usize>,
     //bytecode: &'a Bytecode,
 }
 
@@ -138,10 +139,12 @@ impl<'a> FSRFn<'a> {
         //bytecode: &'a Bytecode,
         code_obj: ObjId,
         fn_id: ObjId, // Which father fn define this son fn
+        jit_code: Option<*const u8>
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
             fn_ip: u,
+            jit_code: jit_code.map(|x| x as usize),
             //bytecode,
         };
 
