@@ -39,7 +39,7 @@ pub fn fn_gc_collect(
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     thread.garbage_collect.clear_marks();
-    thread.set_ref_objects_mark(true);
+    thread.set_ref_objects_mark(true, &[]);
     thread.collect_gc(true);
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
@@ -52,7 +52,7 @@ pub fn fn_minjor_gc_collect(
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     thread.garbage_collect.clear_marks();
-    thread.set_ref_objects_mark(false);
+    thread.set_ref_objects_mark(false, &[]);
     thread.collect_gc(false);
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }

@@ -594,9 +594,10 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    pub fn set_ref_objects_mark(&mut self, full: bool) {
+    pub fn set_ref_objects_mark(&mut self, full: bool, addition: &[ObjId]) {
         if self.gc_context.gc_state == GcState::Stop {
             self.gc_context.worklist = self.add_worklist();
+            self.gc_context.worklist.extend_from_slice(addition);
         }
         self.gc_context.gc_state = GcState::Running;
 
@@ -606,6 +607,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             let obj = FSRObject::id_to_obj(id);
+            // println!("marking object: {:?}", obj);
             if obj.is_marked() {
                 continue;
             }
@@ -1472,12 +1474,18 @@ impl<'a> FSRThreadRuntime<'a> {
                     //     .params
                     //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
                     // self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
+                    let frame = self.frame_free_list.new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+                    self.push_frame(
+                        frame
+                    );
                     let call_fn = unsafe {
                         std::mem::transmute::<
                             _,
                             extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
                         >(code)
                     };
+
+                    self.pop_frame();
 
                     let res = call_fn(self, self.get_context().code, args, args.len() as i32);
                     self.get_cur_mut_frame().exp.push(res);
@@ -2716,7 +2724,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if self.gc_context.gc_state == GcState::Stop {
                 self.clear_marks();
             }
-            self.set_ref_objects_mark(false);
+            self.set_ref_objects_mark(false, &[]);
             if self.gc_context.worklist.is_empty() {
                 self.collect_gc(false);
                 self.gc_context.gc_state = GcState::Stop;

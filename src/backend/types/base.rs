@@ -403,7 +403,7 @@ impl<'a> FSRObject<'a> {
     pub fn new() -> FSRObject<'a> {
         FSRObject {
             value: FSRValue::None,
-            cls: 0,
+            cls: get_object_by_global_id(FSRGlobalObjId::None) as ObjId,
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,
@@ -714,7 +714,6 @@ impl<'a> FSRObject<'a> {
         code: ObjId,
         fn_id: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
-        println!("call: {:?}", self.value);
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, code, fn_id);
         }

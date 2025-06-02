@@ -421,4 +421,34 @@ pub mod tests {
 
         runtime.start(obj_id).unwrap();
     }
+
+    #[test]
+    fn test_jit_while() {
+        let _ = FSRVM::single();
+        let module1 = r#"
+        @jit
+        fn abc() {
+            a = 0
+            while a < 20000 {
+                a = a + 1
+                println(a)
+            }
+            println(a)
+        }
+
+        abc()
+        "#;
+
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
+
+        let mut runtime = FSRThreadRuntime::new_runtime();
+
+        //runtime.start(&v, &mut vm).unwrap();
+
+        runtime.start(obj_id).unwrap();
+    }
 }

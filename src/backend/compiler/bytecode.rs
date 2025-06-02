@@ -235,6 +235,7 @@ impl BytecodeOperator {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, PartialEq, Hash, Eq, Clone, Copy)]
 pub enum CompareOperator {
     Equal,

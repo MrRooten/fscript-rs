@@ -11,12 +11,12 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::Module;
 
 use crate::backend::{
-    compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator},
+    compiler::bytecode::{ArgType, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator},
     types::base::{FSRObject, ObjId},
     vm::thread::FSRThreadRuntime,
 };
 
-use super::jit_wrapper::{call_fn, free, get_constant, get_obj_by_name, malloc};
+use super::jit_wrapper::{call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_obj_by_name, is_false, malloc};
 
 struct BuildContext {}
 
@@ -97,13 +97,97 @@ impl JitBuilder<'_> {
         context.exp.push(global_obj);
     }
 
+    fn is_true(&mut self, value: Value) -> Value {
+        let mut is_true_sig = self.module.make_signature();
+        is_true_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // value to check
+        is_true_sig
+            .returns
+            .push(AbiParam::new(types::I32)); // return type (boolean)
+
+        let fn_id = self
+            .module
+            .declare_function("is_true", cranelift_module::Linkage::Import, &is_true_sig)
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let ret = self.builder.ins().call(func_ref, &[value]);
+        let result = self.builder.inst_results(ret)[0];
+        result
+    }
+
+    fn load_compare(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
+            // pub extern "C" fn compare_test(thread: &mut FSRThreadRuntime, left: ObjId, right: ObjId, op: CompareOperator)  
+
+            let mut compare_test_sig = self.module.make_signature();
+            compare_test_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            compare_test_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // left operand
+            compare_test_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
+            compare_test_sig
+                .params
+                .push(AbiParam::new(types::I64)); // compare operator type
+            compare_test_sig
+                .returns
+                .push(AbiParam::new(types::I32)); // return type (boolean)
+            let fn_id = self
+                .module
+                .declare_function(
+                    "compare_test",
+                    cranelift_module::Linkage::Import,
+                    &compare_test_sig,
+                )
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            // let op = self.builder.ins().iconst(types::I32, 0); // Replace with actual operator type
+            // let op = CompareOperator::new_from_str(context.operator).unwrap() as i32;
+            let op = if let ArgType::Compare(op) = arg.get_arg() {
+                let v = *op as i64;
+                self.builder.ins().iconst(types::I64, v)
+            } else {
+                panic!("CompareTest requires a CompareOperator argument")
+            };
+            let call = self.builder.ins().call(
+                func_ref,
+                &[thread_runtime, left, right, op],
+            );
+            let result = self.builder.inst_results(call)[0];
+            context.exp.push(result);
+        } else {
+            panic!("CompareTest requires both left and right operands");
+        }
+    }
+
+    fn load_if_test(&mut self, context: &mut OperatorContext) {
+        let condition = context.exp.pop().unwrap();
+        let then_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        let exit_block = self.builder.create_block();
+
+        self.builder
+            .ins()
+            .brif(condition, then_block, &[], else_block, &[]);
+
+        self.builder.switch_to_block(then_block);
+        //context.exit_blocks.push(exit_block);
+        //context.while_blocks.push(else_block);
+    }
+
     fn load_while(&mut self, context: &mut OperatorContext) {
         //let header_block = self.builder.create_block();
         let body_block = self.builder.create_block();
         let exit_block = self.builder.create_block();
+        let condition = context.exp.pop().unwrap();
         self.builder
             .ins()
-            .brif(context.exp.pop().unwrap(), body_block, &[], exit_block, &[]);
+            .brif(condition, body_block, &[], exit_block, &[]);
 
         self.builder.switch_to_block(body_block);
         self.builder.seal_block(body_block);
@@ -141,7 +225,7 @@ impl JitBuilder<'_> {
         let size = self
             .builder
             .ins()
-            .iconst(types::I64, (len * std::mem::size_of::<ObjId>()) as i64);
+            .iconst(types::I64, len as i64);
         let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
         let malloc_ret = self.builder.inst_results(malloc_call)[0];
 
@@ -157,17 +241,109 @@ impl JitBuilder<'_> {
         malloc_ret
     }
 
-    fn load_free_arg_list(&mut self, list_ptr: Value) {
+    fn load_free_arg_list(&mut self, list_ptr: Value, context: &mut OperatorContext, len: i64) {
+        // pub extern "C" fn free(ptr: *mut Vec<ObjId>, size: usize)
         let mut free_sig = self.module.make_signature();
         free_sig
             .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // pointer to free
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // pointer to the list
+        free_sig.params.push(AbiParam::new(types::I64)); // size of the list
+        free_sig
+            .returns
+            .push(AbiParam::new(types::I32)); // return type (void)
         let free_id = self
             .module
             .declare_function("free", cranelift_module::Linkage::Import, &free_sig)
             .unwrap();
         let free_func_ref = self.module.declare_func_in_func(free_id, self.builder.func);
-        self.builder.ins().call(free_func_ref, &[list_ptr]);
+        let size = self.builder.ins().iconst(types::I64, len); 
+        let free_call = self.builder.ins().call(free_func_ref, &[list_ptr, size]);
+        let _ = self.builder.inst_results(free_call)[0]; // We don't need the return value, just ensure the call is made
+    }
+
+    fn load_gc_collect(&mut self, context: &mut OperatorContext) {
+        let ptr_type = self.module.target_config().pointer_type();
+        let var_count = self.variables.len();
+        let size = self.builder.ins().iconst(types::I64, var_count as i64);
+
+        let mut malloc_sig = self.module.make_signature();
+        malloc_sig.params.push(AbiParam::new(types::I64));
+        malloc_sig.returns.push(AbiParam::new(ptr_type));
+        let malloc_id = self.module.declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig).unwrap();
+        let malloc_func_ref = self.module.declare_func_in_func(malloc_id, self.builder.func);
+        let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
+        let arr_ptr = self.builder.inst_results(malloc_call)[0];
+
+        for (i, var) in self.variables.values().enumerate() {
+            let value = self.builder.use_var(*var);
+            let offset = self.builder.ins().iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+            let ptr = self.builder.ins().iadd(arr_ptr, offset);
+            self.builder.ins().store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+        }
+
+        let mut gc_collect_sig = self.module.make_signature();
+        // pub extern "C" fn gc_collect(thread: &mut FSRThreadRuntime, list_obj: *const ObjId, len: usize)
+        gc_collect_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        gc_collect_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // list pointer
+        gc_collect_sig.params.push(AbiParam::new(types::I64)); // length of the list
+        
+        gc_collect_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (void)
+        let gc_collect_id = self
+            .module
+            .declare_function("gc_collect", cranelift_module::Linkage::Import, &gc_collect_sig)
+            .unwrap();
+
+        let gc_collect_func_ref = self.module.declare_func_in_func(gc_collect_id, self.builder.func);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let len = self.builder.ins().iconst(types::I64, var_count as i64);
+
+        let gc_call = self.builder.ins().call(gc_collect_func_ref, &[thread_runtime, arr_ptr, len]);
+        let _ = self.builder.inst_results(gc_call)[0]; // We don't need the return value, just ensure the call is made
+        // Free the allocated array after the GC call
+        self.load_free_arg_list(arr_ptr, context, var_count as i64);
+    }
+
+    fn load_check_gc(&mut self, context: &mut OperatorContext) -> Value {
+        let mut check_gc_sig = self.module.make_signature();
+        check_gc_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        check_gc_sig
+            .returns
+            .push(AbiParam::new(types::I32)); // return type (boolean)
+
+        let fn_id = self
+            .module
+            .declare_function("check_gc", cranelift_module::Linkage::Import, &check_gc_sig)
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let ret = self.builder.ins().call(func_ref, &[thread_runtime]);
+        let condition = self.builder.inst_results(ret)[0];
+
+        let then_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        self.builder.ins().brif(
+            condition,
+            then_block,
+            &[],
+            else_block,
+            &[],
+        );
+
+        self.builder.switch_to_block(then_block);
+        self.builder.seal_block(then_block);
+        self.load_gc_collect(context);
+        self.builder.ins().jump(else_block, &[]);
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
+        condition
     }
 
     fn load_call(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
@@ -216,7 +392,7 @@ impl JitBuilder<'_> {
             let ret = self.builder.inst_results(call)[0];
 
             // Free the argument list after the call
-            self.load_free_arg_list(list_ptr);
+            self.load_free_arg_list(list_ptr, context, *v as i64);
 
             context.exp.push(ret);
         } else {
@@ -235,6 +411,13 @@ impl JitBuilder<'_> {
             self.builder.ins().jump(header_block, &[]);
             self.builder.switch_to_block(header_block);
             context.while_blocks.push(header_block);
+        }
+
+        if expr.last().unwrap().get_operator() == &BytecodeOperator::IfTest {
+            //context.is_if += 1;
+            let header_block = self.builder.create_block();
+            self.builder.ins().jump(header_block, &[]);
+            self.builder.switch_to_block(header_block);
         }
 
         for arg in expr {
@@ -332,6 +515,9 @@ impl JitBuilder<'_> {
                 BytecodeOperator::Call => {
                     self.load_call(arg, context);
                 }
+                BytecodeOperator::CompareTest => {
+                    self.load_compare(context, arg);
+                }
                 _ => {
                     unimplemented!("Compile operator: {:?}", arg.get_operator())
                 }
@@ -408,6 +594,10 @@ impl CraneLiftJitBackend {
         builder.symbol("malloc", malloc as *const u8);
         builder.symbol("free", free as *const u8);
         builder.symbol("get_obj_by_name", get_obj_by_name as *const u8);
+        builder.symbol("is_false", is_false as *const u8);
+        builder.symbol("check_gc", check_gc as *const u8);
+        builder.symbol("gc_collect", gc_collect as *const u8);
+        builder.symbol("compare_test", compare_test as *const u8);
 
         let module = JITModule::new(builder);
 
@@ -473,6 +663,7 @@ impl CraneLiftJitBackend {
 
         for expr in &code.bytecode {
             trans.compile_expr(expr, &mut context);
+            trans.load_check_gc(&mut context);
         }
 
         // let end_block = trans.builder.create_block();
@@ -492,11 +683,11 @@ impl CraneLiftJitBackend {
                 &self.ctx.func.signature,
             )
             .unwrap();
-
-        self.module.define_function(id, &mut self.ctx).unwrap();
-
         println!("Cranelift JIT compiled function: {}", fn_name);
         println!("{}", self.ctx.func.display());
+        self.module.define_function(id, &mut self.ctx).unwrap();
+
+        
 
         self.module.clear_context(&mut self.ctx);
         // Tell the builder we're done with this function.
