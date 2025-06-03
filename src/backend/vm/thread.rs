@@ -172,7 +172,7 @@ pub struct CallFrame<'a> {
     pub(crate) var_map: IndexMap,
     attr_map: AttrMap<'a>,
     reverse_ip: (usize, usize),
-    args: Vec<ObjId>,
+    pub(crate) args: Vec<ObjId>,
     cur_cls: Option<Box<FSRClass<'a>>>,
     pub(crate) ret_val: Option<ObjId>,
     pub(crate) exp: Vec<ObjId>,
@@ -1468,16 +1468,17 @@ impl<'a> FSRThreadRuntime<'a> {
                     self.push_frame(
                         frame
                     );
+                    for arg in args.iter() {
+                        self.get_cur_mut_frame().args.push(*arg);
+                    }
                     let call_fn = unsafe {
                         std::mem::transmute::<
                             _,
                             extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
                         >(code)
                     };
-
-                    self.pop_frame();
-
                     let res = call_fn(self, self.get_context().code, args, args.len() as i32);
+                    self.pop_frame();
                     self.get_cur_mut_frame().exp.push(res);
                     return Ok(false);
                 }

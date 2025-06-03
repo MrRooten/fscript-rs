@@ -1,10 +1,8 @@
 @jit
-fn abc() {
-    a = 0
-    while a < 3000000 {
-        a = a + 1
-    }
-    println(a)
+fn abc(a, b) {
+    println(a, b) 
 }
 
-abc()
+abc(1, 2)
+
+gc_info()

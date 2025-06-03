@@ -1889,11 +1889,20 @@ impl<'a> Bytecode {
         
 
         fn_body.insert(0, load_args);
-        fn_body.push(vec![BytecodeArg {
-            operator: BytecodeOperator::EndFn,
-            arg: ArgType::None,
-            info: FSRByteInfo::new(fn_def.get_meta().clone()),
-        }]);
+        if let Some(last) = fn_body.last() {
+            if last.last().is_some() && last.last().unwrap().operator != BytecodeOperator::ReturnValue {
+                fn_body.push(vec![BytecodeArg {
+                    operator: BytecodeOperator::ReturnValue,
+                    arg: ArgType::None,
+                    info: FSRByteInfo::new(fn_def.get_meta().clone()),
+                }]);
+            }
+        }
+        // fn_body.push(vec![BytecodeArg {
+        //     operator: BytecodeOperator::EndFn,
+        //     arg: ArgType::None,
+        //     info: FSRByteInfo::new(fn_def.get_meta().clone()),
+        // }]);
 
         let mut var_map = VarMap::new("_");
         var_map.attr_id = AtomicU64::new(v.attr_id.load(Ordering::Relaxed));

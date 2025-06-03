@@ -817,17 +817,17 @@ impl<'a> FSRObject<'a> {
     // }
 
     #[inline(always)]
-    pub fn none_id() -> ObjId {
+    pub extern "C" fn none_id() -> ObjId {
         get_none()
     }
 
     #[inline(always)]
-    pub fn true_id() -> ObjId {
+    pub extern "C" fn true_id() -> ObjId {
         get_true()
     }
 
     #[inline(always)]
-    pub fn false_id() -> ObjId {
+    pub extern "C" fn false_id() -> ObjId {
         get_false()
     }
 

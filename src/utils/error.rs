@@ -134,3 +134,15 @@ impl Display for FSRError {
     }
 }
 
+#[repr(C)]
+pub enum FSRResult {
+    Ok,
+    Err
+}
+
+#[repr(C)]
+pub struct FSRCResult {
+    r_type: FSRResult,
+    ok_value: ObjId,
+    err_value: FSRError
+}

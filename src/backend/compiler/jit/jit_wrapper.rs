@@ -33,6 +33,10 @@ pub extern "C" fn is_none(obj: ObjId) -> bool {
     obj == FSRObject::none_id()
 }
 
+pub extern "C" fn get_none() -> ObjId {
+    FSRObject::none_id()
+}
+
 pub extern "C" fn call_fn(
     args: *const ObjId,
     len: usize,
@@ -107,6 +111,14 @@ pub extern "C" fn compare_test(
     FSRThreadRuntime::compare(left, right, op, thread).unwrap()
 }
 
+/// Perform a binary operation on two objects.
+/// # Arguments
+/// * `left` - The left operand object ID.
+/// * `right` - The right operand object ID.
+/// * `op` - The binary operation to perform, represented by a `BinaryOffset`.
+/// * `thread` - The current thread runtime.
+/// # Returns
+/// The result of the binary operation as an `ObjId`.
 pub extern "C" fn binary_op(
     left: ObjId,
     right: ObjId,
@@ -120,4 +132,47 @@ pub extern "C" fn binary_op(
     }
 
     unimplemented!("binary op {:?} not support in rust fn", op);
+}
+
+/// Get the attribute of an object by name.
+/// # Arguments
+/// * `obj` - The object ID from which to get the attribute.
+/// * `name` - A pointer to the attribute name as a byte slice.
+/// * `len` - The length of the attribute name byte slice.
+/// * `thread` - The current thread runtime.
+/// # Returns
+/// The object ID of the attribute if it exists, or `FSRObject::none_id()` if it does not.
+pub extern "C" fn get_attr_obj(
+    obj: ObjId,
+    name: *const u8,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> ObjId {
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
+    let name_str = std::str::from_utf8(name_slice).unwrap();
+    let obj = FSRObject::id_to_obj(obj);
+    let attr = obj.get_attr(name_str);
+    attr.map(|x| x.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(FSRObject::none_id())
+}
+
+pub extern "C" fn get_cur_frame<'a>(thread: &'a mut FSRThreadRuntime<'a>) -> *mut CallFrame<'a> {
+    let frame = thread.get_cur_mut_frame();
+    frame as *mut CallFrame<'a>
+}
+
+
+/// Get the number of arguments passed to the current function.
+/// # Arguments
+/// * `thread` - The current thread runtime.
+/// * `index` - The index of the argument to retrieve, where 0 is the last argument.
+/// # Returns
+/// The object ID of the argument at the specified index, or `FSRObject::none_id()` if no arguments exist.
+pub extern "C" fn get_n_args(thread: &mut FSRThreadRuntime, index: i32) -> ObjId {
+    let frame = thread.get_cur_mut_frame();
+    let len = frame.args.len();
+    if len == 0 {
+        return FSRObject::none_id();
+    }
+    frame.args.get(len - 1 - index as usize).cloned().unwrap_or(FSRObject::none_id())
 }
