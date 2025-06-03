@@ -1,9 +1,9 @@
 
 fn abc() {
-    i = 1 + 1
+    i = 0
+    while i < 3000000 {
+        i = i + 1
+    }
 }
 
-for i in 0..3000000 {
-    abc()
-}
-gc_info()
+abc()

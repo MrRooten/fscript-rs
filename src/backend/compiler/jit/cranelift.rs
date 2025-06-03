@@ -122,7 +122,7 @@ impl JitBuilder<'_> {
                 .params
                 .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
             compare_test_sig.params.push(AbiParam::new(types::I64)); // compare operator type
-            compare_test_sig.returns.push(AbiParam::new(types::I32)); // return type (boolean)
+            compare_test_sig.returns.push(AbiParam::new(types::I8)); // return type (boolean)
             let fn_id = self
                 .module
                 .declare_function(
@@ -258,7 +258,7 @@ impl JitBuilder<'_> {
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // pointer to the list
         free_sig.params.push(AbiParam::new(types::I64)); // size of the list
-        free_sig.returns.push(AbiParam::new(types::I32)); // return type (void)
+        //free_sig.returns.push(AbiParam::new(types::I32)); // return type (void)
         let free_id = self
             .module
             .declare_function("free", cranelift_module::Linkage::Import, &free_sig)
@@ -266,7 +266,7 @@ impl JitBuilder<'_> {
         let free_func_ref = self.module.declare_func_in_func(free_id, self.builder.func);
         let size = self.builder.ins().iconst(types::I64, len);
         let free_call = self.builder.ins().call(free_func_ref, &[list_ptr, size]);
-        let _ = self.builder.inst_results(free_call)[0]; // We don't need the return value, just ensure the call is made
+        let _ = self.builder.inst_results(free_call); // We don't need the return value, just ensure the call is made
     }
 
     fn load_gc_collect(&mut self, context: &mut OperatorContext) {
