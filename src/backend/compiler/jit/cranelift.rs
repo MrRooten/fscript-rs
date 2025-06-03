@@ -341,7 +341,7 @@ impl JitBuilder<'_> {
         check_gc_sig
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-        check_gc_sig.returns.push(AbiParam::new(types::I32)); // return type (boolean)
+        check_gc_sig.returns.push(AbiParam::new(types::I8)); // return type (boolean)
 
         let fn_id = self
             .module
