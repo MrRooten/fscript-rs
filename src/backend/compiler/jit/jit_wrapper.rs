@@ -21,22 +21,6 @@ pub extern "C" fn get_constant(code: ObjId, index: u64) -> ObjId {
     constant
 }
 
-pub extern "C" fn is_true(obj: ObjId) -> bool {
-    obj == FSRObject::true_id()
-}
-
-pub extern "C" fn is_false(obj: ObjId) -> bool {
-    obj == FSRObject::false_id()
-}
-
-pub extern "C" fn is_none(obj: ObjId) -> bool {
-    obj == FSRObject::none_id()
-}
-
-pub extern "C" fn get_none() -> ObjId {
-    FSRObject::none_id()
-}
-
 pub extern "C" fn call_fn(
     args: *const ObjId,
     len: usize,
@@ -175,4 +159,27 @@ pub extern "C" fn get_n_args(thread: &mut FSRThreadRuntime, index: i32) -> ObjId
         return FSRObject::none_id();
     }
     frame.args.get(len - 1 - index as usize).cloned().unwrap_or(FSRObject::none_id())
+}
+
+
+pub extern "C" fn getter(
+    container: ObjId,
+    index_obj: ObjId,
+    thread: &mut FSRThreadRuntime,
+) -> ObjId {
+    let container_obj = FSRObject::id_to_obj(container);
+    let index = FSRObject::id_to_obj(index_obj);
+    
+    if let Some(rust_fn) = obj_cls!(container).get_rust_fn(BinaryOffset::GetItem) {
+        let list = [container, index_obj];
+        return rust_fn(
+            list.as_ptr(),
+            2,
+            thread,
+            0,
+        )
+        .unwrap().get_id()
+    }
+
+    unimplemented!()
 }

@@ -1478,7 +1478,8 @@ impl<'a> FSRThreadRuntime<'a> {
                         >(code)
                     };
                     let res = call_fn(self, self.get_context().code, args, args.len() as i32);
-                    self.pop_frame();
+                    let v = self.pop_frame();
+                    self.frame_free_list.free(v);
                     self.get_cur_mut_frame().exp.push(res);
                     return Ok(false);
                 }

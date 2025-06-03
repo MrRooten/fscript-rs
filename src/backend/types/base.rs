@@ -555,7 +555,7 @@ impl<'a> FSRObject<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
+    pub extern "C" fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
         if id >= 1000 {
             return unsafe { &*(id as *const FSRObject) };
         } else {

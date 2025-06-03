@@ -19,7 +19,7 @@ use crate::backend::{
 };
 
 use super::jit_wrapper::{
-    binary_op, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_n_args, get_none, get_obj_by_name, is_false, malloc
+    binary_op, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_n_args, get_obj_by_name, malloc
 };
 
 struct BuildContext {}
@@ -105,23 +105,6 @@ impl JitBuilder<'_> {
             .call(func_ref, &[name, name_len, thread_rt]);
         let global_obj = self.builder.inst_results(get_global_name)[0];
         context.exp.push(global_obj);
-    }
-
-    fn is_true(&mut self, value: Value) -> Value {
-        let mut is_true_sig = self.module.make_signature();
-        is_true_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // value to check
-        is_true_sig.returns.push(AbiParam::new(types::I32)); // return type (boolean)
-
-        let fn_id = self
-            .module
-            .declare_function("is_true", cranelift_module::Linkage::Import, &is_true_sig)
-            .unwrap();
-        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        let ret = self.builder.ins().call(func_ref, &[value]);
-        let result = self.builder.inst_results(ret)[0];
-        result
     }
 
     fn load_compare(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
@@ -440,18 +423,23 @@ impl JitBuilder<'_> {
 
     fn load_none(&mut self, context: &mut OperatorContext) {
         // pub extern "C" fn get_none() -> ObjId
-        let mut get_none_sig = self.module.make_signature();
-        get_none_sig
-            .returns
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
-        let fn_id = self
-            .module
-            .declare_function("get_none", cranelift_module::Linkage::Import, &get_none_sig)
-            .unwrap();
-        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        let call = self.builder.ins().call(func_ref, &[]);
-        let ret = self.builder.inst_results(call)[0];
-        context.exp.push(ret);
+        // let mut get_none_sig = self.module.make_signature();
+        // get_none_sig
+        //     .returns
+        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+        // let fn_id = self
+        //     .module
+        //     .declare_function("get_none", cranelift_module::Linkage::Import, &get_none_sig)
+        //     .unwrap();
+        // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        // let call = self.builder.ins().call(func_ref, &[]);
+        let none_id = FSRObject::none_id();
+        let none_value = self.builder.ins().iconst(
+            self.module.target_config().pointer_type(),
+            none_id as i64,
+        );
+        // let ret = self.builder.inst_results(call)[0];
+        context.exp.push(none_value);
     }
 
     fn load_binary_op(&mut self, context: &mut OperatorContext, op: BinaryOffset) {
@@ -633,6 +621,9 @@ impl JitBuilder<'_> {
                 BytecodeOperator::CompareTest => {
                     self.load_compare(context, arg);
                 }
+                BytecodeOperator::Empty => {
+                    // Do nothing for empty operators
+                }
                 BytecodeOperator::ReturnValue => {
                     if let Some(value) = context.exp.pop() {
                         self.builder.ins().return_(&[value]);
@@ -714,11 +705,9 @@ impl CraneLiftJitBackend {
         builder.symbol("malloc", malloc as *const u8);
         builder.symbol("free", free as *const u8);
         builder.symbol("get_obj_by_name", get_obj_by_name as *const u8);
-        builder.symbol("is_false", is_false as *const u8);
         builder.symbol("check_gc", check_gc as *const u8);
         builder.symbol("gc_collect", gc_collect as *const u8);
         builder.symbol("compare_test", compare_test as *const u8);
-        builder.symbol("get_none", get_none as *const u8);
         builder.symbol("get_n_args", get_n_args as *const u8);
     }
 
@@ -801,11 +790,15 @@ impl CraneLiftJitBackend {
             module: &mut self.module,
             defined_variables: HashMap::new(),
         };
-
+        let mut i = 0;
         for expr in &code.bytecode {
-            trans.load_check_gc(&mut context);
+            if i % 10 == 0 {
+                trans.load_check_gc(&mut context);
+            }
+            
             trans.compile_expr(expr, &mut context);
             context.exp.clear();
+            i += 1;
         }
 
         // let end_block = trans.builder.create_block();
