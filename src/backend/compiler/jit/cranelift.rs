@@ -22,7 +22,7 @@ use crate::{
 };
 
 use super::jit_wrapper::{
-    binary_op, c_next_obj, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_iter_obj, get_n_args, get_obj_by_name, load_float, load_integer, load_string, malloc
+    binary_op, binary_range, c_next_obj, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_iter_obj, get_n_args, get_obj_by_name, load_float, load_integer, load_string, malloc
 };
 
 struct BuildContext {}
@@ -249,7 +249,7 @@ impl JitBuilder<'_> {
 
         self.builder
             .ins()
-            .icmp(codegen::ir::condcodes::IntCC::Equal, value, none_id)
+            .icmp(codegen::ir::condcodes::IntCC::NotEqual, value, none_id)
     }
 
     fn load_for_next(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
@@ -429,7 +429,7 @@ impl JitBuilder<'_> {
 
     fn load_gc_collect(&mut self, context: &mut OperatorContext) {
         let ptr_type = self.module.target_config().pointer_type();
-        let var_count = self.defined_variables.len();
+        let var_count = self.defined_variables.len() + context.for_iter_obj.len() + context.for_obj.len();
         let size = self.builder.ins().iconst(ptr_type, var_count as i64); // usize
 
         let mut malloc_sig = self.module.make_signature();
@@ -444,8 +444,8 @@ impl JitBuilder<'_> {
             .declare_func_in_func(malloc_id, self.builder.func);
         let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
         let arr_ptr = self.builder.inst_results(malloc_call)[0];
-
-        for (i, var) in self.defined_variables.values().enumerate() {
+        let mut i = 0;
+        for var in self.defined_variables.values() {
             let value = self.builder.use_var(*var);
             let offset = self
                 .builder
@@ -455,7 +455,35 @@ impl JitBuilder<'_> {
             self.builder
                 .ins()
                 .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+            i += 1;
         }
+
+        for var in &context.for_iter_obj {
+            let value = *var;
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+            let ptr = self.builder.ins().iadd(arr_ptr, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+            i += 1;
+        }
+
+        for var in &context.for_obj {
+            let value = *var;
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+            let ptr = self.builder.ins().iadd(arr_ptr, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+            i += 1;
+        }
+
 
         let mut gc_collect_sig = self.module.make_signature();
         // pub extern "C" fn gc_collect(thread: &mut FSRThreadRuntime, list_obj: *const ObjId, len: usize)
@@ -649,6 +677,40 @@ impl JitBuilder<'_> {
             context.exp.push(ret);
         } else {
             unimplemented!("BinaryAdd requires both left and right operands");
+        }
+    }
+
+    fn load_binary_range(&mut self, context: &mut OperatorContext) {
+        if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
+            // pub extern "C" fn binary_range(left: ObjId, right: ObjId, thread: &mut FSRThreadRuntime) -> ObjId
+            let mut binary_range_sig = self.module.make_signature();
+            binary_range_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // left operand
+            binary_range_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
+            binary_range_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            binary_range_sig
+                .returns
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+            let fn_id = self
+                .module
+                .declare_function(
+                    "binary_range",
+                    cranelift_module::Linkage::Import,
+                    &binary_range_sig,
+                )
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            let call = self.builder.ins().call(func_ref, &[left, right, thread_runtime]);
+            let ret = self.builder.inst_results(call)[0];
+            context.exp.push(ret);
+        } else {
+            panic!("BinaryRange requires both left and right operands");
         }
     }
 
@@ -981,6 +1043,9 @@ impl JitBuilder<'_> {
                 BytecodeOperator::ForBlockEnd => {
                     self.load_for_end(context);
                 }
+                BytecodeOperator::BinaryRange => {
+                    self.load_binary_range(context);
+                }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())
                 }
@@ -1088,6 +1153,7 @@ impl CraneLiftJitBackend {
         builder.symbol("load_float", load_float as *const u8);
         builder.symbol("get_iter_obj", get_iter_obj as *const u8);
         builder.symbol("c_next_obj", c_next_obj as *const u8);
+        builder.symbol("binary_range", binary_range as *const u8);
     }
 
     pub fn new() -> Self {

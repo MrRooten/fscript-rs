@@ -1,13 +1,10 @@
-use std::sync::atomic::Ordering;
+use std::{ops::Range, sync::atomic::Ordering};
 
 use crate::backend::{
     compiler::bytecode::{BinaryOffset, CompareOperator},
     memory::GarbageCollector,
     types::{
-        base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
-        ext,
-        iterator::next_obj,
-        string::FSRString,
+        base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, ext, iterator::next_obj, range::FSRRange, string::FSRString
     },
     vm::{
         thread::{CallFrame, FSRThreadRuntime, GcState},
@@ -245,4 +242,27 @@ pub extern "C" fn get_iter_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> Obj
     };
 
     read_iter_id
+}
+
+pub extern "C" fn binary_range(left: ObjId, right: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
+    let start = FSRObject::id_to_obj(left);
+    let end = FSRObject::id_to_obj(right);
+
+    if let FSRValue::Integer(start) = start.value {
+        if let FSRValue::Integer(end) = end.value {
+            let range = FSRRange {
+                range: Range { start, end },
+            };
+
+            let id = thread.garbage_collect.new_object(
+                FSRValue::Range(Box::new(range)),
+                get_object_by_global_id(FSRGlobalObjId::RangeCls) as ObjId,
+            );
+
+            
+            return id
+        }
+    }
+
+    panic!("binary_range only support integer range");
 }
