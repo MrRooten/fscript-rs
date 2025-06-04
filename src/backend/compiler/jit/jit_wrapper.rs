@@ -96,8 +96,12 @@ pub extern "C" fn compare_test(
     left: ObjId,
     right: ObjId,
     op: CompareOperator,
-) -> bool {
-    FSRThreadRuntime::compare(left, right, op, thread).unwrap()
+) -> ObjId {
+    if FSRThreadRuntime::compare(left, right, op, thread).unwrap() {
+        FSRObject::true_id()
+    } else {
+        FSRObject::false_id()
+    }
 }
 
 /// Perform a binary operation on two objects.

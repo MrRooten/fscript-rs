@@ -1864,7 +1864,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             state.insert_var(*name_id, fn_id);
             let define_fn_obj = self.get_cur_frame().fn_obj;
-            if define_fn_obj == FSRObject::none_id() {
+            if define_fn_obj == 0 {
                 let module = FSRObject::id_to_mut_obj(
                     FSRObject::id_to_obj(self.get_context().code)
                         .as_code()

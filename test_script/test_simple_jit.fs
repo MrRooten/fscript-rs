@@ -1,8 +1,12 @@
-@jit
+
+fn test() {
+    println("test")
+    return 3
+}
+
 fn abc() {
-    for i in 0..30000000 {
-        
-    }
+    a = true or test()
+    println(a)
 }
 
 println(abc())

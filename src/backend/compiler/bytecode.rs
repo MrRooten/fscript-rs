@@ -1084,10 +1084,12 @@ impl<'a> Bytecode {
 
             let mut v = Self::load_call(c, var_map, is_attr, is_method_call, const_map);
             second.append(&mut v);
-            op_code.append(&mut second);
+
+            
 
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
+                op_code.append(&mut second);
                 if let Some(single_op) = expr.get_single_op() {
                     if single_op.eq(&SingleOp::Not) {
                         op_code.push(BytecodeArg {
@@ -1114,10 +1116,11 @@ impl<'a> Bytecode {
             let mut v =
                 Self::load_list_getter(s, var_map, is_attr, is_method_call, false, const_map);
             second.append(&mut v);
-            op_code.append(&mut second);
+            
 
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
+                op_code.append(&mut second);
                 if let Some(single_op) = expr.get_single_op() {
                     if single_op.eq(&SingleOp::Not) {
                         op_code.push(BytecodeArg {
@@ -1141,7 +1144,8 @@ impl<'a> Bytecode {
             //
         } else if let FSRToken::List(list) = expr.get_right() {
             let mut v = Self::load_list(list, var_map, const_map);
-            op_code.append(&mut v);
+            second.append(&mut v);
+            //op_code.append(&mut v);
             //
         } else {
             println!("{:#?}", expr.get_right());
@@ -2482,12 +2486,24 @@ fib()
     #[test]
     fn test_logic() {
         let expr = "
-        a or b + 1
+        a or test()
         ";
 
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_assign_2() {
+       let expr = "
+        a = 1 == 2
+        ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v); 
     }
 }

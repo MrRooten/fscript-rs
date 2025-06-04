@@ -383,6 +383,45 @@ pub mod tests {
         jit.compile(&bytecode).unwrap();
     }
 
+    #[test]
+    fn test_logic() {
+        let _ = FSRVM::single();
+        let module1 = r#"
+        fn abc() {
+            a = 0
+            b = 1
+            c = 2
+            a or b or c
+        }
+
+        "#;
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = v.get("abc").unwrap().as_code();
+        let bytecode = obj.get_bytecode();
+        let mut jit = CraneLiftJitBackend::new();
+        jit.compile(&bytecode).unwrap();
+    }
+
+    #[test]
+    fn test_assign() {
+        let _ = FSRVM::single();
+        let module1 = r#"
+        fn abc() {
+            a = 1 == 2
+        }
+
+        "#;
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", module1, obj_id).unwrap();
+        let obj = v.get("abc").unwrap().as_code();
+        let bytecode = obj.get_bytecode();
+        let mut jit = CraneLiftJitBackend::new();
+        jit.compile(&bytecode).unwrap();
+    }
+
     // #[test]
     // fn test_suspend_thread() {
     //     let module1 = r#"

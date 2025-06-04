@@ -55,6 +55,8 @@ struct OperatorContext {
     ins_check_gc: bool,
     for_obj: Vec<Value>,
     for_iter_obj: Vec<Value>,
+    logic_end_block: Option<Block>,
+    logic_rest_bytecode_count: Option<usize>, // used to track the remaining bytecode count in a logic block
 }
 
 impl JitBuilder<'_> {
@@ -124,6 +126,38 @@ impl JitBuilder<'_> {
         context.exp.push(global_obj);
     }
 
+    fn load_is_true(&mut self, context: &mut OperatorContext) {
+        if let Some(value) = context.exp.pop() {
+            let true_id = self.builder
+                .ins()
+                .iconst(self.module.target_config().pointer_type(), FSRObject::true_id() as i64);
+            let is_true = self.builder.ins().icmp(
+                codegen::ir::condcodes::IntCC::Equal,
+                value,
+                true_id,
+            );
+            context.exp.push(is_true);
+        } else {
+            panic!("IsTrue requires a value operand");
+        }
+    }
+
+    fn load_is_not_false(&mut self, context: &mut OperatorContext) -> Value {
+        if let Some(value) = context.exp.last() {
+            let false_id = self.builder
+                .ins()
+                .iconst(self.module.target_config().pointer_type(), FSRObject::false_id() as i64);
+            let is_not_false = self.builder.ins().icmp(
+                codegen::ir::condcodes::IntCC::NotEqual,
+                *value,
+                false_id,
+            );
+            return is_not_false
+        } else {
+            panic!("IsNotFalse requires a value operand");
+        }
+    }
+
     fn load_compare(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
             // pub extern "C" fn compare_test(thread: &mut FSRThreadRuntime, left: ObjId, right: ObjId, op: CompareOperator)
@@ -139,7 +173,7 @@ impl JitBuilder<'_> {
                 .params
                 .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
             compare_test_sig.params.push(AbiParam::new(types::I32)); // compare operator type
-            compare_test_sig.returns.push(AbiParam::new(types::I8)); // return type (boolean)
+            compare_test_sig.returns.push(AbiParam::new(self.module.target_config().pointer_type())); // return type (boolean)
             let fn_id = self
                 .module
                 .declare_function(
@@ -173,6 +207,7 @@ impl JitBuilder<'_> {
         //let header_block = self.builder.create_block();
         let body_block = self.builder.create_block();
         let exit_block = self.builder.create_block();
+        self.load_is_true(context);
         let condition = context.exp.pop().unwrap();
         self.builder
             .ins()
@@ -328,6 +363,8 @@ impl JitBuilder<'_> {
         //let header_block = self.builder.create_block();
         let body_block = self.builder.create_block();
         let exit_block = self.builder.create_block();
+        // let condition = context.exp.pop().unwrap();
+        self.load_is_true(context);
         let condition = context.exp.pop().unwrap();
         self.builder
             .ins()
@@ -753,6 +790,57 @@ impl JitBuilder<'_> {
         context.args_index += 1;
     }
 
+    fn load_or_jump(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        // process or logic like a or b
+        //let last_ssa_value = *context.exp.last().unwrap();
+        let last_ssa_value = self.load_is_not_false(context);
+        //let last_ssa_value = context.exp.pop().unwrap();
+        let b_block = self.builder.create_block();
+        let end_block = self.builder.create_block();
+
+        self.builder.ins().brif(
+            last_ssa_value,
+            end_block,
+            &[],
+            b_block,
+            &[],
+        );
+
+        self.builder.switch_to_block(b_block);
+        self.builder.seal_block(b_block);
+        context.logic_end_block = Some(end_block);
+        if let ArgType::AddOffset(offset) = arg.get_arg() {
+            context.logic_rest_bytecode_count = Some(*offset);
+        } else {
+            panic!("OrJump requires an AddOffset argument");
+        }
+    }
+
+    fn load_and_jump(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        // process or logic like a or b
+        let last_ssa_value = *context.exp.last().unwrap();
+        let not_last_ssa_value = self.builder.ins().bnot(last_ssa_value);
+        let b_block = self.builder.create_block();
+        let end_block = self.builder.create_block();
+
+        self.builder.ins().brif(
+            last_ssa_value,
+            end_block,
+            &[],
+            b_block,
+            &[],
+        );
+
+        self.builder.switch_to_block(b_block);
+        self.builder.seal_block(b_block);
+        context.logic_end_block = Some(end_block);
+        if let ArgType::AddOffset(offset) = arg.get_arg() {
+            context.logic_rest_bytecode_count = Some(*offset);
+        } else {
+            panic!("OrJump requires an AddOffset argument");
+        }
+    }
+
     fn load_init_integer(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
         // pub extern "C" fn load_integer(
         //     value: i64,
@@ -1046,10 +1134,36 @@ impl JitBuilder<'_> {
                 BytecodeOperator::BinaryRange => {
                     self.load_binary_range(context);
                 }
+                BytecodeOperator::OrJump => {
+                    self.load_or_jump(context, arg);
+                }
+                BytecodeOperator::AndJump => {
+                    self.load_and_jump(context, arg);
+                }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())
                 }
             }
+
+
+            if let Some(s) = &mut context.logic_rest_bytecode_count {
+                if *s == 0 {
+                    if let Some(end_block) = context.logic_end_block.take() {
+                        self.builder.ins().jump(end_block, &[]);
+                        self.builder.switch_to_block(end_block);
+                        self.builder.seal_block(end_block);
+                    }
+                    context.logic_rest_bytecode_count = None;
+                }
+
+                
+            }
+
+            if let Some(s) = &mut context.logic_rest_bytecode_count {
+                *s -= 1;   
+            }
+
+
         }
     }
 }
@@ -1224,6 +1338,8 @@ impl CraneLiftJitBackend {
             ins_check_gc: false,
             for_obj: vec![],
             for_iter_obj: vec![],
+            logic_end_block: None,
+            logic_rest_bytecode_count: None,
         };
         // Since this is the entry block, add block parameters corresponding to
         // the function's parameters.
