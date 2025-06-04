@@ -170,6 +170,7 @@ impl<'a> AttrMap<'a> {
 
 pub struct CallFrame<'a> {
     pub(crate) var_map: IndexMap,
+    pub(crate) const_map: IndexMap,
     attr_map: AttrMap<'a>,
     reverse_ip: (usize, usize),
     pub(crate) args: Vec<ObjId>,
@@ -222,6 +223,16 @@ impl<'a> CallFrame<'a> {
         self.var_map.contains_key(id)
     }
 
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn insert_const(&mut self, id: u64, obj_id: ObjId) {
+        self.const_map.insert(id, obj_id);
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn get_const(&self, id: &u64) -> Option<&AtomicObjId> {
+        self.const_map.get(id)
+    }
+
     pub fn set_reverse_ip(&mut self, ip: (usize, usize)) {
         self.reverse_ip = ip;
     }
@@ -243,6 +254,7 @@ impl<'a> CallFrame<'a> {
             last_expr_val: FSRObject::none_id(),
             #[cfg(feature = "predict_op")]
             next_arg: None,
+            const_map: IndexMap::new(),
         }
     }
 }
@@ -543,10 +555,10 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(obj);
         }
 
-        for obj in module.const_table.iter() {
-            if let Some(obj_id) = obj {
-                work_list.push(*obj_id);
-            }
+        for obj in it.const_map.iter() {
+            //if let Some(obj_id) = obj {
+            work_list.push(obj.load(Ordering::Relaxed));
+            //}
         }
     }
 
@@ -596,8 +608,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
     pub fn set_ref_objects_mark(&mut self, full: bool, addition: &[ObjId]) {
         //if self.gc_context.gc_state == GcState::Stop {
-            self.gc_context.worklist = self.add_worklist();
-            self.gc_context.worklist.extend_from_slice(addition);
+        self.gc_context.worklist = self.add_worklist();
+        self.gc_context.worklist.extend_from_slice(addition);
         //}
         //self.gc_context.gc_state = GcState::Running;
 
@@ -839,8 +851,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
         Ok(false)
     }
-
-    
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_add_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
@@ -1464,10 +1474,10 @@ impl<'a> FSRThreadRuntime<'a> {
                     //     .params
                     //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
                     // self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
-                    let frame = self.frame_free_list.new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-                    self.push_frame(
-                        frame
-                    );
+                    let frame = self
+                        .frame_free_list
+                        .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+                    self.push_frame(frame);
                     for arg in args.iter() {
                         self.get_cur_mut_frame().args.push(*arg);
                     }
@@ -2412,14 +2422,17 @@ impl<'a> FSRThreadRuntime<'a> {
                 } else {
                     i
                 };
-                let ptr = {
-                    let mut obj = FSRInteger::new_inst(i);
-                    // obj.ref_add();
-                    obj.area = Area::Global;
-                    FSRVM::leak_object(Box::new(obj))
-                };
-
-                module.insert_const(*index as usize, ptr);
+                // let ptr = {
+                //     let mut obj = FSRInteger::new_inst(i);
+                //     // obj.ref_add();
+                //     obj.area = Area::Global;
+                //     FSRVM::leak_object(Box::new(obj))
+                // };
+                let ptr = self.garbage_collect.new_object(
+                    FSRValue::Integer(i),
+                    get_object_by_global_id(FSRGlobalObjId::IntegerCls) as ObjId,
+                );
+                self.get_cur_mut_frame().insert_const(*index as u64, ptr);
             }
             ArgType::ConstFloat(index, obj, single_op) => {
                 let i = obj.parse::<f64>().unwrap();
@@ -2428,23 +2441,32 @@ impl<'a> FSRThreadRuntime<'a> {
                 } else {
                     i
                 };
-                let ptr = {
-                    let mut obj = FSRFloat::new_inst(i);
-                    // obj.ref_add();
-                    obj.area = Area::Global;
-                    FSRVM::leak_object(Box::new(obj))
-                };
+                // let ptr = {
+                //     let mut obj = FSRFloat::new_inst(i);
+                //     // obj.ref_add();
+                //     obj.area = Area::Global;
+                //     FSRVM::leak_object(Box::new(obj))
+                // };
+                let ptr = self.garbage_collect.new_object(
+                    FSRValue::Float(i),
+                    get_object_by_global_id(FSRGlobalObjId::FloatCls) as ObjId,
+                );
 
-                module.insert_const(*index as usize, ptr);
+                self.get_cur_mut_frame().insert_const(*index as u64, ptr);
             }
             ArgType::ConstString(index, s) => {
-                let obj = FSRString::new_value(s);
-                // obj.ref_add();
-                let obj =
-                    FSRObject::new_inst(obj, get_object_by_global_id(FSRGlobalObjId::StringCls));
-                let ptr = FSRVM::leak_object(Box::new(obj));
+                // let obj = FSRString::new_value(s);
+                // // obj.ref_add();
+                // let obj =
+                //     FSRObject::new_inst(obj, get_object_by_global_id(FSRGlobalObjId::StringCls));
+                // let ptr = FSRVM::leak_object(Box::new(obj));
 
-                module.insert_const(*index as usize, ptr);
+                let ptr = self.garbage_collect.new_object(
+                    FSRString::new_value(s),
+                    get_object_by_global_id(FSRGlobalObjId::StringCls) as ObjId,
+                );
+
+                self.get_cur_mut_frame().insert_const(*index as u64, ptr);
             }
             _ => unimplemented!(),
         }
@@ -2482,10 +2504,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Some(v)
     }
 
-    pub fn get_chain_by_name(
-        thread: &FSRThreadRuntime,
-        name: &str,
-    ) -> Option<ObjId> {
+    pub fn get_chain_by_name(thread: &FSRThreadRuntime, name: &str) -> Option<ObjId> {
         let state = thread.get_cur_frame();
         let fn_id = state.fn_obj;
         // if in __main__ the module base code
@@ -2530,7 +2549,11 @@ impl<'a> FSRThreadRuntime<'a> {
                     .as_code()
                     .module;
                 let module = FSRObject::id_to_obj(code).as_module();
-                let obj = module.get_const(*index as usize).unwrap();
+                let obj = self
+                    .get_cur_frame()
+                    .get_const(index)
+                    .unwrap()
+                    .load(Ordering::Relaxed);
                 self.get_cur_mut_frame().exp.push(obj);
             }
 
@@ -2555,7 +2578,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             ArgType::Global(name) => {
                 let state = self.get_cur_frame();
-   
+
                 let id = Self::get_chain_by_name(self, name).unwrap();
 
                 self.get_cur_mut_frame().exp.push(id);

@@ -2,10 +2,10 @@ use crate::backend::{
     compiler::bytecode::{BinaryOffset, CompareOperator},
     memory::GarbageCollector,
     types::{
-        base::{FSRObject, ObjId},
-        ext,
+        base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
+        ext, string::FSRString,
     },
-    vm::thread::{CallFrame, FSRThreadRuntime, GcState},
+    vm::{thread::{CallFrame, FSRThreadRuntime, GcState}, virtual_machine::get_object_by_global_id},
 };
 
 macro_rules! obj_cls {
@@ -14,28 +14,29 @@ macro_rules! obj_cls {
     };
 }
 
-pub extern "C" fn get_constant(code: ObjId, index: u64) -> ObjId {
-    let module = FSRObject::id_to_obj(code).as_code().module;
-    let module = FSRObject::id_to_obj(module).as_module();
-    let constant = module.get_const(index as usize).unwrap();
-    constant
+pub extern "C" fn get_constant(code: ObjId, index: u32) -> ObjId {
+    // let module = FSRObject::id_to_obj(code).as_code().module;
+    // let module = FSRObject::id_to_obj(module).as_module();
+    // let constant = module.get_const(index as usize).unwrap();
+    // constant
+    unimplemented!()
 }
 
 pub extern "C" fn call_fn(
     args: *const ObjId,
-    len: usize,
+    len: usize ,
     fn_id: ObjId,
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> ObjId {
     let obj = FSRObject::id_to_obj(fn_id);
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = unsafe { std::slice::from_raw_parts(args, len as usize) };
     let res = obj.call(args, thread, code, fn_id);
     res.unwrap().get_id()
 }
 
 pub extern "C" fn malloc(size: usize) -> *mut ObjId {
-    let layout = std::alloc::Layout::array::<ObjId>(size).unwrap();
+    let layout = std::alloc::Layout::array::<ObjId>(size as usize).unwrap();
     unsafe {
         let ptr = std::alloc::alloc(layout) as *mut ObjId;
         if ptr.is_null() {
@@ -48,7 +49,7 @@ pub extern "C" fn malloc(size: usize) -> *mut ObjId {
 pub extern "C" fn free(ptr: *mut ObjId, size: usize) {
     // Convert the raw pointer back to a Box and drop it
     if !ptr.is_null() {
-        let layout = std::alloc::Layout::array::<ObjId>(size).unwrap();
+        let layout = std::alloc::Layout::array::<ObjId>(size as usize).unwrap();
         unsafe {
             std::alloc::dealloc(ptr as *mut u8, layout);
         }
@@ -60,7 +61,7 @@ pub extern "C" fn get_obj_by_name(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
-    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len as usize) };
     let name_str = std::str::from_utf8(name_slice).unwrap();
     let obj = FSRThreadRuntime::get_chain_by_name(thread, name_str).unwrap();
     obj
@@ -71,7 +72,7 @@ pub extern "C" fn check_gc(thread: &mut FSRThreadRuntime) -> bool {
 }
 
 pub extern "C" fn gc_collect(thread: &mut FSRThreadRuntime, list_obj: *const ObjId, len: usize) {
-    let list = unsafe { std::slice::from_raw_parts(list_obj, len) };
+    let list = unsafe { std::slice::from_raw_parts(list_obj, len as usize) };
 
     let st = std::time::Instant::now();
     //if thread.gc_context.gc_state == GcState::Stop {
@@ -115,6 +116,14 @@ pub extern "C" fn binary_op(
         return rust_fn(args.as_ptr(), len, thread, 0).unwrap().get_id();
     }
 
+    if let Some(op_fn) = obj_cls!(left).get_offset_attr(op) {
+        let op_fn = op_fn.load(std::sync::atomic::Ordering::Relaxed);
+        let fn_obj = FSRObject::id_to_obj(op_fn);
+        let ret = fn_obj.call(&args, thread, 0, op_fn).unwrap().get_id();
+        return ret;
+    }
+
+
     unimplemented!("binary op {:?} not support in rust fn", op);
 }
 
@@ -132,7 +141,7 @@ pub extern "C" fn get_attr_obj(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
-    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len as usize) };
     let name_str = std::str::from_utf8(name_slice).unwrap();
     let obj = FSRObject::id_to_obj(obj);
     let attr = obj.get_attr(name_str);
@@ -182,4 +191,41 @@ pub extern "C" fn getter(
     }
 
     unimplemented!()
+}
+
+pub extern "C" fn load_integer(
+    value: i64,
+    thread: &mut FSRThreadRuntime,
+) -> ObjId {
+    let obj = thread.garbage_collect.new_object(
+        FSRValue::Integer(value),
+        get_object_by_global_id(FSRGlobalObjId::IntegerCls),
+    );
+    obj
+}
+
+pub extern "C" fn load_string(
+    value: *const u8,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> ObjId {
+    let value_slice = unsafe { std::slice::from_raw_parts(value, len as usize) };
+    let value_str = std::str::from_utf8(value_slice).unwrap();
+    let value = FSRString::new_value(value_str);
+    let obj = thread.garbage_collect.new_object(
+        value,
+        get_object_by_global_id(FSRGlobalObjId::StringCls),
+    );
+    obj
+}
+
+pub extern "C" fn load_float(
+    value: f64,
+    thread: &mut FSRThreadRuntime,
+) -> ObjId {
+    let obj = thread.garbage_collect.new_object(
+        FSRValue::Float(value),
+        get_object_by_global_id(FSRGlobalObjId::FloatCls),
+    );
+    obj
 }

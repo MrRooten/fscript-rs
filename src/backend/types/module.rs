@@ -11,7 +11,7 @@ pub struct FSRModule<'a> {
     name: String,
     fn_map: HashMap<String, FSRObject<'a>>,
     pub(crate) object_map: AHashMap<String, AtomicObjId>,
-    pub(crate) const_table: Vec<Option<ObjId>>,
+    // pub(crate) const_table: Vec<Option<ObjId>>,
 }
 
 impl Debug for FSRModule<'_> {
@@ -38,7 +38,7 @@ impl<'a> FSRModule<'a> {
             name: name.to_string(),
             fn_map: HashMap::new(),
             object_map: AHashMap::new(),
-            const_table: vec![],
+            // const_table: vec![],
         };
         let mut object = FSRObject::new();
         object.value = FSRValue::Module(Box::new(module));
@@ -71,18 +71,19 @@ impl<'a> FSRModule<'a> {
         self.object_map.get(name)
     }
 
-    pub fn insert_const(&mut self, const_index: usize, obj: ObjId) {
-        if const_index >= self.const_table.len() {
-            self.const_table.resize(const_index + 1, None);
-        }
-        self.const_table[const_index] = Some(obj);
-    }
+    // pub fn insert_const(&mut self, const_index: usize, obj: ObjId) {
+    //     if const_index >= self.const_table.len() {
+    //         self.const_table.resize(const_index + 1, None);
+    //     }
+    //     self.const_table[const_index] = Some(obj);
+    // }
 
-    pub fn get_const(&self, const_index: usize) -> Option<ObjId> {
-        if const_index < self.const_table.len() {
-            self.const_table[const_index]
-        } else {
-            None
-        }
-    }
+    // #[inline(always)]
+    // pub fn get_const(&self, const_index: usize) -> Option<ObjId> {
+    //     if const_index < self.const_table.len() {
+    //         self.const_table[const_index]
+    //     } else {
+    //         None
+    //     }
+    // }
 }

@@ -1,4 +1,3 @@
-
 fn abc() {
     i = 0
     while i < 3000000 {
@@ -7,3 +6,4 @@ fn abc() {
 }
 
 abc()
+gc_info()

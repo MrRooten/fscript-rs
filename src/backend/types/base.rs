@@ -359,6 +359,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    #[inline(always)]
     pub fn as_code(&self) -> &FSRCode<'a> {
         match &self.value {
             FSRValue::Code(fsrmodule) => fsrmodule,
@@ -373,6 +374,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    #[inline(always)]
     pub fn as_module(&self) -> &FSRModule<'a> {
         match &self.value {
             FSRValue::Module(fsrmodule) => fsrmodule,

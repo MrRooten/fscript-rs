@@ -6,4 +6,5 @@ fn abc() {
     }
 }
 
-abc()
+println(abc())
+gc_info()
