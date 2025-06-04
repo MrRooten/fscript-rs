@@ -1,3 +1,6 @@
-for i in range(18):
-    if i == 0:
-        pass
+def abc():
+    i = 0
+    while i < 3000000:
+        i += 1
+
+abc()

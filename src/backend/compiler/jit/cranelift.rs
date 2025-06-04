@@ -565,12 +565,12 @@ impl JitBuilder<'_> {
         context.args_index += 1;
     }
 
-    fn load_init_constants(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+    fn load_init_integer(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+        // pub extern "C" fn load_integer(
+        //     value: i64,
+        //     thread: &mut FSRThreadRuntime,
+        // ) -> ObjId {
         if let ArgType::ConstInteger(id, s, op) = arg.get_arg() {
-            // pub extern "C" fn load_integer(
-            //     value: i64,
-            //     thread: &mut FSRThreadRuntime,
-            // ) -> ObjId {
             let mut load_integer_sig = self.module.make_signature();
             load_integer_sig.params.push(AbiParam::new(types::I64)); // value
             load_integer_sig
@@ -604,6 +604,106 @@ impl JitBuilder<'_> {
             let variable = self.variables.get(&name).unwrap();
             self.builder.def_var(*variable, ret);
             self.defined_variables.insert(name.to_string(), *variable);
+        }
+    }
+
+    fn load_init_float(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+        if let ArgType::ConstFloat(id, f, op) = arg.get_arg() {
+            // pub extern "C" fn load_float(
+            //     value: f64,
+            //     thread: &mut FSRThreadRuntime,
+            // ) -> ObjId {
+            let mut load_float_sig = self.module.make_signature();
+            load_float_sig.params.push(AbiParam::new(types::F64)); // value
+            load_float_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            load_float_sig
+                .returns
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+            let fn_id = self
+                .module
+                .declare_function(
+                    "load_float",
+                    cranelift_module::Linkage::Import,
+                    &load_float_sig,
+                )
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let v = match op {
+                Some(SingleOp::Minus) => -f.parse::<f64>().unwrap(),
+                None => f.parse::<f64>().unwrap(),
+                _ => panic!("Unsupported single operation for constant float"),
+            };
+
+            let value = self.builder.ins().f64const(v);
+            let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            let call = self.builder.ins().call(func_ref, &[value, thread_runtime]);
+            let ret = self.builder.inst_results(call)[0];
+
+            let name = format!("{}_constant", id);
+
+            let variable = self.variables.get(&name).unwrap();
+            self.builder.def_var(*variable, ret);
+            self.defined_variables.insert(name.to_string(), *variable);
+        }
+    }
+
+    fn load_init_string(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+        if let ArgType::ConstString(id, s) = arg.get_arg() {
+            // pub extern "C" fn load_string(
+            //     value: *const u8,
+            //     len: usize,
+            //     thread: &mut FSRThreadRuntime,
+            // ) -> ObjId {
+            let mut load_string_sig = self.module.make_signature();
+            load_string_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // value pointer
+            load_string_sig.params.push(AbiParam::new(self.module.target_config().pointer_type())); // length of the string
+            load_string_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            load_string_sig
+                .returns
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+            let fn_id = self
+                .module
+                .declare_function(
+                    "load_string",
+                    cranelift_module::Linkage::Import,
+                    &load_string_sig,
+                )
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let value_ptr = self.builder.ins().iconst(
+                self.module.target_config().pointer_type(),
+                s.as_ptr() as i64,
+            );
+            let value_len = self
+                .builder
+                .ins()
+                .iconst(self.module.target_config().pointer_type(), s.len() as i64);
+            let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            let call = self
+                .builder
+                .ins()
+                .call(func_ref, &[value_ptr, value_len, thread_runtime]);
+            let ret = self.builder.inst_results(call)[0];
+            let name = format!("{}_constant", id);
+            let variable = self.variables.get(&name).unwrap();
+            self.builder.def_var(*variable, ret);
+            self.defined_variables.insert(name.to_string(), *variable);
+        }
+    }
+
+    fn load_init_constants(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+        if let ArgType::ConstInteger(id, s, op) = arg.get_arg() {
+            self.load_init_integer(arg, context);
+        } else if let ArgType::ConstFloat(id, f, op) = arg.get_arg() {
+            self.load_init_float(arg, context);
+        } else if let ArgType::ConstString(id, s) = arg.get_arg() {
+            self.load_init_string(arg, context);
         }
     }
 
@@ -776,7 +876,9 @@ fn declare_variables(
         // TODO: cranelift_frontend should really have an API to make it easy to set
         // up param variables.
         // let val = builder.block_params(entry_block)[i];
-        let val = builder.ins().iconst(module.target_config().pointer_type(), 0);
+        let val = builder
+            .ins()
+            .iconst(module.target_config().pointer_type(), 0);
         let var = declare_variable(int, builder, &mut variables, &mut index, name);
         builder.def_var(var, val);
     }
@@ -921,7 +1023,7 @@ impl CraneLiftJitBackend {
         // predecessors. Since it's the entry block, it won't have any
         // predecessors.
         builder.seal_block(entry_block);
-        let variables = declare_variables(&self.module, ptr, &mut builder, &variables,  entry_block);
+        let variables = declare_variables(&self.module, ptr, &mut builder, &variables, entry_block);
 
         let mut trans = JitBuilder {
             int: ptr,
