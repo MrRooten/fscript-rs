@@ -22,8 +22,7 @@ use crate::{
 };
 
 use super::jit_wrapper::{
-    binary_op, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_n_args,
-    get_obj_by_name, load_float, load_integer, load_string, malloc,
+    binary_op, c_next_obj, call_fn, check_gc, compare_test, free, gc_collect, get_constant, get_iter_obj, get_n_args, get_obj_by_name, load_float, load_integer, load_string, malloc
 };
 
 struct BuildContext {}
@@ -47,13 +46,15 @@ struct JitBuilder<'a> {
 struct OperatorContext {
     exp: Vec<Value>,
     operator: &'static str,
-    while_blocks: Vec<Block>,
-    exit_blocks: Vec<Block>,
+    loop_blocks: Vec<Block>,
+    loop_exit_blocks: Vec<Block>,
     if_blocks: Vec<Block>,
     if_exit_blocks: Vec<(Block, bool)>,
     entry_block: Block,
     args_index: usize,
     ins_check_gc: bool,
+    for_obj: Vec<Value>,
+    for_iter_obj: Vec<Value>,
 }
 
 impl JitBuilder<'_> {
@@ -179,21 +180,146 @@ impl JitBuilder<'_> {
 
         self.builder.switch_to_block(body_block);
         self.builder.seal_block(body_block);
-        context.exit_blocks.push(exit_block);
+        context.loop_exit_blocks.push(exit_block);
         context.ins_check_gc = true;
     }
 
     fn load_while_end(&mut self, context: &mut OperatorContext) {
         self.builder
             .ins()
-            .jump(context.while_blocks.last().unwrap().clone(), &[]);
+            .jump(context.loop_blocks.last().unwrap().clone(), &[]);
 
         //context.is_while = false;
-        let v = context.while_blocks.pop().unwrap();
-        let exit_block = context.exit_blocks.pop().unwrap();
+        let v = context.loop_blocks.pop().unwrap();
+        let exit_block = context.loop_exit_blocks.pop().unwrap();
         self.builder.seal_block(v);
         self.builder.switch_to_block(exit_block);
         self.builder.seal_block(exit_block);
+        context.ins_check_gc = true;
+        //self.builder.ins().iconst(self.int, 0);
+    }
+
+    fn load_for_iter(&mut self, context: &mut OperatorContext) {
+        // pub extern "C" fn get_iter_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
+        let mut get_iter_obj_sig = self.module.make_signature();
+        get_iter_obj_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // object to iterate
+        get_iter_obj_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        get_iter_obj_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+        let fn_id = self
+            .module
+            .declare_function(
+                "get_iter_obj",
+                cranelift_module::Linkage::Import,
+                &get_iter_obj_sig,
+            )
+            .unwrap();
+
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let for_obj = context.for_obj.pop().unwrap();
+        let iter_obj = self
+            .builder
+            .ins()
+            .call(func_ref, &[for_obj, thread_runtime]);
+        let iter_obj_value = self.builder.inst_results(iter_obj)[0];
+
+        let header_block = self.builder.create_block();
+        // add param for header bloack
+        let loop_var = self.builder.append_block_param(header_block, self.module.target_config().pointer_type());
+        self.builder.ins().jump(header_block, &[iter_obj_value]);
+        self.builder.switch_to_block(header_block);
+        context.loop_blocks.push(header_block);
+        context.for_iter_obj.push(iter_obj_value);
+
+        // let header_block = self.builder.create_block();
+        // self.builder.ins().jump(header_block, &[]);
+        // self.builder.switch_to_block(header_block);
+        // context.loop_blocks.push(header_block);
+    }
+
+    fn is_none(&mut self, value: Value, context: &mut OperatorContext) -> Value {
+        self.load_none(context);
+        let none_id = context.exp.pop().unwrap();
+
+        self.builder
+            .ins()
+            .icmp(codegen::ir::condcodes::IntCC::Equal, value, none_id)
+    }
+
+    fn load_for_next(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        //pub extern "C" fn c_next_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
+        let mut next_obj_sig = self.module.make_signature();
+        next_obj_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // iterator object
+        next_obj_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        next_obj_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+        let fn_id = self
+            .module
+            .declare_function(
+                "c_next_obj",
+                cranelift_module::Linkage::Import,
+                &next_obj_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let iter_obj = *context.for_iter_obj.last().unwrap();
+        let next_obj = self
+            .builder
+            .ins()
+            .call(func_ref, &[iter_obj, thread_runtime]);
+        let next_obj_value = self.builder.inst_results(next_obj)[0];
+        if let ArgType::Local((_, name, _)) = arg.get_arg() {
+            let variable = self.variables.get(name).unwrap();
+            self.builder.def_var(*variable, next_obj_value);
+            self.defined_variables.insert(name.to_string(), *variable);
+
+            let v = self.builder.use_var(*variable);
+            let condition = self.is_none(v, context);
+            let body_block = self.builder.create_block();
+            let exit_block = self.builder.create_block();
+            // let condition = context.exp.pop().unwrap();
+            // self.builder
+            //     .ins()
+            //     .brif(condition, body_block, &[], exit_block, &[]);
+
+            
+            self.builder
+                .ins()
+                .brif(condition, body_block, &[], exit_block, &[]);
+            self.builder.switch_to_block(body_block);
+            self.builder.seal_block(body_block);
+            context.loop_exit_blocks.push(exit_block);
+            context.ins_check_gc = true;
+        } else {
+            panic!("ForNext requires a Local argument");
+        }
+    }
+
+    fn load_for_end(&mut self, context: &mut OperatorContext) {
+        self.builder
+            .ins()
+            .jump(context.loop_blocks.last().unwrap().clone(), &[*context.for_iter_obj.last().unwrap()]);
+
+        //context.is_while = false;
+        let v = context.loop_blocks.pop().unwrap();
+        let exit_block = context.loop_exit_blocks.pop().unwrap();
+        self.builder.seal_block(v);
+        self.builder.switch_to_block(exit_block);
+        self.builder.seal_block(exit_block);
+        context.for_iter_obj.pop();
+        context.for_obj.pop();
         context.ins_check_gc = true;
         //self.builder.ins().iconst(self.int, 0);
     }
@@ -660,7 +786,9 @@ impl JitBuilder<'_> {
             load_string_sig
                 .params
                 .push(AbiParam::new(self.module.target_config().pointer_type())); // value pointer
-            load_string_sig.params.push(AbiParam::new(self.module.target_config().pointer_type())); // length of the string
+            load_string_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // length of the string
             load_string_sig
                 .params
                 .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
@@ -717,7 +845,7 @@ impl JitBuilder<'_> {
             let header_block = self.builder.create_block();
             self.builder.ins().jump(header_block, &[]);
             self.builder.switch_to_block(header_block);
-            context.while_blocks.push(header_block);
+            context.loop_blocks.push(header_block);
         }
 
         if expr.last().unwrap().get_operator() == &BytecodeOperator::IfTest {
@@ -726,6 +854,11 @@ impl JitBuilder<'_> {
             self.builder.ins().jump(header_block, &[]);
             self.builder.switch_to_block(header_block);
             context.if_blocks.push(header_block);
+        }
+
+        if expr.last().unwrap().get_operator() == &BytecodeOperator::LoadForIter {
+            //context.is_for += 1;
+            
         }
 
         for arg in expr {
@@ -813,7 +946,7 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::Empty => {
                     // Do nothing for empty operators
-                    self.builder.ins().nop();
+                    //self.builder.ins().nop();
                 }
                 BytecodeOperator::ReturnValue => {
                     if let Some(s) = context.if_exit_blocks.last_mut() {
@@ -835,6 +968,18 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::LoadConst => {
                     self.load_init_constants(arg, context);
+                }
+                BytecodeOperator::ForBlockRefAdd => {
+                    context.for_obj.push(context.exp.pop().unwrap());
+                }
+                BytecodeOperator::SpecialLoadFor => {
+                    self.load_for_next(context, arg);
+                }
+                BytecodeOperator::LoadForIter => {
+                    self.load_for_iter(context);
+                }
+                BytecodeOperator::ForBlockEnd => {
+                    self.load_for_end(context);
                 }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())
@@ -941,6 +1086,8 @@ impl CraneLiftJitBackend {
         builder.symbol("load_integer", load_integer as *const u8);
         builder.symbol("load_string", load_string as *const u8);
         builder.symbol("load_float", load_float as *const u8);
+        builder.symbol("get_iter_obj", get_iter_obj as *const u8);
+        builder.symbol("c_next_obj", c_next_obj as *const u8);
     }
 
     pub fn new() -> Self {
@@ -1002,13 +1149,15 @@ impl CraneLiftJitBackend {
         let mut context = OperatorContext {
             exp: vec![],
             operator: "",
-            while_blocks: vec![],
-            exit_blocks: vec![],
+            loop_blocks: vec![],
+            loop_exit_blocks: vec![],
             entry_block: entry_block.clone(),
             if_blocks: vec![],
             if_exit_blocks: vec![],
             args_index: 0,
             ins_check_gc: false,
+            for_obj: vec![],
+            for_iter_obj: vec![],
         };
         // Since this is the entry block, add block parameters corresponding to
         // the function's parameters.

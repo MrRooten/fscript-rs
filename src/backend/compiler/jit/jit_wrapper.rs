@@ -1,11 +1,18 @@
+use std::sync::atomic::Ordering;
+
 use crate::backend::{
     compiler::bytecode::{BinaryOffset, CompareOperator},
     memory::GarbageCollector,
     types::{
         base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId},
-        ext, string::FSRString,
+        ext,
+        iterator::next_obj,
+        string::FSRString,
     },
-    vm::{thread::{CallFrame, FSRThreadRuntime, GcState}, virtual_machine::get_object_by_global_id},
+    vm::{
+        thread::{CallFrame, FSRThreadRuntime, GcState},
+        virtual_machine::get_object_by_global_id,
+    },
 };
 
 macro_rules! obj_cls {
@@ -24,7 +31,7 @@ pub extern "C" fn get_constant(code: ObjId, index: u32) -> ObjId {
 
 pub extern "C" fn call_fn(
     args: *const ObjId,
-    len: usize ,
+    len: usize,
     fn_id: ObjId,
     thread: &mut FSRThreadRuntime,
     code: ObjId,
@@ -123,7 +130,6 @@ pub extern "C" fn binary_op(
         return ret;
     }
 
-
     unimplemented!("binary op {:?} not support in rust fn", op);
 }
 
@@ -154,7 +160,6 @@ pub extern "C" fn get_cur_frame<'a>(thread: &'a mut FSRThreadRuntime<'a>) -> *mu
     frame as *mut CallFrame<'a>
 }
 
-
 /// Get the number of arguments passed to the current function.
 /// # Arguments
 /// * `thread` - The current thread runtime.
@@ -167,9 +172,12 @@ pub extern "C" fn get_n_args(thread: &mut FSRThreadRuntime, index: i32) -> ObjId
     if len == 0 {
         return FSRObject::none_id();
     }
-    frame.args.get(len - 1 - index as usize).cloned().unwrap_or(FSRObject::none_id())
+    frame
+        .args
+        .get(len - 1 - index as usize)
+        .cloned()
+        .unwrap_or(FSRObject::none_id())
 }
-
 
 pub extern "C" fn getter(
     container: ObjId,
@@ -178,25 +186,16 @@ pub extern "C" fn getter(
 ) -> ObjId {
     let container_obj = FSRObject::id_to_obj(container);
     let index = FSRObject::id_to_obj(index_obj);
-    
+
     if let Some(rust_fn) = obj_cls!(container).get_rust_fn(BinaryOffset::GetItem) {
         let list = [container, index_obj];
-        return rust_fn(
-            list.as_ptr(),
-            2,
-            thread,
-            0,
-        )
-        .unwrap().get_id()
+        return rust_fn(list.as_ptr(), 2, thread, 0).unwrap().get_id();
     }
 
     unimplemented!()
 }
 
-pub extern "C" fn load_integer(
-    value: i64,
-    thread: &mut FSRThreadRuntime,
-) -> ObjId {
+pub extern "C" fn load_integer(value: i64, thread: &mut FSRThreadRuntime) -> ObjId {
     let obj = thread.garbage_collect.new_object(
         FSRValue::Integer(value),
         get_object_by_global_id(FSRGlobalObjId::IntegerCls),
@@ -212,20 +211,38 @@ pub extern "C" fn load_string(
     let value_slice = unsafe { std::slice::from_raw_parts(value, len as usize) };
     let value_str = std::str::from_utf8(value_slice).unwrap();
     let value = FSRString::new_value(value_str);
-    let obj = thread.garbage_collect.new_object(
-        value,
-        get_object_by_global_id(FSRGlobalObjId::StringCls),
-    );
+    let obj = thread
+        .garbage_collect
+        .new_object(value, get_object_by_global_id(FSRGlobalObjId::StringCls));
     obj
 }
 
-pub extern "C" fn load_float(
-    value: f64,
-    thread: &mut FSRThreadRuntime,
-) -> ObjId {
+pub extern "C" fn load_float(value: f64, thread: &mut FSRThreadRuntime) -> ObjId {
     let obj = thread.garbage_collect.new_object(
         FSRValue::Float(value),
         get_object_by_global_id(FSRGlobalObjId::FloatCls),
     );
     obj
+}
+
+pub extern "C" fn c_next_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
+    // let obj = FSRObject::id_to_obj(obj);
+    let args = [obj];
+    let obj = next_obj(args.as_ptr(), 1, thread, 0).unwrap().get_id();
+    obj
+}
+
+pub extern "C" fn get_iter_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
+    let iter_obj = FSRObject::id_to_obj(obj);
+    let read_iter_id = match iter_obj.get_attr("__iter__") {
+        Some(s) => {
+            let iter_fn = s.load(Ordering::Relaxed);
+            let iter_fn_obj = FSRObject::id_to_obj(iter_fn);
+            let ret = iter_fn_obj.call(&[obj], thread, 0, iter_fn).unwrap();
+            ret.get_id()
+        }
+        None => obj,
+    };
+
+    read_iter_id
 }

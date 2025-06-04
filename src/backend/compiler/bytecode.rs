@@ -2462,4 +2462,20 @@ fib()
         let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);
     }
+
+    #[test]
+    fn test_for() {
+        let expr = "
+        
+            for i in a {
+                a = 1
+            }
+        
+        ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
 }
