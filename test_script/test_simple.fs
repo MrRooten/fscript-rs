@@ -1,9 +1,9 @@
+
 fn abc() {
-    i = 0
-    while i < 30000000 {
-        i = i + 1
+    for i in 0..30000000 {
+        
     }
 }
 
-abc()
+println(abc())
 gc_info()
