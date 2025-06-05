@@ -2,13 +2,19 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt::{Debug, Formatter},
-    sync::{atomic::{AtomicBool, Ordering}, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use ahash::AHashMap;
 
 use crate::{
-    backend::{compiler::bytecode::Bytecode, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}},
+    backend::{
+        compiler::bytecode::Bytecode,
+        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+    },
     utils::error::FSRError,
 };
 
@@ -139,7 +145,7 @@ impl<'a> FSRFn<'a> {
         //bytecode: &'a Bytecode,
         code_obj: ObjId,
         fn_id: ObjId, // Which father fn define this son fn
-        jit_code: Option<*const u8>
+        jit_code: Option<*const u8>,
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
@@ -205,9 +211,38 @@ impl<'a> FSRFn<'a> {
             let v = f.1(args, len, thread, code);
             return v;
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            let frame = thread
-                .frame_free_list
-                .new_frame(code, fn_id);
+            if f.jit_code.is_some() {
+                let code = *f.jit_code.as_ref().unwrap();
+                let code = code as *const u8;
+                //  self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
+                // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
+                // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
+                // self.ctx
+                //     .func
+                //     .signature
+                //     .params
+                //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
+                // self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
+                let frame = thread
+                    .frame_free_list
+                    .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+                thread.push_frame(frame);
+                for arg in args.iter() {
+                    thread.get_cur_mut_frame().args.push(*arg);
+                }
+                let call_fn = unsafe {
+                    std::mem::transmute::<
+                        _,
+                        extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
+                    >(code)
+                };
+                let res = call_fn(thread, thread.get_context().code, args, args.len() as i32);
+                let v = thread.pop_frame();
+                thread.frame_free_list.free(v);
+                return Ok(FSRRetValue::GlobalId(res));
+            }
+
+            let frame = thread.frame_free_list.new_frame(code, fn_id);
             thread.push_frame(frame);
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code)?;
             return Ok(FSRRetValue::GlobalId(v));
@@ -231,9 +266,7 @@ impl<'a> FSRFn<'a> {
             let v = f.1(args, len, thread, code);
             return v;
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            let frame = thread
-                .frame_free_list
-                .new_frame(code, fn_id);
+            let frame = thread.frame_free_list.new_frame(code, fn_id);
             thread.push_frame(frame);
             let v = FSRThreadRuntime::call_fn(thread, f, &[left, right], self.code)?;
             return Ok(FSRRetValue::GlobalId(v));

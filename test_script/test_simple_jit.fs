@@ -6,12 +6,13 @@ fn test() {
 
 @jit
 fn abc(n) {
-    i = 0
-    while i < 3000000 {
-        i = i + 1
+    if n == 0 or n == 1 {
+        return n
     }
+
+    return abc(n - 1) + abc(n - 2)
 }
 
 
-println(abc(16))
+println(abc(17))
 gc_info()

@@ -2884,6 +2884,8 @@ impl<'a> FSRThreadRuntime<'a> {
         args: &[ObjId],
         code: ObjId,
     ) -> Result<ObjId, FSRError> {
+        
+
         let mut context = self.thread_allocator.new_code_context(code);
         context.ip = fn_def.get_ip();
         context.code = code;

@@ -35,8 +35,24 @@ pub extern "C" fn call_fn(
 ) -> ObjId {
     let obj = FSRObject::id_to_obj(fn_id);
     let args = unsafe { std::slice::from_raw_parts(args, len as usize) };
+    // println!("call fn: {:?}", obj);
     let res = obj.call(args, thread, code, fn_id);
     res.unwrap().get_id()
+}
+
+pub extern "C" fn save_to_exp(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) {
+    let args = unsafe { std::slice::from_raw_parts(args, len as usize) };
+    let frame = thread.get_cur_mut_frame();
+    frame.exp.extend_from_slice(args);
+}
+
+pub extern "C" fn clear_exp(thread: &mut FSRThreadRuntime) {
+    let frame = thread.get_cur_mut_frame();
+    frame.exp.clear();
 }
 
 pub extern "C" fn malloc(size: usize) -> *mut ObjId {

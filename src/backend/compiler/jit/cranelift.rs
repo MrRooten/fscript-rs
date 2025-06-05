@@ -14,7 +14,7 @@ use crate::{
     backend::{
         compiler::{bytecode::{
             ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
-        }, jit::jit_wrapper::get_current_fn_id},
+        }, jit::jit_wrapper::{clear_exp, get_current_fn_id, save_to_exp}},
         types::base::{FSRObject, ObjId},
         vm::thread::FSRThreadRuntime,
     },
@@ -457,6 +457,50 @@ impl JitBuilder<'_> {
         malloc_ret
     }
 
+    fn load_make_arg_list_save(&mut self, context: &mut OperatorContext, len: usize) -> Value {
+        let mut malloc_sig = self.module.make_signature();
+        malloc_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // size
+        malloc_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
+        let malloc_id = self
+            .module
+            .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
+            .unwrap();
+        let malloc_func_ref = self
+            .module
+            .declare_func_in_func(malloc_id, self.builder.func);
+
+        let size = self
+            .builder
+            .ins()
+            .iconst(self.module.target_config().pointer_type(), len as i64);
+        let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
+        let malloc_ret = self.builder.inst_results(malloc_call)[0];
+        let mut rev_args = vec![];
+        for i in &context.exp {
+            // Assuming we have a way to get the next argument value
+            rev_args.push(*i);
+        }
+
+        rev_args.reverse();
+
+        for (i, arg) in rev_args.into_iter().enumerate() {
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, i as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
+            let ptr = self.builder.ins().iadd(malloc_ret, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), arg, ptr, 0);
+        }
+
+        malloc_ret
+    }
+
     fn load_free_arg_list(&mut self, list_ptr: Value, context: &mut OperatorContext, len: i64) {
         // pub extern "C" fn free(ptr: *mut Vec<ObjId>, size: usize)
         let mut free_sig = self.module.make_signature();
@@ -649,10 +693,12 @@ impl JitBuilder<'_> {
             let code_object = self.builder.block_params(context.entry_block)[1];
 
             let fn_obj_id = context.exp.pop().unwrap();
+            self.save_exp(context);
             let call = self.builder.ins().call(
                 func_ref,
                 &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
             );
+            self.clear_exp(context);
 
             let ret = self.builder.inst_results(call)[0];
 
@@ -732,6 +778,71 @@ impl JitBuilder<'_> {
             unimplemented!("BinaryAdd requires both left and right operands");
         }
     }
+
+    fn save_exp(&mut self, context: &mut OperatorContext) {
+        // pub extern "C" fn save_to_exp(
+        //     args: *const ObjId,
+        //     len: usize,
+        //     thread: &mut FSRThreadRuntime,
+        // ) 
+        let mut save_to_exp_sig = self.module.make_signature();
+        save_to_exp_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // args pointer
+        save_to_exp_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // length of the args
+        save_to_exp_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        
+        let fn_id = self
+            .module
+            .declare_function(
+                "save_to_exp",
+                cranelift_module::Linkage::Import,
+                &save_to_exp_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let list_ptr = self.load_make_arg_list_save(context, context.exp.len());
+        for v in context.exp.iter().enumerate() {
+            // store to list_ptr
+            let offset = self.builder.ins().iconst(types::I64, v.0 as i64 * std::mem::size_of::<ObjId>() as i64);
+            let ptr = self.builder.ins().iadd(list_ptr, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), *v.1, ptr, 0);
+        }
+        let len = self.builder.ins().iconst(types::I64, context.exp.len() as i64);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let call = self.builder.ins().call(
+            func_ref,
+            &[list_ptr, len, thread_runtime],
+        );
+    }
+
+    fn clear_exp(&mut self, context: &mut OperatorContext) {
+        // pub extern "C" fn clear_exp(thread: &mut FSRThreadRuntime)
+        let mut clear_exp_sig = self.module.make_signature();
+        clear_exp_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        
+        let fn_id = self
+            .module
+            .declare_function(
+                "clear_exp",
+                cranelift_module::Linkage::Import,
+                &clear_exp_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let call = self.builder.ins().call(func_ref, &[thread_runtime]);
+        let _ = self.builder.inst_results(call); // We don't need the return value, just ensure the call is made
+    }
+
 
     fn load_binary_range(&mut self, context: &mut OperatorContext) {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
@@ -1332,6 +1443,8 @@ impl CraneLiftJitBackend {
         builder.symbol("c_next_obj", c_next_obj as *const u8);
         builder.symbol("binary_range", binary_range as *const u8);
         builder.symbol("get_current_fn_id", get_current_fn_id as *const u8);
+        builder.symbol("save_to_exp", save_to_exp as *const u8);
+        builder.symbol("clear_exp", clear_exp as *const u8);
     }
 
     pub fn new() -> Self {
