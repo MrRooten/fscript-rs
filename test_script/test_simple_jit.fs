@@ -4,15 +4,15 @@ fn test() {
     return true
 }
 
-@jit
+
 fn abc(n) {
     if n == 0 or n == 1 {
-        return n
+        return 1
     }
 
-    return abc(n - 1) + abc(n - 2)
+    return 3
 }
 
-
-println(abc(17))
-gc_info()
+for i in 0..3000000 {
+    abc(0)
+}

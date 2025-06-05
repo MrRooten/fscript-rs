@@ -45,6 +45,7 @@ struct JitBuilder<'a> {
 
 struct OperatorContext {
     exp: Vec<Value>,
+    middle_value: Vec<Value>, // used to store intermediate values during operator processing, clear line
     operator: &'static str,
     loop_blocks: Vec<Block>,
     loop_exit_blocks: Vec<Block>,
@@ -126,17 +127,18 @@ impl JitBuilder<'_> {
         context.exp.push(global_obj);
     }
 
-    fn load_is_true(&mut self, context: &mut OperatorContext) {
-        if let Some(value) = context.exp.pop() {
+    fn load_is_true(&mut self, context: &mut OperatorContext) -> Value {
+        if let Some(value) = context.exp.last() {
             let true_id = self.builder
                 .ins()
                 .iconst(self.module.target_config().pointer_type(), FSRObject::true_id() as i64);
             let is_true = self.builder.ins().icmp(
                 codegen::ir::condcodes::IntCC::Equal,
-                value,
+                *value,
                 true_id,
             );
-            context.exp.push(is_true);
+            // context.exp.push(is_true);
+            return is_true
         } else {
             panic!("IsTrue requires a value operand");
         }
@@ -214,6 +216,8 @@ impl JitBuilder<'_> {
                 .call(func_ref, &[thread_runtime, left, right, op]);
             let result = self.builder.inst_results(call)[0];
             context.exp.push(result);
+            context.middle_value.push(left);
+            context.middle_value.push(right);
         } else {
             panic!("CompareTest requires both left and right operands");
         }
@@ -223,8 +227,8 @@ impl JitBuilder<'_> {
         //let header_block = self.builder.create_block();
         let body_block = self.builder.create_block();
         let exit_block = self.builder.create_block();
-        self.load_is_true(context);
-        let condition = context.exp.pop().unwrap();
+        let is_true = self.load_is_true(context);
+        let condition = is_true;
         self.builder
             .ins()
             .brif(condition, body_block, &[], exit_block, &[]);
@@ -380,8 +384,8 @@ impl JitBuilder<'_> {
         let body_block = self.builder.create_block();
         let exit_block = self.builder.create_block();
         // let condition = context.exp.pop().unwrap();
-        self.load_is_true(context);
-        let condition = context.exp.pop().unwrap();
+        let is_true = self.load_is_true(context);
+        let condition = is_true;
         self.builder
             .ins()
             .brif(condition, body_block, &[], exit_block, &[]);
@@ -438,6 +442,7 @@ impl JitBuilder<'_> {
         for i in 0..len {
             // Assuming we have a way to get the next argument value
             let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
+            context.middle_value.push(arg_value);
             rev_args.push(arg_value);
         }
 
@@ -457,7 +462,7 @@ impl JitBuilder<'_> {
         malloc_ret
     }
 
-    fn load_make_arg_list_save(&mut self, context: &mut OperatorContext, len: usize) -> Value {
+    fn load_make_middle_v_list_save(&mut self, context: &mut OperatorContext) -> Value {
         let mut malloc_sig = self.module.make_signature();
         malloc_sig
             .params
@@ -476,11 +481,11 @@ impl JitBuilder<'_> {
         let size = self
             .builder
             .ins()
-            .iconst(self.module.target_config().pointer_type(), len as i64);
+            .iconst(self.module.target_config().pointer_type(), context.middle_value.len() as i64);
         let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
         let malloc_ret = self.builder.inst_results(malloc_call)[0];
         let mut rev_args = vec![];
-        for i in &context.exp {
+        for i in &context.middle_value {
             // Assuming we have a way to get the next argument value
             rev_args.push(*i);
         }
@@ -693,12 +698,13 @@ impl JitBuilder<'_> {
             let code_object = self.builder.block_params(context.entry_block)[1];
 
             let fn_obj_id = context.exp.pop().unwrap();
-            self.save_exp(context);
+            self.save_middle_value(context);
+            self.save_object_to_exp(context);
             let call = self.builder.ins().call(
                 func_ref,
                 &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
             );
-            self.clear_exp(context);
+            self.clear_middle_value(context);
 
             let ret = self.builder.inst_results(call)[0];
 
@@ -706,6 +712,7 @@ impl JitBuilder<'_> {
             self.load_free_arg_list(list_ptr, context, *v as i64);
 
             context.exp.push(ret);
+            context.middle_value.push(ret);
         } else {
             unimplemented!()
         }
@@ -774,17 +781,71 @@ impl JitBuilder<'_> {
                 .call(func_ref, &[left, right, add_t, thread]);
             let ret = self.builder.inst_results(call)[0];
             context.exp.push(ret);
+            context.middle_value.push(ret);
+            context.middle_value.push(right);
+            context.middle_value.push(left);
         } else {
             unimplemented!("BinaryAdd requires both left and right operands");
         }
     }
 
-    fn save_exp(&mut self, context: &mut OperatorContext) {
-        // pub extern "C" fn save_to_exp(
-        //     args: *const ObjId,
-        //     len: usize,
-        //     thread: &mut FSRThreadRuntime,
-        // ) 
+    fn save_object_to_exp(&mut self, context: &mut OperatorContext) {
+        let ptr_type = self.module.target_config().pointer_type();
+        let var_count = self.defined_variables.len() + context.for_iter_obj.len() + context.for_obj.len();
+        let size = self.builder.ins().iconst(ptr_type, var_count as i64); // usize
+
+        let mut malloc_sig = self.module.make_signature();
+        malloc_sig.params.push(AbiParam::new(types::I64));
+        malloc_sig.returns.push(AbiParam::new(ptr_type));
+        let malloc_id = self
+            .module
+            .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
+            .unwrap();
+        let malloc_func_ref = self
+            .module
+            .declare_func_in_func(malloc_id, self.builder.func);
+        let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
+        let arr_ptr = self.builder.inst_results(malloc_call)[0];
+        let mut i = 0;
+        for var in self.defined_variables.values() {
+            let value = self.builder.use_var(*var);
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+            let ptr = self.builder.ins().iadd(arr_ptr, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+            i += 1;
+        }
+
+        for var in &context.for_iter_obj {
+            let value = *var;
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+            let ptr = self.builder.ins().iadd(arr_ptr, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+            i += 1;
+        }
+
+        for var in &context.for_obj {
+            let value = *var;
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+            let ptr = self.builder.ins().iadd(arr_ptr, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+            i += 1;
+        }
+
         let mut save_to_exp_sig = self.module.make_signature();
         save_to_exp_sig
             .params
@@ -805,24 +866,49 @@ impl JitBuilder<'_> {
             )
             .unwrap();
         let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        let list_ptr = self.load_make_arg_list_save(context, context.exp.len());
-        for v in context.exp.iter().enumerate() {
-            // store to list_ptr
-            let offset = self.builder.ins().iconst(types::I64, v.0 as i64 * std::mem::size_of::<ObjId>() as i64);
-            let ptr = self.builder.ins().iadd(list_ptr, offset);
-            self.builder
-                .ins()
-                .store(cranelift::codegen::ir::MemFlags::new(), *v.1, ptr, 0);
-        }
-        let len = self.builder.ins().iconst(types::I64, context.exp.len() as i64);
+        let len = self.builder.ins().iconst(types::I64, i as i64);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let call = self.builder.ins().call(
+            func_ref,
+            &[arr_ptr, len, thread_runtime],
+        );
+
+        self.load_free_arg_list(arr_ptr, context, i as i64);
+    }
+
+    fn save_middle_value(&mut self, context: &mut OperatorContext) {
+        let mut save_to_exp_sig = self.module.make_signature();
+        save_to_exp_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // args pointer
+        save_to_exp_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // length of the args
+        save_to_exp_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        
+        let fn_id = self
+            .module
+            .declare_function(
+                "save_to_exp",
+                cranelift_module::Linkage::Import,
+                &save_to_exp_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let list_ptr = self.load_make_middle_v_list_save(context);
+        let len = self.builder.ins().iconst(types::I64, context.middle_value.len() as i64);
         let thread_runtime = self.builder.block_params(context.entry_block)[0];
         let call = self.builder.ins().call(
             func_ref,
             &[list_ptr, len, thread_runtime],
         );
+
+        self.load_free_arg_list(list_ptr, context, context.middle_value.len() as i64);
     }
 
-    fn clear_exp(&mut self, context: &mut OperatorContext) {
+    fn clear_middle_value(&mut self, context: &mut OperatorContext) {
         // pub extern "C" fn clear_exp(thread: &mut FSRThreadRuntime)
         let mut clear_exp_sig = self.module.make_signature();
         clear_exp_sig
@@ -873,6 +959,9 @@ impl JitBuilder<'_> {
             let call = self.builder.ins().call(func_ref, &[left, right, thread_runtime]);
             let ret = self.builder.inst_results(call)[0];
             context.exp.push(ret);
+            context.middle_value.push(ret);
+            context.middle_value.push(right);
+            context.middle_value.push(left);
         } else {
             panic!("BinaryRange requires both left and right operands");
         }
@@ -1218,7 +1307,9 @@ impl JitBuilder<'_> {
                 BytecodeOperator::Assign => {
                     if let ArgType::Local(v) = arg.get_arg() {
                         let variable = self.variables.get(v.1.as_str()).unwrap();
-                        self.builder.def_var(*variable, context.exp.pop().unwrap());
+                        let var = context.exp.pop().unwrap();
+                        context.middle_value.push(var);
+                        self.builder.def_var(*variable, var);
                         self.defined_variables.insert(v.1.to_string(), *variable);
                     } else {
                         panic!("not supported assign type: {:?}", arg.get_arg());
@@ -1276,6 +1367,7 @@ impl JitBuilder<'_> {
                         s.1 = true; // Mark the last if block as having a return value
                     }
                     if let Some(value) = context.exp.pop() {
+                        context.middle_value.push(value);
                         self.builder.ins().return_(&[value]);
                     } else {
                         self.load_none(context);
@@ -1517,6 +1609,7 @@ impl CraneLiftJitBackend {
             for_iter_obj: vec![],
             logic_end_block: None,
             logic_rest_bytecode_count: None,
+            middle_value: vec![],
         };
         // Since this is the entry block, add block parameters corresponding to
         // the function's parameters.
@@ -1550,6 +1643,7 @@ impl CraneLiftJitBackend {
 
             trans.compile_expr(expr, &mut context);
             context.exp.clear();
+            context.middle_value.clear();
 
             i += 1;
         }
