@@ -62,33 +62,6 @@ struct OperatorContext {
 
 impl JitBuilder<'_> {
     fn load_constant(&mut self, c: u64, context: &mut OperatorContext) {
-        // if self.constans.contains_key(&c) {
-        //     let variable = self.constans.get(&c).unwrap();
-        //     let value = self.builder.use_var(*variable);
-        //     context.exp.push(value);
-        //     return;
-        // }
-        // let mut get_constant_sig = self.module.make_signature();
-        // get_constant_sig
-        //     .params
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // code object
-        // get_constant_sig.params.push(AbiParam::new(types::I32)); // constant index
-        // get_constant_sig
-        //     .returns
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
-        // let fn_id = self
-        //     .module
-        //     .declare_function(
-        //         "get_constant",
-        //         cranelift_module::Linkage::Import,
-        //         &get_constant_sig,
-        //     )
-        //     .unwrap();
-        // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        // let code = self.builder.block_params(context.entry_block)[1];
-        // let index = self.builder.ins().iconst(types::I32, c as i64);
-        // let call = self.builder.ins().call(func_ref, &[code, index]);
-        // let ret = self.builder.inst_results(call)[0];
         let value = self.variables.get(&format!("{}_constant", c)).unwrap();
         let ret = self.builder.use_var(*value);
         context.exp.push(ret);
@@ -227,7 +200,7 @@ impl JitBuilder<'_> {
         //let header_block = self.builder.create_block();
         let body_block = self.builder.create_block();
         let exit_block = self.builder.create_block();
-        let is_true = self.load_is_true(context);
+        let is_true = self.load_is_not_false(context);
         let condition = is_true;
         self.builder
             .ins()
@@ -384,7 +357,7 @@ impl JitBuilder<'_> {
         let body_block = self.builder.create_block();
         let exit_block = self.builder.create_block();
         // let condition = context.exp.pop().unwrap();
-        let is_true = self.load_is_true(context);
+        let is_true = self.load_is_not_false(context);
         let condition = is_true;
         self.builder
             .ins()

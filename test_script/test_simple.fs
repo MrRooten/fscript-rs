@@ -1,15 +1,9 @@
 
 fn fib(n) {
-    n = 2
-    for i in 0..3000000 {
-        if n == 1 or n == 2 {
-
-        }
+    i = 0
+    while i < 3000000 {
+        i = i + 1
     }
-    if n == 1 or n == 2 {
-        return 1
-    }
-    return 0
     
 }
 
