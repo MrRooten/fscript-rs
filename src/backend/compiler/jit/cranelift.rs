@@ -12,9 +12,9 @@ use cranelift_module::Module;
 
 use crate::{
     backend::{
-        compiler::bytecode::{
+        compiler::{bytecode::{
             ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
-        },
+        }, jit::jit_wrapper::get_current_fn_id},
         types::base::{FSRObject, ObjId},
         vm::thread::FSRThreadRuntime,
     },
@@ -155,6 +155,22 @@ impl JitBuilder<'_> {
             return is_not_false
         } else {
             panic!("IsNotFalse requires a value operand");
+        }
+    }
+
+    fn load_is_not_true(&mut self, context: &mut OperatorContext) -> Value {
+        if let Some(value) = context.exp.last() {
+            let true_id = self.builder
+                .ins()
+                .iconst(self.module.target_config().pointer_type(), FSRObject::true_id() as i64);
+            let is_not_true = self.builder.ins().icmp(
+                codegen::ir::condcodes::IntCC::NotEqual,
+                *value,
+                true_id,
+            );
+            return is_not_true
+        } else {
+            panic!("IsNotTrue requires a value operand");
         }
     }
 
@@ -797,11 +813,12 @@ impl JitBuilder<'_> {
         //let last_ssa_value = context.exp.pop().unwrap();
         let b_block = self.builder.create_block();
         let end_block = self.builder.create_block();
-
+        // add param for end block
+        self.builder.append_block_param(end_block, self.module.target_config().pointer_type());
         self.builder.ins().brif(
             last_ssa_value,
             end_block,
-            &[],
+            &[*context.exp.last().unwrap()],
             b_block,
             &[],
         );
@@ -817,16 +834,17 @@ impl JitBuilder<'_> {
     }
 
     fn load_and_jump(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
-        // process or logic like a or b
-        let last_ssa_value = *context.exp.last().unwrap();
-        let not_last_ssa_value = self.builder.ins().bnot(last_ssa_value);
+        //let last_ssa_value = *context.exp.last().unwrap();
+        let last_ssa_value = self.load_is_not_true(context);
+        //let last_ssa_value = context.exp.pop().unwrap();
         let b_block = self.builder.create_block();
         let end_block = self.builder.create_block();
-
+        // add param for end block
+        self.builder.append_block_param(end_block, self.module.target_config().pointer_type());
         self.builder.ins().brif(
             last_ssa_value,
             end_block,
-            &[],
+            &[*context.exp.last().unwrap()],
             b_block,
             &[],
         );
@@ -985,6 +1003,29 @@ impl JitBuilder<'_> {
         }
     }
 
+    fn get_current_fn_id(&mut self, context: &mut OperatorContext) -> Value {
+        // pub extern "C" fn get_current_fn_id(thread: &mut FSRThreadRuntime) -> ObjId
+        let mut get_current_fn_sig = self.module.make_signature();
+        get_current_fn_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        get_current_fn_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+        let fn_id = self
+            .module
+            .declare_function(
+                "get_current_fn_id",
+                cranelift_module::Linkage::Import,
+                &get_current_fn_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let call = self.builder.ins().call(func_ref, &[thread_runtime]);
+        self.builder.inst_results(call)[0]
+    }
+
     fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext) {
         if expr.last().is_none() {
             return;
@@ -1037,7 +1078,27 @@ impl JitBuilder<'_> {
                             name.len() as i64,
                         );
                         self.load_global_name(name_ptr, name_len, context);
-                    } else {
+                    } else if let ArgType::LoadTrue = arg.get_arg() {
+                        let true_id = FSRObject::true_id();
+                        let true_value = self
+                            .builder
+                            .ins()
+                            .iconst(self.module.target_config().pointer_type(), true_id as i64);
+                        context.exp.push(true_value);
+                    } else if let ArgType::LoadFalse = arg.get_arg() {
+                        let false_id = FSRObject::false_id();
+                        let false_value = self
+                            .builder
+                            .ins()
+                            .iconst(self.module.target_config().pointer_type(), false_id as i64);
+                        context.exp.push(false_value);
+                    } else if let ArgType::LoadNone = arg.get_arg() {
+                        self.load_none(context);
+                    } else if let ArgType::CurrentFn = arg.get_arg() {
+                        let fn_id = self.get_current_fn_id(context);
+                        context.exp.push(fn_id);
+                    }
+                    else {
                         panic!("Load requires a variable or constant argument");
                     }
 
@@ -1069,6 +1130,7 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::AssignArgs => {
                     self.load_args(context, arg);
+                    context.ins_check_gc = true;
                 }
 
                 BytecodeOperator::EndFn => {
@@ -1149,9 +1211,10 @@ impl JitBuilder<'_> {
             if let Some(s) = &mut context.logic_rest_bytecode_count {
                 if *s == 0 {
                     if let Some(end_block) = context.logic_end_block.take() {
-                        self.builder.ins().jump(end_block, &[]);
+                        self.builder.ins().jump(end_block, &[context.exp.pop().unwrap()]);
                         self.builder.switch_to_block(end_block);
                         self.builder.seal_block(end_block);
+                        context.exp.push(self.builder.block_params(end_block)[0]);
                     }
                     context.logic_rest_bytecode_count = None;
                 }
@@ -1268,6 +1331,7 @@ impl CraneLiftJitBackend {
         builder.symbol("get_iter_obj", get_iter_obj as *const u8);
         builder.symbol("c_next_obj", c_next_obj as *const u8);
         builder.symbol("binary_range", binary_range as *const u8);
+        builder.symbol("get_current_fn_id", get_current_fn_id as *const u8);
     }
 
     pub fn new() -> Self {

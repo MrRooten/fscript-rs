@@ -2583,6 +2583,15 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 self.get_cur_mut_frame().exp.push(id);
             }
+            ArgType::LoadTrue => {
+                self.get_cur_mut_frame().exp.push(FSRObject::true_id());
+            }
+            ArgType::LoadFalse => {
+                self.get_cur_mut_frame().exp.push(FSRObject::false_id());
+            }
+            ArgType::LoadNone => {
+                self.get_cur_mut_frame().exp.push(FSRObject::none_id());
+            }
             _ => {
                 println!("{:?}", self.get_cur_mut_frame().exp);
                 unimplemented!()

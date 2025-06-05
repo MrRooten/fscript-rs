@@ -295,6 +295,9 @@ pub enum ArgType {
     GlobalId(ObjId),    // only for global id, like key object
     FnName(u64, String),
     ClassName(u64, String),
+    LoadTrue,
+    LoadFalse,
+    LoadNone,
     None,
 }
 
@@ -468,16 +471,16 @@ pub struct BytecodeContext {
     pub(crate) fn_def_map: HashMap<String, FnDef>,
     pub(crate) ref_map_stack: Vec<HashMap<String, bool>>,
     pub(crate) cur_fn_name: Vec<String>,
-    pub(crate) key_map: HashMap<&'static str, ObjId>,
+    pub(crate) key_map: HashMap<&'static str, ArgType>,
 }
 
 #[allow(clippy::new_without_default)]
 impl BytecodeContext {
     pub fn new() -> Self {
         let mut v = HashMap::new();
-        // v.insert("true", FSRObject::true_id());
-        // v.insert("false", FSRObject::false_id());
-        // v.insert("none", FSRObject::none_id());
+        v.insert("true", ArgType::LoadTrue);
+        v.insert("false", ArgType::LoadFalse);
+        v.insert("none", ArgType::LoadNone);
         Self {
             //const_map: HashMap::new(),
             table: vec![0],
@@ -848,10 +851,10 @@ impl<'a> Bytecode {
         }
 
         if context.key_map.contains_key(var.get_name()) {
-            let obj = *context.key_map.get(var.get_name()).unwrap();
+            let obj = context.key_map.get(var.get_name()).unwrap().clone();
             let op_arg = BytecodeArg {
                 operator: BytecodeOperator::Load,
-                arg: ArgType::GlobalId(obj),
+                arg: obj,
                 info: FSRByteInfo::new(var.get_meta().clone()),
             };
 

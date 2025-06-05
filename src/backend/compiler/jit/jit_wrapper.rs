@@ -270,3 +270,8 @@ pub extern "C" fn binary_range(left: ObjId, right: ObjId, thread: &mut FSRThread
 
     panic!("binary_range only support integer range");
 }
+
+pub extern "C" fn get_current_fn_id(thread: &mut FSRThreadRuntime) -> ObjId {
+    let frame = thread.get_cur_mut_frame();
+    frame.fn_obj
+}

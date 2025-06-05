@@ -1,13 +1,17 @@
 
 fn test() {
     println("test")
-    return 3
+    return true
 }
 
-fn abc() {
-    a = true or test()
-    println(a)
+@jit
+fn abc(n) {
+    i = 0
+    while i < 3000000 {
+        i = i + 1
+    }
 }
 
-println(abc())
+
+println(abc(16))
 gc_info()
