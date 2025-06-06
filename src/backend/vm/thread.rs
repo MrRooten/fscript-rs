@@ -48,7 +48,7 @@ use super::{
 
 macro_rules! obj_cls {
     ($a:expr) => {
-        FSRObject::id_to_obj(FSRObject::id_to_obj($a).cls).as_class()
+        FSRObject::id_to_obj($a).cls
     };
 }
 
@@ -619,9 +619,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             let obj = FSRObject::id_to_obj(id);
-            if obj.cls == 0 {
-                continue;
-            }
+            // if obj.cls == 0 {
+            //     continue;
+            // }
             //println!("marking object: {:?}", obj);
             if obj.is_marked() {
                 continue;
@@ -2229,7 +2229,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let obj = self.flow_tracker.for_iter_obj.last().cloned().unwrap();
         let obj_value = FSRObject::id_to_obj(obj);
-        let res = if obj_value.cls == get_object_by_global_id(FSRGlobalObjId::InnerIterator) {
+        let res = if obj_value.cls == FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::InnerIterator)).as_class() {
             // next_obj(&[obj], self, self.get_context().code)?
             let args = [obj];
             let len = args.len();

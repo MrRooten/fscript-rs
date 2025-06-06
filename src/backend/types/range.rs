@@ -44,7 +44,7 @@ impl FSRIterator for FSRRangeIterator {
         if let Some(x) = c {
             let obj = thread.garbage_collect.new_object_in_place();
             obj.value = FSRValue::Integer(x);
-            obj.cls = get_object_by_global_id(FSRGlobalObjId::IntegerCls);
+            obj.set_cls(get_object_by_global_id(FSRGlobalObjId::IntegerCls));
             Ok(Some(FSRObject::obj_to_id(obj)))
         } else {
             Ok(None)

@@ -44,8 +44,8 @@ pub fn next_obj(
         let from_obj = FSRObject::id_to_obj(it.obj);
         if let FSRValue::ClassInst(inst) = &from_obj.value {
             let cls = from_obj.cls;
-            let cls = FSRObject::id_to_obj(cls);
-            let cls = cls.as_class();
+            // let cls = FSRObject::id_to_obj(cls);
+            // let cls = cls.as_class();
             let v = cls.get_offset_attr(BinaryOffset::Index);
             if let Some(obj_id) = v {
                 let obj_id = obj_id.load(Ordering::Relaxed);

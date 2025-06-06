@@ -100,7 +100,7 @@ fn mul(
         if let FSRValue::Integer(other_int) = other_object.value {
             let v = thread
                 .garbage_collect
-                .new_object(FSRValue::Integer(self_int * other_int), self_object.cls);
+                .new_object(FSRValue::Integer(self_int * other_int), get_object_by_global_id(FSRGlobalObjId::IntegerCls));
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -175,7 +175,7 @@ fn left_shift(
         if let FSRValue::Integer(other_int) = other_object.value {
             let v = thread
                 .garbage_collect
-                .new_object(FSRValue::Integer(self_int << other_int), self_object.cls);
+                .new_object(FSRValue::Integer(self_int << other_int), get_object_by_global_id(FSRGlobalObjId::IntegerCls));
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -200,7 +200,7 @@ fn right_shift(
         if let FSRValue::Integer(other_int) = other_object.value {
             let v = thread
                 .garbage_collect
-                .new_object(FSRValue::Integer(self_int >> other_int), self_object.cls);
+                .new_object(FSRValue::Integer(self_int >> other_int), get_object_by_global_id(FSRGlobalObjId::IntegerCls));
 
             return Ok(FSRRetValue::GlobalId(v));
         }

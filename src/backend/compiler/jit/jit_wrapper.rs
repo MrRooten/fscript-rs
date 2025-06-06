@@ -14,7 +14,7 @@ use crate::backend::{
 
 macro_rules! obj_cls {
     ($a:expr) => {
-        FSRObject::id_to_obj(FSRObject::id_to_obj($a).cls).as_class()
+        FSRObject::id_to_obj($a).cls
     };
 }
 

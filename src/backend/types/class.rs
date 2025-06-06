@@ -20,6 +20,17 @@ pub struct FSRClass<'a> {
     pub(crate) offset_rust_fn: [Option<FSRRustFn>; 30],
 }
 
+impl PartialEq for FSRClass<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        // pointer is same
+        std::ptr::eq(self, other)
+    }
+}
+
+impl Eq for FSRClass<'_> {
+    
+}
+
 #[allow(unused)]
 #[derive(Debug)]
 enum TmpObject<'a> {

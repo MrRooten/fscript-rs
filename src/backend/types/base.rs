@@ -174,8 +174,8 @@ impl<'a> FSRValue<'a> {
     ) -> Option<Arc<FSRInnerString>> {
         let _ = inst;
         let cls = FSRObject::id_to_obj(self_id).cls;
-        let cls = FSRObject::id_to_obj(cls);
-        let cls = cls.as_class();
+        // let cls = FSRObject::id_to_obj(cls);
+        // let cls = cls.as_class();
 
         let v = cls.get_attr("__str__");
         if let Some(obj_id) = v {
@@ -274,7 +274,7 @@ impl Area {
 
 pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
-    pub(crate) cls: ObjId,
+    pub(crate) cls: &'static FSRClass<'static>,
     pub(crate) free: bool,
     pub(crate) mark: AtomicBool,
     pub(crate) gc_count: u32,
@@ -286,18 +286,18 @@ pub struct FSRObject<'a> {
 impl Debug for FSRObject<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let cls = self.cls;
-        let obj = FSRObject::id_to_obj(cls);
-        let cls = match &obj.value {
-            FSRValue::Class(c) => c,
-            FSRValue::None => {
-                return f
-                    .debug_struct("FSRObject")
-                    .field("value", &self.value)
-                    .field("cls", &"None".to_string())
-                    .finish();
-            }
-            _ => panic!("not valid cls"),
-        };
+        // let obj = FSRObject::id_to_obj(cls);
+        // let cls = match &obj.value {
+        //     FSRValue::Class(c) => c,
+        //     FSRValue::None => {
+        //         return f
+        //             .debug_struct("FSRObject")
+        //             .field("value", &self.value)
+        //             .field("cls", &"None".to_string())
+        //             .finish();
+        //     }
+        //     _ => panic!("not valid cls"),
+        // };
         f.debug_struct("FSRObject")
             .field("value", &self.value)
             .field("cls", &cls.name.to_string())
@@ -319,6 +319,7 @@ pub trait FSRObjectCmp {
 
 impl<'a> FSRObject<'a> {
     pub fn new_inst(value: FSRValue<'a>, cls: ObjId) -> FSRObject<'a> {
+        let cls = FSRObject::id_to_obj(cls).as_class();
         FSRObject {
             value,
             cls,
@@ -405,7 +406,7 @@ impl<'a> FSRObject<'a> {
     pub fn new() -> FSRObject<'a> {
         FSRObject {
             value: FSRValue::None,
-            cls: get_object_by_global_id(FSRGlobalObjId::None) as ObjId,
+            cls: FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::NoneCls)).as_class(),
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,
@@ -454,6 +455,7 @@ impl<'a> FSRObject<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn set_cls(&mut self, cls: ObjId) {
+        let cls = FSRObject::id_to_obj(cls).as_class();
         self.cls = cls
     }
 
@@ -505,12 +507,13 @@ impl<'a> FSRObject<'a> {
         //     return btype.get_attr(name);
         // }
 
-        let cls_obj = FSRObject::id_to_obj(self.cls);
-        if let FSRValue::Class(cls) = &cls_obj.value {
-            return cls.get_attr(name);
-        }
+        // let cls_obj = FSRObject::id_to_obj(self.cls);
+        // if let FSRValue::Class(cls) = &cls_obj.value {
+        //     return cls.get_attr(name);
+        // }
 
-        None
+        // None
+        self.cls.get_attr(name)
     }
 
     /*
@@ -519,12 +522,13 @@ impl<'a> FSRObject<'a> {
      */
     #[inline]
     pub fn get_cls_offset_attr(&self, offset: BinaryOffset) -> Option<&'a AtomicObjId> {
-        let cls_obj = FSRObject::id_to_obj(self.cls);
-        if let FSRValue::Class(cls) = &cls_obj.value {
-            return cls.try_get_offset_attr(offset);
-        }
+        // let cls_obj = FSRObject::id_to_obj(self.cls);
+        // if let FSRValue::Class(cls) = &cls_obj.value {
+        //     return cls.try_get_offset_attr(offset);
+        // }
 
-        None
+        // None
+        self.cls.try_get_offset_attr(offset)
     }
 
     pub fn is_false(&self) -> bool {
@@ -741,22 +745,22 @@ impl<'a> FSRObject<'a> {
         if let Some(s) = s {
             return FSRString::new_inst_with_inner(s);
         }
-        let v = FSRObject::id_to_obj(self.cls);
-        if let FSRValue::Class(_) = &v.value {
+        // let v = FSRObject::id_to_obj(self.cls);
+        // if let FSRValue::Class(_) = &v.value {
             return FSRString::new_value(&format!(
                 "<`{}` Class Object at {:?}>",
-                self.cls, self as *const Self
+                self.cls.get_name(), self as *const Self
             ));
-        }
-        // Box::new(FSRString::new_inst(&format!(
+        // }
+        // // Box::new(FSRString::new_inst(&format!(
+        // //     "<`{}` Object at {:?}>",
+        // //     self.cls, self as *const Self
+        // // )))
+
+        // FSRString::new_value(&format!(
         //     "<`{}` Object at {:?}>",
         //     self.cls, self as *const Self
-        // )))
-
-        FSRString::new_value(&format!(
-            "<`{}` Object at {:?}>",
-            self.cls, self as *const Self
-        ))
+        // ))
         //return self.invoke("__str__", vec![]);
     }
 

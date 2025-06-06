@@ -71,7 +71,7 @@ impl<'a> FSRCode<'a> {
             // object.delete_flag.store(false, std::sync::atomic::Ordering::Relaxed);
             let tmp = code.name.to_string();
             object.value = FSRValue::Code(Box::new(code));
-            object.cls = get_object_by_global_id(FSRGlobalObjId::CodeCls) as ObjId;
+            object.set_cls(get_object_by_global_id(FSRGlobalObjId::CodeCls));
             res.insert(tmp.to_string(), object);
         }
         Ok(res)

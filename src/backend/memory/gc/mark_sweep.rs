@@ -4,6 +4,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::backend::types::base::{Area, FSRGlobalObjId};
 
+use crate::backend::types::class::FSRClass;
+use crate::backend::vm::virtual_machine::get_object_by_global_id;
 use crate::backend::{
     memory::{size_alloc::FSRObjectAllocator, GarbageCollector},
     types::base::{FSRObject, FSRValue, ObjId},
@@ -127,6 +129,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         let obj = &mut self.objects[free_idx];
         if let Some(obj) = obj {
             obj.value = value;
+            let cls = FSRObject::id_to_obj(cls).as_class();
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
@@ -138,6 +141,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             FSRObject::obj_to_id(obj)
         } else {
             let mut obj = self.allocator.new_object(value, cls);
+            let cls = FSRObject::id_to_obj(cls).as_class();
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
@@ -162,6 +166,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         let obj = &mut self.objects[slot_idx];
         if let Some(obj) = obj {
             obj.value = value;
+            let cls = FSRObject::id_to_obj(cls).as_class();
             obj.cls = cls;
             obj.free = false;
             obj.area = Area::Minjor;
@@ -187,7 +192,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.objects.extend((0..extend_size).map(|_| {
             let mut obj = Box::new(FSRObject::new_inst(
                 FSRValue::None,
-                FSRGlobalObjId::None as ObjId,
+                get_object_by_global_id(FSRGlobalObjId::NoneCls),
             ));
             obj.free = true;
             Some(obj)
@@ -301,9 +306,9 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     }
 }
 
-impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
+impl<'a> MarkSweepGarbageCollector<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
+    pub fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
         // Reuse free slot if available
         self.tracker.object_count += 1;
         if self.free_slots.is_empty() {
@@ -319,7 +324,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
         // }
     }
 
-    fn collect(&mut self, full: bool) {
+    pub fn collect(&mut self, full: bool) {
         let mut i = 0;
         let mut freed_count = 0;
 
@@ -336,7 +341,7 @@ impl<'a> GarbageCollector<'a> for MarkSweepGarbageCollector<'a> {
     }
 
     #[inline]
-    fn will_collect(&self) -> bool {
+    pub fn will_collect(&self) -> bool {
         self.tracker.object_count as usize > self.tracker.throld * 3 || self.gc_reason.is_some()
     }
 }

@@ -59,6 +59,8 @@ pub extern "C" fn get_none() -> ObjId {
     get_object_by_global_id(FSRGlobalObjId::None)
 }
 
+pub static mut GLOBAL_CLASS: Option<FSRClass<'static>> = None;
+
 impl<'a> FSRVM<'a> {
     fn new() -> Self {
         Self::init_static_object();
@@ -150,6 +152,7 @@ impl<'a> FSRVM<'a> {
     pub fn init_static_object() {
         unsafe {
             if OBJECTS.is_empty() {
+                GLOBAL_CLASS = Some(FSRClass::new("Global"));
                 OBJECTS.push(Self::new_stataic_object_with_id(
                     //FSRGlobalObjId::None as ObjId,
                     FSRValue::None,
@@ -228,21 +231,21 @@ impl<'a> FSRVM<'a> {
 
                 for object in OBJECTS.iter_mut() {
                     if let FSRValue::Class(_) = object.value {
-                        object.cls = get_object_by_global_id(FSRGlobalObjId::ClassCls);
+                        object.cls = FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::ClassCls)).as_class();
                     }
 
                     if let FSRValue::Bool(_) = object.value {
-                        object.cls = get_object_by_global_id(FSRGlobalObjId::BoolCls);
+                        object.cls = FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::BoolCls)).as_class();
                     }
 
                     if let FSRValue::None = object.value {
-                        object.cls = get_object_by_global_id(FSRGlobalObjId::NoneCls);
+                        object.cls = FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::NoneCls)).as_class();
                     }
                 }
 
-                OBJECTS[0].cls = get_object_by_global_id(FSRGlobalObjId::NoneCls);
-                OBJECTS[1].cls = get_object_by_global_id(FSRGlobalObjId::BoolCls);
-                OBJECTS[2].cls = get_object_by_global_id(FSRGlobalObjId::BoolCls);
+                // OBJECTS[0].cls = get_object_by_global_id(FSRGlobalObjId::NoneCls);
+                // OBJECTS[1].cls = get_object_by_global_id(FSRGlobalObjId::BoolCls);
+                // OBJECTS[2].cls = get_object_by_global_id(FSRGlobalObjId::BoolCls);
 
                 NONE_ID = FSRObject::obj_to_id(&OBJECTS[0]);
                 TRUE_ID = FSRObject::obj_to_id(&OBJECTS[1]);
@@ -310,7 +313,7 @@ impl<'a> FSRVM<'a> {
     fn new_stataic_object_with_id(value: FSRValue<'static>) -> FSRObject<'static> {
         FSRObject {
             value,
-            cls: 0,
+            cls: unsafe { GLOBAL_CLASS.as_ref().unwrap() },
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,

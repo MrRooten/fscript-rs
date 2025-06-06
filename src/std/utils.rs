@@ -208,7 +208,7 @@ fn fsr_is_class(
 
     let obj = FSRObject::id_to_obj(args[0]);
 
-    if obj.cls == args[1] {
+    if obj.cls == FSRObject::id_to_obj(args[1]).as_class() {
         return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
     }
 
