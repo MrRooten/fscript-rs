@@ -1414,7 +1414,19 @@ impl JitBuilder<'_> {
                     } else if let ArgType::CurrentFn = arg.get_arg() {
                         let fn_id = self.get_current_fn_id(context);
                         context.exp.push(fn_id);
-                    } else {
+                    } else if let ArgType::ClosureVar(v) = arg.get_arg() {
+                        // same as load global for now
+                        let name_ptr = self.builder.ins().iconst(
+                            self.module.target_config().pointer_type(),
+                            v.1.as_ptr() as i64,
+                        );
+                        let name_len = self.builder.ins().iconst(
+                            self.module.target_config().pointer_type(),
+                            v.1.len() as i64,
+                        );
+                        self.load_global_name(name_ptr, name_len, context);
+                    }
+                    else {
                         panic!("Load requires a variable or constant argument");
                     }
 
