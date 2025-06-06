@@ -1,9 +1,8 @@
-use std::rc::Rc;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     frontend::ast::{
-        parse::ASTParser,
-        utils::automaton::{FSTrie, NodeType},
+        parse::ASTParser, token::ASTVariableState, utils::automaton::{FSTrie, NodeType}
     },
     utils::error::SyntaxError,
 };
@@ -71,6 +70,7 @@ impl ModuleStates {
 pub struct FSRModuleFrontEnd {
     pub(crate) tokens: Vec<FSRToken>,
     pub(crate) lambda_define_lines: Vec<usize>,
+    pub(crate) ref_map: Rc<RefCell<HashMap<String, ASTVariableState>>>,
     len: usize,
     meta: FSRPosition,
 }
@@ -98,9 +98,11 @@ impl FSRModuleFrontEnd {
             len: 0,
             meta: meta.clone(),
             lambda_define_lines: vec![],
+            ref_map: Rc::new(RefCell::new(HashMap::new())),
         };
 
         let mut context = ASTContext::new_context();
+        context.push_scope();
         loop {
             if start + length >= source.len() {
                 break;
@@ -242,6 +244,8 @@ impl FSRModuleFrontEnd {
                 return Err(err);
             }
         }
+        let scope = context.pop_scope();
+        module.ref_map = scope;
         module.len = start + length;
         Ok(module)
     }

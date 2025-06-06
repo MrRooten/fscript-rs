@@ -138,6 +138,22 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
+    pub fn new_empty() -> FSRValue<'a> {
+        let fn_obj = FSRFnInner {
+            name: Cow::Owned("__main__".to_string()),
+            fn_ip: (0, 0),
+            jit_code: None,
+        };
+
+        let v = Self {
+            fn_def: FSRnE::FSRFn(fn_obj),
+            code: 0,
+            closure_fn: vec![],
+            store_cells: AHashMap::new(),
+        };
+        FSRValue::Function(Box::new(v))
+    }
+
     pub fn from_fsr_fn(
         fn_name: &str,
         u: (usize, usize),

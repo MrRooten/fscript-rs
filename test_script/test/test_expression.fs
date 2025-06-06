@@ -1,10 +1,10 @@
 c = "abc" + "def"
 println(c)
-fn abc() {
+fn abcd() {
     return 'abc'.len()
 }
 
-a = ((1 + 3 + 1 ) * 3 + 4 + abc()) * 4
+a = ((1 + 3 + 1 ) * 3 + 4 + abcd()) * 4
 assert(a == 88)
 
 class Abc {

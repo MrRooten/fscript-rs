@@ -1,10 +1,5 @@
+b = 0
 
-fn fib(n) {
-    i = 0
-    while i < 3000000 {
-        i = i + 1
-    }
-    
+for i in (0..3000000).filter(|x| { return x % 2 == 0 }) {
+    b = b + 1
 }
-
-fib(2)

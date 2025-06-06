@@ -148,6 +148,13 @@ impl FSRFnDef {
         }
 
         context.push_scope();
+        for arg in &arg_collect {
+            if let FSRToken::Variable(v) = arg {
+                context.add_variable(&v.name, Some(arg.clone()));
+            } else {
+                unimplemented!("Lambda function args should be variables");
+            }
+        }
         // check is end of source
         if args_len == source.len() {
             let mut sub_meta = meta.from_offset(args_len);

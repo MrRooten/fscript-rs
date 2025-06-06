@@ -23,7 +23,7 @@ use crate::{
             GarbageCollector,
         },
         types::{
-            base::{Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            base::{self, Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
             code::FSRCode,
@@ -1874,11 +1874,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 .as_mut_module();
                 module.register_object(name, fn_id);
             }
-            if *store_to_cell {
+            if *store_to_cell && define_fn_obj != 0 {
                 let define_fn_obj = self.get_cur_frame().fn_obj;
-                if define_fn_obj == FSRObject::none_id() {
-                    panic!("closure var must in closure");
-                }
                 let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj)
                     .expect("not a fn obj")
                     .as_mut_fn();
@@ -2069,8 +2066,8 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_frame().middle_value.push(obj_id);
         // FSRObject::id_to_obj(obj_id).ref_add();
         let fn_obj = self.get_cur_frame().fn_obj;
-        if fn_obj == FSRObject::none_id() {
-            panic!("closure var must in closure");
+        if fn_obj == 0 {
+            panic!("fn_obj is 0, this should not happen");
         }
         let fn_obj = FSRObject::id_to_mut_obj(fn_obj)
             .expect("not a fn object")
@@ -2559,12 +2556,24 @@ impl<'a> FSRThreadRuntime<'a> {
 
             ArgType::ClosureVar(v) => {
                 let fn_id = self.get_cur_frame().fn_obj;
-                if fn_id == FSRObject::none_id() {
-                    panic!("not found function object");
-                }
-                let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
-                let var = fn_obj.get_closure_var(&v.1);
-                self.get_cur_mut_frame().exp.push(var.unwrap());
+                let var = if fn_id == 0 {
+                    let state = self.get_cur_frame();
+                    let id = Self::get_chain_by_name(self, &v.1).unwrap();
+                    id
+                } else {
+                    let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
+                    let var = match fn_obj.get_closure_var(&v.1) {
+                        Some(s) => s,
+                        None => {
+                            let state = self.get_cur_frame();
+                            let id = Self::get_chain_by_name(self, &v.1).unwrap();
+                            id
+                        }
+                    };
+                    var
+                };
+
+                self.get_cur_mut_frame().exp.push(var);
             }
             ArgType::CurrentFn => {
                 let fn_id = self.get_cur_frame().fn_obj;
@@ -2852,7 +2861,12 @@ impl<'a> FSRThreadRuntime<'a> {
             //self.run_with_context(FSRObject::obj_to_id(code.1), &mut context)?;
         }
 
+        let base_fn = FSRFn::new_empty();
+        let base_fn_id = FSRObject::new_inst(base_fn, get_object_by_global_id(FSRGlobalObjId::FnCls));
+        let base_fn_id = FSRVM::leak_object(Box::new(base_fn_id));
+
         self.cur_frame.code = code_id;
+        self.cur_frame.fn_obj = base_fn_id;
         self.get_cur_mut_context().code = FSRObject::obj_to_id(main_code.unwrap());
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         //self.get_cur_mut_frame().fn_obj = code_id;
@@ -2884,8 +2898,6 @@ impl<'a> FSRThreadRuntime<'a> {
         args: &[ObjId],
         code: ObjId,
     ) -> Result<ObjId, FSRError> {
-        
-
         let mut context = self.thread_allocator.new_code_context(code);
         context.ip = fn_def.get_ip();
         context.code = code;
