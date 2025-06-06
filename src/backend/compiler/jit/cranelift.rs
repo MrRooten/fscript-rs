@@ -14,7 +14,7 @@ use crate::{
     backend::{
         compiler::{bytecode::{
             ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
-        }, jit::jit_wrapper::{clear_exp, get_current_fn_id, save_to_exp}},
+        }, jit::jit_wrapper::{binary_dot_getter, clear_exp, get_current_fn_id, save_to_exp}},
         types::base::{FSRObject, ObjId},
         vm::thread::FSRThreadRuntime,
     },
@@ -724,6 +724,9 @@ impl JitBuilder<'_> {
                                                               // operator_name_sig
                                                               //     .params
                                                               //     .push(AbiParam::new(self.module.target_config().pointer_type())); // runtime context
+        // code: ObjId,
+        binary_op_sig.params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // code object
         binary_op_sig
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
@@ -748,10 +751,11 @@ impl JitBuilder<'_> {
             let thread = self.builder.block_params(context.entry_block)[0];
             let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
             let add_t = self.builder.ins().iconst(types::I32, op as i64);
+            let code_object = self.builder.block_params(context.entry_block)[1];
             let call = self
                 .builder
                 .ins()
-                .call(func_ref, &[left, right, add_t, thread]);
+                .call(func_ref, &[left, right, add_t, code_object, thread]);
             let ret = self.builder.inst_results(call)[0];
             context.exp.push(ret);
             context.middle_value.push(ret);
@@ -1199,6 +1203,61 @@ impl JitBuilder<'_> {
         self.builder.inst_results(call)[0]
     }
 
+    fn binary_dot_process(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        if let ArgType::Attr(id, name) = arg.get_arg() {
+            // pub extern "C" fn binary_dot_getter(
+            //     father: ObjId,
+            //     name: *const u8,
+            //     len: usize,
+            //     thread: &mut FSRThreadRuntime,
+            // ) -> ObjId {
+            let mut binary_dot_sig = self.module.make_signature();
+            binary_dot_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // father object
+            binary_dot_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // name pointer
+            binary_dot_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // name length
+            binary_dot_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            
+            binary_dot_sig
+                .returns
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+            let fn_id = self
+                .module
+                .declare_function(
+                    "binary_dot_getter",
+                    cranelift_module::Linkage::Import,
+                    &binary_dot_sig,
+                )
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let father = context.exp.pop().unwrap();
+            let name_ptr = self.builder.ins().iconst(
+                self.module.target_config().pointer_type(),
+                name.as_ptr() as i64,
+            );
+            let name_len = self.builder.ins().iconst(
+                self.module.target_config().pointer_type(),
+                name.len() as i64,
+            );
+            let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            let call = self.builder.ins().call(
+                func_ref,
+                &[father, name_ptr, name_len, thread_runtime],
+            );
+            let ret = self.builder.inst_results(call)[0];
+            context.exp.push(ret);
+        } else {
+            panic!("BinaryDot requires an Attr argument");
+        }
+    }
+
     fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext) {
         if expr.last().is_none() {
             return;
@@ -1378,6 +1437,9 @@ impl JitBuilder<'_> {
                 BytecodeOperator::AndJump => {
                     self.load_and_jump(context, arg);
                 }
+                BytecodeOperator::BinaryDot => {
+                    self.binary_dot_process(context, arg);
+                }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())
                 }
@@ -1510,6 +1572,7 @@ impl CraneLiftJitBackend {
         builder.symbol("get_current_fn_id", get_current_fn_id as *const u8);
         builder.symbol("save_to_exp", save_to_exp as *const u8);
         builder.symbol("clear_exp", clear_exp as *const u8);
+        builder.symbol("binary_dot_getter", binary_dot_getter as *const u8);
     }
 
     pub fn new() -> Self {

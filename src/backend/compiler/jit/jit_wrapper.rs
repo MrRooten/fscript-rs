@@ -132,18 +132,19 @@ pub extern "C" fn binary_op(
     left: ObjId,
     right: ObjId,
     op: BinaryOffset,
+    code: ObjId,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
     let args = [left, right];
     let len = args.len();
     if let Some(rust_fn) = obj_cls!(left).get_rust_fn(op) {
-        return rust_fn(args.as_ptr(), len, thread, 0).unwrap().get_id();
+        return rust_fn(args.as_ptr(), len, thread, code).unwrap().get_id();
     }
 
     if let Some(op_fn) = obj_cls!(left).get_offset_attr(op) {
         let op_fn = op_fn.load(std::sync::atomic::Ordering::Relaxed);
         let fn_obj = FSRObject::id_to_obj(op_fn);
-        let ret = fn_obj.call(&args, thread, 0, op_fn).unwrap().get_id();
+        let ret = fn_obj.call(&args, thread, code, op_fn).unwrap().get_id();
         return ret;
     }
 
@@ -210,6 +211,19 @@ pub extern "C" fn getter(
     }
 
     unimplemented!()
+}
+
+pub extern "C" fn binary_dot_getter(
+    father: ObjId,
+    name: *const u8,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> ObjId {
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len as usize) };
+    let name_str = std::str::from_utf8(name_slice).unwrap();
+    let father_obj = FSRObject::id_to_obj(father);
+
+    father_obj.get_attr(name_str).unwrap().load(Ordering::Relaxed)
 }
 
 pub extern "C" fn load_integer(value: i64, thread: &mut FSRThreadRuntime) -> ObjId {
