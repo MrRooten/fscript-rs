@@ -31,6 +31,14 @@ cargo build --release
 
 ---
 
+## Test
+Run the test script to see the language in action:
+
+thread is 1 to avoid some thread issues.(fix later)
+```bash
+cargo test --release -- --test-threads=1
+```
+
 ## 🧪 Examples
 
 ### 🔁 While Loop
