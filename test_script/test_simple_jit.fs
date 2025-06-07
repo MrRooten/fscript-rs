@@ -8,11 +8,9 @@ class Abc {
 }
 
 @jit
-fn fib(n) {
-    for i in 0..30000000 {
-        n + n
-    }
+fn jit_test(n) {
+    println(n + n)
 }
 
 a = Abc()
-fib(a)
+jit_test(a)

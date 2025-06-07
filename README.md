@@ -176,6 +176,26 @@ reused count: 6
 157.459µs
 ```
 
+### JIT Support
+```rust
+class Abc {
+    @jit
+    fn __add__(self, other: Abc) -> Integer {
+        #println("add")
+        return 1
+    }
+}
+
+@jit
+fn jit_test(n) {
+    for i in 0..30000000 {
+        n + n
+    }
+}
+
+a = Abc()
+jit_test(a)
+```
 
 ### More Examples
 more examples can be found in the `test_script/` directory.
