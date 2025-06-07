@@ -1,11 +1,18 @@
 
-@jit
-fn fib(n) {
-    i = 0
-    while i < 3000000 {
-        i = i + 1
+class Abc {
+    @jit
+    fn __add__(self, other: Abc) -> Integer {
+        #println("add")
+        return 1
     }
-    #println("fib:", i)
 }
 
-fib(1)
+@jit
+fn fib(n) {
+    for i in 0..30000000 {
+        n + n
+    }
+}
+
+a = Abc()
+fib(a)

@@ -30,8 +30,8 @@ use super::jit_wrapper::{
     malloc,
 };
 
-const ARGS_LEN: i64 = 1024;
-const CALL_ARGS_LEN: i64 = 1024;
+const ARGS_LEN: i64 = 512;
+const CALL_ARGS_LEN: i64 = 16;
 
 struct BuildContext {}
 
