@@ -19,6 +19,7 @@ A toy scripting language that runs on bytecode. It’s currently minimalistic an
 | Closure support           | ✅      |
 | Anonymous functions       | ✅      |
 | Class support             | ✅      |
+| Static typed jit support  | ❌      |
 
 ---
 
@@ -196,6 +197,8 @@ fn jit_test(n) {
 a = Abc()
 jit_test(a)
 ```
+
+performance is 1.5-2.0x faster than origin
 
 ### More Examples
 more examples can be found in the `test_script/` directory.
