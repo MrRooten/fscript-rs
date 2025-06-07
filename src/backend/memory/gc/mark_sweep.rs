@@ -318,7 +318,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             return self.alloc_object(free_idx, value, cls);
         }
 
-        unimplemented!()
+        panic!("No free slots available for allocation");
         // else {
         //     self.alloc_when_full(value, cls)
         // }

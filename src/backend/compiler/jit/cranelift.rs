@@ -712,6 +712,51 @@ impl JitBuilder<'_> {
         }
     }
 
+    fn load_call_method(
+        &mut self,
+        arg: &BytecodeArg,
+        context: &mut OperatorContext,
+    ) {
+        if let ArgType::CallArgsNumberWithAttr(v) = arg.get_arg() {
+            unimplemented!("CallArgsNumberWithAttr is not implemented yet");
+            // //let variable = self.variables.get(v.2.as_str()).unwrap();
+            // // context.left = Some(self.builder.use_var(*variable));
+            // //let fn_obj_id = self.builder.use_var(*variable);
+
+            // // call_fn(args: *const ObjId, len: usize, fn_id: ObjId, thread: &mut FSRThreadRuntime, code: ObjId) -> ObjId
+
+            // let call_fn_sig = self.make_call_fn();
+            // let fn_id = self
+            //     .module
+            //     .declare_function("call_fn", cranelift_module::Linkage::Import, &call_fn_sig)
+            //     .unwrap();
+            // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            // let list_ptr = self.load_make_arg_list(context, v.0);
+            // let len = self.builder.ins().iconst(types::I64, v.0 as i64);
+            // let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            // let code_object = self.builder.block_params(context.entry_block)[1];
+
+            // let fn_obj_id = context.exp.pop().unwrap();
+            // self.save_middle_value(context);
+            // self.save_object_to_exp(context);
+            // let call = self.builder.ins().call(
+            //     func_ref,
+            //     &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
+            // );
+            // //self.clear_middle_value(context);
+
+            // let ret = self.builder.inst_results(call)[0];
+
+            // // Free the argument list after the call
+            // //self.load_free_arg_list(list_ptr, context, *v as i64);
+
+            // context.exp.push(ret);
+            // context.middle_value.push(ret);
+        } else {
+            unimplemented!()
+        }
+    }
+
     fn load_none(&mut self, context: &mut OperatorContext) {
         // pub extern "C" fn get_none() -> ObjId
         // let mut get_none_sig = self.module.make_signature();
@@ -1530,6 +1575,10 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::BinaryDot => {
                     self.binary_dot_process(context, arg);
+                }
+
+                BytecodeOperator::CallMethod => {
+                    self.load_call_method(arg, context);
                 }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())
