@@ -9,7 +9,9 @@ class Abc {
 
 @jit
 fn jit_test(n) {
-    println(n + n)
+    for i in 0..3000000 {
+        c = n + n
+    }
 }
 
 a = Abc()
