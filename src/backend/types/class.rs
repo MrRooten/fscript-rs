@@ -13,11 +13,12 @@ use super::{
 };
 use std::fmt::Debug;
 
+#[repr(C)]
 pub struct FSRClass<'a> {
+    pub(crate) offset_rust_fn: [Option<FSRRustFn>; 30],
     pub(crate) name: &'a str,
     pub(crate) attrs: AHashMap<&'a str, AtomicObjId>,
     pub(crate) offset_attrs: Vec<Option<AtomicObjId>>,
-    pub(crate) offset_rust_fn: [Option<FSRRustFn>; 30],
 }
 
 impl PartialEq for FSRClass<'_> {

@@ -47,6 +47,7 @@ pub extern "C" fn save_to_exp(
 ) {
     let args = unsafe { std::slice::from_raw_parts(args, len as usize) };
     let frame = thread.get_cur_mut_frame();
+    frame.exp.clear();
     frame.exp.extend_from_slice(args);
 }
 

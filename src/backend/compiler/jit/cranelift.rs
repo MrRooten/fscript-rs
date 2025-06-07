@@ -698,7 +698,7 @@ impl JitBuilder<'_> {
                 func_ref,
                 &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
             );
-            self.clear_middle_value(context);
+            //self.clear_middle_value(context);
 
             let ret = self.builder.inst_results(call)[0];
 
@@ -760,6 +760,8 @@ impl JitBuilder<'_> {
 
     fn load_binary_op(&mut self, context: &mut OperatorContext, op: BinaryOffset) {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
+            self.save_middle_value(context);
+            self.save_object_to_exp(context);
             let binary_op_sig = self.make_binary_op();
 
             let fn_id = self
@@ -783,28 +785,13 @@ impl JitBuilder<'_> {
             context.middle_value.push(ret);
             context.middle_value.push(right);
             context.middle_value.push(left);
+            // self.clear_middle_value(context);
         } else {
             unimplemented!("BinaryAdd requires both left and right operands");
         }
     }
 
     fn save_object_to_exp(&mut self, context: &mut OperatorContext) {
-        // let ptr_type = self.module.target_config().pointer_type();
-        // let var_count = self.defined_variables.len() + context.for_iter_obj.len() + context.for_obj.len();
-        // let size = self.builder.ins().iconst(ptr_type, var_count as i64); // usize
-
-        // let mut malloc_sig = self.module.make_signature();
-        // malloc_sig.params.push(AbiParam::new(types::I64));
-        // malloc_sig.returns.push(AbiParam::new(ptr_type));
-        // let malloc_id = self
-        //     .module
-        //     .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
-        //     .unwrap();
-        // let malloc_func_ref = self
-        //     .module
-        //     .declare_func_in_func(malloc_id, self.builder.func);
-        // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
-        // let arr_ptr = self.builder.inst_results(malloc_call)[0];
         let arr_ptr = self
             .builder
             .use_var(*self.variables.get("#args_ptr").unwrap());
@@ -1780,7 +1767,7 @@ impl CraneLiftJitBackend {
         trans.malloc_args(&mut context);
         trans.malloc_call_args(&mut context);
         for expr in &code.bytecode {
-            if i % 10 == 0 || context.ins_check_gc {
+            if i % 20 == 0 || context.ins_check_gc {
                 trans.load_check_gc(&mut context);
                 context.ins_check_gc = false;
             }
