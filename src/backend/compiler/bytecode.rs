@@ -2394,10 +2394,15 @@ a[0] = 1
     #[test]
     fn test_simple() {
         let expr = "
-        b = 0
+        class Abc {
+            fn test(self) {
+                println(\"test\")
+            }
+        }
 
-        for i in (0..3000000).filter(|x| { return x % 2 == 0 }) {
-            b = b + 1
+        @jit
+        fn jit_test(n) {
+            n.test()
         }
 
         ";

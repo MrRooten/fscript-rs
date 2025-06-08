@@ -306,3 +306,15 @@ pub extern "C" fn get_current_fn_id(thread: &mut FSRThreadRuntime) -> ObjId {
     let frame = thread.get_cur_mut_frame();
     frame.fn_obj
 }
+
+pub extern "C" fn get_obj_method(father: ObjId, name: *const u8, len: usize) -> ObjId {
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len as usize) };
+    let name_str = std::str::from_utf8(name_slice).unwrap();
+    let father_obj = FSRObject::id_to_obj(father);
+
+    if let Some(attr) = father_obj.cls.get_attr(name_str) {
+        return attr.load(Ordering::Relaxed);
+    }
+
+    FSRObject::none_id()
+}

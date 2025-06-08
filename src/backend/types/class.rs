@@ -112,6 +112,7 @@ impl<'a> FSRClass<'a> {
         }
 
         self.offset_attrs[offset as usize] = Some(AtomicUsize::new(id));
+        self.insert_attr_id(offset.alias_name(), id);
     }
 
     pub fn insert_attr_id(&mut self, name: &'a str, obj_id: ObjId) {

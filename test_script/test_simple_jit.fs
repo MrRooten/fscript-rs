@@ -1,17 +1,15 @@
 
 class Abc {
     @jit
-    fn __add__(self, other: Abc) -> Integer {
-        #println("add")
+    fn __add__(self, abc) {
+        println("test")
         return 1
     }
 }
 
 @jit
 fn jit_test(n) {
-    for i in 0..3000000 {
-        c = n + n
-    }
+    n.__add__(n)
 }
 
 a = Abc()

@@ -16,7 +16,7 @@ use crate::{
             bytecode::{
                 ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
             },
-            jit::jit_wrapper::{binary_dot_getter, clear_exp, get_current_fn_id, save_to_exp},
+            jit::jit_wrapper::{binary_dot_getter, clear_exp, get_current_fn_id, get_obj_method, save_to_exp},
         },
         types::base::{FSRObject, ObjId},
         vm::thread::FSRThreadRuntime,
@@ -329,10 +329,6 @@ impl JitBuilder<'_> {
             let condition = self.is_none(v, context);
             let body_block = self.builder.create_block();
             let exit_block = self.builder.create_block();
-            // let condition = context.exp.pop().unwrap();
-            // self.builder
-            //     .ins()
-            //     .brif(condition, body_block, &[], exit_block, &[]);
 
             self.builder
                 .ins()
@@ -402,21 +398,6 @@ impl JitBuilder<'_> {
     }
 
     fn load_make_arg_list(&mut self, context: &mut OperatorContext, len: usize) -> Value {
-        // let mut malloc_sig = self.module.make_signature();
-        // malloc_sig
-        //     .params
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // size
-        // malloc_sig
-        //     .returns
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
-        // let malloc_id = self
-        //     .module
-        //     .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
-        //     .unwrap();
-        // let malloc_func_ref = self
-        //     .module
-        //     .declare_func_in_func(malloc_id, self.builder.func);
-
         let size = self
             .builder
             .ins()
@@ -449,6 +430,44 @@ impl JitBuilder<'_> {
 
         malloc_ret
     }
+
+    fn load_make_method_arg_list(&mut self, context: &mut OperatorContext, len: usize) -> Value {
+        let size = self
+            .builder
+            .ins()
+            .iconst(self.module.target_config().pointer_type(), len as i64);
+        // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
+        // let malloc_ret = self.builder.inst_results(malloc_call)[0];
+        let malloc_ret = self
+            .builder
+            .use_var(*self.variables.get("#call_args_ptr").unwrap());
+        let mut rev_args = vec![];
+        for i in 0..len {
+            // Assuming we have a way to get the next argument value
+            let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
+            context.middle_value.push(arg_value);
+            rev_args.push(arg_value);
+        }
+
+        rev_args.push(context.exp.pop().unwrap()); // Add the method object as the last argument
+
+        rev_args.reverse();
+
+        for (i, arg) in rev_args.into_iter().enumerate() {
+            let offset = self
+                .builder
+                .ins()
+                .iconst(types::I64, i as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
+            let ptr = self.builder.ins().iadd(malloc_ret, offset);
+            self.builder
+                .ins()
+                .store(cranelift::codegen::ir::MemFlags::new(), arg, ptr, 0);
+        }
+
+        malloc_ret
+    }
+
+
 
     fn load_make_middle_v_list_save(&mut self, context: &mut OperatorContext) -> Value {
         // let mut malloc_sig = self.module.make_signature();
@@ -712,46 +731,75 @@ impl JitBuilder<'_> {
         }
     }
 
+    fn get_obj_method(&mut self, father: Value, name: &str) -> Value {
+        // pub extern "C" fn get_obj_method(father: ObjId, name: *const u8, len: usize) -> ObjId {
+        let mut get_obj_method_sig = self.module.make_signature();
+        get_obj_method_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // father object
+        get_obj_method_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // name pointer
+        get_obj_method_sig
+            .params
+            .push(AbiParam::new(types::I64)); // name length
+        get_obj_method_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+        let fn_id = self
+            .module
+            .declare_function(
+                "get_obj_method",
+                cranelift_module::Linkage::Import,
+                &get_obj_method_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let name_ptr = self.builder.ins().iconst(
+            self.module.target_config().pointer_type(),
+            name.as_ptr() as i64,
+        );
+        let name_len = self.builder.ins().iconst(types::I64, name.len() as i64);
+        let call = self.builder.ins().call(
+            func_ref,
+            &[father, name_ptr, name_len],
+        );
+        let ret = self.builder.inst_results(call)[0];
+        ret
+    }
+
     fn load_call_method(
         &mut self,
         arg: &BytecodeArg,
         context: &mut OperatorContext,
     ) {
         if let ArgType::CallArgsNumberWithAttr(v) = arg.get_arg() {
-            unimplemented!("CallArgsNumberWithAttr is not implemented yet");
-            // //let variable = self.variables.get(v.2.as_str()).unwrap();
-            // // context.left = Some(self.builder.use_var(*variable));
-            // //let fn_obj_id = self.builder.use_var(*variable);
+            let father_obj_id = *context.exp.last().unwrap();
+            let fn_obj_id = self.get_obj_method(father_obj_id, v.2.as_str());
 
-            // // call_fn(args: *const ObjId, len: usize, fn_id: ObjId, thread: &mut FSRThreadRuntime, code: ObjId) -> ObjId
+            let call_fn_sig = self.make_call_fn();
+            let fn_id = self
+                .module
+                .declare_function("call_fn", cranelift_module::Linkage::Import, &call_fn_sig)
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let list_ptr = self.load_make_method_arg_list(context, v.0);
+            let len = self.builder.ins().iconst(types::I64, v.0 as i64 + 1);
+            let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            let code_object = self.builder.block_params(context.entry_block)[1];
 
-            // let call_fn_sig = self.make_call_fn();
-            // let fn_id = self
-            //     .module
-            //     .declare_function("call_fn", cranelift_module::Linkage::Import, &call_fn_sig)
-            //     .unwrap();
-            // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            // let list_ptr = self.load_make_arg_list(context, v.0);
-            // let len = self.builder.ins().iconst(types::I64, v.0 as i64);
-            // let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            // let code_object = self.builder.block_params(context.entry_block)[1];
+            
+            self.save_middle_value(context);
+            self.save_object_to_exp(context);
+            let call = self.builder.ins().call(
+                func_ref,
+                &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
+            );
 
-            // let fn_obj_id = context.exp.pop().unwrap();
-            // self.save_middle_value(context);
-            // self.save_object_to_exp(context);
-            // let call = self.builder.ins().call(
-            //     func_ref,
-            //     &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
-            // );
-            // //self.clear_middle_value(context);
+            let ret = self.builder.inst_results(call)[0];
 
-            // let ret = self.builder.inst_results(call)[0];
-
-            // // Free the argument list after the call
-            // //self.load_free_arg_list(list_ptr, context, *v as i64);
-
-            // context.exp.push(ret);
-            // context.middle_value.push(ret);
+            context.exp.push(ret);
+            context.middle_value.push(ret);
         } else {
             unimplemented!()
         }
@@ -1710,6 +1758,7 @@ impl CraneLiftJitBackend {
         builder.symbol("save_to_exp", save_to_exp as *const u8);
         builder.symbol("clear_exp", clear_exp as *const u8);
         builder.symbol("binary_dot_getter", binary_dot_getter as *const u8);
+        builder.symbol("get_obj_method", get_obj_method as *const u8);
     }
 
     pub fn new() -> Self {
