@@ -19,8 +19,8 @@ class Abc {
         return 323
     }
 
-    fn not_self() {
-        println("not self")
+    fn not_self(abc) {
+        println("not self: ", abc)
         return 1
     }
 
@@ -57,7 +57,7 @@ assert(a.abc.ddc == 447)
 
 println(a.abc.ddc)
 
-Abc::not_self()
+Abc::not_self(1)
 
 println(a)
 
@@ -84,5 +84,5 @@ a1 = [SortItem(3), SortItem(4), SortItem(1), SortItem(2), SortItem(5)]
 a1.sort()
 println("sort class")
 println(a1)
-println(a1[0].value == 1)
-println(a1[4].value == 5)
+assert(a1[0].value == 1)
+assert(a1[4].value == 5)

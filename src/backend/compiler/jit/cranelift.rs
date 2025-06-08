@@ -1,5 +1,6 @@
 use std::{collections::HashMap, os::unix::thread};
 
+use anyhow::{Ok, Result};
 use cranelift::{
     codegen,
     prelude::{
@@ -806,17 +807,6 @@ impl JitBuilder<'_> {
     }
 
     fn load_none(&mut self, context: &mut OperatorContext) {
-        // pub extern "C" fn get_none() -> ObjId
-        // let mut get_none_sig = self.module.make_signature();
-        // get_none_sig
-        //     .returns
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
-        // let fn_id = self
-        //     .module
-        //     .declare_function("get_none", cranelift_module::Linkage::Import, &get_none_sig)
-        //     .unwrap();
-        // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        // let call = self.builder.ins().call(func_ref, &[]);
         let none_id = FSRObject::none_id();
         let none_value = self
             .builder
@@ -1121,7 +1111,7 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn load_and_jump(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+    fn load_and_jump(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) -> Result<()> {
         //let last_ssa_value = *context.exp.last().unwrap();
         let last_ssa_value = self.load_is_not_true(context);
         //let last_ssa_value = context.exp.pop().unwrap();
@@ -1144,11 +1134,13 @@ impl JitBuilder<'_> {
         if let ArgType::AddOffset(offset) = arg.get_arg() {
             context.logic_rest_bytecode_count = Some(*offset);
         } else {
-            panic!("OrJump requires an AddOffset argument");
+            return Err(anyhow::anyhow!("AndJump requires an AddOffset argument"));
         }
+
+        Ok(())
     }
 
-    fn load_init_integer(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+    fn load_init_integer(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) -> Result<()> {
         // pub extern "C" fn load_integer(
         //     value: i64,
         //     thread: &mut FSRThreadRuntime,
@@ -1187,7 +1179,11 @@ impl JitBuilder<'_> {
             let variable = self.variables.get(&name).unwrap();
             self.builder.def_var(*variable, ret);
             self.defined_variables.insert(name.to_string(), *variable);
+        } else {
+            return Err(anyhow::anyhow!("Expected ConstInteger argument"));
         }
+
+        Ok(())
     }
 
     fn load_init_float(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
@@ -1317,12 +1313,6 @@ impl JitBuilder<'_> {
 
     fn binary_dot_process(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         if let ArgType::Attr(id, name) = arg.get_arg() {
-            // pub extern "C" fn binary_dot_getter(
-            //     father: ObjId,
-            //     name: *const u8,
-            //     len: usize,
-            //     thread: &mut FSRThreadRuntime,
-            // ) -> ObjId {
             let mut binary_dot_sig = self.module.make_signature();
             binary_dot_sig
                 .params
@@ -1460,12 +1450,6 @@ impl JitBuilder<'_> {
                     } else if let ArgType::Const(c) = arg.get_arg() {
                         self.load_constant(*c, context);
                     } else if let ArgType::Global(name) = arg.get_arg() {
-                        // let data_id = self
-                        //     .module
-                        //     .declare_data(name, cranelift_module::Linkage::Export, false, false)
-                        //     .unwrap();
-                        // let local_id = self.module.declare_data_in_func(data_id, self.builder.func);
-                        // let name_ptr = self.builder.ins().symbol_value(self.module.target_config().pointer_type(), local_id);
                         let name_ptr = self.builder.ins().iconst(
                             self.module.target_config().pointer_type(),
                             name.as_ptr() as i64,
@@ -1785,7 +1769,7 @@ impl CraneLiftJitBackend {
         }
     }
 
-    pub fn compile(&mut self, code: &Bytecode) -> Result<*const u8, String> {
+    pub fn compile(&mut self, code: &Bytecode) -> Result<*const u8> {
         let ptr = self.module.target_config().pointer_type();
 
         self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.

@@ -238,6 +238,7 @@ name = "fscript-rs"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "anyhow",
  "cranelift",
  "cranelift-jit",
  "cranelift-module",

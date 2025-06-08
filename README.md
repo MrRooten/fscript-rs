@@ -157,33 +157,6 @@ abc = test.Abc()
 dump(test.Abc)
 ```
 
-Output:
-
-```
-this is test
-FSRObject {
-    obj_id: 5014326912,
-    value: Class(
-        FSRClass {
-            name: "Abc",
-            attrs: {
-                "test": String("fn `test`"),
-                "__new__": String("fn `__new__`"),
-            },
-            offset_attrs: "",
-        },
-    ),
-    ref_count: 2,
-    cls: FSRClass {
-        name: "Class",
-        attrs: {},
-        offset_attrs: "",
-    },
-}
-count: 36
-reused count: 6
-157.459µs
-```
 
 ### JIT Support
 ```rust
