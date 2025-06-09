@@ -2394,15 +2394,12 @@ a[0] = 1
     #[test]
     fn test_simple() {
         let expr = "
-        class Abc {
-            fn test(self) {
-                println(\"test\")
-            }
-        }
-
-        @jit
-        fn jit_test(n) {
-            n.test()
+        if abc > 1 {
+            println(' > 1: ', abc)
+        } else if abc < -1 {
+            println(' < -1: ', abc)
+        } else {
+            println('else:', abc)
         }
 
         ";

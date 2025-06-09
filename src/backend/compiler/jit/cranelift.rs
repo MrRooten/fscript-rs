@@ -61,7 +61,8 @@ struct OperatorContext {
     operator: &'static str,
     loop_blocks: Vec<Block>,
     loop_exit_blocks: Vec<Block>,
-    if_blocks: Vec<Block>,
+    if_header_blocks: Vec<Block>,
+    if_body_blocks: Vec<Block>,
     if_exit_blocks: Vec<(Block, bool)>,
     entry_block: Block,
     args_index: usize,
@@ -70,6 +71,7 @@ struct OperatorContext {
     for_iter_obj: Vec<Value>,
     logic_end_block: Option<Block>,
     logic_rest_bytecode_count: Option<usize>, // used to track the remaining bytecode count in a logic block
+    if_body_line: Option<usize>,
 }
 
 impl JitBuilder<'_> {
@@ -364,40 +366,164 @@ impl JitBuilder<'_> {
         //self.builder.ins().iconst(self.int, 0);
     }
 
-    fn load_if_test(&mut self, context: &mut OperatorContext) {
+    fn load_if_test(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         //let header_block = self.builder.create_block();
-        let body_block = self.builder.create_block();
-        let exit_block = self.builder.create_block();
+        let body_block = context.if_body_blocks.pop().unwrap();
+        let exit_block = context.if_exit_blocks.pop().unwrap();
+        
         // let condition = context.exp.pop().unwrap();
         let is_true = self.load_is_not_false(context);
         let condition = is_true;
+        let not_condition = self.builder.ins().bnot(condition);
         self.builder
             .ins()
-            .brif(condition, body_block, &[], exit_block, &[]);
+            .brif(condition, body_block, &[], exit_block.0, &[not_condition]);
 
         self.builder.switch_to_block(body_block);
         self.builder.seal_block(body_block);
-        context.if_exit_blocks.push((exit_block, false));
+        context.if_exit_blocks.push((exit_block.0, false));
         context.ins_check_gc = true;
+        if let ArgType::IfTestNext(line) = arg.get_arg() {
+            context.if_body_line = Some(line.0 as usize);
+        } else {
+            panic!("IfTest requires an IfTestNext argument");
+        }
+    }
+
+    fn load_else_if(&mut self, context: &mut OperatorContext) {
+        context.ins_check_gc = true;
+        //let test_header_block = context.if_blocks.pop().unwrap();
+        //let exit_block = context.if_exit_blocks.pop().unwrap();
+        //self.builder.switch_to_block(exit_block.0);
+        //self.builder.seal_block(exit_block.0);
+
+        // get last current block param
+        if context.if_exit_blocks.last().unwrap().1 {
+        } else {
+            let false_value = self.builder.ins().iconst(
+                types::I8,
+                0,
+            );
+            self.builder
+                .ins()
+                .jump(context.if_exit_blocks.last().unwrap().clone().0, &[false_value]);
+        }
+
+        let v = context.if_header_blocks.pop().unwrap();
+        self.builder.seal_block(v);
+
+        let will_test_block = context.if_exit_blocks.pop().unwrap();
+        //self.builder.seal_block(will_test_block.0);
+        self.builder.switch_to_block(will_test_block.0);
+        let call_be_test = self.builder.block_params(will_test_block.0)[0];
+        let header_test_block = self.builder.create_block();
+        let body_block = self.builder.create_block();
+        self.builder.seal_block(will_test_block.0);
+        context.if_header_blocks.push(header_test_block);
+        let body_block = self.builder.create_block();
+        let end_block = self.builder.create_block();
+        self.builder.append_block_param(end_block, types::I8);
+        let false_value = self.builder.ins().iconst(
+                types::I8, 0);
+                
+        self.builder
+            .ins()
+            .brif(call_be_test, header_test_block, &[], end_block, &[false_value]);
+
+        //self.builder.seal_block(header_test_block);
+        self.builder.switch_to_block(header_test_block);
+        context.if_body_blocks.push(body_block);
+        context.if_exit_blocks.push((end_block, false));
+
+    }
+
+    fn load_else_if_test(&mut self, context: &mut OperatorContext) {
+        //let header_block = self.builder.create_block();
+        // let body_block = self.builder.create_block();
+        // let exit_block = self.builder.create_block();
+        let body_block = context.if_body_blocks.pop().unwrap();
+        let exit_block = context.if_exit_blocks.pop().unwrap();
+        // let condition = context.exp.pop().unwrap();
+        let is_true = self.load_is_not_false(context);
+        let condition = is_true;
+        let not_condition = self.builder.ins().bnot(condition);
+        self.builder
+            .ins()
+            .brif(condition, body_block, &[], exit_block.0, &[not_condition]);
+
+        self.builder.switch_to_block(body_block);
+        self.builder.seal_block(body_block);
+        context.if_exit_blocks.push((exit_block.0, false));
+        context.ins_check_gc = true;
+    }
+
+    fn load_else(&mut self, context: &mut OperatorContext) {
+        unimplemented!("LoadElse is not implemented yet. This function should handle the else block logic.");
+        let else_block = context.if_exit_blocks.pop().unwrap().0;
+        let condition = self.builder.block_params(else_block)[0];
+        let end_block = self.builder.create_block();
+        self.builder.append_block_param(end_block, types::I8);
+        let true_value = self.builder.ins().iconst(
+            types::I8,
+            1,
+        );
+        self.builder.ins().brif(
+            condition,
+            else_block,
+            &[],
+            end_block,
+            &[true_value],
+        );
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
+
+        context.if_exit_blocks.push((end_block, false));
+        //unimplemented!("LoadElse is not implemented yet. This function should handle the else block logic.");
     }
 
     fn load_if_end(&mut self, context: &mut OperatorContext) {
         if context.if_exit_blocks.last().unwrap().1 {
         } else {
+            let false_value = self.builder.ins().iconst(
+                types::I8,
+                0,
+            );
             self.builder
                 .ins()
-                .jump(context.if_exit_blocks.last().unwrap().clone().0, &[]);
+                .jump(context.if_exit_blocks.last().unwrap().clone().0, &[false_value]);
         }
 
         //self.builder.ins().nop();
 
         //context.is_while = false;
-        let v = context.if_blocks.pop().unwrap();
+        let v = context.if_header_blocks.pop().unwrap();
+        context.if_body_blocks.pop();
         let exit_block = context.if_exit_blocks.pop().unwrap();
         self.builder.seal_block(v);
         self.builder.switch_to_block(exit_block.0);
         self.builder.seal_block(exit_block.0);
         context.ins_check_gc = true;
+        //self.builder.ins().iconst(self.int, 0);
+    }
+
+    fn load_if_body_end(&mut self, context: &mut OperatorContext) {
+        // if context.if_exit_blocks.last().unwrap().1 {
+        // } else {
+        //     let params = self.builder.block_params(context.if_exit_blocks.last().unwrap().0)[0];
+        //     self.builder
+        //         .ins()
+        //         .jump(context.if_exit_blocks.last().unwrap().clone().0, &[params]);
+        // }
+
+        // //self.builder.ins().nop();
+
+        // //context.is_while = false;
+        // let v = context.if_blocks.pop().unwrap();
+        // let exit_block = *context.if_exit_blocks.last().unwrap();
+        // self.builder.seal_block(v);
+        // self.builder.switch_to_block(exit_block.0);
+        // self.builder.seal_block(exit_block.0);
+        // context.ins_check_gc = true;
         //self.builder.ins().iconst(self.int, 0);
     }
 
@@ -1487,12 +1613,19 @@ impl JitBuilder<'_> {
             context.loop_blocks.push(header_block);
         }
 
-        if expr.last().unwrap().get_operator() == &BytecodeOperator::IfTest {
+        if expr.last().unwrap().get_operator() == &BytecodeOperator::IfTest
+            //|| expr.last().unwrap().get_operator() == &BytecodeOperator::ElseIfTest
+        {
             //context.is_if += 1;
             let header_block = self.builder.create_block();
+            let body_block = self.builder.create_block();
+            let end_block = self.builder.create_block();
+            self.builder.append_block_param(end_block, types::I8);
             self.builder.ins().jump(header_block, &[]);
             self.builder.switch_to_block(header_block);
-            context.if_blocks.push(header_block);
+            context.if_header_blocks.push(header_block);
+            context.if_body_blocks.push(body_block);
+            context.if_exit_blocks.push((end_block, false));
         }
 
         if expr.last().unwrap().get_operator() == &BytecodeOperator::LoadForIter {
@@ -1635,7 +1768,16 @@ impl JitBuilder<'_> {
                     }
                 }
                 BytecodeOperator::IfTest => {
-                    self.load_if_test(context);
+                    self.load_if_test(context, arg);
+                }
+                BytecodeOperator::ElseIf => {
+                    self.load_else_if(context);
+                }
+                BytecodeOperator::ElseIfTest => {
+                    self.load_else_if_test(context);
+                }
+                BytecodeOperator::Else => {
+                    self.load_else(context);
                 }
                 BytecodeOperator::IfBlockEnd => {
                     self.load_if_end(context);
@@ -1873,7 +2015,7 @@ impl CraneLiftJitBackend {
             loop_blocks: vec![],
             loop_exit_blocks: vec![],
             entry_block: entry_block.clone(),
-            if_blocks: vec![],
+            if_header_blocks: vec![],
             if_exit_blocks: vec![],
             args_index: 0,
             ins_check_gc: false,
@@ -1882,6 +2024,8 @@ impl CraneLiftJitBackend {
             logic_end_block: None,
             logic_rest_bytecode_count: None,
             middle_value: vec![],
+            if_body_line: None,
+            if_body_blocks: vec![],
         };
         // Since this is the entry block, add block parameters corresponding to
         // the function's parameters.
@@ -1911,15 +2055,24 @@ impl CraneLiftJitBackend {
         trans.malloc_args(&mut context);
         trans.malloc_call_args(&mut context);
         for expr in &code.bytecode {
-            if i % 20 == 0 || context.ins_check_gc {
-                trans.load_check_gc(&mut context);
-                context.ins_check_gc = false;
+            if let Some(s) = &mut context.if_body_line {
+                *s -= 1;
             }
+
+            // if i % 20 == 0 || context.ins_check_gc {
+            //     trans.load_check_gc(&mut context);
+            //     context.ins_check_gc = false;
+            // }
 
             trans.compile_expr(expr, &mut context);
             context.exp.clear();
             context.middle_value.clear();
-
+            if let Some(s) = &mut context.if_body_line {
+                if *s == 0 {
+                    trans.load_if_body_end(&mut context);
+                    context.if_body_line = None;
+                }
+            }
             i += 1;
         }
 
