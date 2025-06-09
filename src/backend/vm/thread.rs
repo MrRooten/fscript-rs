@@ -23,7 +23,9 @@ use crate::{
             GarbageCollector,
         },
         types::{
-            base::{self, Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            base::{
+                self, Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId,
+            },
             class::FSRClass,
             class_inst::FSRClassInst,
             code::FSRCode,
@@ -732,16 +734,14 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let index_obj_v = FSRObject::id_to_obj(index);
         let list_obj_v = FSRObject::id_to_obj(container);
-
+        self.get_cur_mut_frame().middle_value.push(container);
+        self.get_cur_mut_frame().middle_value.push(index);
         let res = FSRObject::invoke_offset_method(
             BinaryOffset::GetItem,
             &[container, index],
             self,
             self.get_context().code,
         )?;
-
-        self.get_cur_mut_frame().middle_value.push(container);
-        self.get_cur_mut_frame().middle_value.push(index);
 
         match res {
             FSRRetValue::GlobalId(res_id) => {
@@ -766,10 +766,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let containter_obj_v = FSRObject::id_to_obj(container_obj);
         let index_obj_v = FSRObject::id_to_obj(index_obj);
 
-        if containter_obj_v.area.is_long() && index_obj_v.area == Area::Minjor {
-            containter_obj_v.set_write_barrier(true);
-        }
-
         let set_item = FSRObject::id_to_obj(container_obj)
             .get_cls_offset_attr(BinaryOffset::SetItem)
             .unwrap()
@@ -782,6 +778,11 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
             set_item,
         );
+
+        // pop 3 values from stack, pop after set item fn, because set item may trigger gc
+        self.get_cur_mut_frame().exp.pop();
+        self.get_cur_mut_frame().exp.pop();
+        self.get_cur_mut_frame().exp.pop();
 
         Ok(false)
     }
@@ -797,11 +798,6 @@ impl<'a> FSRThreadRuntime<'a> {
             let assign_value = *self.get_cur_frame().exp.get(len - 2).unwrap();
 
             let father_obj = FSRObject::id_to_mut_obj(father).unwrap();
-            if father_obj.area.is_long() && FSRObject::id_to_obj(assign_value).area == Area::Minjor
-            {
-                father_obj.set_write_barrier(true);
-            }
-
             father_obj.set_attr(name, assign_value);
 
             return Ok(false);
@@ -873,6 +869,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
+        self.get_cur_mut_frame().middle_value.push(left);
+        self.get_cur_mut_frame().middle_value.push(right);
         let args = [left, right];
         let len = args.len();
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Add) {
@@ -884,9 +882,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            // self.get_cur_mut_frame().middle_value.push(left);
-            // self.get_cur_mut_frame().middle_value.push(right);
-
             return Ok(false);
         }
 
@@ -897,15 +892,10 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
         )?;
 
-        // self.get_cur_mut_frame().middle_value.push(v1_id);
-        // self.get_cur_mut_frame().middle_value.push(v2_id);
-
         match res {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(res_id);
-            } // FSRRetValue::Reference(_) => {
-              //     panic!("not support reference return, in add process")
-              // }
+            }
         };
 
         Ok(false)
@@ -936,6 +926,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
+        self.get_cur_mut_frame().middle_value.push(right);
+        self.get_cur_mut_frame().middle_value.push(left);
+
         let res = FSRObject::invoke_offset_method(
             BinaryOffset::Sub,
             &[left, right],
@@ -943,14 +936,11 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
         )?;
 
-        // self.get_cur_mut_frame().middle_value.push(right);
-        // self.get_cur_mut_frame().middle_value.push(left);
+        
         match res {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(res_id);
-            } // FSRRetValue::Reference(_) => {
-              //     panic!("not support reference return, in sub process")
-              // }
+            } 
         };
 
         Ok(false)
@@ -981,6 +971,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
+        self.get_cur_mut_frame().middle_value.push(right_id);
+        self.get_cur_mut_frame().middle_value.push(left_id);
+
         let res = FSRObject::invoke_offset_method(
             BinaryOffset::Mul,
             &[left_id, right_id],
@@ -988,8 +981,7 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
         )?;
 
-        // self.get_cur_mut_frame().middle_value.push(right_id);
-        // self.get_cur_mut_frame().middle_value.push(left_id);
+        
         match res {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(res_id);
@@ -1023,6 +1015,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
+        self.get_cur_mut_frame().middle_value.push(right_id);
+        self.get_cur_mut_frame().middle_value.push(left_id);
+
         let res = FSRObject::invoke_offset_method(
             BinaryOffset::Div,
             &[left_id, right_id],
@@ -1035,8 +1030,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        // self.get_cur_mut_frame().middle_value.push(right_id);
-        // self.get_cur_mut_frame().middle_value.push(left_id);
+        
         Ok(false)
     }
 
@@ -1065,6 +1059,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
+        self.get_cur_mut_frame().middle_value.push(right_id);
+            self.get_cur_mut_frame().middle_value.push(left_id);
+
         let args = [left_id, right_id];
         let len = args.len();
         if let Some(rust_fn) = obj_cls!(left_id).get_rust_fn(BinaryOffset::Reminder) {
@@ -1076,8 +1073,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            // self.get_cur_mut_frame().middle_value.push(right_id);
-            // self.get_cur_mut_frame().middle_value.push(left_id);
+            
 
             return Ok(false);
         }
@@ -1915,10 +1911,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 )
             })?;
 
+            self.get_cur_mut_frame().middle_value.push(right_id);
+            self.get_cur_mut_frame().middle_value.push(left_id);
+
             let v = Self::compare(left_id, right_id, *op, self)?;
 
-            // self.get_cur_mut_frame().middle_value.push(right_id);
-            // self.get_cur_mut_frame().middle_value.push(left_id);
+            
             if v {
                 self.get_cur_mut_frame().exp.push(FSRObject::true_id())
             } else {
@@ -2229,7 +2227,10 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let obj = self.flow_tracker.for_iter_obj.last().cloned().unwrap();
         let obj_value = FSRObject::id_to_obj(obj);
-        let res = if obj_value.cls == FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::InnerIterator)).as_class() {
+        let res = if obj_value.cls
+            == FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::InnerIterator))
+                .as_class()
+        {
             // next_obj(&[obj], self, self.get_context().code)?
             let args = [obj];
             let len = args.len();
@@ -2862,7 +2863,8 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let base_fn = FSRFn::new_empty();
-        let base_fn_id = FSRObject::new_inst(base_fn, get_object_by_global_id(FSRGlobalObjId::FnCls));
+        let base_fn_id =
+            FSRObject::new_inst(base_fn, get_object_by_global_id(FSRGlobalObjId::FnCls));
         let base_fn_id = FSRVM::leak_object(Box::new(base_fn_id));
 
         self.cur_frame.code = code_id;

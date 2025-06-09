@@ -2,15 +2,16 @@
 class Abc {
     @jit
     fn __add__(self, abc) {
-        println("test")
+        println("test: ", self, abc)
         return 1
     }
 }
 
 @jit
-fn jit_test(n) {
-    n.__add__(n)
+fn jit_test() {
+    a = [1, 2, 3]
+    println(a)
 }
 
 a = Abc()
-jit_test(a)
+jit_test()

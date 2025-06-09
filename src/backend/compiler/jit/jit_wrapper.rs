@@ -4,7 +4,7 @@ use crate::backend::{
     compiler::bytecode::{BinaryOffset, CompareOperator},
     memory::GarbageCollector,
     types::{
-        base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, ext, iterator::next_obj, range::FSRRange, string::FSRString
+        base::{FSRGlobalObjId, FSRObject, FSRValue, ObjId}, ext, iterator::next_obj, list::FSRList, range::FSRRange, string::FSRString
     },
     vm::{
         thread::{CallFrame, FSRThreadRuntime, GcState},
@@ -317,4 +317,18 @@ pub extern "C" fn get_obj_method(father: ObjId, name: *const u8, len: usize) -> 
     }
 
     FSRObject::none_id()
+}
+
+pub extern "C" fn load_list(
+    list_obj: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> ObjId {
+    let list = unsafe { std::slice::from_raw_parts(list_obj, len as usize) };
+    let list = FSRList::new_value(list.to_vec());
+    let obj = thread.garbage_collect.new_object(
+        list,
+        get_object_by_global_id(FSRGlobalObjId::ListCls),
+    );
+    obj
 }

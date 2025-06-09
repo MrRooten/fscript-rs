@@ -249,10 +249,10 @@ impl<'a> FSRFn<'a> {
                 let call_fn = unsafe {
                     std::mem::transmute::<
                         _,
-                        extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
+                        extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, *const ObjId, i32) -> ObjId,
                     >(code)
                 };
-                let res = call_fn(thread, thread.get_context().code, args, args.len() as i32);
+                let res = call_fn(thread, thread.get_context().code, args.as_ptr(), args.len() as i32);
                 let v = thread.pop_frame();
                 thread.frame_free_list.free(v);
                 return Ok(FSRRetValue::GlobalId(res));

@@ -82,7 +82,7 @@ pub enum FSRGlobalObjId {
     ModuleCls,
     ThreadCls,
     HashMapCls,
-    NoneCls
+    NoneCls,
 }
 
 pub(crate) static mut NONE_ID: ObjId = 0;
@@ -147,7 +147,6 @@ impl FSRValue<'_> {
         }
     }
 }
-
 
 #[derive(Debug)]
 pub enum FSRRetValue {
@@ -467,11 +466,15 @@ impl<'a> FSRObject<'a> {
     }
 
     pub extern "C" fn set_attr_c(&mut self, name: *const u8, name_len: usize, obj_id: ObjId) {
-        let name = unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(name, name_len)) };
+        let name =
+            unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(name, name_len)) };
         self.set_attr(name, obj_id);
     }
 
     pub fn set_attr(&mut self, name: &'a str, obj_id: ObjId) {
+        if self.area.is_long() && FSRObject::id_to_obj(obj_id).area == Area::Minjor {
+            self.set_write_barrier(true);
+        }
         if let FSRValue::ClassInst(inst) = &mut self.value {
             inst.set_attr(name, obj_id);
             return;
@@ -692,14 +695,12 @@ impl<'a> FSRObject<'a> {
         }
 
         if let FSRValue::Class(s) = &self.value {
-            return s.get_attr(name)
+            return s.get_attr(name);
         }
 
         if let FSRValue::Module(m) = &self.value {
             return m.get_object(name);
         }
-
-        
 
         None
     }
@@ -747,10 +748,11 @@ impl<'a> FSRObject<'a> {
         }
         // let v = FSRObject::id_to_obj(self.cls);
         // if let FSRValue::Class(_) = &v.value {
-            return FSRString::new_value(&format!(
-                "<`{}` Class Object at {:?}>",
-                self.cls.get_name(), self as *const Self
-            ));
+        return FSRString::new_value(&format!(
+            "<`{}` Class Object at {:?}>",
+            self.cls.get_name(),
+            self as *const Self
+        ));
         // }
         // // Box::new(FSRString::new_inst(&format!(
         // //     "<`{}` Object at {:?}>",
@@ -900,10 +902,8 @@ mod test {
             size_of::<crate::backend::types::list::FSRList>()
         );
     }
-
 }
 
 pub trait DropObject<'a> {
     fn drop(&self, allocator: &mut FSRObjectAllocator<'a>);
 }
-

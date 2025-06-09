@@ -17,7 +17,10 @@ use crate::{
             bytecode::{
                 ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
             },
-            jit::jit_wrapper::{binary_dot_getter, clear_exp, get_current_fn_id, get_obj_method, save_to_exp},
+            jit::jit_wrapper::{
+                binary_dot_getter, clear_exp, get_current_fn_id, get_obj_method, load_list,
+                save_to_exp,
+            },
         },
         types::base::{FSRObject, ObjId},
         vm::thread::FSRThreadRuntime,
@@ -468,8 +471,6 @@ impl JitBuilder<'_> {
         malloc_ret
     }
 
-
-
     fn load_make_middle_v_list_save(&mut self, context: &mut OperatorContext) -> Value {
         // let mut malloc_sig = self.module.make_signature();
         // malloc_sig
@@ -741,9 +742,7 @@ impl JitBuilder<'_> {
         get_obj_method_sig
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // name pointer
-        get_obj_method_sig
-            .params
-            .push(AbiParam::new(types::I64)); // name length
+        get_obj_method_sig.params.push(AbiParam::new(types::I64)); // name length
         get_obj_method_sig
             .returns
             .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
@@ -761,19 +760,15 @@ impl JitBuilder<'_> {
             name.as_ptr() as i64,
         );
         let name_len = self.builder.ins().iconst(types::I64, name.len() as i64);
-        let call = self.builder.ins().call(
-            func_ref,
-            &[father, name_ptr, name_len],
-        );
+        let call = self
+            .builder
+            .ins()
+            .call(func_ref, &[father, name_ptr, name_len]);
         let ret = self.builder.inst_results(call)[0];
         ret
     }
 
-    fn load_call_method(
-        &mut self,
-        arg: &BytecodeArg,
-        context: &mut OperatorContext,
-    ) {
+    fn load_call_method(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
         if let ArgType::CallArgsNumberWithAttr(v) = arg.get_arg() {
             let father_obj_id = *context.exp.last().unwrap();
             let fn_obj_id = self.get_obj_method(father_obj_id, v.2.as_str());
@@ -789,7 +784,6 @@ impl JitBuilder<'_> {
             let thread_runtime = self.builder.block_params(context.entry_block)[0];
             let code_object = self.builder.block_params(context.entry_block)[1];
 
-            
             self.save_middle_value(context);
             self.save_object_to_exp(context);
             let call = self.builder.ins().call(
@@ -1140,7 +1134,11 @@ impl JitBuilder<'_> {
         Ok(())
     }
 
-    fn load_init_integer(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) -> Result<()> {
+    fn load_init_integer(
+        &mut self,
+        arg: &BytecodeArg,
+        context: &mut OperatorContext,
+    ) -> Result<()> {
         // pub extern "C" fn load_integer(
         //     value: i64,
         //     thread: &mut FSRThreadRuntime,
@@ -1286,6 +1284,68 @@ impl JitBuilder<'_> {
         } else if let ArgType::ConstString(id, s) = arg.get_arg() {
             self.load_init_string(arg, context);
         }
+    }
+
+    fn load_list(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) -> Result<()> {
+        if let ArgType::LoadListNumber(len) = arg.get_arg() {
+            let arg_ptr = self
+                .builder
+                .use_var(*self.variables.get("#args_ptr").unwrap());
+
+            let len_value = self
+                .builder
+                .ins()
+                .iconst(self.module.target_config().pointer_type(), *len as i64);
+            let mut list_args = vec![];
+            for i in 0..*len {
+                // store to arg_ptr
+                list_args.push(context.exp.pop().unwrap());
+            }
+
+            for i in list_args.iter().enumerate() {
+                let offset = self
+                    .builder
+                    .ins()
+                    .iconst(types::I64, i.0 as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
+                let ptr = self.builder.ins().iadd(arg_ptr, offset);
+                self.builder
+                    .ins()
+                    .store(cranelift::codegen::ir::MemFlags::new(), *i.1, ptr, 0);
+            }
+
+            // pub extern "C" fn load_list(args: *const ObjId, len: usize, thread: &mut FSRThreadRuntime) -> ObjId
+            let mut load_list_sig = self.module.make_signature();
+            load_list_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // args pointer
+            load_list_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // length of the list
+            load_list_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            load_list_sig
+                .returns
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
+            let fn_id = self
+                .module
+                .declare_function(
+                    "load_list",
+                    cranelift_module::Linkage::Import,
+                    &load_list_sig,
+                )
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            let call = self
+                .builder
+                .ins()
+                .call(func_ref, &[arg_ptr, len_value, thread_runtime]);
+            let ret = self.builder.inst_results(call)[0];
+            context.exp.push(ret);
+            return Ok(());
+        }
+        unimplemented!()
     }
 
     fn get_current_fn_id(&mut self, context: &mut OperatorContext) -> Value {
@@ -1484,13 +1544,12 @@ impl JitBuilder<'_> {
                             self.module.target_config().pointer_type(),
                             v.1.as_ptr() as i64,
                         );
-                        let name_len = self.builder.ins().iconst(
-                            self.module.target_config().pointer_type(),
-                            v.1.len() as i64,
-                        );
+                        let name_len = self
+                            .builder
+                            .ins()
+                            .iconst(self.module.target_config().pointer_type(), v.1.len() as i64);
                         self.load_global_name(name_ptr, name_len, context);
-                    }
-                    else {
+                    } else {
                         panic!("Load requires a variable or constant argument");
                     }
 
@@ -1608,9 +1667,11 @@ impl JitBuilder<'_> {
                 BytecodeOperator::BinaryDot => {
                     self.binary_dot_process(context, arg);
                 }
-
                 BytecodeOperator::CallMethod => {
                     self.load_call_method(arg, context);
+                }
+                BytecodeOperator::LoadList => {
+                    self.load_list(context, arg);
                 }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())
@@ -1743,6 +1804,7 @@ impl CraneLiftJitBackend {
         builder.symbol("clear_exp", clear_exp as *const u8);
         builder.symbol("binary_dot_getter", binary_dot_getter as *const u8);
         builder.symbol("get_obj_method", get_obj_method as *const u8);
+        builder.symbol("load_list", load_list as *const u8);
     }
 
     pub fn new() -> Self {
