@@ -370,7 +370,7 @@ impl JitBuilder<'_> {
         //let header_block = self.builder.create_block();
         let body_block = context.if_body_blocks.pop().unwrap();
         let exit_block = context.if_exit_blocks.pop().unwrap();
-        
+
         // let condition = context.exp.pop().unwrap();
         let is_true = self.load_is_not_false(context);
         let condition = is_true;
@@ -400,13 +400,11 @@ impl JitBuilder<'_> {
         // get last current block param
         if context.if_exit_blocks.last().unwrap().1 {
         } else {
-            let false_value = self.builder.ins().iconst(
-                types::I8,
-                0,
+            let false_value = self.builder.ins().iconst(types::I8, 0);
+            self.builder.ins().jump(
+                context.if_exit_blocks.last().unwrap().clone().0,
+                &[false_value],
             );
-            self.builder
-                .ins()
-                .jump(context.if_exit_blocks.last().unwrap().clone().0, &[false_value]);
         }
 
         let v = context.if_header_blocks.pop().unwrap();
@@ -423,18 +421,20 @@ impl JitBuilder<'_> {
         let body_block = self.builder.create_block();
         let end_block = self.builder.create_block();
         self.builder.append_block_param(end_block, types::I8);
-        let false_value = self.builder.ins().iconst(
-                types::I8, 0);
-                
-        self.builder
-            .ins()
-            .brif(call_be_test, header_test_block, &[], end_block, &[false_value]);
+        let false_value = self.builder.ins().iconst(types::I8, 0);
+
+        self.builder.ins().brif(
+            call_be_test,
+            header_test_block,
+            &[],
+            end_block,
+            &[false_value],
+        );
 
         //self.builder.seal_block(header_test_block);
         self.builder.switch_to_block(header_test_block);
         context.if_body_blocks.push(body_block);
         context.if_exit_blocks.push((end_block, false));
-
     }
 
     fn load_else_if_test(&mut self, context: &mut OperatorContext) {
@@ -458,25 +458,49 @@ impl JitBuilder<'_> {
     }
 
     fn load_else(&mut self, context: &mut OperatorContext) {
-        unimplemented!("LoadElse is not implemented yet. This function should handle the else block logic.");
-        let else_block = context.if_exit_blocks.pop().unwrap().0;
-        let condition = self.builder.block_params(else_block)[0];
+        context.ins_check_gc = true;
+        //let test_header_block = context.if_blocks.pop().unwrap();
+        //let exit_block = context.if_exit_blocks.pop().unwrap();
+        //self.builder.switch_to_block(exit_block.0);
+        //self.builder.seal_block(exit_block.0);
+
+        // get last current block param
+        if context.if_exit_blocks.last().unwrap().1 {
+        } else {
+            let false_value = self.builder.ins().iconst(types::I8, 0);
+            self.builder.ins().jump(
+                context.if_exit_blocks.last().unwrap().clone().0,
+                &[false_value],
+            );
+        }
+
+        let v = context.if_header_blocks.pop().unwrap();
+        self.builder.seal_block(v);
+
+        let will_test_block = context.if_exit_blocks.pop().unwrap();
+        //self.builder.seal_block(will_test_block.0);
+        self.builder.switch_to_block(will_test_block.0);
+        let call_be_test = self.builder.block_params(will_test_block.0)[0];
+        let header_test_block = self.builder.create_block();
+        //let body_block = self.builder.create_block();
+        self.builder.seal_block(will_test_block.0);
+        context.if_header_blocks.push(header_test_block);
+        //let body_block = self.builder.create_block();
         let end_block = self.builder.create_block();
         self.builder.append_block_param(end_block, types::I8);
-        let true_value = self.builder.ins().iconst(
-            types::I8,
-            1,
-        );
+        let false_value = self.builder.ins().iconst(types::I8, 0);
+
         self.builder.ins().brif(
-            condition,
-            else_block,
+            call_be_test,
+            header_test_block,
             &[],
             end_block,
-            &[true_value],
+            &[false_value],
         );
-        self.builder.switch_to_block(else_block);
-        self.builder.seal_block(else_block);
 
+        //self.builder.seal_block(header_test_block);
+        self.builder.switch_to_block(header_test_block);
+        //context.if_body_blocks.push(body_block);
         context.if_exit_blocks.push((end_block, false));
         //unimplemented!("LoadElse is not implemented yet. This function should handle the else block logic.");
     }
@@ -484,13 +508,11 @@ impl JitBuilder<'_> {
     fn load_if_end(&mut self, context: &mut OperatorContext) {
         if context.if_exit_blocks.last().unwrap().1 {
         } else {
-            let false_value = self.builder.ins().iconst(
-                types::I8,
-                0,
+            let false_value = self.builder.ins().iconst(types::I8, 0);
+            self.builder.ins().jump(
+                context.if_exit_blocks.last().unwrap().clone().0,
+                &[false_value],
             );
-            self.builder
-                .ins()
-                .jump(context.if_exit_blocks.last().unwrap().clone().0, &[false_value]);
         }
 
         //self.builder.ins().nop();
@@ -1614,7 +1636,7 @@ impl JitBuilder<'_> {
         }
 
         if expr.last().unwrap().get_operator() == &BytecodeOperator::IfTest
-            //|| expr.last().unwrap().get_operator() == &BytecodeOperator::ElseIfTest
+        //|| expr.last().unwrap().get_operator() == &BytecodeOperator::ElseIfTest
         {
             //context.is_if += 1;
             let header_block = self.builder.create_block();
