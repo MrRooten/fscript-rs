@@ -2081,10 +2081,10 @@ impl CraneLiftJitBackend {
                 *s -= 1;
             }
 
-            // if i % 20 == 0 || context.ins_check_gc {
-            //     trans.load_check_gc(&mut context);
-            //     context.ins_check_gc = false;
-            // }
+            if i % 20 == 0 || context.ins_check_gc {
+                trans.load_check_gc(&mut context);
+                context.ins_check_gc = false;
+            }
 
             trans.compile_expr(expr, &mut context);
             context.exp.clear();

@@ -19,6 +19,8 @@ fn jit_test() {
     } else {
         println("a is greater than 7")
     }
+
+    
 }
 
 a = Abc()
