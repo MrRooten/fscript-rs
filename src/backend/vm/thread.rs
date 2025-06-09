@@ -1650,6 +1650,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_context().ip = (tmp + n.0 as usize + 1_usize, 0);
                 self.flow_tracker.false_last_if_test();
                 return Ok(true);
+            } else {
+                return Err(FSRError::new(
+                    "else if test process not have next",
+                    FSRErrCode::NotValidArgs,
+                ));
             }
         }
         self.flow_tracker.true_last_if_test();
@@ -1887,6 +1892,11 @@ impl<'a> FSRThreadRuntime<'a> {
             let ip_0 = self.get_context().ip.0;
             self.get_cur_mut_context().ip = (ip_0 + 1, 0);
             return Ok(true);
+        } else {
+            return Err(FSRError::new(
+                "not a define fn args",
+                FSRErrCode::NotValidArgs,
+            ));
         }
         Ok(false)
     }
