@@ -44,7 +44,7 @@ use crate::{
 
 use super::{
     free_list::FrameFreeList,
-    quick_op::Ops,
+    // quick_op::Ops,
     virtual_machine::{get_object_by_global_id, FSRVM, VM},
 };
 
