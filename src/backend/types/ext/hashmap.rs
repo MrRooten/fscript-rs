@@ -738,14 +738,16 @@ impl FSRHashMap {
         let hash = if let FSRValue::Integer(i) = &hash_id.value {
             *i as u64
         } else {
-            unimplemented!()
+            // unimplemented!()
+            panic!("Hash function must return an integer");
         };
 
-        if self.get_item(hash).is_none() {
+        let res = if let Some(s) = self.get_item(hash) {
+            s
+        } else {
             return;
-        }
+        };
 
-        let res = self.get_item(hash).unwrap();
         let len = res.len();
         if len == 1 {
             self.remove_item(hash);

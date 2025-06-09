@@ -182,7 +182,8 @@ pub mod tests {
             "test_script/test/test_nested_call.fs",
             "test_script/test/test_error_handle.fs",
             "test_script/test/test_closure.fs",
-            "test_script/bench/bench_iter_filter.fs"
+            "test_script/bench/bench_iter_filter.fs",
+            "test_script/test/test_iter_enumerate.fs"
         ];
         for i in vs {
             println!("Running script: {}", i);

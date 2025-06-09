@@ -1,7 +1,7 @@
 use std::{any::Any, fmt::Debug, sync::atomic::Ordering};
 
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}},
+    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::ext::enumerate::{self, FSREnumerateIter}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}},
     utils::error::{FSRErrCode, FSRError},
 };
 
@@ -133,6 +133,35 @@ pub fn filter(
     Ok(FSRRetValue::GlobalId(object))
 }
 
+pub fn enumerate(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args.len() != 1 {
+        return Err(FSRError::new(
+            "msg: enumerate function requires 1 argument",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
+    let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
+    let enumerate_iterator = FSREnumerateIter {
+        prev_iterator: args[0],
+        index: 0,
+        code
+    };
+    let object = thread.garbage_collect.new_object(
+        FSRValue::Iterator(Box::new(FSRInnerIterator {
+            obj: args[0],
+            iterator: Some(Box::new(enumerate_iterator)),
+        })),
+        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+    );
+
+    Ok(FSRRetValue::GlobalId(object))
+}
 
 pub fn any(
     args: *const ObjId,
@@ -219,6 +248,8 @@ impl FSRInnerIterator {
         cls.insert_attr("filter", filter);
         let any = FSRFn::from_rust_fn_static(any, "inner_iterator_any");
         cls.insert_attr("any", any);
+        let enumerate = FSRFn::from_rust_fn_static(enumerate, "inner_iterator_enumerate");
+        cls.insert_attr("enumerate", enumerate);
         cls
     }
 

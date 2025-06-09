@@ -136,6 +136,30 @@ fn map(
     Ok(FSRRetValue::GlobalId(map_iterator_id))
 }
 
+fn enumerate(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let iterator = iter_obj(args, len, thread, code)?.get_id();
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let enumerate_iterator = crate::backend::types::ext::enumerate::FSREnumerateIter {
+        prev_iterator: iterator,
+        index: 0,
+        code,
+    };
+    let enumerate_iterator_id = thread.garbage_collect.new_object(
+        FSRValue::Iterator(Box::new(FSRInnerIterator {
+            obj: iterator,
+            iterator: Some(Box::new(enumerate_iterator)),
+        })),
+        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+    );
+
+    Ok(FSRRetValue::GlobalId(enumerate_iterator_id))
+}
+
 impl FSRRange {
     pub fn get_class() -> FSRClass<'static> {
         let mut r = FSRClass::new("Range");
@@ -145,6 +169,8 @@ impl FSRRange {
         r.insert_attr("filter", filter);
         let map = FSRFn::from_rust_fn_static(map, "range_map");
         r.insert_attr("map", map);
+        let enumerate = FSRFn::from_rust_fn_static(enumerate, "range_enumerate");
+        r.insert_attr("enumerate", enumerate);
         r
     }
 

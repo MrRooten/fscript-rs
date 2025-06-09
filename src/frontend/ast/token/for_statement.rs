@@ -247,7 +247,7 @@ impl FSRFor {
         sub_meta.offset = meta.offset + start;
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
         start += body.get_len();
-        
+        context.add_variable(&name, None);
         Ok(Self {
             var_name: name,
             expr: Box::new(expr),

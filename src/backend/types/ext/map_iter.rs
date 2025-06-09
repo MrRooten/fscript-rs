@@ -27,9 +27,6 @@ impl FSRIterator for FSRMapIter {
 
         let callback = FSRObject::id_to_obj(self.callback);
         let map_ret = callback.call(&[ret], thread, self.code, self.callback).unwrap().get_id();
-        if map_ret == FSRObject::none_id() {
-            return Ok(None);
-        }
 
         Ok(Some(map_ret))
     }
