@@ -235,6 +235,8 @@ pub mod tests {
             std::mem::size_of::<FSRInnerIterator>()
         );
         println!("u8 size: {}", std::mem::size_of::<u8>());
+        // test anyhow result
+        println!("Result size: {}", std::mem::size_of::<anyhow::Result<()>>());
     }
 
     #[test]
