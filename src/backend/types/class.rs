@@ -16,7 +16,7 @@ use std::fmt::Debug;
 #[repr(C)]
 pub struct FSRClass<'a> {
     pub(crate) offset_rust_fn: [Option<FSRRustFn>; 30],
-    pub(crate) name: &'a str,
+    pub(crate) name: String,
     pub(crate) attrs: AHashMap<&'a str, AtomicObjId>,
     pub(crate) offset_attrs: Vec<Option<AtomicObjId>>,
 }
@@ -66,7 +66,7 @@ impl Debug for FSRClass<'_> {
 impl<'a> FSRClass<'a> {
     pub fn new(name: &'a str) -> FSRClass<'a> {
         FSRClass {
-            name,
+            name: name.to_string(),
             attrs: AHashMap::new(),
             offset_attrs: vec![],
             offset_rust_fn: [None; 30],
@@ -150,6 +150,6 @@ impl<'a> FSRClass<'a> {
     }
 
     pub fn get_name(&self) -> &str {
-        self.name
+        self.name.as_str()
     }
 }

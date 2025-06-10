@@ -710,7 +710,7 @@ impl<'a> FSRObject<'a> {
             return inst.list_attrs();
         }
 
-        unimplemented!()
+        panic!("list_attrs: Not a class instance object");
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -724,7 +724,7 @@ impl<'a> FSRObject<'a> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, code, fn_id);
         }
-        unimplemented!()
+        panic!("call: Not a function object");
     }
 
     pub fn as_fn_mut(&mut self) -> &FSRFn<'a> {
@@ -732,7 +732,7 @@ impl<'a> FSRObject<'a> {
             return f;
         }
 
-        unimplemented!()
+        panic!("as_fn_mut: Not a function object");
     }
 
     pub fn get_self_id(&self) -> u64 {

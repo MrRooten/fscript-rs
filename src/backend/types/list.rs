@@ -490,7 +490,7 @@ pub fn equal(
 impl FSRList {
     pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass {
-            name: "List",
+            name: "List".to_string(),
             attrs: AHashMap::new(),
             offset_attrs: vec![],
             offset_rust_fn: [None; 30],

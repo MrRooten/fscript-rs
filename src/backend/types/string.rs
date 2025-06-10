@@ -1,4 +1,4 @@
-use std::{fmt, hash::{Hash, Hasher}, str::Chars, sync::Arc};
+use std::{fmt, hash::{Hash, Hasher}, str::{Chars, Split}, sync::Arc};
 
 use ahash::AHasher;
 
@@ -92,6 +92,33 @@ impl FSRIterator for FSRStringIterator<'_> {
         if let Some(c) = self.iter.next() {
             let obj_id = thread.garbage_collect.new_object(
                 FSRValue::String(Arc::new(FSRInnerString::new_from_char(c))),
+                get_object_by_global_id(FSRGlobalObjId::StringCls),
+            );
+            Ok(Some(obj_id))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+pub struct FSRSplitStringIterator<'a> {
+    pub(crate) str_obj: ObjId,
+    pub(crate) split_str: ObjId,
+    pub(crate) iter: Split<'a, &'a str>,
+}
+
+impl FSRIteratorReferences for FSRSplitStringIterator<'_> {
+    fn ref_objects(&self) -> Vec<ObjId> {
+        vec![self.str_obj, self.split_str]
+    }
+}
+
+impl FSRIterator for FSRSplitStringIterator<'_> {
+    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
+        if let Some(c) = self.iter.next() {
+            let s = FSRInnerString::new(c);
+            let obj_id = thread.garbage_collect.new_object(
+                FSRValue::String(Arc::new(s)),
                 get_object_by_global_id(FSRGlobalObjId::StringCls),
             );
             Ok(Some(obj_id))
@@ -302,6 +329,57 @@ fn hash_string(
     unimplemented!()
 }
 
+fn split(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let sep_object = FSRObject::id_to_obj(args[1]);
+
+    if let FSRValue::String(self_str) = &self_object.value {
+        if let FSRValue::String(sep_str) = &sep_object.value {
+            let v = self_str.chars.split(sep_str.as_str());
+            let iter = FSRSplitStringIterator {
+                str_obj: args[0],
+                split_str: args[1],
+                iter: v,
+            };
+            let inner_obj = thread.garbage_collect.new_object(
+                FSRValue::Iterator(Box::new(FSRInnerIterator {
+                    obj: args[0],
+                    iterator: Some(Box::new(iter)),
+                })),
+                get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+            );
+            return Ok(FSRRetValue::GlobalId(inner_obj));
+        }
+    }
+
+    unimplemented!()
+}
+
+fn trim(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let self_object = FSRObject::id_to_obj(args[0]);
+    if let FSRValue::String(self_str) = &self_object.value {
+        let trimmed = self_str.chars.trim();
+        let obj_id = thread.garbage_collect.new_object(
+            FSRValue::String(Arc::new(FSRInnerString::new(trimmed))),
+            get_object_by_global_id(FSRGlobalObjId::StringCls),
+        );
+        return Ok(FSRRetValue::GlobalId(obj_id));
+    }
+    unimplemented!()
+}
+
 impl FSRString {
     pub fn get_class<'a>() -> FSRClass<'a> {
         let mut cls = FSRClass::new("String");
@@ -331,6 +409,13 @@ impl FSRString {
             BinaryOffset::Hash,
             hash,
         );
+
+        let split = FSRFn::from_rust_fn_static(split, "string_split");
+        cls.insert_attr("split", split);
+
+        let trim = FSRFn::from_rust_fn_static(trim, "string_trim");
+        cls.insert_attr("trim", trim);
+
         cls
     }
 
