@@ -34,7 +34,7 @@ pub extern "C" fn call_fn(
     code: ObjId,
 ) -> ObjId {
     let obj = FSRObject::id_to_obj(fn_id);
-    let args = unsafe { std::slice::from_raw_parts(args, len as usize) };
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     // println!("call fn: {:?}", obj);
     let res = obj.call(args, thread, code, fn_id);
     res.unwrap().get_id()
@@ -45,7 +45,7 @@ pub extern "C" fn save_to_exp(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) {
-    let args = unsafe { std::slice::from_raw_parts(args, len as usize) };
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
     let frame = thread.get_cur_mut_frame();
     frame.exp.clear();
     frame.exp.extend_from_slice(args);
@@ -57,7 +57,7 @@ pub extern "C" fn clear_exp(thread: &mut FSRThreadRuntime) {
 }
 
 pub extern "C" fn malloc(size: usize) -> *mut ObjId {
-    let layout = std::alloc::Layout::array::<ObjId>(size as usize).unwrap();
+    let layout = std::alloc::Layout::array::<ObjId>(size).unwrap();
     unsafe {
         let ptr = std::alloc::alloc(layout) as *mut ObjId;
         if ptr.is_null() {
@@ -70,7 +70,7 @@ pub extern "C" fn malloc(size: usize) -> *mut ObjId {
 pub extern "C" fn free(ptr: *mut ObjId, size: usize) {
     // Convert the raw pointer back to a Box and drop it
     if !ptr.is_null() {
-        let layout = std::alloc::Layout::array::<ObjId>(size as usize).unwrap();
+        let layout = std::alloc::Layout::array::<ObjId>(size).unwrap();
         unsafe {
             std::alloc::dealloc(ptr as *mut u8, layout);
         }
@@ -82,7 +82,7 @@ pub extern "C" fn get_obj_by_name(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
-    let name_slice = unsafe { std::slice::from_raw_parts(name, len as usize) };
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
     let name_str = std::str::from_utf8(name_slice).unwrap();
     let obj = FSRThreadRuntime::get_chain_by_name(thread, name_str).unwrap();
     obj
@@ -93,7 +93,7 @@ pub extern "C" fn check_gc(thread: &mut FSRThreadRuntime) -> bool {
 }
 
 pub extern "C" fn gc_collect(thread: &mut FSRThreadRuntime, list_obj: *const ObjId, len: usize) {
-    let list = unsafe { std::slice::from_raw_parts(list_obj, len as usize) };
+    let list = unsafe { std::slice::from_raw_parts(list_obj, len) };
 
     let st = std::time::Instant::now();
     //if thread.gc_context.gc_state == GcState::Stop {
@@ -214,13 +214,21 @@ pub extern "C" fn getter(
     unimplemented!()
 }
 
-pub extern "C" fn binary_dot_getter(
+/// Gets an attribute from an object using a name provided as a raw pointer.
+/// 
+/// # Safety
+/// This function is unsafe because it dereferences a raw pointer to create a slice.
+/// The caller must ensure that:
+/// - The `name` pointer is valid and points to a properly aligned memory region
+/// - The memory region contains at least `len` valid bytes
+/// - The memory region is not mutated during the lifetime of the slice
+pub unsafe extern "C" fn binary_dot_getter(
     father: ObjId,
     name: *const u8,
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
-    let name_slice = unsafe { std::slice::from_raw_parts(name, len as usize) };
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
     let name_str = std::str::from_utf8(name_slice).unwrap();
     let father_obj = FSRObject::id_to_obj(father);
 
@@ -240,7 +248,7 @@ pub extern "C" fn load_string(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
-    let value_slice = unsafe { std::slice::from_raw_parts(value, len as usize) };
+    let value_slice = unsafe { std::slice::from_raw_parts(value, len) };
     let value_str = std::str::from_utf8(value_slice).unwrap();
     let value = FSRString::new_value(value_str);
     let obj = thread
@@ -308,7 +316,7 @@ pub extern "C" fn get_current_fn_id(thread: &mut FSRThreadRuntime) -> ObjId {
 }
 
 pub extern "C" fn get_obj_method(father: ObjId, name: *const u8, len: usize) -> ObjId {
-    let name_slice = unsafe { std::slice::from_raw_parts(name, len as usize) };
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
     let name_str = std::str::from_utf8(name_slice).unwrap();
     let father_obj = FSRObject::id_to_obj(father);
 
@@ -324,7 +332,7 @@ pub extern "C" fn load_list(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
-    let list = unsafe { std::slice::from_raw_parts(list_obj, len as usize) };
+    let list = unsafe { std::slice::from_raw_parts(list_obj, len) };
     let list = FSRList::new_value(list.to_vec());
     let obj = thread.garbage_collect.new_object(
         list,

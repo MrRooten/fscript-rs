@@ -319,7 +319,7 @@ pub mod tests {
         let obj = v.get("abc").unwrap().as_code();
         let bytecode = obj.get_bytecode();
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(&bytecode).unwrap();
+        jit.compile(bytecode).unwrap();
         //println!("Code object: {:#?}", obj);
     }
 
@@ -343,7 +343,7 @@ pub mod tests {
         let obj = v.get("abc").unwrap().as_code();
         let bytecode = obj.get_bytecode();
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(&bytecode).unwrap();
+        jit.compile(bytecode).unwrap();
         //println!("Code object: {:#?}", bytecode);
     }
 
@@ -363,7 +363,7 @@ pub mod tests {
         let obj = v.get("abc").unwrap().as_code();
         let bytecode = obj.get_bytecode();
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(&bytecode).unwrap();
+        jit.compile(bytecode).unwrap();
     }
 
     #[test]
@@ -383,7 +383,7 @@ pub mod tests {
         let obj = v.get("abc").unwrap().as_code();
         let bytecode = obj.get_bytecode();
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(&bytecode).unwrap();
+        jit.compile(bytecode).unwrap();
     }
 
     #[test]
@@ -404,7 +404,7 @@ pub mod tests {
         let obj = v.get("abc").unwrap().as_code();
         let bytecode = obj.get_bytecode();
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(&bytecode).unwrap();
+        jit.compile(bytecode).unwrap();
     }
 
     #[test]
@@ -422,7 +422,7 @@ pub mod tests {
         let obj = v.get("abc").unwrap().as_code();
         let bytecode = obj.get_bytecode();
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(&bytecode).unwrap();
+        jit.compile(bytecode).unwrap();
     }
 
     #[test]
@@ -444,7 +444,7 @@ pub mod tests {
         let obj = v.get("abc").unwrap().as_code();
         let bytecode = obj.get_bytecode();
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(&bytecode).unwrap();
+        jit.compile(bytecode).unwrap();
     }
 
     // #[test]

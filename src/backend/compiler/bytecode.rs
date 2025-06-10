@@ -788,7 +788,7 @@ impl<'a> Bytecode {
 
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
-                        arg: arg,
+                        arg,
                         info: FSRByteInfo::new(call.get_meta().clone()),
                     });
                 }
@@ -936,7 +936,7 @@ impl<'a> Bytecode {
                 };
                 BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: arg,
+                    arg,
                     info: FSRByteInfo::new(var.get_meta().clone()),
                 }
             }
@@ -974,7 +974,6 @@ impl<'a> Bytecode {
             if ref_map
                 .get(var.get_name())
                 .cloned()
-                .map(|x| x)
                 .unwrap_or(false)
             {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
@@ -1714,7 +1713,7 @@ impl<'a> Bytecode {
             var_map.last_mut().unwrap().insert_var(v.get_name());
             let id = var_map.last_mut().unwrap().get_var(v.get_name()).unwrap();
             if let Some(ref_map) = const_map.ref_map_stack.last() {
-                if ref_map.get(v.get_name()).map(|x| *x).unwrap_or(false)
+                if ref_map.get(v.get_name()).copied().unwrap_or(false)
                     && const_map.contains_variable_in_ref_stack(v.get_name())
                 {
                     result_list.push(BytecodeArg {
@@ -1830,13 +1829,8 @@ impl<'a> Bytecode {
 
         let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
         let store_to_cell = if let Some(ref_map) = bytecontext.ref_map_stack.last() {
-            if ref_map.get(name).map(|x| *x).unwrap_or(false)
+            ref_map.get(name).copied().unwrap_or(false)
                 && bytecontext.contains_variable_in_ref_stack(name)
-            {
-                true
-            } else {
-                false
-            }
         } else {
             false
         };
@@ -1887,14 +1881,14 @@ impl<'a> Bytecode {
                 FSROrinStr2::Integer(i, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::ConstInteger(*const_var.1, i.to_string(), v.clone()),
+                        arg: ArgType::ConstInteger(*const_var.1, i.to_string(), *v),
                         info: FSRByteInfo::new(FSRPosition::new()),
                     });
                 }
                 FSROrinStr2::Float(f, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::ConstFloat(*const_var.1, f.to_string(), v.clone()),
+                        arg: ArgType::ConstFloat(*const_var.1, f.to_string(), *v),
                         info: FSRByteInfo::new(FSRPosition::new()),
                     });
                 }
@@ -1996,13 +1990,8 @@ impl<'a> Bytecode {
         let arg_id = *var_map.last_mut().unwrap().get_var(name).unwrap();
 
         let store_to_cell = if let Some(ref_map) = const_map.ref_map_stack.last() {
-            if ref_map.get(name).cloned().unwrap_or(false)
+            ref_map.get(name).cloned().unwrap_or(false)
                 && const_map.contains_variable_in_ref_stack(name)
-            {
-                true
-            } else {
-                false
-            }
         } else {
             false
         };
@@ -2108,14 +2097,14 @@ impl<'a> Bytecode {
                 FSROrinStr2::Integer(i, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::ConstInteger(*const_var.1, i.to_string(), v.clone()),
+                        arg: ArgType::ConstInteger(*const_var.1, i.to_string(), *v),
                         info: FSRByteInfo::new(FSRPosition::new()),
                     });
                 }
                 FSROrinStr2::Float(f, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::ConstFloat(*const_var.1, f.to_string(), v.clone()),
+                        arg: ArgType::ConstFloat(*const_var.1, f.to_string(), *v),
                         info: FSRByteInfo::new(FSRPosition::new()),
                     });
                 }

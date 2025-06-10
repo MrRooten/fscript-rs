@@ -669,7 +669,7 @@ impl FSRExpr {
                 //ctx.states.pop_state();
             }
             let mut sub_meta = meta.from_offset(ctx.start);
-            let fsr_type = context.get_token_var_type(&name, &context);
+            let fsr_type = context.get_token_var_type(&name, context);
             let mut variable = FSRVariable::parse(&name, sub_meta, fsr_type).unwrap();
             if context.is_variable_defined_in_curr(variable.get_name()) {
                 variable.is_defined = true;
@@ -1097,7 +1097,7 @@ impl FSRExpr {
             let op = ctx.operators.remove(0).0;
             if op.eq("=") {
                 if let FSRToken::Variable(mut name) = left {
-                    let type_hint = right.deduction_type(&context);
+                    let type_hint = right.deduction_type(context);
                     n_left.as_mut_variable().set_type_hint(type_hint);
                     context.add_variable(name.get_name(), Some(n_left.clone()));
                     return Ok((
@@ -1204,7 +1204,7 @@ impl FSRExpr {
         if operator.0.eq("=") {
             if let FSRToken::Variable(name) = left {
                 
-                let type_hint = right.deduction_type(&context);
+                let type_hint = right.deduction_type(context);
                 // context.set_variable_type(name.get_name(), type_hint.clone());
                 n_left.as_mut_variable().set_type_hint(type_hint);
                 context.add_variable(name.get_name(), Some(n_left.clone()));

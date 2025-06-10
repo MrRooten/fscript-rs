@@ -1,6 +1,6 @@
 use std::{collections::HashMap, os::unix::thread};
 
-use anyhow::{Ok, Result};
+use anyhow::{Context, Ok, Result};
 use cranelift::{
     codegen,
     prelude::{
@@ -71,7 +71,7 @@ struct OperatorContext {
     for_iter_obj: Vec<Value>,
     logic_end_block: Option<Block>,
     logic_rest_bytecode_count: Option<usize>, // used to track the remaining bytecode count in a logic block
-    if_body_line: Option<usize>,
+    //if_body_line: Option<usize>,
 }
 
 impl JitBuilder<'_> {
@@ -125,7 +125,7 @@ impl JitBuilder<'_> {
                     .ins()
                     .icmp(codegen::ir::condcodes::IntCC::Equal, *value, true_id);
             // context.exp.push(is_true);
-            return is_true;
+            is_true
         } else {
             panic!("IsTrue requires a value operand");
         }
@@ -141,7 +141,7 @@ impl JitBuilder<'_> {
                 self.builder
                     .ins()
                     .icmp(codegen::ir::condcodes::IntCC::NotEqual, *value, false_id);
-            return is_not_false;
+            is_not_false
         } else {
             panic!("IsNotFalse requires a value operand");
         }
@@ -157,7 +157,7 @@ impl JitBuilder<'_> {
                 self.builder
                     .ins()
                     .icmp(codegen::ir::condcodes::IntCC::NotEqual, *value, true_id);
-            return is_not_true;
+            is_not_true
         } else {
             panic!("IsNotTrue requires a value operand");
         }
@@ -228,18 +228,24 @@ impl JitBuilder<'_> {
         context.ins_check_gc = true;
     }
 
-    fn load_while_end(&mut self, context: &mut OperatorContext) {
+    fn load_while_end(&mut self, context: &mut OperatorContext) -> Result<()> {
         self.builder
             .ins()
-            .jump(context.loop_blocks.last().unwrap().clone(), &[]);
+            .jump(*context.loop_blocks.last().unwrap(), &[]);
 
         //context.is_while = false;
-        let v = context.loop_blocks.pop().unwrap();
-        let exit_block = context.loop_exit_blocks.pop().unwrap();
+        // unwrap to error
+        let v = context.loop_blocks.pop().with_context(|| {
+            "Failed to pop loop block in load_while_end".to_string()
+        })?;
+        let exit_block = context.loop_exit_blocks.pop().with_context(|| {
+            "Failed to pop loop exit block in load_while_end".to_string()
+        })?;
         self.builder.seal_block(v);
         self.builder.switch_to_block(exit_block);
         self.builder.seal_block(exit_block);
         context.ins_check_gc = true;
+        Ok(())
         //self.builder.ins().iconst(self.int, 0);
     }
 
@@ -350,7 +356,7 @@ impl JitBuilder<'_> {
 
     fn load_for_end(&mut self, context: &mut OperatorContext) {
         self.builder.ins().jump(
-            context.loop_blocks.last().unwrap().clone(),
+            *context.loop_blocks.last().unwrap(),
             &[*context.for_iter_obj.last().unwrap()],
         );
 
@@ -383,11 +389,6 @@ impl JitBuilder<'_> {
         self.builder.seal_block(body_block);
         context.if_exit_blocks.push((exit_block.0, false));
         context.ins_check_gc = true;
-        if let ArgType::IfTestNext(line) = arg.get_arg() {
-            context.if_body_line = Some(line.0 as usize);
-        } else {
-            panic!("IfTest requires an IfTestNext argument");
-        }
     }
 
     fn load_else_if(&mut self, context: &mut OperatorContext) {
@@ -402,7 +403,7 @@ impl JitBuilder<'_> {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
             self.builder.ins().jump(
-                context.if_exit_blocks.last().unwrap().clone().0,
+                context.if_exit_blocks.last().unwrap().0,
                 &[false_value],
             );
         }
@@ -469,7 +470,7 @@ impl JitBuilder<'_> {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
             self.builder.ins().jump(
-                context.if_exit_blocks.last().unwrap().clone().0,
+                context.if_exit_blocks.last().unwrap().0,
                 &[false_value],
             );
         }
@@ -510,7 +511,7 @@ impl JitBuilder<'_> {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
             self.builder.ins().jump(
-                context.if_exit_blocks.last().unwrap().clone().0,
+                context.if_exit_blocks.last().unwrap().0,
                 &[false_value],
             );
         }
@@ -1016,6 +1017,9 @@ impl JitBuilder<'_> {
         }
     }
 
+    /// this is to save the current state of the defined variables and the for iterators
+    /// It will save the values to an array in the current thread's runtime
+    /// in case the garbage collector needs to collect the objects
     fn save_object_to_exp(&mut self, context: &mut OperatorContext) {
         let arr_ptr = self
             .builder
@@ -2012,8 +2016,7 @@ impl CraneLiftJitBackend {
         let mut variables = code
             .var_map
             .var_map
-            .keys()
-            .map(|x| x.clone())
+            .keys().cloned()
             .collect::<Vec<_>>();
 
         let constans = code
@@ -2036,7 +2039,7 @@ impl CraneLiftJitBackend {
             operator: "",
             loop_blocks: vec![],
             loop_exit_blocks: vec![],
-            entry_block: entry_block.clone(),
+            entry_block,
             if_header_blocks: vec![],
             if_exit_blocks: vec![],
             args_index: 0,
@@ -2046,7 +2049,7 @@ impl CraneLiftJitBackend {
             logic_end_block: None,
             logic_rest_bytecode_count: None,
             middle_value: vec![],
-            if_body_line: None,
+            //if_body_line: None,
             if_body_blocks: vec![],
         };
         // Since this is the entry block, add block parameters corresponding to
@@ -2077,9 +2080,9 @@ impl CraneLiftJitBackend {
         trans.malloc_args(&mut context);
         trans.malloc_call_args(&mut context);
         for expr in &code.bytecode {
-            if let Some(s) = &mut context.if_body_line {
-                *s -= 1;
-            }
+            // if let Some(s) = &mut context.if_body_line {
+            //     *s -= 1;
+            // }
 
             if i % 20 == 0 || context.ins_check_gc {
                 trans.load_check_gc(&mut context);
@@ -2089,12 +2092,12 @@ impl CraneLiftJitBackend {
             trans.compile_expr(expr, &mut context);
             context.exp.clear();
             context.middle_value.clear();
-            if let Some(s) = &mut context.if_body_line {
-                if *s == 0 {
-                    trans.load_if_body_end(&mut context);
-                    context.if_body_line = None;
-                }
-            }
+            // if let Some(s) = &mut context.if_body_line {
+            //     if *s == 0 {
+            //         trans.load_if_body_end(&mut context);
+            //         context.if_body_line = None;
+            //     }
+            // }
             i += 1;
         }
 

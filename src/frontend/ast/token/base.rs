@@ -76,7 +76,7 @@ impl FSRToken {
                     return v.var_type.clone()
                 }
 
-                return None
+                None
             },
             FSRToken::Call(c) => {
                 let state = context.get_token(c.get_name())?;
@@ -84,10 +84,10 @@ impl FSRToken {
                     return c.ret_type.clone()
                 }
 
-                return None
+                None
             }
             FSRToken::Constant(c) => {
-                return Some(c.deduction());
+                Some(c.deduction())
             }
             _ => None,
         }
@@ -157,7 +157,9 @@ impl FSRToken {
                     return v;
                 }
             }
-            _ => {},
+            _ => {
+                
+            },
         }
 
         v.push(self.clone());

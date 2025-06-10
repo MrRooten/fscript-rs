@@ -17,10 +17,10 @@ impl FSROrinStr {
     pub fn to_2(&self) -> FSROrinStr2 {
         match self {
             FSROrinStr::Integer(i, op) => {
-                FSROrinStr2::Integer(i.to_string(), op.clone())
+                FSROrinStr2::Integer(i.to_string(), *op)
             }
             FSROrinStr::Float(f, op) => {
-                FSROrinStr2::Float(f.to_string(), op.clone())
+                FSROrinStr2::Float(f.to_string(), *op)
             }
             FSROrinStr::String(s) => FSROrinStr2::String(s.to_string()),
         }
@@ -82,7 +82,7 @@ impl FSRConstant {
             len: 0,
             single_op: op,
             meta,
-            const_str: FSROrinStr::Integer(s.to_string(), op.clone()),
+            const_str: FSROrinStr::Integer(s.to_string(), op),
         }
     }
 

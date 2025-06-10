@@ -1133,7 +1133,7 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             let id = dot_father_obj
                 .get_attr(name)
-                .expect(&format!("unfound attr: {}", name));
+                .unwrap_or_else(|| panic!("unfound attr: {}", name));
 
             id
         };
@@ -1812,7 +1812,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn compile_jit(code: &FSRCode) -> *const u8 {
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(&code.get_bytecode()).unwrap()
+        jit.compile(code.get_bytecode()).unwrap()
     }
 
     fn define_fn(
@@ -2440,7 +2440,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     FSRValue::Integer(i),
                     get_object_by_global_id(FSRGlobalObjId::IntegerCls) as ObjId,
                 );
-                self.get_cur_mut_frame().insert_const(*index as u64, ptr);
+                self.get_cur_mut_frame().insert_const({ *index }, ptr);
             }
             ArgType::ConstFloat(index, obj, single_op) => {
                 let i = obj.parse::<f64>().unwrap();
@@ -2460,7 +2460,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     get_object_by_global_id(FSRGlobalObjId::FloatCls) as ObjId,
                 );
 
-                self.get_cur_mut_frame().insert_const(*index as u64, ptr);
+                self.get_cur_mut_frame().insert_const({ *index }, ptr);
             }
             ArgType::ConstString(index, s) => {
                 // let obj = FSRString::new_value(s);
@@ -2474,7 +2474,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     get_object_by_global_id(FSRGlobalObjId::StringCls) as ObjId,
                 );
 
-                self.get_cur_mut_frame().insert_const(*index as u64, ptr);
+                self.get_cur_mut_frame().insert_const({ *index }, ptr);
             }
             _ => unimplemented!(),
         }

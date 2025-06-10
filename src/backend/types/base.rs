@@ -566,7 +566,7 @@ impl<'a> FSRObject<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub extern "C" fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
         if id >= 1000 {
-            return unsafe { &*(id as *const FSRObject) };
+            unsafe { &*(id as *const FSRObject) }
         } else {
             panic!("Invalid object ID: {}", id);
         }
@@ -748,11 +748,11 @@ impl<'a> FSRObject<'a> {
         }
         // let v = FSRObject::id_to_obj(self.cls);
         // if let FSRValue::Class(_) = &v.value {
-        return FSRString::new_value(&format!(
+        FSRString::new_value(&format!(
             "<`{}` Class Object at {:?}>",
             self.cls.get_name(),
             self as *const Self
-        ));
+        ))
         // }
         // // Box::new(FSRString::new_inst(&format!(
         // //     "<`{}` Object at {:?}>",

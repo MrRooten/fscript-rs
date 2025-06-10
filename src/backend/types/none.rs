@@ -6,8 +6,8 @@ pub struct FSRNone {
 
 }
 
-impl<'a> FSRNone {
-    pub fn get_class() -> FSRClass<'a> {
+impl FSRNone {
+    pub fn get_class() -> FSRClass<'static> {
         let mut cls = FSRClass::new("None");
         cls
     }
