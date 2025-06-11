@@ -192,24 +192,24 @@ impl<'a> Node<'a> {
             return 0;
         }
 
-        if op.eq("&&") || op.eq("||") {
+        if op.eq("&&") || op.eq("and") {
             return -2;
         }
 
-        if op.eq("and") || op.eq("or") {
-            return -2;
-        }
-
-        if op.eq("=") {
+        if op.eq("||") || op.eq("or") {
             return -3;
         }
 
+        if op.eq("=") {
+            return -4;
+        }
+
         if op.eq(":") {
-            return 4;
+            return 5;
         }
 
         if op.eq(",") {
-            return -5;
+            return -6;
         }
 
         -1
