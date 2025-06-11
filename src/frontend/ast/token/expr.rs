@@ -1069,9 +1069,11 @@ impl FSRExpr {
         }
 
         ctx.operators.sort_by(|a, b| -> Ordering {
-            if a.0 != b.0 {
-                Node::is_higher_priority(a.0, b.0)
-            } else if a.1 < b.1 {
+            let cmp = Node::is_higher_priority(a.0, b.0);
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
+            if a.1 < b.1 {
                 Ordering::Greater
             } else {
                 Ordering::Less

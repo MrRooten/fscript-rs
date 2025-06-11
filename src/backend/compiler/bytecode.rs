@@ -2504,4 +2504,16 @@ a[0] = 1
         let v = Bytecode::load_ast("main", FSRToken::Module(token));
         println!("{:#?}", v);
     }
+
+    #[test]
+    fn test_class_getter2() {
+        let expr = "
+        f = fs::File.open(\"./.gitignore\")
+        ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
 }

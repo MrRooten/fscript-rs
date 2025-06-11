@@ -936,11 +936,10 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
         )?;
 
-        
         match res {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(res_id);
-            } 
+            }
         };
 
         Ok(false)
@@ -981,7 +980,6 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_context().code,
         )?;
 
-        
         match res {
             FSRRetValue::GlobalId(res_id) => {
                 self.get_cur_mut_frame().exp.push(res_id);
@@ -1030,7 +1028,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        
         Ok(false)
     }
 
@@ -1060,7 +1057,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         self.get_cur_mut_frame().middle_value.push(right_id);
-            self.get_cur_mut_frame().middle_value.push(left_id);
+        self.get_cur_mut_frame().middle_value.push(left_id);
 
         let args = [left_id, right_id];
         let len = args.len();
@@ -1072,8 +1069,6 @@ impl<'a> FSRThreadRuntime<'a> {
                     self.get_cur_mut_frame().exp.push(res_id);
                 }
             };
-
-            
 
             return Ok(false);
         }
@@ -1926,7 +1921,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
             let v = Self::compare(left_id, right_id, *op, self)?;
 
-            
             if v {
                 self.get_cur_mut_frame().exp.push(FSRObject::true_id())
             } else {
@@ -2177,6 +2171,21 @@ impl<'a> FSRThreadRuntime<'a> {
         context: ObjId,
     ) -> Result<bool, FSRError> {
         if let ArgType::ImportModule(v, module_name) = bc.get_arg() {
+            if let Some(module_fn) = self.get_vm().core_module.get(module_name[0].as_str()) {
+                let module = module_fn(self);
+                let module =
+                    FSRObject::new_inst(module, get_object_by_global_id(FSRGlobalObjId::ModuleCls));
+                let module_id = FSRVM::leak_object(Box::new(module));
+                let state = self.get_cur_mut_frame();
+                state.insert_var(*v, module_id);
+                let cur_module =
+                    FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
+                        .unwrap()
+                        .as_mut_module();
+                cur_module.register_object(module_name.last().unwrap(), module_id);
+                return Ok(false);
+            }
+
             let code = Self::read_code_from_module(module_name)?;
             let mut module = FSRModule::new_object(&module_name.join("."));
             let module_id = FSRVM::leak_object(Box::new(module));

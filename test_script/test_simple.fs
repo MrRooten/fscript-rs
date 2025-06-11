@@ -1,2 +1,5 @@
-a = (0..300).as_list()
-println(a)
+import fs
+
+
+f = fs::File.open("./.gitignore")
+dump(f)

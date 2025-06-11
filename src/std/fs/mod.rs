@@ -1,12 +1,18 @@
-use crate::backend::types::{base::FSRObject, module::FSRModule};
+pub mod fs;
+use crate::{backend::{types::{base::{FSRObject, FSRValue}, module::FSRModule}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}}, std::fs::fs::FSRInnerFile};
 
 pub struct FSRFileSystem {
 
 }
 
+
+
 impl FSRFileSystem {
-    pub fn new_module() -> FSRModule<'static> {
-        let module = FSRModule::new_module("fs");
-        module
+    pub fn new_module(thread: &mut FSRThreadRuntime) -> FSRValue<'static> {
+        let mut module = FSRModule::new_module("fs");
+        let value = FSRValue::Class(Box::new(FSRInnerFile::get_class()));
+        let object = thread.garbage_collect.new_object(value, get_object_by_global_id(crate::backend::types::base::FSRGlobalObjId::ClassCls));
+        module.register_object("File", object);
+        FSRValue::Module(Box::new(module))
     }
 }

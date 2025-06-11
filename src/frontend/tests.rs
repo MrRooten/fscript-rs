@@ -481,6 +481,14 @@ try {
     }
 
     #[test]
+    fn test_class_getter() {
+        let c = r#"fs::File.open"#;
+        let meta = FSRPosition::new();
+        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        println!("{:#?}", i);
+    }
+
+    #[test]
     fn test_call() {
         let c = r#"|x| {},1"#;
         let meta = FSRPosition::new();

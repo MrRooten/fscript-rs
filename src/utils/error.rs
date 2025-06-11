@@ -1,6 +1,7 @@
 #![allow(unused)]
 use std::error::Error;
 use std::fmt::Display;
+use std::io;
 
 use crate::backend::types::base::ObjId;
 use crate::backend::vm::thread::CallFrame;
@@ -78,6 +79,7 @@ pub enum FSRErrCode {
     NotSupportOperator,
     IndexOutOfRange,
     RuntimeError,
+    FileError
 }
 
 #[derive(Debug)]
@@ -145,4 +147,28 @@ pub struct FSRCResult {
     r_type: FSRResult,
     ok_value: ObjId,
     err_value: FSRError
+}
+
+impl From<io::Error> for FSRError {
+    fn from(value: io::Error) -> Self {
+        Self {
+            inner: Box::new(ErrorStruct {
+                code: FSRErrCode::FileError,
+                exception: None,
+                msg: value.to_string(),
+            }),
+        }
+    }
+}
+
+impl From<anyhow::Error> for FSRError {
+    fn from(value: anyhow::Error) -> Self {
+        Self {
+            inner: Box::new(ErrorStruct {
+                code: FSRErrCode::RuntimeError,
+                exception: None,
+                msg: value.to_string(),
+            }),
+        }
+    }
 }

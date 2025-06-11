@@ -63,6 +63,7 @@ pub struct Pointer<'a> {
 // }
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FSRGlobalObjId {
     None = 0,
     True = 1,

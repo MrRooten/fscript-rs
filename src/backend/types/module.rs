@@ -2,10 +2,12 @@ use std::{collections::HashMap, fmt::Debug, ptr::addr_of, sync::atomic::AtomicUs
 
 use ahash::AHashMap;
 
-use crate::backend::vm::virtual_machine::get_object_by_global_id;
+use crate::backend::vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id};
 
 use super::{base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
+
+pub type NewModuleFn = fn(&mut FSRThreadRuntime) -> FSRValue<'static>;
 
 pub struct FSRModule<'a> {
     name: String,
@@ -24,6 +26,7 @@ impl Debug for FSRModule<'_> {
         f.debug_struct("FSRModule")
             .field("name", &self.name)
             .field("fn_map", &fn_map_debug)
+            .field("object_map", &self.object_map)
             .finish()
     }
 }
