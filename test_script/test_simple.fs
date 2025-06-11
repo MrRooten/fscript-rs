@@ -1,3 +1,7 @@
-a = [1, 2, 3]
+import fs
 
-println(a)
+file = fs::File.open(".gitignore")
+
+line_count = file.lines().count()
+
+println(line_count)

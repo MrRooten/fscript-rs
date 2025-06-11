@@ -1,18 +1,29 @@
 use std::{any::Any, fmt::Debug, sync::atomic::Ordering};
 
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::{ext::enumerate::{self, FSREnumerateIter}, list::FSRList}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}},
+    backend::{
+        compiler::bytecode::BinaryOffset,
+        memory::GarbageCollector,
+        types::{
+            ext::enumerate::{self, FSREnumerateIter},
+            list::FSRList,
+        },
+        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+    },
     utils::error::{FSRErrCode, FSRError},
 };
 
 use super::{
-    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, code::FSRCode, ext::{filter_iter::FSRFilterIter, map_iter::FSRMapIter}, fn_def::FSRFn
+    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+    class::FSRClass,
+    code::FSRCode,
+    ext::{filter_iter::FSRFilterIter, map_iter::FSRMapIter},
+    fn_def::FSRFn,
 };
 
 pub trait FSRIteratorReferences {
     fn ref_objects(&self) -> Vec<ObjId>;
 }
-
 
 pub trait FSRIterator: FSRIteratorReferences + Send {
     fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError>;
@@ -35,7 +46,7 @@ pub fn next_obj(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
@@ -75,7 +86,7 @@ pub fn map(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
@@ -89,7 +100,7 @@ pub fn map(
     let map_iterator = FSRMapIter {
         callback: map_fn_id,
         prev_iterator: args[0],
-        code
+        code,
     };
     let object = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -106,7 +117,7 @@ pub fn filter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
@@ -137,7 +148,7 @@ pub fn enumerate(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 1 {
@@ -150,7 +161,7 @@ pub fn enumerate(
     let enumerate_iterator = FSREnumerateIter {
         prev_iterator: args[0],
         index: 0,
-        code
+        code,
     };
     let object = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -167,7 +178,7 @@ pub fn any(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
@@ -203,7 +214,7 @@ pub fn all(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
@@ -239,7 +250,7 @@ pub fn as_list(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 1 {
@@ -257,14 +268,47 @@ pub fn as_list(
             }
 
             let list = FSRList::new_value(list);
-            let ret_obj = thread.garbage_collect.new_object(
-                list,
-                get_object_by_global_id(FSRGlobalObjId::ListCls),
-            );
+            let ret_obj = thread
+                .garbage_collect
+                .new_object(list, get_object_by_global_id(FSRGlobalObjId::ListCls));
             return Ok(FSRRetValue::GlobalId(ret_obj));
         }
     }
     unimplemented!()
+}
+
+pub fn count(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args.len() != 1 {
+        return Err(FSRError::new(
+            "msg: count function requires 1 argument",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
+    let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
+    if let FSRValue::Iterator(it) = &mut self_obj.value {
+        if let Some(it) = it.iterator.as_mut() {
+            let mut count = 0;
+            while let Some(obj) = it.next(thread)? {
+                count += 1;
+            }
+
+            let count_obj = thread.garbage_collect.new_object(
+                FSRValue::Integer(count),
+                get_object_by_global_id(FSRGlobalObjId::IntegerCls),
+            );
+            return Ok(FSRRetValue::GlobalId(count_obj));
+        }
+    }
+    Err(FSRError::new(
+        "msg: args is not a iterator",
+        FSRErrCode::NotValidArgs,
+    ))
 }
 
 impl FSRInnerIterator {
@@ -286,6 +330,8 @@ impl FSRInnerIterator {
         cls.insert_attr("as_list", as_list);
         let all = FSRFn::from_rust_fn_static(all, "inner_iterator_all");
         cls.insert_attr("all", all);
+        let count = FSRFn::from_rust_fn_static(count, "inner_iterator_count");
+        cls.insert_attr("count", count);
         cls
     }
 
@@ -297,5 +343,4 @@ impl FSRInnerIterator {
         refs.push(self.obj);
         refs
     }
-
 }

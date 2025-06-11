@@ -1,15 +1,11 @@
-use std::{any::Any, path::PathBuf};
+use std::{any::Any, fs::File, io::{BufRead, BufReader, Lines}, path::PathBuf};
 
 use anyhow::{anyhow, Context};
 
 use crate::{
     backend::{
         types::{
-            any::{AnyDebugSend, AnyType, GetReference},
-            base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
-            class::FSRClass,
-            fn_def::FSRFn,
-            string::FSRString,
+            any::{AnyDebugSend, AnyType, GetReference}, base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
@@ -84,6 +80,9 @@ impl FSRInnerFile {
         cls.insert_attr("open", open);
         let read_all = FSRFn::from_rust_fn_static(fsr_fn_read_all, "read_all");
         cls.insert_attr("read_all", read_all);
+        let file_lines = FSRFn::from_rust_fn_static(fsr_fn_file_lines, "lines");
+        cls.insert_attr("lines", file_lines);
+
         cls
     }
 }
@@ -151,4 +150,85 @@ pub fn fsr_fn_read_all(
         "Invalid file object",
         FSRErrCode::RuntimeError,
     ))
+}
+
+pub fn fsr_fn_file_lines(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "fsr_fn_file_lines requires at least 1 argument",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let file_obj_id = args[0];
+    let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
+
+    if let FSRValue::Any(any_type) = &mut file_obj.value {
+        if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
+            let file = File::open(inner_file.get_path())
+                .with_context(|| anyhow!("Failed to open file: {}", inner_file.get_path()))?;
+            let reader = BufReader::new(file);
+            let iter = reader.lines();
+            let line_iter = FSRFileLineIterator {
+                file_obj: file_obj_id,
+                iter,
+            };
+
+            let inner_iter = FSRInnerIterator {
+                obj: file_obj_id,
+                iterator: Some(Box::new(line_iter)),
+            };
+
+            let value = FSRValue::Iterator(Box::new(inner_iter));
+
+            let iter_obj_id = thread
+                .garbage_collect
+                .new_object(value, get_object_by_global_id(FSRGlobalObjId::InnerIterator));
+            return Ok(FSRRetValue::GlobalId(iter_obj_id));
+        }
+    }
+
+    Err(FSRError::new(
+        "Invalid file object",
+        FSRErrCode::RuntimeError,
+    ))
+}
+
+
+
+
+pub struct FSRFileLineIterator {
+    pub(crate) file_obj: ObjId,
+    pub(crate) iter: std::io::Lines<BufReader<File>>,
+}
+
+impl FSRIteratorReferences for FSRFileLineIterator {
+    fn ref_objects(&self) -> Vec<ObjId> {
+        vec![self.file_obj]
+    }
+}
+
+impl FSRIterator for FSRFileLineIterator {
+    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
+        let line = self.iter.next();
+        match line {
+            Some(Ok(line)) => {
+                let line_obj = FSRString::new_value(line);
+                let line_obj_id = thread
+                    .garbage_collect
+                    .new_object(line_obj, get_object_by_global_id(FSRGlobalObjId::StringCls));
+                Ok(Some(line_obj_id))
+            }
+            Some(Err(e)) => Err(FSRError::new(
+                format!("Error reading line: {}", e),
+                FSRErrCode::RuntimeError,
+            )),
+            None => Ok(None),
+        }
+    }
 }
