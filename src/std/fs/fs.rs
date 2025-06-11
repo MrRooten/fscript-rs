@@ -6,7 +6,10 @@ use crate::{
     backend::{
         types::{
             any::{AnyDebugSend, AnyType, GetReference},
-            base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn,
+            base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            class::FSRClass,
+            fn_def::FSRFn,
+            string::FSRString,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
@@ -79,6 +82,8 @@ impl FSRInnerFile {
         let mut cls = FSRClass::new("File");
         let open = FSRFn::from_rust_fn_static(fsr_fn_open_file, "new");
         cls.insert_attr("open", open);
+        let read_all = FSRFn::from_rust_fn_static(fsr_fn_read_all, "read_all");
+        cls.insert_attr("read_all", read_all);
         cls
     }
 }
@@ -90,7 +95,10 @@ pub fn fsr_fn_open_file(
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 2 {
-        return Err(FSRError::new("fsr_fn_open_file requires at least 2 arguments", FSRErrCode::RuntimeError));
+        return Err(FSRError::new(
+            "fsr_fn_open_file requires at least 2 arguments",
+            FSRErrCode::RuntimeError,
+        ));
     }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let file_cls = args[0];
@@ -98,12 +106,49 @@ pub fn fsr_fn_open_file(
     let file_path_obj = FSRObject::id_to_obj(file_path);
     if let FSRValue::String(s) = &file_path_obj.value {
         let inner_file = FSRInnerFile::new(s.as_str())?;
-        let object = thread.garbage_collect.new_object(
-            inner_file.to_any_type(),
-            file_cls,
-        );
-        return Ok(FSRRetValue::GlobalId(object))
+        let object = thread
+            .garbage_collect
+            .new_object(inner_file.to_any_type(), file_cls);
+        return Ok(FSRRetValue::GlobalId(object));
     }
 
     panic!("Invalid file path argument")
+}
+
+pub fn fsr_fn_read_all(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "fsr_fn_read_all requires at least 1 argument",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let file_obj_id = args[0];
+    let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
+
+    if let FSRValue::Any(any_type) = &mut file_obj.value {
+        if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
+            use std::io::Read;
+            let mut content = String::new();
+            inner_file
+                .file
+                .read_to_string(&mut content)
+                .with_context(|| anyhow!("Failed to read from file: {}", inner_file.get_path()))?;
+            let ret = FSRString::new_value(content);
+            let ret = thread
+                .garbage_collect
+                .new_object(ret, get_object_by_global_id(FSRGlobalObjId::StringCls));
+            return Ok(FSRRetValue::GlobalId(ret));
+        }
+    }
+
+    Err(FSRError::new(
+        "Invalid file object",
+        FSRErrCode::RuntimeError,
+    ))
 }

@@ -243,7 +243,6 @@ pub enum SingleOp {
     Minus,
 }
 
-
 struct StmtContext {
     states: ExprStates,
     start: usize,
@@ -329,6 +328,43 @@ impl FSRExpr {
         false
     }
 
+    fn bytes_to_unescaped_string(input: &[u8]) -> Result<String, std::str::Utf8Error> {
+        let s = std::str::from_utf8(input)?;
+        let mut out = String::with_capacity(s.len());
+        let mut chars = s.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '\\' {
+                match chars.next() {
+                    Some('n') => out.push('\n'),
+                    Some('t') => out.push('\t'),
+                    Some('r') => out.push('\r'),
+                    Some('0') => out.push('\0'),
+                    Some('\'') => out.push('\''),
+                    Some('\"') => out.push('\"'),
+                    Some('\\') => out.push('\\'),
+                    Some('x') => {
+                        let h1 = chars.next();
+                        let h2 = chars.next();
+                        if let (Some(h1), Some(h2)) = (h1, h2) {
+                            if let Ok(byte) = u8::from_str_radix(&format!("{}{}", h1, h2), 16) {
+                                out.push(byte as char);
+                            }
+
+                        }
+                    }
+                    Some(other) => {
+                        out.push('\\');
+                        out.push(other);
+                    }
+                    None => out.push('\\'),
+                }
+            } else {
+                out.push(c);
+            }
+        }
+        Ok(out)
+    }
+
     #[inline]
     fn double_quote_loop(
         source: &[u8],
@@ -373,8 +409,10 @@ impl FSRExpr {
         }
 
         let s = &source[ctx.start..ctx.start + ctx.length];
+        let s = FSRExpr::bytes_to_unescaped_string(s)
+            .map_err(|e| SyntaxError::new(&meta.from_offset(ctx.start), e.to_string()))?;
         let mut sub_meta = meta.from_offset(ctx.start);
-        let constant = FSRConstant::from_str(s, sub_meta);
+        let constant = FSRConstant::from_str(s.as_bytes(), sub_meta);
         ctx.candidates.push(FSRToken::Constant(constant));
         ctx.length += 1;
         ctx.start += ctx.length;
@@ -462,9 +500,7 @@ impl FSRExpr {
         }
 
         if Self::is_single_op(op) && !op.eq("-") {
-            if ctx.single_op.is_some()
-                && (ctx.single_op.unwrap().eq(&SingleOp::Not))
-            {
+            if ctx.single_op.is_some() && (ctx.single_op.unwrap().eq(&SingleOp::Not)) {
                 ctx.single_op = None;
             } else {
                 ctx.single_op = Some(SingleOp::Not);
@@ -515,9 +551,7 @@ impl FSRExpr {
         }
 
         if Self::is_single_op(op) && !op.eq("-") {
-            if ctx.single_op.is_some()
-                && ctx.single_op.unwrap().eq(&SingleOp::Not)
-            {
+            if ctx.single_op.is_some() && ctx.single_op.unwrap().eq(&SingleOp::Not) {
                 ctx.single_op = None;
             } else {
                 ctx.single_op = Some(SingleOp::Not);
@@ -654,7 +688,9 @@ impl FSRExpr {
         if ctx.start + ctx.length >= source.len()
             || (source[ctx.start + ctx.length] != b'(' && source[ctx.start + ctx.length] != b'[')
         {
-            let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap().to_string();
+            let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length])
+                .unwrap()
+                .to_string();
             if name.eq("and") || name.eq("or") || name.eq("not") {
                 if name.eq("not") {
                     ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
@@ -1205,7 +1241,6 @@ impl FSRExpr {
 
         if operator.0.eq("=") {
             if let FSRToken::Variable(name) = left {
-                
                 let type_hint = right.deduction_type(context);
                 // context.set_variable_type(name.get_name(), type_hint.clone());
                 n_left.as_mut_variable().set_type_hint(type_hint);

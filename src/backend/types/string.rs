@@ -511,7 +511,7 @@ impl FSRString {
         cls
     }
 
-    pub fn new_value(s: &str) -> FSRValue<'static> {
+    pub fn new_value(s: impl Into<String>) -> FSRValue<'static> {
         FSRValue::String(Arc::new(FSRInnerString::new(s)))
     }
 
