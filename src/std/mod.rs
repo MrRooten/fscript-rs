@@ -4,3 +4,4 @@ pub mod utils;
 pub mod thread;
 pub mod error;
 pub mod gc;
+pub mod fs;

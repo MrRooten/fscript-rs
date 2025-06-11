@@ -1,3 +1,2 @@
-for i in (0..30) {
-    println("new: ",i)
-}
+a = (0..300).as_list()
+println(a)

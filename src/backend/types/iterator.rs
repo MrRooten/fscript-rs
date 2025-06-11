@@ -1,7 +1,7 @@
 use std::{any::Any, fmt::Debug, sync::atomic::Ordering};
 
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::ext::enumerate::{self, FSREnumerateIter}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}},
+    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::{ext::enumerate::{self, FSREnumerateIter}, list::FSRList}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}},
     utils::error::{FSRErrCode, FSRError},
 };
 
@@ -218,7 +218,7 @@ pub fn all(
     if let FSRValue::Iterator(it) = &mut self_obj.value {
         if let Some(it) = it.iterator.as_mut() {
             let mut result = true;
-            while let Ok(Some(obj)) = it.next(thread) {
+            while let Some(obj) = it.next(thread)? {
                 let res = all_fn.call(&[obj], thread, code, all_fn_id)?;
                 if res.get_id() == FSRObject::false_id() {
                     result = false;
@@ -230,6 +230,38 @@ pub fn all(
             } else {
                 return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
+        }
+    }
+    unimplemented!()
+}
+
+pub fn as_list(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args.len() != 1 {
+        return Err(FSRError::new(
+            "msg: as_list function requires 1 argument",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
+    let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
+    if let FSRValue::Iterator(it) = &mut self_obj.value {
+        if let Some(it) = it.iterator.as_mut() {
+            let mut list = vec![];
+            while let Some(obj) = it.next(thread)? {
+                list.push(obj);
+            }
+
+            let list = FSRList::new_value(list);
+            let ret_obj = thread.garbage_collect.new_object(
+                list,
+                get_object_by_global_id(FSRGlobalObjId::ListCls),
+            );
+            return Ok(FSRRetValue::GlobalId(ret_obj));
         }
     }
     unimplemented!()
@@ -250,14 +282,11 @@ impl FSRInnerIterator {
         cls.insert_attr("any", any);
         let enumerate = FSRFn::from_rust_fn_static(enumerate, "inner_iterator_enumerate");
         cls.insert_attr("enumerate", enumerate);
+        let as_list = FSRFn::from_rust_fn_static(as_list, "inner_iterator_as_list");
+        cls.insert_attr("as_list", as_list);
+        let all = FSRFn::from_rust_fn_static(all, "inner_iterator_all");
+        cls.insert_attr("all", all);
         cls
-    }
-
-    pub fn new_inst<'a>(iterator: FSRInnerIterator) -> FSRObject<'a> {
-        let mut object = FSRObject::new();
-        object.set_cls(get_object_by_global_id(FSRGlobalObjId::InnerIterator));
-        object.set_value(FSRValue::Iterator(Box::new(iterator)));
-        object
     }
 
     pub fn get_references(&self) -> Vec<ObjId> {

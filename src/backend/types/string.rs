@@ -361,6 +361,54 @@ fn split(
     unimplemented!()
 }
 
+fn find(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let sub_object = FSRObject::id_to_obj(args[1]);
+
+    if let FSRValue::String(self_str) = &self_object.value {
+        if let FSRValue::String(sub_str) = &sub_object.value {
+            if let Some(index) = self_str.chars.find(sub_str.as_str()) {
+                return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+                    FSRValue::Integer(index as i64),
+                    get_object_by_global_id(FSRGlobalObjId::IntegerCls),
+                )));
+            }
+        }
+    }
+
+    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
+}
+
+fn rfind(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let sub_object = FSRObject::id_to_obj(args[1]);
+
+    if let FSRValue::String(self_str) = &self_object.value {
+        if let FSRValue::String(sub_str) = &sub_object.value {
+            if let Some(index) = self_str.chars.rfind(sub_str.as_str()) {
+                return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+                    FSRValue::Integer(index as i64),
+                    get_object_by_global_id(FSRGlobalObjId::IntegerCls),
+                )));
+            }
+        }
+    }
+
+    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
+}
+
 fn trim(
     args: *const ObjId,
     len: usize,
@@ -379,6 +427,45 @@ fn trim(
     }
     unimplemented!()
 }
+
+fn uppercase(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let self_object = FSRObject::id_to_obj(args[0]);
+    if let FSRValue::String(self_str) = &self_object.value {
+        let uppercased = self_str.chars.to_uppercase();
+        let obj_id = thread.garbage_collect.new_object(
+            FSRValue::String(Arc::new(FSRInnerString::new(uppercased))),
+            get_object_by_global_id(FSRGlobalObjId::StringCls),
+        );
+        return Ok(FSRRetValue::GlobalId(obj_id));
+    }
+    unimplemented!()
+}
+
+fn lowercase(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let self_object = FSRObject::id_to_obj(args[0]);
+    if let FSRValue::String(self_str) = &self_object.value {
+        let lowercased = self_str.chars.to_lowercase();
+        let obj_id = thread.garbage_collect.new_object(
+            FSRValue::String(Arc::new(FSRInnerString::new(lowercased))),
+            get_object_by_global_id(FSRGlobalObjId::StringCls),
+        );
+        return Ok(FSRRetValue::GlobalId(obj_id));
+    }
+    unimplemented!()
+}
+
 
 impl FSRString {
     pub fn get_class<'a>() -> FSRClass<'a> {
@@ -415,6 +502,11 @@ impl FSRString {
 
         let trim = FSRFn::from_rust_fn_static(trim, "string_trim");
         cls.insert_attr("trim", trim);
+
+        let find = FSRFn::from_rust_fn_static(find, "string_find");
+        cls.insert_attr("find", find);
+        let rfind = FSRFn::from_rust_fn_static(rfind, "string_rfind");
+        cls.insert_attr("rfind", rfind);
 
         cls
     }

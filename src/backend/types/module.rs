@@ -33,7 +33,7 @@ impl<'a> FSRModule<'a> {
         format!("Module: {}", self.name)
     }
 
-    pub fn new_module(name: &str) -> FSRObject<'a> {
+    pub fn new_object(name: &str) -> FSRObject<'a> {
         let module = FSRModule {
             name: name.to_string(),
             fn_map: HashMap::new(),
@@ -45,6 +45,16 @@ impl<'a> FSRModule<'a> {
         object.cls = FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::ModuleCls)).as_class();
         object
     }
+
+    pub fn new_module(name: &str) -> FSRModule<'a> {
+        FSRModule {
+            name: name.to_string(),
+            fn_map: HashMap::new(),
+            object_map: AHashMap::new(),
+            // const_table: vec![],
+        }
+    }
+    
 
     pub fn init_fn_map(&mut self, fn_map: HashMap<String, FSRObject<'a>>) {
         self.fn_map = fn_map;

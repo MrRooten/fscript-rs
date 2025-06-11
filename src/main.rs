@@ -37,7 +37,7 @@ mod test {
         th.join()
         println("hello world")
         "#;
-        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -100,7 +100,7 @@ fn main() {
     let start = Instant::now();
     let thread = vm.get_thread(tid).unwrap();
 
-    let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+    let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
     let obj_id = FSRVM::leak_object(obj);
     let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
     let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();

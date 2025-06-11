@@ -191,7 +191,7 @@ pub mod tests {
             let mut f = std::fs::File::open(file).unwrap();
             let mut source_code = String::new();
             f.read_to_string(&mut source_code).unwrap();
-            let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+            let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
             let obj_id = FSRVM::leak_object(obj);
             let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
             let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -249,7 +249,7 @@ pub mod tests {
 
         abc()
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -269,7 +269,7 @@ pub mod tests {
         println(b)
         "#;
 
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -288,7 +288,7 @@ pub mod tests {
         a = true or false
         "#;
 
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -313,7 +313,7 @@ pub mod tests {
 
         abc()
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = v.get("abc").unwrap().as_code();
@@ -337,7 +337,7 @@ pub mod tests {
 
         abc()
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = v.get("abc").unwrap().as_code();
@@ -357,7 +357,7 @@ pub mod tests {
         }
 
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = v.get("abc").unwrap().as_code();
@@ -377,7 +377,7 @@ pub mod tests {
         }
 
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = v.get("abc").unwrap().as_code();
@@ -398,7 +398,7 @@ pub mod tests {
         }
 
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = v.get("abc").unwrap().as_code();
@@ -416,7 +416,7 @@ pub mod tests {
         }
 
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = v.get("abc").unwrap().as_code();
@@ -438,7 +438,7 @@ pub mod tests {
         }
 
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = v.get("abc").unwrap().as_code();
@@ -493,7 +493,7 @@ pub mod tests {
         abc()
         "#;
 
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -523,7 +523,7 @@ pub mod tests {
         abc()
         "#;
 
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_module("main"));
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", module1, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
