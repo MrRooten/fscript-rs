@@ -42,4 +42,4 @@ assert(true or false)
 
 assert(not (true and false))
 
-assert(true or false and false, "test: true or false and false")
+assert(not (true or false and false), "test: not (true or false and false)")

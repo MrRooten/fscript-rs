@@ -1,5 +1,2 @@
-import fs
-
-
-f = fs::File.open("./.gitignore")
-dump(f)
+a = true or false and false
+println(a)
