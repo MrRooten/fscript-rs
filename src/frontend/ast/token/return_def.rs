@@ -32,8 +32,7 @@ impl FSRReturn {
         let start_expr = 6;
         len += 6;
         let expr = &source[start_expr..];
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + 6;
+        let mut sub_meta = context.new_pos();
         let expr = match FSRExpr::parse(expr, false, sub_meta, context) {
             Ok(o) => o,
             Err(e) => {

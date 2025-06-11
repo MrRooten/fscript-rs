@@ -72,7 +72,7 @@ impl FSRFnDef {
         context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {
         if source[0] != b'|' {
-            let mut sub_meta = meta.from_offset(0);
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "Invalid lambda function");
             return Err(err);
         }
@@ -87,7 +87,7 @@ impl FSRFnDef {
         }
 
         if args_len == source.len() {
-            let mut sub_meta = meta.from_offset(0);
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "Invalid lambda function, args not closed");
             return Err(err);
         }
@@ -108,7 +108,7 @@ impl FSRFnDef {
             for arg in args_define {
                 let arg = arg.trim();
                 if arg.is_empty() {
-                    let mut sub_meta = meta.from_offset(0);
+                    let mut sub_meta = context.new_pos();
                     let err = SyntaxError::new(&sub_meta, "Invalid lambda function, empty arg");
                     return Err(err);
                 }
@@ -119,14 +119,14 @@ impl FSRFnDef {
                 if ASTParser::is_name_letter_first(b_arg[0]) {
                     i += 1;
                 } else {
-                    let mut sub_meta = meta.from_offset(0);
+                    let mut sub_meta = context.new_pos();
                     let err = SyntaxError::new(&sub_meta, "Invalid lambda function, invalid arg");
                     return Err(err);
                 }
 
                 while i < b_arg.len() {
                     if !ASTParser::is_name_letter(b_arg[i]) {
-                        let mut sub_meta = meta.from_offset(0);
+                        let mut sub_meta = context.new_pos();
                         let err =
                             SyntaxError::new(&sub_meta, "Invalid lambda function, invalid arg");
                         return Err(err);
@@ -135,7 +135,7 @@ impl FSRFnDef {
                     i += 1;
                 }
                 let mut variable =
-                    FSRVariable::parse(arg, meta.from_offset(0), Some(FSRType::new("Function")))?;
+                    FSRVariable::parse(arg, context.new_pos(), Some(FSRType::new("Function")))?;
                 variable.is_defined = true;
                 arg_collect.push(FSRToken::Variable(variable));
             }
@@ -157,16 +157,16 @@ impl FSRFnDef {
         }
         // check is end of source
         if args_len == source.len() {
-            let mut sub_meta = meta.from_offset(args_len);
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "Invalid lambda function, body not found");
             return Err(err);
         }
 
-        let mut sub_meta = meta.from_offset(args_len);
-        let fn_block_len = ASTParser::read_valid_bracket(&source[args_len..], sub_meta.clone())?;
+        let mut sub_meta = context.new_pos();
+        let fn_block_len = ASTParser::read_valid_bracket(&source[args_len..], sub_meta.clone(), &context)?;
         let fn_block = FSRBlock::parse(
             &source[args_len..args_len + fn_block_len],
-            sub_meta.from_offset(0),
+            context.new_pos(),
             context,
         )?;
         let scope = context.pop_scope();
@@ -224,11 +224,16 @@ impl FSRFnDef {
     ) -> Result<Rc<Self>, SyntaxError> {
         let mut start = 0;
         let teller = if source[0] == b'@' {
-            let teller = FSRTell::parse(source, meta.from_offset(0))?;
+            let teller = FSRTell::parse(source, context.new_pos())?;
             start += teller.len;
 
 
             while start < source.len() && ASTParser::is_blank_char_with_new_line(source[start]) {
+                if source[start] == b'\n' {
+                    context.add_line();
+                } else {
+                    context.add_column();
+                }
                 start += 1;
             }
             Some(teller)
@@ -240,18 +245,18 @@ impl FSRFnDef {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         
         if source.len() < 3 {
-            let mut sub_meta = meta.from_offset(0);
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "fn define body length too small");
             return Err(err);
         }
         if s != "fn" {
-            let mut sub_meta = meta.from_offset(0);
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not fn token");
             return Err(err);
         }
 
         if source[2] as char != ' ' {
-            let mut sub_meta = meta.from_offset(2);
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not a valid fn delemiter");
             return Err(err);
         }
@@ -268,7 +273,7 @@ impl FSRFnDef {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.from_offset(len - 1);
+                let mut sub_meta = context.new_pos();
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -310,7 +315,7 @@ impl FSRFnDef {
         }
 
         let fn_args = &source[start_fn_name..start_fn_name + len];
-        let mut sub_meta = meta.from_offset(start_fn_name);
+        let mut sub_meta = context.new_pos();
 
         context.push_scope();
         let mut fn_call = FSRCall::parse(fn_args, sub_meta, context, true)?;
@@ -325,16 +330,16 @@ impl FSRFnDef {
         }
 
         let ret_type_str = &source[start_fn_name + call_len + 1..start_fn_name + call_len + 1 + gap_call_len];
-        let ret_type = Self::parse_ret_type(ret_type_str, meta.from_offset(start_fn_name + call_len), context)?;
+        let ret_type = Self::parse_ret_type(ret_type_str, context.new_pos(), context)?;
 
         context.add_variable_prev_one(&name, None);
 
         let fn_block_start = start_fn_name + len;
-        let mut sub_meta = meta.from_offset(fn_block_start);
+
 
         let fn_block_len =
-            ASTParser::read_valid_bracket(&source[fn_block_start..], sub_meta.clone())?;
-        let block_meta = sub_meta.from_offset(0);
+            ASTParser::read_valid_bracket(&source[fn_block_start..], context.new_pos(), &context)?;
+        let block_meta = context.new_pos();
         for arg in fn_call.get_args_mut() {
             if let FSRToken::Variable(v) = arg {
                 let clone = v.clone();

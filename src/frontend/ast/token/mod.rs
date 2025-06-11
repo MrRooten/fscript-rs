@@ -1,32 +1,38 @@
-use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use base::{FSRToken, FSRType};
 
-pub mod if_statement;
-pub mod statement;
-pub mod function_def;
-pub mod constant;
-pub mod base;
-pub mod name;
-pub mod call;
+use crate::frontend::ast::token::base::FSRPosition;
+
 pub mod assign;
-pub mod expr;
-pub mod hashtable;
-pub mod variable;
+pub mod base;
 pub mod block;
+pub mod call;
+pub mod class;
+pub mod constant;
+pub mod r#else;
+pub mod expr;
+pub mod for_statement;
+pub mod function_def;
+pub mod hashmap;
+pub mod hashtable;
+pub mod if_statement;
+pub mod import;
+pub mod list;
+pub mod match_pattern;
+pub mod module;
+pub mod name;
 pub mod return_def;
 pub mod slice;
-pub mod while_statement;
-pub mod import;
-pub mod module;
-pub mod list;
-pub mod hashmap;
-pub mod class;
-pub mod r#else;
-pub mod for_statement;
-pub mod try_expr;
-pub mod match_pattern;
+pub mod statement;
 pub mod tell;
+pub mod try_expr;
+pub mod variable;
+pub mod while_statement;
 
 #[derive(Debug, Clone)]
 pub struct ASTVariableState {
@@ -36,10 +42,7 @@ pub struct ASTVariableState {
 
 impl ASTVariableState {
     pub fn new(is_defined: bool, token: Option<FSRToken>) -> Self {
-        Self {
-            is_defined,
-            token,
-        }
+        Self { is_defined, token }
     }
 
     pub fn set_token(&mut self, token: Option<FSRToken>) {
@@ -48,13 +51,37 @@ impl ASTVariableState {
 }
 
 pub struct ASTContext {
-    pub(crate)  variable_define: Vec<Rc<RefCell<HashMap<String, ASTVariableState>>>>
+    pub(crate) variable_define: Vec<Rc<RefCell<HashMap<String, ASTVariableState>>>>,
+    pub(crate) line: usize,
+    pub(crate) column: usize,
 }
 
 impl ASTContext {
+    pub fn add_column(&mut self) {
+        self.column += 1;
+    }
+
+    pub fn add_column_by(&mut self, count: usize) {
+        self.column += count;
+    }
+
+    pub fn add_line(&mut self) {
+        self.line += 1;
+        self.column = 0;
+    }
+
     pub fn new_context() -> Self {
         Self {
-            variable_define: vec![Rc::new(RefCell::new(HashMap::new()))]
+            variable_define: vec![Rc::new(RefCell::new(HashMap::new()))],
+            line: 0,
+            column: 0,
+        }
+    }
+
+    pub fn new_pos(&self) -> FSRPosition {
+        FSRPosition {
+            line: self.line,
+            column: self.column,
         }
     }
 
@@ -63,17 +90,25 @@ impl ASTContext {
             if let Some(s) = s.borrow_mut().get_mut(name) {
                 // variable already defined, keep closure ref
                 s.token = token;
-                return ;
+                return;
             }
         }
-        self.variable_define.last().unwrap().borrow_mut().insert(name.to_string(), ASTVariableState::new(false, token));
+        self.variable_define
+            .last()
+            .unwrap()
+            .borrow_mut()
+            .insert(name.to_string(), ASTVariableState::new(false, token));
     }
 
-
     pub fn set_variable_token(&self, name: &str, token: Option<FSRToken>) {
-        self.variable_define.last().unwrap().borrow_mut().get_mut(name).map(|x| {
-            x.set_token(token);
-        });
+        self.variable_define
+            .last()
+            .unwrap()
+            .borrow_mut()
+            .get_mut(name)
+            .map(|x| {
+                x.set_token(token);
+            });
     }
 
     pub fn get_token(&self, name: &str) -> Option<FSRToken> {
@@ -88,7 +123,13 @@ impl ASTContext {
     pub fn get_token_var_type(&self, name: &str, context: &ASTContext) -> Option<FSRType> {
         for scope in self.variable_define.iter().rev() {
             if scope.borrow().contains_key(name) {
-                return scope.borrow().get(name).unwrap().token.as_ref().and_then(|x| x.deduction_type(context));
+                return scope
+                    .borrow()
+                    .get(name)
+                    .unwrap()
+                    .token
+                    .as_ref()
+                    .and_then(|x| x.deduction_type(context));
             }
         }
         None
@@ -98,10 +139,14 @@ impl ASTContext {
         if let Some(s) = self.variable_define.get(self.variable_define.len() - 2) {
             if s.borrow().contains_key(name) {
                 // variable already defined, keep closure ref
-                return ;
+                return;
             }
         }
-        self.variable_define.get(self.variable_define.len() - 2).unwrap().borrow_mut().insert(name.to_string(), ASTVariableState::new(false, token));
+        self.variable_define
+            .get(self.variable_define.len() - 2)
+            .unwrap()
+            .borrow_mut()
+            .insert(name.to_string(), ASTVariableState::new(false, token));
     }
 
     pub fn ref_variable(&self, name: &str) {
@@ -116,7 +161,8 @@ impl ASTContext {
     }
 
     pub fn push_scope(&mut self) {
-        self.variable_define.push(Rc::new(RefCell::new(HashMap::new())));
+        self.variable_define
+            .push(Rc::new(RefCell::new(HashMap::new())));
     }
 
     pub fn pop_scope(&mut self) -> Rc<RefCell<HashMap<String, ASTVariableState>>> {
@@ -133,7 +179,11 @@ impl ASTContext {
     }
 
     pub fn is_variable_defined_in_curr(&self, name: &str) -> bool {
-        self.variable_define.last().unwrap().borrow().contains_key(name)
+        self.variable_define
+            .last()
+            .unwrap()
+            .borrow()
+            .contains_key(name)
     }
 
     pub fn set_variable_be_ref(&mut self, name: &str) -> Option<()> {
@@ -148,5 +198,4 @@ impl ASTContext {
         }
         None
     }
-
 }

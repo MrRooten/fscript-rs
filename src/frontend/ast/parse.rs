@@ -1,5 +1,6 @@
 use super::token::base::FSRPosition;
 use crate::frontend::ast::parse::BracketState::{DoubleQuote, SingleQuote};
+use crate::frontend::ast::token::ASTContext;
 use crate::utils::error::{SyntaxErrType, SyntaxError};
 
 use std::str;
@@ -219,20 +220,20 @@ impl ASTParser {
         Ok(())
     }
 
-    pub fn read_valid_bracket_until_big(source: &[u8], meta: FSRPosition) -> Result<usize, SyntaxError> {
+    pub fn read_valid_bracket_until_big(source: &[u8], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
         let mut state = State::Continue;
         let mut pre_state = State::Continue;
         let mut len = 0;
         loop {
             let c = source[len] as char;
             if len >= source.len() {
-                return Err(SyntaxError::new(&meta.from_offset(source.len()), "not found {"));
+                return Err(SyntaxError::new(&context.new_pos(), "not found {"));
             }
             len += 1;
 
             if c == '(' || c == '[' {
-                let sub_meta = meta.from_offset(len-1);
-                let b_len = Self::read_valid_bracket(&source[len-1..], sub_meta)?;
+                let sub_meta = context.new_pos();
+                let b_len = Self::read_valid_bracket(&source[len-1..], sub_meta, context)?;
                 len += b_len - 1;
                 continue;
             }
@@ -243,8 +244,7 @@ impl ASTParser {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + len - 1;
+                let mut sub_meta = context.new_pos();
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -284,7 +284,7 @@ impl ASTParser {
     }
 
 
-    pub fn read_valid_name_bracket(source: &[u8], meta: FSRPosition) -> Result<usize, SyntaxError> {
+    pub fn read_valid_name_bracket(source: &[u8], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut is_start = true;
         let mut len = 0;
@@ -304,7 +304,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let sub_meta = meta.from_offset(states.peek().1 + len);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",
@@ -315,7 +315,7 @@ impl ASTParser {
         Ok(len)
     }
 
-    pub fn read_valid_bracket(source: &[u8], meta: FSRPosition) -> Result<usize, SyntaxError> {
+    pub fn read_valid_bracket(source: &[u8], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut is_start = true;
         let mut len = 0;
@@ -331,7 +331,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let sub_meta = meta.from_offset(states.peek().1 + len);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",

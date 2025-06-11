@@ -90,13 +90,13 @@ mod frontend_tests {
         let s = "(abcd['abc'])";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let v = ASTParser::read_valid_bracket(s.as_bytes(), meta).unwrap();
+        let v = ASTParser::read_valid_bracket(s.as_bytes(), meta, &context).unwrap();
         assert_eq!(v, s.len());
 
         let s = "abc(abcd['abc'])";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let v = ASTParser::read_valid_name_bracket(s.as_bytes(), meta).unwrap();
+        let v = ASTParser::read_valid_name_bracket(s.as_bytes(), meta, &context).unwrap();
         assert_eq!(v, s.len());
     }
 
@@ -120,8 +120,7 @@ mod frontend_tests {
 
     #[test]
     fn test_module() {
-        let s = "
-        b = [1, 2, 3]
+        let s = "b = [1, 2, 3]
         l = b.len()
         println(l)
         ";
@@ -603,5 +602,17 @@ try {
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
+    }
+
+    #[test]
+    fn test_pos() {
+        let s = "b = [1, 2, 3]
+        l = b.len()
+        ";
+        let meta = FSRPosition::new();
+        let mut context = ASTContext::new_context();
+        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        println!("{:#?}", b);
+        assert_eq!(b.get_len(), s.len());
     }
 }

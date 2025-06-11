@@ -32,18 +32,18 @@ impl FSRCatch {
     pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRCatch, SyntaxError> {
         let s = std::str::from_utf8(&source[0..5]).unwrap();
         if source.len() < 5 {
-            let sub_meta = meta.from_offset(0);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
             return Err(err);
         }
         if s != "catch" {
-            let sub_meta = meta.from_offset(0);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not if token");
             return Err(err);
         }
 
         if source[5] as char != ' ' && source[5] as char != '{' {
-            let sub_meta = meta.from_offset(5);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not a valid if delemiter");
             return Err(err);
         }
@@ -53,11 +53,9 @@ impl FSRCatch {
             start += 1;
         }
 
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
-        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
+        let mut sub_meta = context.new_pos();
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut sub_meta = context.new_pos();
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         start += b_len;
@@ -96,18 +94,18 @@ impl FSRTryBlock {
     pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRTryBlock, SyntaxError> {
         let s = std::str::from_utf8(&source[0..3]).unwrap();
         if source.len() < 3 {
-            let sub_meta = meta.from_offset(0);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "try define body length too small");
             return Err(err);
         }
         if s != "try" {
-            let sub_meta = meta.from_offset(0);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not try token");
             return Err(err);
         }
 
         if source[3] as char != ' ' && source[3] as char != '{' {
-            let sub_meta = meta.from_offset(3);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not a valid try delemiter");
             return Err(err);
         }
@@ -115,19 +113,17 @@ impl FSRTryBlock {
         while ASTParser::is_blank_char_with_new_line(source[start]) {
             start += 1;
         }
-        let sub_meta = meta.from_offset(start);
+        let sub_meta = context.new_pos();
         if source[start] != b'{' {
             let err = SyntaxError::new(&sub_meta, "not a valid try delemiter");
             return Err(err);
         }
-        let len = ASTParser::read_valid_bracket_until_big(&source[start..], sub_meta)?;
+        let len = ASTParser::read_valid_bracket_until_big(&source[start..], sub_meta, &context)?;
 
         let mut start = start + len;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
-        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
+        let mut sub_meta = context.new_pos();
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut sub_meta = context.new_pos();
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         start += b_len;
@@ -139,7 +135,7 @@ impl FSRTryBlock {
         let catches = if start + 5 < source.len() {
             let may_else_token = std::str::from_utf8(&source[start..start + 5]).unwrap();
             if may_else_token.eq("catch") {
-                let sub_meta = meta.from_offset(start);
+                let sub_meta = context.new_pos();
                 let catches = FSRCatch::parse(&source[start..], sub_meta, context)?;
                 start += catches.get_len();
                 Box::new(catches)

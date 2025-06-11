@@ -63,7 +63,7 @@ impl FSRElse {
 
             let may_if_token = std::str::from_utf8(&source[start..start + 2]).unwrap();
             if may_if_token.eq("if") {
-                let sub_meta = meta.from_offset(start);
+                let sub_meta = context.new_pos();
                 let if_block = FSRIf::parse_without_else(&source[start..], sub_meta, context)?;
                 start += if_block.get_len();
                 let e = ElseIf {
@@ -73,9 +73,9 @@ impl FSRElse {
                 
                 else_ifs.push(e);
             } else if source[start] as char == '{' {
-                let sub_meta = meta.from_offset(start);
-                let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
-                let sub_meta = meta.from_offset(start);
+                let sub_meta = context.new_pos();
+                let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+                let sub_meta = context.new_pos();
                 let block = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
                 let len = block.get_len();
                 start += len;
@@ -98,7 +98,7 @@ impl FSRElse {
             
         }
 
-        let sub_meta = meta.from_offset(start);
+        let sub_meta = context.new_pos();
         Ok(Self {
             else_ifs,
             len: start,

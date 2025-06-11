@@ -37,21 +37,24 @@ impl FSRWhile {
         &self.body
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition,context: &mut ASTContext) -> Result<Self, SyntaxError> {
+    pub fn parse(
+        source: &[u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<Self, SyntaxError> {
         let s = std::str::from_utf8(&source[0..5]).unwrap();
         if source.len() < 5 {
             unimplemented!()
         }
         if s != "while" {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not while token");
             return Err(err);
         }
 
+
         if source[5] as char != ' ' && source[5] as char != '(' {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset + 5;
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not a valid while delemiter");
             return Err(err);
         }
@@ -68,8 +71,7 @@ impl FSRWhile {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + len - 1;
+                let mut sub_meta = context.new_pos();
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -107,15 +109,13 @@ impl FSRWhile {
 
         let test = &source[5..5 + len];
         let mut test_meta = meta.clone();
-        test_meta.offset = meta.offset + 5;
+        let test_meta = context.new_pos();
         let test_expr = FSRExpr::parse(test, false, test_meta, context)?.0;
 
         let start = 5 + len;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
-        let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
+        let mut sub_meta = context.new_pos();
+        let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut sub_meta = context.new_pos();
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         Ok(Self {

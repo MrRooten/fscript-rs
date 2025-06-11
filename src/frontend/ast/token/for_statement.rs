@@ -1,6 +1,13 @@
-use crate::{frontend::ast::{parse::ASTParser, token::expr::FSRExpr}, utils::error::SyntaxError};
+use crate::{
+    frontend::ast::{parse::ASTParser, token::expr::FSRExpr},
+    utils::error::SyntaxError,
+};
 
-use super::{base::{FSRPosition, FSRToken}, block::FSRBlock, ASTContext};
+use super::{
+    base::{FSRPosition, FSRToken},
+    block::FSRBlock,
+    ASTContext,
+};
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
@@ -49,19 +56,21 @@ impl FSRFor {
         &self.body
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
+    pub fn parse(
+        source: &[u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<Self, SyntaxError> {
         let s = std::str::from_utf8(&source[0..3]).unwrap();
-        
+
         if s != "for" {
-            let mut sub_meta = meta.clone();
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not for token");
             return Err(err);
         }
-        
-        if !ASTParser::is_blank_char(source[3]){
-            let mut sub_meta = meta.from_offset(3);
-            sub_meta.offset = meta.offset;
+
+        if !ASTParser::is_blank_char(source[3]) {
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "blank space after for token");
             return Err(err);
         }
@@ -73,22 +82,20 @@ impl FSRFor {
 
         let mut name = String::new();
         if !ASTParser::is_name_letter_first(source[start]) {
-            let mut sub_meta = meta.from_offset(start);
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "variable name not name letter first");
             return Err(err);
         }
         name.push(source[start] as char);
         start += 1;
-        
+
         while start < source.len() && ASTParser::is_name_letter(source[start]) {
             name.push(source[start] as char);
             start += 1;
         }
 
         if !ASTParser::is_blank_char(source[start]) {
-            let mut sub_meta = meta.from_offset(start);
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "blank space after for token");
             return Err(err);
         }
@@ -99,16 +106,14 @@ impl FSRFor {
         }
 
         if !ASTParser::is_blank_char(source[start + 2]) {
-            let mut sub_meta = meta.from_offset(start);
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "in after variable in for statement");
             return Err(err);
         }
 
-        let s = std::str::from_utf8(&source[start..start+2]).unwrap();
+        let s = std::str::from_utf8(&source[start..start + 2]).unwrap();
         if !s.eq("in") {
-            let mut sub_meta = meta.from_offset(start);
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "in after variable in for statement");
             return Err(err);
         }
@@ -116,8 +121,7 @@ impl FSRFor {
         start += 2;
 
         if !ASTParser::is_blank_char(source[start]) {
-            let mut sub_meta = meta.from_offset(start);
-            sub_meta.offset = meta.offset;
+            let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "blank space after in token");
             return Err(err);
         }
@@ -130,7 +134,10 @@ impl FSRFor {
         for c in &source[start..] {
             let c = *c as char;
             len += 1;
-            if c == '{' && (state != State::DoubleQuote && state != State::SingleQuote) && brackets.is_empty() {
+            if c == '{'
+                && (state != State::DoubleQuote && state != State::SingleQuote)
+                && brackets.is_empty()
+            {
                 len -= 1;
                 break;
             }
@@ -140,16 +147,17 @@ impl FSRFor {
                 continue;
             }
 
-            if c == ')' && (state != State::DoubleQuote && state != State::SingleQuote) && !brackets.is_empty() {
+            if c == ')'
+                && (state != State::DoubleQuote && state != State::SingleQuote)
+                && !brackets.is_empty()
+            {
                 if brackets.last().unwrap() != &Bracket::Round {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset = meta.offset + len - 1;
+                    let mut sub_meta = context.new_pos();
                     let err = SyntaxError::new(&sub_meta, "Invalid for statement");
                     return Err(err);
                 }
                 if brackets.is_empty() {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset = meta.offset + len - 1;
+                    let mut sub_meta = context.new_pos();
                     let err = SyntaxError::new(&sub_meta, "Invalid for statement");
                     return Err(err);
                 }
@@ -157,9 +165,11 @@ impl FSRFor {
                 continue;
             }
 
-            if c == '\n' && (state != State::DoubleQuote && state != State::SingleQuote) && brackets.is_empty() {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + len - 1;
+            if c == '\n'
+                && (state != State::DoubleQuote && state != State::SingleQuote)
+                && brackets.is_empty()
+            {
+                let mut sub_meta = context.new_pos();
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -168,16 +178,17 @@ impl FSRFor {
                 brackets.push(Bracket::Curly);
                 continue;
             }
-            if c == '}' && (state != State::DoubleQuote && state != State::SingleQuote) && !brackets.is_empty() {
+            if c == '}'
+                && (state != State::DoubleQuote && state != State::SingleQuote)
+                && !brackets.is_empty()
+            {
                 if brackets.last().unwrap() != &Bracket::Curly {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset = meta.offset + len - 1;
+                    let mut sub_meta = context.new_pos();
                     let err = SyntaxError::new(&sub_meta, "Invalid for statement");
                     return Err(err);
                 }
                 if brackets.is_empty() {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset = meta.offset + len - 1;
+                    let mut sub_meta = context.new_pos();
                     let err = SyntaxError::new(&sub_meta, "Invalid for statement");
                     return Err(err);
                 }
@@ -188,16 +199,17 @@ impl FSRFor {
                 brackets.push(Bracket::Square);
                 continue;
             }
-            if c == ']' && (state != State::DoubleQuote && state != State::SingleQuote) && !brackets.is_empty() {
+            if c == ']'
+                && (state != State::DoubleQuote && state != State::SingleQuote)
+                && !brackets.is_empty()
+            {
                 if brackets.last().unwrap() != &Bracket::Square {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset = meta.offset + len - 1;
+                    let mut sub_meta = context.new_pos();
                     let err = SyntaxError::new(&sub_meta, "Invalid for statement");
                     return Err(err);
                 }
                 if brackets.is_empty() {
-                    let mut sub_meta = meta.clone();
-                    sub_meta.offset = meta.offset + len - 1;
+                    let mut sub_meta = context.new_pos();
                     let err = SyntaxError::new(&sub_meta, "Invalid for statement");
                     return Err(err);
                 }
@@ -238,13 +250,12 @@ impl FSRFor {
 
         let expr = &source[start..start + len];
         // println!("expr: {}", String::from_utf8_lossy(expr));
-        let sub_meta = meta.from_offset(start);
+        let sub_meta = context.new_pos();
         let expr = FSRExpr::parse(expr, false, sub_meta, context)?.0;
         start += len;
-        let sub_meta = meta.from_offset(start);
-        let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
+        let sub_meta = context.new_pos();
+        let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut sub_meta = context.new_pos();
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
         start += body.get_len();
         context.add_variable(&name, None);

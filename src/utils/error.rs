@@ -49,7 +49,7 @@ impl SyntaxError {
 
 impl Display for SyntaxError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "(offset: {}) {}", self.meta.offset, self.msg)
+        write!(f, "(offset: {}) {}", self.meta, self.msg)
     }
 }
 

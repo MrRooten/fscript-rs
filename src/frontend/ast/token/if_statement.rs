@@ -47,18 +47,18 @@ impl FSRIf {
     pub fn parse_without_else(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
-            let sub_meta = meta.from_offset(0);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
             return Err(err);
         }
         if s != "if" {
-            let sub_meta = meta.from_offset(0);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not if token");
             return Err(err);
         }
 
         if source[2] as char != ' ' && source[2] as char != '(' {
-            let sub_meta = meta.from_offset(2);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not a valid if delemiter");
             return Err(err);
         }
@@ -76,8 +76,7 @@ impl FSRIf {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.clone();
-                sub_meta.offset = meta.offset + len - 1;
+                let mut sub_meta = context.new_pos();
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -114,16 +113,13 @@ impl FSRIf {
         }
 
         let test = &source[2..2 + len];
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + 2;
+        let mut sub_meta = context.new_pos();
         let test_expr = FSRExpr::parse(test, false, sub_meta, context)?.0;
 
         let mut start = 2 + len;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
-        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
+        let mut sub_meta = context.new_pos();
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut sub_meta = context.new_pos();
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         start += b_len;
@@ -141,35 +137,32 @@ impl FSRIf {
     pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
         let s = std::str::from_utf8(&source[0..2]).unwrap();
         if source.len() < 3 {
-            let sub_meta = meta.from_offset(0);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
             return Err(err);
         }
         if s != "if" {
-            let sub_meta = meta.from_offset(0);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not if token");
             return Err(err);
         }
 
         if source[2] as char != ' ' && source[2] as char != '(' {
-            let sub_meta = meta.from_offset(2);
+            let sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not a valid if delemiter");
             return Err(err);
         }
-        let sub_meta = meta.from_offset(2);
-        let len = ASTParser::read_valid_bracket_until_big(&source[2..], sub_meta)?;
+        let sub_meta = context.new_pos();
+        let len = ASTParser::read_valid_bracket_until_big(&source[2..], sub_meta, &context)?;
 
         let test = &source[2..2 + len];
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + 2;
+        let mut sub_meta = context.new_pos();
         let test_expr = FSRExpr::parse(test, false, sub_meta, context)?.0;
 
         let mut start = 2 + len;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
-        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta)?;
-        let mut sub_meta = meta.clone();
-        sub_meta.offset = meta.offset + start;
+        let mut sub_meta = context.new_pos();
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut sub_meta = context.new_pos();
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
         start += b_len;
@@ -183,7 +176,7 @@ impl FSRIf {
         if start + 4 < source.len() {
             let may_else_token = std::str::from_utf8(&source[start..start+4]).unwrap();
             if may_else_token.eq("else") {
-                let sub_meta = meta.from_offset(start);
+                let sub_meta = context.new_pos();
                 let elses = FSRElse::parse(&source[start..], sub_meta, context)?;
                 start += elses.get_len();
                 may_else = Some(Box::new(elses));

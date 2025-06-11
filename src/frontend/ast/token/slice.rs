@@ -79,7 +79,7 @@ impl FSRGetter {
         let first = s.find('[').unwrap();
         let last = s.rfind(']').unwrap();
         let args = &source[first + 1..last];
-        let sub_meta = meta.from_offset(start);
+        let sub_meta = context.new_pos();
         let getter = FSRExpr::parse(args, true, sub_meta, context)?;
         Ok(Self {
             name: name.to_string(),
