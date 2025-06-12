@@ -12,7 +12,7 @@ use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
         memory::size_alloc::FSRObjectAllocator,
-        types::fn_def::FSRnE,
+        types::{bytes::FSRInnerBytes, fn_def::FSRnE},
         vm::{
             thread::FSRThreadRuntime,
             virtual_machine::{get_object_by_global_id, FSRVM, OBJECTS},
@@ -84,8 +84,8 @@ pub enum GlobalObj {
     ThreadCls,
     HashMapCls,
     NoneCls,
+    BytesCls,
 }
-
 
 impl GlobalObj {
     pub fn get_id(&self) -> ObjId {
@@ -131,6 +131,7 @@ pub enum FSRValue<'a> {
     Any(Box<AnyType>),
     // module is define in single file
     Module(Box<FSRModule<'a>>),
+    Bytes(Box<FSRInnerBytes>),
     None,
 }
 
@@ -152,6 +153,9 @@ impl FSRValue<'_> {
             FSRValue::Bool(_) => std::mem::size_of::<bool>(),
             FSRValue::Any(_) => std::mem::size_of::<AnyType>(),
             FSRValue::None => std::mem::size_of::<()>(),
+            FSRValue::Bytes(fsrinner_bytes) => {
+                std::mem::size_of::<FSRInnerBytes>() + fsrinner_bytes.len()
+            }
         }
     }
 }
@@ -247,6 +251,9 @@ impl<'a> FSRValue<'a> {
                 Some(Arc::new(FSRInnerString::new(fsrmodule.as_string())))
             }
             FSRValue::Any(_) => Some(Arc::new(FSRInnerString::new("AnyType"))),
+            FSRValue::Bytes(fsrinner_bytes) => {
+                Some(Arc::new(FSRInnerString::new("Bytes()")))
+            },
         };
 
         s

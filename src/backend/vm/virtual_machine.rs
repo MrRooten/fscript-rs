@@ -11,6 +11,7 @@ use crate::{
         any::FSRThreadHandle,
         base::{Area, FSRObject, FSRValue, GlobalObj, ObjId, FALSE_ID, NONE_ID, TRUE_ID},
         bool::FSRBool,
+        bytes::FSRInnerBytes,
         class::FSRClass,
         code::FSRCode,
         error::FSRException,
@@ -25,7 +26,10 @@ use crate::{
         range::FSRRange,
         string::FSRString,
     },
-    std::{core::{gc::init_gc, io::init_io, thread::init_thread, utils::init_utils}, fs::{file::FSRInnerFile, FSRFileSystem}},
+    std::{
+        core::{gc::init_gc, io::init_io, thread::init_thread, utils::init_utils},
+        fs::{file::FSRInnerFile, FSRFileSystem},
+    },
 };
 
 use super::thread::FSRThreadRuntime;
@@ -58,8 +62,7 @@ impl Default for FSRVM<'_> {
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub extern "C" fn get_object_by_global_id(id: GlobalObj) -> ObjId {
     unsafe {
-        let obj = OBJECTS
-                .get(id as usize).unwrap();
+        let obj = OBJECTS.get(id as usize).unwrap();
         if let Some(obj) = obj {
             FSRObject::obj_to_id(obj)
         } else {
@@ -68,7 +71,6 @@ pub extern "C" fn get_object_by_global_id(id: GlobalObj) -> ObjId {
             }
             panic!("Global object not found: {:?}", &OBJECTS[id as usize]);
         }
-
     }
 }
 
@@ -91,7 +93,8 @@ pub static mut GLOBAL_CLASS: Option<FSRClass<'static>> = None;
 
 impl<'a> FSRVM<'a> {
     pub fn core_module() -> AHashMap<&'static str, NewModuleFn> {
-        let mut res: AHashMap<&'static str, fn(&mut FSRThreadRuntime<'_>) -> FSRValue<'static>> = AHashMap::new();
+        let mut res: AHashMap<&'static str, fn(&mut FSRThreadRuntime<'_>) -> FSRValue<'static>> =
+            AHashMap::new();
         res.insert("fs", FSRFileSystem::new_module);
         res
     }
@@ -103,7 +106,7 @@ impl<'a> FSRVM<'a> {
             global: AHashMap::new(),
             global_modules: AHashMap::new(),
             threads: Mutex::new(vec![]),
-            core_module
+            core_module,
         };
         v.init();
         v
@@ -196,7 +199,6 @@ impl<'a> FSRVM<'a> {
                     Some(Self::new_stataic_object_with_id(FSRValue::None)),
                 );
 
-
                 OBJECTS.insert(
                     GlobalObj::True as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Bool(true))),
@@ -206,7 +208,6 @@ impl<'a> FSRVM<'a> {
                     GlobalObj::False as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Bool(false))),
                 );
-
 
                 OBJECTS.insert(
                     GlobalObj::FnCls as usize,
@@ -235,7 +236,7 @@ impl<'a> FSRVM<'a> {
                         FSRInnerIterator::get_class(),
                     )))),
                 );
- 
+
                 OBJECTS.insert(
                     GlobalObj::ListCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
@@ -306,7 +307,6 @@ impl<'a> FSRVM<'a> {
                     )))),
                 );
 
-
                 OBJECTS.insert(
                     GlobalObj::NoneCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
@@ -314,28 +314,31 @@ impl<'a> FSRVM<'a> {
                     )))),
                 );
 
+                OBJECTS.insert(
+                    GlobalObj::BytesCls as usize,
+                    Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
+                        FSRInnerBytes::get_class(),
+                    )))),
+                );
 
                 for object in OBJECTS.iter_mut() {
                     if let Some(object) = object {
                         if let FSRValue::Class(_) = object.value {
-                            object.cls = FSRObject::id_to_obj(get_object_by_global_id(
-                                GlobalObj::ClassCls,
-                            ))
-                            .as_class();
+                            object.cls =
+                                FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::ClassCls))
+                                    .as_class();
                         }
 
                         if let FSRValue::Bool(_) = object.value {
-                            object.cls = FSRObject::id_to_obj(get_object_by_global_id(
-                                GlobalObj::BoolCls,
-                            ))
-                            .as_class();
+                            object.cls =
+                                FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::BoolCls))
+                                    .as_class();
                         }
 
                         if let FSRValue::None = object.value {
-                            object.cls = FSRObject::id_to_obj(get_object_by_global_id(
-                                GlobalObj::NoneCls,
-                            ))
-                            .as_class();
+                            object.cls =
+                                FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::NoneCls))
+                                    .as_class();
                         }
                     }
                 }

@@ -4,7 +4,7 @@ use crate::{
     backend::{
         memory::GarbageCollector,
         types::{
-            base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
+            base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             fn_def::FSRFn,
             range::FSRRange,
             string::FSRString,
@@ -18,7 +18,7 @@ pub fn fsr_fn_assert(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let value = FSRObject::id_to_obj(args[0]);
@@ -40,7 +40,7 @@ pub fn fsr_fn_export(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let name = match &FSRObject::id_to_obj(args[0]).value {
@@ -53,13 +53,9 @@ pub fn fsr_fn_export(
     let obj = args[1];
 
     let s = code;
-    let module = FSRObject::id_to_mut_obj(
-        FSRObject::id_to_obj(code)
-            .as_code()
-            .module,
-    )
-    .unwrap()
-    .as_mut_module();
+    let module = FSRObject::id_to_mut_obj(FSRObject::id_to_obj(code).as_code().module)
+        .unwrap()
+        .as_mut_module();
     module.register_object(name.as_str(), obj);
 
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
@@ -69,7 +65,7 @@ pub fn fsr_fn_range(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
@@ -99,7 +95,7 @@ pub fn fsr_fn_type(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 1 {
@@ -174,6 +170,13 @@ pub fn fsr_fn_type(
             FSRString::new_value("None"),
             get_object_by_global_id(GlobalObj::StringCls),
         ))),
+        FSRValue::Bytes(fsrinner_bytes) => {
+            Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+                FSRString::new_value("Bytes"),
+                get_object_by_global_id(GlobalObj::StringCls),
+            )))
+        }
+        _ => Err(FSRError::new("unknown type", FSRErrCode::NotValidArgs)),
     }
 }
 
@@ -181,7 +184,7 @@ pub fn fsr_fn_id(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 1 {
@@ -199,7 +202,7 @@ fn fsr_is_class(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
@@ -219,7 +222,7 @@ pub fn fsr_timeit(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args.len() != 2 {
@@ -235,8 +238,7 @@ pub fn fsr_timeit(
                     if FSRObject::is_sp_object(id) {
                         continue;
                     }
-                }
-                // FSRRetValue::Reference(_) => {}
+                } // FSRRetValue::Reference(_) => {}
             };
         }
         let end = std::time::Instant::now();
@@ -255,7 +257,7 @@ pub fn fsr_sleep(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
+    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if let FSRValue::Integer(i) = &FSRObject::id_to_obj(args[0]).value {
