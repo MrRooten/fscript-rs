@@ -64,7 +64,7 @@ pub struct Pointer<'a> {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FSRGlobalObjId {
+pub enum GlobalObj {
     None = 0,
     True = 1,
     False = 2,
@@ -84,6 +84,12 @@ pub enum FSRGlobalObjId {
     ThreadCls,
     HashMapCls,
     NoneCls,
+}
+
+impl GlobalObj {
+    pub fn get_id(&self) -> ObjId {
+        get_object_by_global_id(*self)
+    }
 }
 
 pub(crate) static mut NONE_ID: ObjId = 0;
@@ -406,7 +412,7 @@ impl<'a> FSRObject<'a> {
     pub fn new() -> FSRObject<'a> {
         FSRObject {
             value: FSRValue::None,
-            cls: FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::NoneCls)).as_class(),
+            cls: FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::NoneCls)).as_class(),
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,

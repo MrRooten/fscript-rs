@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context};
 use crate::{
     backend::{
         types::{
-            any::{AnyDebugSend, AnyType, GetReference}, base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
+            any::{AnyDebugSend, AnyType, GetReference}, base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
@@ -141,7 +141,7 @@ pub fn fsr_fn_read_all(
             let ret = FSRString::new_value(content);
             let ret = thread
                 .garbage_collect
-                .new_object(ret, get_object_by_global_id(FSRGlobalObjId::StringCls));
+                .new_object(ret, get_object_by_global_id(GlobalObj::StringCls));
             return Ok(FSRRetValue::GlobalId(ret));
         }
     }
@@ -188,7 +188,7 @@ pub fn fsr_fn_file_lines(
 
             let iter_obj_id = thread
                 .garbage_collect
-                .new_object(value, get_object_by_global_id(FSRGlobalObjId::InnerIterator));
+                .new_object(value, get_object_by_global_id(GlobalObj::InnerIterator));
             return Ok(FSRRetValue::GlobalId(iter_obj_id));
         }
     }
@@ -221,7 +221,7 @@ impl FSRIterator for FSRFileLineIterator {
                 let line_obj = FSRString::new_value(line);
                 let line_obj_id = thread
                     .garbage_collect
-                    .new_object(line_obj, get_object_by_global_id(FSRGlobalObjId::StringCls));
+                    .new_object(line_obj, get_object_by_global_id(GlobalObj::StringCls));
                 Ok(Some(line_obj_id))
             }
             Some(Err(e)) => Err(FSRError::new(

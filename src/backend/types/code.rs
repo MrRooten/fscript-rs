@@ -18,7 +18,7 @@ use crate::{
 use std::fmt::Debug;
 
 use super::{
-    base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRValue, ObjId},
+    base::{AtomicObjId, GlobalObj, FSRObject, FSRValue, ObjId},
     class::FSRClass,
 };
 
@@ -71,7 +71,7 @@ impl<'a> FSRCode<'a> {
             // object.delete_flag.store(false, std::sync::atomic::Ordering::Relaxed);
             let tmp = code.name.to_string();
             object.value = FSRValue::Code(Box::new(code));
-            object.set_cls(get_object_by_global_id(FSRGlobalObjId::CodeCls));
+            object.set_cls(get_object_by_global_id(GlobalObj::CodeCls));
             res.insert(tmp.to_string(), object);
         }
         Ok(res)

@@ -4,7 +4,7 @@ use ahash::AHashMap;
 
 use crate::backend::vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id};
 
-use super::{base::{AtomicObjId, FSRGlobalObjId, FSRObject, FSRValue, ObjId}, class::FSRClass};
+use super::{base::{AtomicObjId, GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
 
 pub type NewModuleFn = fn(&mut FSRThreadRuntime) -> FSRValue<'static>;
@@ -45,7 +45,7 @@ impl<'a> FSRModule<'a> {
         };
         let mut object = FSRObject::new();
         object.value = FSRValue::Module(Box::new(module));
-        object.cls = FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::ModuleCls)).as_class();
+        object.cls = FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::ModuleCls)).as_class();
         object
     }
 

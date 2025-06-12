@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap};
 use crate::{
     backend::{
         memory::GarbageCollector, types::{
-            base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
             fn_def::FSRFn, string::{FSRInnerString, FSRString},
         }, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}
     },
@@ -102,7 +102,7 @@ pub fn fsr_fn_str(
     let s = value.to_string(thread, code);
     let obj_id = thread.garbage_collect.new_object(
         s,
-        get_object_by_global_id(FSRGlobalObjId::StringCls),
+        get_object_by_global_id(GlobalObj::StringCls),
     );
     Ok(FSRRetValue::GlobalId(obj_id))
 }

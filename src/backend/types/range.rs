@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    base::{AtomicObjId, FSRGlobalObjId, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, ext::{filter_iter::FSRFilterIter, map_iter::FSRMapIter}, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}
+    base::{AtomicObjId, GlobalObj, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, ext::{filter_iter::FSRFilterIter, map_iter::FSRMapIter}, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}
 };
 
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ impl FSRIterator for FSRRangeIterator {
         if let Some(x) = c {
             let obj = thread.garbage_collect.new_object_in_place();
             obj.value = FSRValue::Integer(x);
-            obj.set_cls(get_object_by_global_id(FSRGlobalObjId::IntegerCls));
+            obj.set_cls(get_object_by_global_id(GlobalObj::IntegerCls));
             Ok(Some(FSRObject::obj_to_id(obj)))
         } else {
             Ok(None)
@@ -74,7 +74,7 @@ fn iter_obj(
 
         let inner_obj = thread.garbage_collect.new_object(
             FSRValue::Iterator(Box::new(iterator)),
-            get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+            get_object_by_global_id(GlobalObj::InnerIterator),
         );
         return Ok(FSRRetValue::GlobalId(inner_obj));
     }
@@ -103,7 +103,7 @@ fn filter(
             obj: iterator,
             iterator: Some(Box::new(filter_iterator)),
         })),
-        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+        get_object_by_global_id(GlobalObj::InnerIterator),
     );
 
 
@@ -129,7 +129,7 @@ fn map(
             obj: iterator,
             iterator: Some(Box::new(map_iterator)),
         })),
-        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+        get_object_by_global_id(GlobalObj::InnerIterator),
     );
 
 
@@ -165,7 +165,7 @@ fn enumerate(
             obj: iterator,
             iterator: Some(Box::new(enumerate_iterator)),
         })),
-        get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+        get_object_by_global_id(GlobalObj::InnerIterator),
     );
 
     Ok(FSRRetValue::GlobalId(enumerate_iterator_id))

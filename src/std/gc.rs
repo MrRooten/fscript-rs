@@ -4,7 +4,7 @@ use crate::{
     backend::{
         memory::GarbageCollector,
         types::{
-            base::{FSRGlobalObjId, FSRObject, FSRRetValue, ObjId},
+            base::{GlobalObj, FSRObject, FSRRetValue, ObjId},
             fn_def::FSRFn, list::FSRList,
         },
         vm::thread::FSRThreadRuntime,

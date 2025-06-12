@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+    base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
     fn_def::FSRFn,
 };
@@ -31,7 +31,7 @@ pub fn add(
         if let FSRValue::Float(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int + other_int),
-                get_object_by_global_id(FSRGlobalObjId::FloatCls),
+                get_object_by_global_id(GlobalObj::FloatCls),
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -58,7 +58,7 @@ pub fn sub(
         if let FSRValue::Float(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int - other_int),
-                get_object_by_global_id(FSRGlobalObjId::FloatCls)
+                get_object_by_global_id(GlobalObj::FloatCls)
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -84,7 +84,7 @@ pub fn mul(
         if let FSRValue::Float(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int * other_int),
-                get_object_by_global_id(FSRGlobalObjId::FloatCls)
+                get_object_by_global_id(GlobalObj::FloatCls)
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -111,7 +111,7 @@ fn div(
         if let FSRValue::Float(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int / other_int),
-                get_object_by_global_id(FSRGlobalObjId::FloatCls)
+                get_object_by_global_id(GlobalObj::FloatCls)
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -284,7 +284,7 @@ impl<'a> FSRFloat {
 
     pub fn new_inst(f: f64) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls(get_object_by_global_id(FSRGlobalObjId::FloatCls));
+        object.set_cls(get_object_by_global_id(GlobalObj::FloatCls));
         object.set_value(FSRValue::Float(f));
         object
     }

@@ -47,12 +47,12 @@ impl FSRIterator for FSREnumerateIter {
 
         let integer = thread.garbage_collect.new_object(
             FSRValue::Integer(self.index),
-            get_object_by_global_id(crate::backend::types::base::FSRGlobalObjId::IntegerCls),
+            get_object_by_global_id(crate::backend::types::base::GlobalObj::IntegerCls),
         );
         let ret = vec![integer, ret];
         self.index += 1;
         let ret_value = thread.garbage_collect.new_object(FSRList::new_value(ret), 
-            get_object_by_global_id(crate::backend::types::base::FSRGlobalObjId::ListCls),
+            get_object_by_global_id(crate::backend::types::base::GlobalObj::ListCls),
         );
 
         Ok(Some(ret_value))

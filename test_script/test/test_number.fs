@@ -15,5 +15,5 @@ println(d)
 e = 0xff
 println(e)
 
-f = -0b101010
+f = 0b101010
 println(f)

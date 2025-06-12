@@ -19,7 +19,7 @@ use crate::{
 };
 
 use super::{
-    base::{Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+    base::{Area, AtomicObjId, GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
 };
 
@@ -198,7 +198,7 @@ impl<'a> FSRFn<'a> {
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
-            cls: FSRObject::id_to_obj(get_object_by_global_id(FSRGlobalObjId::FnCls)).as_class(),
+            cls: FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::FnCls)).as_class(),
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,

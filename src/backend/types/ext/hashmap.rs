@@ -14,7 +14,7 @@ use crate::{
         memory::GarbageCollector,
         types::{
             any::{AnyDebugSend, AnyType, GetReference},
-            base::{Area, AtomicObjId, FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId},
+            base::{Area, AtomicObjId, GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
             class::FSRClass,
             error::FSRException,
             fn_def::FSRFn,
@@ -274,7 +274,7 @@ impl FSRIterator for FSRHashMapIterator<'_> {
             let list = FSRList::new_value(vs);
             let ret = thread
                 .garbage_collect
-                .new_object(list, get_object_by_global_id(FSRGlobalObjId::ListCls) as ObjId);
+                .new_object(list, get_object_by_global_id(GlobalObj::ListCls) as ObjId);
             Ok(Some(ret))
         } else {
             Ok(None)
@@ -310,7 +310,7 @@ pub fn fsr_fn_hashmap_iter(
                     obj: args[0],
                     iterator: Some(Box::new(iter_obj)),
                 })),
-                get_object_by_global_id(FSRGlobalObjId::InnerIterator),
+                get_object_by_global_id(GlobalObj::InnerIterator),
             );
             Ok(FSRRetValue::GlobalId(object))
         } else {
@@ -331,7 +331,7 @@ pub fn fsr_fn_hashmap_new(
     let hashmap = FSRHashMap::new_hashmap();
     let object = thread
         .garbage_collect
-        .new_object(hashmap.to_any_type(), get_object_by_global_id(FSRGlobalObjId::HashMapCls));
+        .new_object(hashmap.to_any_type(), get_object_by_global_id(GlobalObj::HashMapCls));
     Ok(FSRRetValue::GlobalId(object))
 }
 

@@ -433,7 +433,7 @@ impl FSRExpr {
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
-        context: &mut ASTContext
+        context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
             let mut sub_meta = context.new_pos();
@@ -493,7 +493,7 @@ impl FSRExpr {
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
-        context: &mut ASTContext
+        context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
         let op = ASTParser::get_static_op(op);
@@ -545,7 +545,7 @@ impl FSRExpr {
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
-        context: &mut ASTContext
+        context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
         let op = ASTParser::get_static_op(op);
@@ -741,52 +741,172 @@ impl FSRExpr {
         Ok(())
     }
 
+    // #[inline]
+    // fn number_process(
+    //     source: &[u8],
+    //     ignore_nline: bool,
+    //     meta: &FSRPosition,
+    //     ctx: &mut StmtContext,
+    //     context: &mut ASTContext,
+    // ) -> Result<(), SyntaxError> {
+    //     let mut is_float = false;
+    //     loop {
+    //         if ctx.start + ctx.length >= source.len() {
+    //             break;
+    //         }
+    //         let c = source[ctx.start + ctx.length] as char;
+
+    //         if c.eq(&'.') {
+    //             if ctx.start + ctx.length + 1 < source.len()
+    //                 && source[ctx.start + ctx.length + 1] == b'.'
+    //             {
+    //                 // like range 0..4
+    //                 break;
+    //             }
+    //             is_float = true;
+    //             ctx.length += 1;
+    //             context.add_column();
+    //             continue;
+    //         }
+
+    //         if !c.is_ascii_digit() {
+    //             break;
+    //         }
+
+    //         ctx.length += 1;
+    //         context.add_column();
+    //     }
+    //     let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
+    //     let mut sub_meta = context.new_pos();
+    //     let c = if is_float {
+    //         FSRConstant::from_float(sub_meta, ps, ctx.single_op)
+    //     } else {
+    //         FSRConstant::from_int(sub_meta, ps, ctx.single_op)
+    //     };
+
+    //     //c.single_op = ctx.single_op;
+    //     ctx.single_op = None;
+    //     ctx.candidates.push(FSRToken::Constant(c));
+    //     ctx.start += ctx.length;
+    //     ctx.length = 0;
+
+    //     Ok(())
+    // }
     #[inline]
-    fn number_process(
+    fn number_process3(
         source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
-        context: &mut ASTContext
+        context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
+        let start = ctx.start;
         let mut is_float = false;
+        let mut has_exp = false;
+
+        // 检查进制前缀
+        let mut base = 10;
+        let mut prefix_len = 0;
+        if start + 2 < source.len() && source[start] == b'0' {
+            match source[start + 1] as char {
+                'x' | 'X' => {
+                    base = 16;
+                    prefix_len = 2;
+                }
+                'b' | 'B' => {
+                    base = 2;
+                    prefix_len = 2;
+                }
+                'o' | 'O' => {
+                    base = 8;
+                    prefix_len = 2;
+                }
+                _ => {}
+            }
+        }
+
+        ctx.length += prefix_len;
+        if prefix_len > 0 {
+            context.add_column();
+            context.add_column();
+        }
+
         loop {
             if ctx.start + ctx.length >= source.len() {
                 break;
             }
             let c = source[ctx.start + ctx.length] as char;
 
-            if c.eq(&'.') {
-                if ctx.start + ctx.length + 1 < source.len()
-                    && source[ctx.start + ctx.length + 1] == b'.'
-                {
-                    // like range 0..4
-                    break;
-                }
-                is_float = true;
+            if c == '_' {
                 ctx.length += 1;
                 context.add_column();
                 continue;
             }
 
-            if !c.is_ascii_digit() {
+            if base == 10 {
+                if c.eq(&'.') {
+                    if ctx.start + ctx.length + 1 < source.len()
+                        && source[ctx.start + ctx.length + 1] == b'.'
+                    {
+                        break;
+                    }
+                    if is_float {
+                        break;
+                    }
+                    is_float = true;
+                    ctx.length += 1;
+                    context.add_column();
+                    continue;
+                }
+                if c == 'e' || c == 'E' {
+                    if has_exp {
+                        break;
+                    }
+                    has_exp = true;
+                    is_float = true;
+                    ctx.length += 1;
+                    context.add_column();
+                    // Process optional sign after exponent
+                    if ctx.start + ctx.length < source.len() {
+                        let next_c = source[ctx.start + ctx.length] as char;
+                        if next_c == '+' || next_c == '-' {
+                            ctx.length += 1;
+                            context.add_column();
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // 判断合法数字字符
+            let valid = match base {
+                16 => c.is_digit(16),
+                10 => c.is_ascii_digit(),
+                8 => c >= '0' && c <= '7',
+                2 => c == '0' || c == '1',
+                _ => false,
+            };
+            if !valid {
                 break;
             }
 
             ctx.length += 1;
             context.add_column();
         }
+
         let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
         let mut sub_meta = context.new_pos();
-        let c = if is_float {
-            let f = ps.parse::<f64>().unwrap();
-            FSRConstant::from_float(f as f64, sub_meta, ps, ctx.single_op)
+        let c = if is_float && base == 10 {
+            FSRConstant::from_float(sub_meta, ps, ctx.single_op)
         } else {
-            let i = ps.parse::<i64>().unwrap();
-            FSRConstant::from_int(i, sub_meta, ps, ctx.single_op)
+            let digits = if prefix_len > 0 {
+                &ps[prefix_len..]
+            } else {
+                ps
+            };
+            FSRConstant::from_int(sub_meta, ps, ctx.single_op)
         };
 
-        //c.single_op = ctx.single_op;
         ctx.single_op = None;
         ctx.candidates.push(FSRToken::Constant(c));
         ctx.start += ctx.length;
@@ -843,15 +963,16 @@ impl FSRExpr {
             if ((t_c == '\n' && !ignore_nline) || t_c == ';' || t_c == '}')
                 && !ctx.states.eq_peek(&ExprState::EscapeNewline)
             {
-                // if t_c == '\n' {
-                //     context.add_line();
-                // } else {
-                //     context.add_column();
-                // }
+                /// Not process the newline for context
+                /// the outsider will handle the newline
                 if ctx.states.eq_peek(&ExprState::WaitToken) {
                     break;
                 }
                 ctx.last_loop = true;
+            }
+
+            if t_c == '\n' && (ctx.states.eq_peek(&ExprState::EscapeNewline) || ignore_nline) {
+                context.add_line();
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && c == '|' {
@@ -943,14 +1064,17 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c.is_ascii_digit() {
-                Self::number_process(source, ignore_nline, meta, ctx, context)?;
-
+                Self::number_process3(source, ignore_nline, meta, ctx, context)?;
                 continue;
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c == '[' {
                 let mut sub_meta = context.new_pos();
-                let len = ASTParser::read_valid_bracket(&source[ctx.start..], sub_meta.clone(), &context)?;
+                let len = ASTParser::read_valid_bracket(
+                    &source[ctx.start..],
+                    sub_meta.clone(),
+                    &context,
+                )?;
                 assert!(len >= 2);
 
                 let list =
@@ -968,8 +1092,11 @@ impl FSRExpr {
 
             if ctx.states.eq_peek(&ExprState::Variable) && t_c == '(' {
                 let mut sub_meta = context.new_pos();
-                let len =
-                    ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta, &context)?;
+                let len = ASTParser::read_valid_bracket(
+                    &source[ctx.start + ctx.length..],
+                    sub_meta,
+                    &context,
+                )?;
                 ctx.length += len;
                 let mut sub_meta = context.new_pos();
                 let mut call = FSRCall::parse(
@@ -1016,8 +1143,11 @@ impl FSRExpr {
 
             if ctx.states.eq_peek(&ExprState::Variable) && t_c == '[' {
                 let mut sub_meta = context.new_pos();
-                let len =
-                    ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta, &context)?;
+                let len = ASTParser::read_valid_bracket(
+                    &source[ctx.start + ctx.length..],
+                    sub_meta,
+                    &context,
+                )?;
                 ctx.length += len;
                 let mut sub_meta = context.new_pos();
                 let mut getter = FSRGetter::parse(
@@ -1166,11 +1296,11 @@ impl FSRExpr {
                     context.add_variable(name.get_name(), Some(n_left.clone()));
                     return Ok((
                         FSRToken::Assign(FSRAssign {
+                            meta: n_left.get_meta().clone(),
                             left: Rc::new(n_left),
                             name: name.get_name().to_string(),
                             expr: Rc::new(right),
                             len: ctx.start + ctx.length,
-                            meta,
                         }),
                         ctx.start + ctx.length,
                     ));
@@ -1178,11 +1308,11 @@ impl FSRExpr {
                     let name = getter.get_name();
                     return Ok((
                         FSRToken::Assign(FSRAssign {
+                            meta: n_left.get_meta().clone(),
                             left: Rc::new(n_left),
                             name: getter.get_name().to_string(),
                             expr: Rc::new(right),
                             len: ctx.start + ctx.length,
-                            meta,
                         }),
                         ctx.start + ctx.length,
                     ));
@@ -1312,7 +1442,7 @@ impl FSRExpr {
                     panic!("Type name must be a string")
                 }
             } else {
-                unimplemented!()
+                panic!("not support define a not variable type to typehint")
             }
         }
         Ok((

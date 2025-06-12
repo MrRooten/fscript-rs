@@ -9,7 +9,7 @@ use ahash::AHashMap;
 use crate::{
     backend::types::{
         any::FSRThreadHandle,
-        base::{Area, FSRGlobalObjId, FSRObject, FSRValue, ObjId, FALSE_ID, NONE_ID, TRUE_ID},
+        base::{Area, GlobalObj, FSRObject, FSRValue, ObjId, FALSE_ID, NONE_ID, TRUE_ID},
         bool::FSRBool,
         class::FSRClass,
         code::FSRCode,
@@ -56,7 +56,7 @@ impl Default for FSRVM<'_> {
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
-pub extern "C" fn get_object_by_global_id(id: FSRGlobalObjId) -> ObjId {
+pub extern "C" fn get_object_by_global_id(id: GlobalObj) -> ObjId {
     unsafe {
         let obj = OBJECTS
                 .get(id as usize).unwrap();
@@ -74,17 +74,17 @@ pub extern "C" fn get_object_by_global_id(id: FSRGlobalObjId) -> ObjId {
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub extern "C" fn get_true() -> ObjId {
-    get_object_by_global_id(FSRGlobalObjId::True)
+    get_object_by_global_id(GlobalObj::True)
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub extern "C" fn get_false() -> ObjId {
-    get_object_by_global_id(FSRGlobalObjId::False)
+    get_object_by_global_id(GlobalObj::False)
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub extern "C" fn get_none() -> ObjId {
-    get_object_by_global_id(FSRGlobalObjId::None)
+    get_object_by_global_id(GlobalObj::None)
 }
 
 pub static mut GLOBAL_CLASS: Option<FSRClass<'static>> = None;
@@ -192,115 +192,115 @@ impl<'a> FSRVM<'a> {
                 OBJECTS.resize_with(100, || None);
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::None as usize,
+                    GlobalObj::None as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::None)),
                 );
 
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::True as usize,
+                    GlobalObj::True as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Bool(true))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::False as usize,
+                    GlobalObj::False as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Bool(false))),
                 );
 
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::FnCls as usize,
+                    GlobalObj::FnCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRFn::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::ClassCls as usize,
+                    GlobalObj::ClassCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRClass::new("Class"),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::IntegerCls as usize,
+                    GlobalObj::IntegerCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRInteger::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::InnerIterator as usize,
+                    GlobalObj::InnerIterator as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRInnerIterator::get_class(),
                     )))),
                 );
  
                 OBJECTS.insert(
-                    FSRGlobalObjId::ListCls as usize,
+                    GlobalObj::ListCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRList::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::StringCls as usize,
+                    GlobalObj::StringCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRString::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::CodeCls as usize,
+                    GlobalObj::CodeCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRCode::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::BoolCls as usize,
+                    GlobalObj::BoolCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRBool::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::FloatCls as usize,
+                    GlobalObj::FloatCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRFloat::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::Exception as usize,
+                    GlobalObj::Exception as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRException::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::RangeCls as usize,
+                    GlobalObj::RangeCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRRange::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::ModuleCls as usize,
+                    GlobalObj::ModuleCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRModule::get_class(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::ThreadCls as usize,
+                    GlobalObj::ThreadCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRThreadHandle::thread_cls(),
                     )))),
                 );
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::HashMapCls as usize,
+                    GlobalObj::HashMapCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRHashMap::get_class(),
                     )))),
@@ -308,7 +308,7 @@ impl<'a> FSRVM<'a> {
 
 
                 OBJECTS.insert(
-                    FSRGlobalObjId::NoneCls as usize,
+                    GlobalObj::NoneCls as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
                         FSRNone::get_class(),
                     )))),
@@ -319,21 +319,21 @@ impl<'a> FSRVM<'a> {
                     if let Some(object) = object {
                         if let FSRValue::Class(_) = object.value {
                             object.cls = FSRObject::id_to_obj(get_object_by_global_id(
-                                FSRGlobalObjId::ClassCls,
+                                GlobalObj::ClassCls,
                             ))
                             .as_class();
                         }
 
                         if let FSRValue::Bool(_) = object.value {
                             object.cls = FSRObject::id_to_obj(get_object_by_global_id(
-                                FSRGlobalObjId::BoolCls,
+                                GlobalObj::BoolCls,
                             ))
                             .as_class();
                         }
 
                         if let FSRValue::None = object.value {
                             object.cls = FSRObject::id_to_obj(get_object_by_global_id(
-                                FSRGlobalObjId::NoneCls,
+                                GlobalObj::NoneCls,
                             ))
                             .as_class();
                         }
@@ -362,11 +362,11 @@ impl<'a> FSRVM<'a> {
         self.global.insert("none".to_string(), FSRObject::none_id());
         self.global.insert(
             "Exception".to_string(),
-            get_object_by_global_id(FSRGlobalObjId::Exception) as ObjId,
+            get_object_by_global_id(GlobalObj::Exception) as ObjId,
         );
         self.global.insert(
             "HashMap".to_string(),
-            get_object_by_global_id(FSRGlobalObjId::HashMapCls) as ObjId,
+            get_object_by_global_id(GlobalObj::HashMapCls) as ObjId,
         );
     }
 

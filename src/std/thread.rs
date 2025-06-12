@@ -4,7 +4,7 @@ use crate::{
     backend::{
         memory::GarbageCollector,
         types::{
-            any::FSRThreadHandle, base::{FSRGlobalObjId, FSRObject, FSRRetValue, FSRValue, ObjId}, fn_def::FSRFn
+            any::FSRThreadHandle, base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId}, fn_def::FSRFn
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
@@ -21,7 +21,7 @@ pub fn fsr_get_cur_thread_id(
     let id = thread.get_thread_id();
     let obj = thread.garbage_collect.new_object(
         FSRValue::Integer(id as i64),
-        get_object_by_global_id(FSRGlobalObjId::IntegerCls),
+        get_object_by_global_id(GlobalObj::IntegerCls),
     );
     Ok(FSRRetValue::GlobalId(obj))
 }
@@ -51,7 +51,7 @@ pub fn fsr_new_thread(
     });
     let handle = FSRThreadHandle::new(th);
     
-    let thread_obj = thread.garbage_collect.new_object(handle.to_any_type(), get_object_by_global_id(FSRGlobalObjId::ThreadCls) as ObjId);
+    let thread_obj = thread.garbage_collect.new_object(handle.to_any_type(), get_object_by_global_id(GlobalObj::ThreadCls) as ObjId);
     
     Ok(FSRRetValue::GlobalId(thread_obj))
 }

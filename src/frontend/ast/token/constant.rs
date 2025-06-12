@@ -3,8 +3,8 @@ use super::{base::{FSRPosition, FSRType}, expr::SingleOp};
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum FSRConstantType {
     String(Vec<u8>),
-    Integer(i64),
-    Float(f64),
+    Integer(String),
+    Float(String),
 }
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum FSROrinStr {
@@ -66,9 +66,9 @@ impl FSRConstant {
         }
     }
 
-    pub fn from_float(f: f64, meta: FSRPosition, s: &str, op: Option<SingleOp>) -> Self {
+    pub fn from_float(meta: FSRPosition, s: &str, op: Option<SingleOp>) -> Self {
         FSRConstant {
-            constant: FSRConstantType::Float(f),
+            constant: FSRConstantType::Float(s.to_string()),
             len: 0,
             single_op: op,
             meta,
@@ -76,9 +76,9 @@ impl FSRConstant {
         }
     }
 
-    pub fn from_int(i: i64, meta: FSRPosition, s: &str, op: Option<SingleOp>) -> Self {
+    pub fn from_int(meta: FSRPosition, s: &str, op: Option<SingleOp>) -> Self {
         FSRConstant {
-            constant: FSRConstantType::Integer(i),
+            constant: FSRConstantType::Integer(s.to_string()),
             len: 0,
             single_op: op,
             meta,

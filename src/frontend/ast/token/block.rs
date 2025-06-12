@@ -150,6 +150,7 @@ impl FSRBlock {
             if c == '{' && states.peek() == &BlockState::Block {
                 start += length;
                 length = 0;
+
                 let mut sub_meta = context.new_pos();
                 let l = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
                 length += l;
@@ -158,8 +159,10 @@ impl FSRBlock {
                 let sub_block =
                     Self::parse(&source[start..start + length], sub_block_meta, context)?;
                 block.tokens.push(FSRToken::Block(sub_block));
+
                 start += length;
                 length = 0;
+
                 continue;
             }
 
@@ -219,8 +222,13 @@ impl FSRBlock {
                     start += length;
                     length = 0;
                 } else if t == &NodeType::Else {
-                    let mut sub_meta = context.new_pos();
-                    let else_expr = FSRElse::parse(&source[start..], sub_meta, context)?;
+                    // not support else without if
+                    return Err(SyntaxError::new(
+                        &context.new_pos(),
+                        "else without if",
+                    ));
+                    // let mut sub_meta = context.new_pos();
+                    // let else_expr = FSRElse::parse(&source[start..], sub_meta, context)?;
                 } else if t == &NodeType::Break {
                     let mut sub_meta = context.new_pos();
                     block.tokens.push(FSRToken::Break(sub_meta));

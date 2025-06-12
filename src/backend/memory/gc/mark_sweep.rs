@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::backend::types::base::{Area, FSRGlobalObjId};
+use crate::backend::types::base::{Area, GlobalObj};
 
 use crate::backend::types::class::FSRClass;
 use crate::backend::vm::virtual_machine::get_object_by_global_id;
@@ -160,7 +160,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         let slot_idx = self.objects.len();
         let obj = self
             .allocator
-            .new_object(FSRValue::None, FSRGlobalObjId::None as ObjId);
+            .new_object(FSRValue::None, GlobalObj::None as ObjId);
 
         self.objects.push(Some(obj));
         let obj = &mut self.objects[slot_idx];
@@ -192,7 +192,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.objects.extend((0..extend_size).map(|_| {
             let mut obj = Box::new(FSRObject::new_inst(
                 FSRValue::None,
-                get_object_by_global_id(FSRGlobalObjId::NoneCls),
+                get_object_by_global_id(GlobalObj::NoneCls),
             ));
             obj.free = true;
             Some(obj)

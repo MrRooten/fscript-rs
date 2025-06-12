@@ -6,7 +6,7 @@ use std::{
 use crate::{
     backend::{
         types::{
-            base::{Area, FSRGlobalObjId, FSRObject, ObjId},
+            base::{Area, GlobalObj, FSRObject, ObjId},
             float::FSRFloat,
             integer::FSRInteger,
             string::FSRString,
