@@ -1,4 +1,4 @@
-use std::{any::Any, fs::File, io::{BufRead, BufReader, Lines}, path::PathBuf};
+use std::{any::Any, fs::File, io::{BufRead, BufReader, BufWriter, Lines}, path::PathBuf};
 
 use anyhow::{anyhow, Context};
 
@@ -14,7 +14,8 @@ use crate::{
 
 #[derive(Debug)]
 pub struct FSRInnerFile {
-    pub file: std::fs::File,
+    pub reader: BufReader<File>,
+    pub writer: Option<BufWriter<File>>,
     pub path: PathBuf,
 }
 
@@ -46,7 +47,8 @@ impl FSRInnerFile {
         let path_buf = PathBuf::from(path);
         let file = std::fs::File::open(&path_buf)?;
         Ok(FSRInnerFile {
-            file,
+            reader: BufReader::new(file),
+            writer: None, // Writer can be initialized later if needed
             path: path_buf,
         })
     }
@@ -57,7 +59,7 @@ impl FSRInnerFile {
 
     pub fn seek(&mut self, offset: usize) -> Result<(), FSRError> {
         use std::io::Seek;
-        self.file
+        self.reader
             .seek(std::io::SeekFrom::Start(offset as u64))
             .with_context(|| {
                 anyhow!(
@@ -135,7 +137,7 @@ pub fn fsr_fn_read_all(
             use std::io::Read;
             let mut content = String::new();
             inner_file
-                .file
+                .reader
                 .read_to_string(&mut content)
                 .with_context(|| anyhow!("Failed to read from file: {}", inner_file.get_path()))?;
             let ret = FSRString::new_value(content);

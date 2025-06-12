@@ -9,7 +9,7 @@ use ahash::AHashMap;
 use crate::{
     backend::types::{
         any::FSRThreadHandle,
-        base::{Area, GlobalObj, FSRObject, FSRValue, ObjId, FALSE_ID, NONE_ID, TRUE_ID},
+        base::{Area, FSRObject, FSRValue, GlobalObj, ObjId, FALSE_ID, NONE_ID, TRUE_ID},
         bool::FSRBool,
         class::FSRClass,
         code::FSRCode,
@@ -25,7 +25,7 @@ use crate::{
         range::FSRRange,
         string::FSRString,
     },
-    std::{fs::{fs::FSRInnerFile, FSRFileSystem}, gc::init_gc, io::init_io, thread::init_thread, utils::init_utils},
+    std::{core::{gc::init_gc, io::init_io, thread::init_thread, utils::init_utils}, fs::{file::FSRInnerFile, FSRFileSystem}},
 };
 
 use super::thread::FSRThreadRuntime;

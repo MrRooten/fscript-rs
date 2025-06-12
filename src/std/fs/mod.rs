@@ -1,5 +1,5 @@
-pub mod fs;
-use crate::{backend::{types::{base::{FSRObject, FSRValue}, module::FSRModule}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}}, std::fs::fs::FSRInnerFile};
+pub mod file;
+use crate::{backend::{types::{base::{FSRObject, FSRValue}, module::FSRModule}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}}, std::fs::file::FSRInnerFile};
 
 pub struct FSRFileSystem {
 

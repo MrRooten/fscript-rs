@@ -71,7 +71,7 @@ struct OperatorContext {
     for_iter_obj: Vec<Value>,
     logic_end_block: Option<Block>,
     logic_rest_bytecode_count: Option<usize>, // used to track the remaining bytecode count in a logic block
-    //if_body_line: Option<usize>,
+                                              //if_body_line: Option<usize>,
 }
 
 impl JitBuilder<'_> {
@@ -235,12 +235,14 @@ impl JitBuilder<'_> {
 
         //context.is_while = false;
         // unwrap to error
-        let v = context.loop_blocks.pop().with_context(|| {
-            "Failed to pop loop block in load_while_end".to_string()
-        })?;
-        let exit_block = context.loop_exit_blocks.pop().with_context(|| {
-            "Failed to pop loop exit block in load_while_end".to_string()
-        })?;
+        let v = context
+            .loop_blocks
+            .pop()
+            .with_context(|| "Failed to pop loop block in load_while_end".to_string())?;
+        let exit_block = context
+            .loop_exit_blocks
+            .pop()
+            .with_context(|| "Failed to pop loop exit block in load_while_end".to_string())?;
         self.builder.seal_block(v);
         self.builder.switch_to_block(exit_block);
         self.builder.seal_block(exit_block);
@@ -402,10 +404,9 @@ impl JitBuilder<'_> {
         if context.if_exit_blocks.last().unwrap().1 {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
-            self.builder.ins().jump(
-                context.if_exit_blocks.last().unwrap().0,
-                &[false_value],
-            );
+            self.builder
+                .ins()
+                .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
         }
 
         let v = context.if_header_blocks.pop().unwrap();
@@ -469,10 +470,9 @@ impl JitBuilder<'_> {
         if context.if_exit_blocks.last().unwrap().1 {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
-            self.builder.ins().jump(
-                context.if_exit_blocks.last().unwrap().0,
-                &[false_value],
-            );
+            self.builder
+                .ins()
+                .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
         }
 
         let v = context.if_header_blocks.pop().unwrap();
@@ -510,10 +510,9 @@ impl JitBuilder<'_> {
         if context.if_exit_blocks.last().unwrap().1 {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
-            self.builder.ins().jump(
-                context.if_exit_blocks.last().unwrap().0,
-                &[false_value],
-            );
+            self.builder
+                .ins()
+                .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
         }
 
         //self.builder.ins().nop();
@@ -1906,18 +1905,6 @@ fn declare_variables(
         builder.def_var(var, val);
     }
 
-    // for c in constans {
-    //     let val = builder.block_params(entry_block)[i];
-    //     let var = declare_variable(
-    //         int,
-    //         builder,
-    //         &mut variables,
-    //         &mut index,
-    //         &format!("{}_constant", c),
-    //     );
-    //     builder.declare_var(var, int);
-    // }
-
     let zero = builder.ins().iconst(int, 0);
     // let return_variable = declare_variable(
     //     int,
@@ -2013,11 +2000,7 @@ impl CraneLiftJitBackend {
         self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
 
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
-        let mut variables = code
-            .var_map
-            .var_map
-            .keys().cloned()
-            .collect::<Vec<_>>();
+        let mut variables = code.var_map.var_map.keys().cloned().collect::<Vec<_>>();
 
         let constans = code
             .var_map
