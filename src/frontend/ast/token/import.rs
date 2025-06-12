@@ -24,7 +24,11 @@ impl FSRImport {
 
         let sub = str::from_utf8(&source[0..len]).unwrap();
         if !sub.starts_with("import") {
-            unimplemented!()
+            return Err(SyntaxError::new(
+                &meta.clone(),
+                "Expected 'import' keyword at the start of import statement",
+                
+            ));
         }
 
         let module_start = sub.find(' ').unwrap();

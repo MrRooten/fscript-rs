@@ -65,7 +65,7 @@ pub struct Pointer<'a> {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GlobalObj {
-    None = 0,
+    NoneObj = 0,
     True = 1,
     False = 2,
     FnCls = 3,
@@ -85,6 +85,7 @@ pub enum GlobalObj {
     HashMapCls,
     NoneCls,
 }
+
 
 impl GlobalObj {
     pub fn get_id(&self) -> ObjId {

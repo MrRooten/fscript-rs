@@ -2080,10 +2080,6 @@ impl CraneLiftJitBackend {
         trans.malloc_args(&mut context);
         trans.malloc_call_args(&mut context);
         for expr in &code.bytecode {
-            // if let Some(s) = &mut context.if_body_line {
-            //     *s -= 1;
-            // }
-
             if i % 20 == 0 || context.ins_check_gc {
                 trans.load_check_gc(&mut context);
                 context.ins_check_gc = false;
@@ -2092,12 +2088,6 @@ impl CraneLiftJitBackend {
             trans.compile_expr(expr, &mut context);
             context.exp.clear();
             context.middle_value.clear();
-            // if let Some(s) = &mut context.if_body_line {
-            //     if *s == 0 {
-            //         trans.load_if_body_end(&mut context);
-            //         context.if_body_line = None;
-            //     }
-            // }
             i += 1;
         }
 

@@ -160,7 +160,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         let slot_idx = self.objects.len();
         let obj = self
             .allocator
-            .new_object(FSRValue::None, GlobalObj::None as ObjId);
+            .new_object(FSRValue::None, GlobalObj::NoneObj as ObjId);
 
         self.objects.push(Some(obj));
         let obj = &mut self.objects[slot_idx];

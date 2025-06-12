@@ -2127,7 +2127,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             let list = self.garbage_collect.new_object(
                 FSRList::new_value(list),
-                get_object_by_global_id(GlobalObj::ListCls) as ObjId,
+                GlobalObj::ListCls.get_id(),
             );
             self.get_cur_mut_frame().exp.push(list);
         }
@@ -2503,7 +2503,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                 let ptr = self.garbage_collect.new_object(
                     FSRString::new_value(s),
-                    get_object_by_global_id(GlobalObj::StringCls) as ObjId,
+                    GlobalObj::StringCls.get_id()
                 );
 
                 self.get_cur_mut_frame().insert_const({ *index }, ptr);

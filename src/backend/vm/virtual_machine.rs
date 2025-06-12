@@ -84,7 +84,7 @@ pub extern "C" fn get_false() -> ObjId {
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub extern "C" fn get_none() -> ObjId {
-    get_object_by_global_id(GlobalObj::None)
+    get_object_by_global_id(GlobalObj::NoneObj)
 }
 
 pub static mut GLOBAL_CLASS: Option<FSRClass<'static>> = None;
@@ -192,7 +192,7 @@ impl<'a> FSRVM<'a> {
                 OBJECTS.resize_with(100, || None);
 
                 OBJECTS.insert(
-                    GlobalObj::None as usize,
+                    GlobalObj::NoneObj as usize,
                     Some(Self::new_stataic_object_with_id(FSRValue::None)),
                 );
 
