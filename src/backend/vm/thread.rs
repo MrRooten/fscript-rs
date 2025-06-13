@@ -385,6 +385,10 @@ impl GcContext {
     }
 }
 
+pub struct ThreadShared {
+    objects: Vec<Arc<ObjId>>
+}
+
 #[allow(clippy::vec_box)]
 pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_id: usize,
