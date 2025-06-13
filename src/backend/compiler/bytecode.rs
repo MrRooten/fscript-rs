@@ -1626,7 +1626,7 @@ impl<'a> Bytecode {
         } else if let FSRToken::TryBlock(try_block) = token {
             let v = Self::load_try_def(try_block, var_map, byte_context);
             return (v);
-        } else if let FSRToken::EmptyExpr = token {
+        } else if let FSRToken::EmptyExpr(_) = token {
             return (vec![]);
         }
 
@@ -1783,7 +1783,17 @@ impl<'a> Bytecode {
         for sub_t in token.get_items().iter().rev() {
             let v = Bytecode::load_token_with_map(sub_t, var_map, const_map);
             let mut expr = v;
-            result_list.append(&mut expr[0]);
+            if !expr.is_empty() {
+                result_list.append(&mut expr[0]);
+            } else {
+                result_list.push(BytecodeArg {
+                    operator: BytecodeOperator::LoadList,
+                    arg: ArgType::LoadListNumber(0),
+                    info: FSRByteInfo::new(sub_t.get_meta().clone()),
+                });
+                return (result_list);
+            }
+            
         }
 
         let load_list = BytecodeArg {

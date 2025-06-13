@@ -1,15 +1,10 @@
-fn ddc() {
-    println("ddc")
-    id = __get_cur_thread_id()
-    print("ddc thread id: ")
-    println(id)
-    println("sleep 10s not exist")
-    sleep(10000)
-}
+import thread
 
 
-out = __new_thread(|| {
-    println("abc")
-})
+t2 = thread::Thread(|x| {
+    println("this is lambda")
+    println(x)
+    println(Thread::thread_id())
+}, [1, 2, 3])
 
-out.join()
+t2.join()

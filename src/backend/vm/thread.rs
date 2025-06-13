@@ -389,6 +389,19 @@ pub struct ThreadShared {
     objects: Vec<Arc<ObjId>>
 }
 
+impl ThreadShared {
+    pub fn new() -> Self {
+        Self {
+            objects: Vec::new(),
+        }
+    }
+
+    pub fn insert(&mut self, obj: Arc<ObjId>) {
+        self.objects.push(obj);
+    }
+    
+}
+
 #[allow(clippy::vec_box)]
 pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_id: usize,
@@ -408,6 +421,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_context_stack: Vec<Box<FSCodeContext>>,
     pub(crate) thread_context: Box<FSCodeContext>,
     pub(crate) gc_context: GcContext,
+    pub(crate) thread_shared: ThreadShared,
     #[cfg(feature = "count_bytecode")]
     pub(crate) bytecode_counter: Vec<usize>,
 }
@@ -458,6 +472,7 @@ impl<'a> FSRThreadRuntime<'a> {
             gc_context: GcContext::new_context(),
             #[cfg(feature = "count_bytecode")]
             bytecode_counter: vec![0; 256],
+            thread_shared: ThreadShared::new(),
         }
     }
 
@@ -584,6 +599,11 @@ impl<'a> FSRThreadRuntime<'a> {
 
         for obj in others {
             work_list.push(obj);
+        }
+
+
+        for shared_object in &self.thread_shared.objects {
+            work_list.push(**shared_object);
         }
 
         work_list

@@ -1257,7 +1257,7 @@ impl FSRExpr {
         Self::stmt_loop(source, ignore_nline, &meta, &mut ctx, context)?;
 
         if ctx.candidates.is_empty() {
-            return Ok((FSRToken::EmptyExpr, ctx.start + ctx.length));
+            return Ok((FSRToken::EmptyExpr(context.new_pos()), ctx.start + ctx.length));
         }
 
         ctx.operators.sort_by(|a, b| -> Ordering {

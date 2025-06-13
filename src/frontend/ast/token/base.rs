@@ -36,7 +36,7 @@ pub enum FSRToken {
     Class(FSRClassFrontEnd),
     Getter(FSRGetter),
     TryBlock(FSRTryBlock),
-    EmptyExpr,
+    EmptyExpr(FSRPosition),
     None,
 }
 
@@ -107,7 +107,7 @@ impl FSRToken {
             FSRToken::WhileExp(e) => e.get_meta(),
             FSRToken::Module(e) => e.get_meta(),
             FSRToken::Import(e) => e.get_meta(),
-            FSRToken::EmptyExpr => todo!(),
+            FSRToken::EmptyExpr(e) => e,
             FSRToken::None => todo!(),
             FSRToken::List(e) => e.get_meta(),
             FSRToken::Class(e) => e.get_meta(),
@@ -133,7 +133,7 @@ impl FSRToken {
     }
 
     pub fn is_empty(&self) -> bool {
-        matches!(self, FSRToken::EmptyExpr)
+        matches!(self, FSRToken::EmptyExpr(_))
     }
 
     pub fn try_push_stack_expr(&mut self, value: FSRToken) -> Result<(), SyntaxError> {

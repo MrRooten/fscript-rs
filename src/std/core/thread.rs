@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     backend::{
@@ -34,20 +34,25 @@ pub fn fsr_new_thread(
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let fn_id = args[0];
-    let args = args[1..].to_vec();
+    let th_thread_args = args[1..].iter().map(|x| Arc::new(*x)).collect::<Vec<_>>();
     
+    for arg in &th_thread_args {
+        thread.thread_shared.insert(arg.clone());
+    }
+
     let vm = thread.get_vm();
     let th = std::thread::spawn(move || {
         
-        let runtime = FSRThreadRuntime::new_runtime();
+        let mut runtime = FSRThreadRuntime::new_runtime();
+        let mut args = vec![];
+        for arg in th_thread_args {
+            args.push(*arg);
+            runtime.thread_shared.insert(arg.clone());
+        }
         let thread_id = vm.add_thread(runtime);
         let th = vm.get_thread(thread_id).unwrap();
         let fn_obj = FSRObject::id_to_obj(fn_id);
         let _ = fn_obj.call(&args, th, code, fn_id);
-        // vm2.get_thread(thread_id, |x| {
-        //     let fn_obj = FSRObject::id_to_obj(fn_id);
-        //     fn_obj.call(&args, x, code, fn_id);
-        // });
     });
     let handle = FSRThreadHandle::new(th);
     

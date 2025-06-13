@@ -1,19 +1,10 @@
-a = 123
-
-println(a)
-
-b = 1.23
-println(b)
+import thread
 
 
-c = 1.23e-4
-println(c)
+t2 = thread::Thread(|x| {
+    println("this is lambda")
+    println(x)
+    println(Thread::thread_id())
+}, [1, 2, 3])
 
-d = 1_000_000
-println(d)
-
-e = 0xff
-println(e)
-
-f = -0b101010
-println(f)
+t2.join()

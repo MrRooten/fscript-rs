@@ -54,7 +54,7 @@ mod frontend_tests {
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
         let expr = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
-        if let FSRToken::EmptyExpr = expr.0 {
+        if let FSRToken::EmptyExpr(_) = expr.0 {
             //let e: FSRExpr = e.try_into().unwrap();
         } else {
             unimplemented!()
