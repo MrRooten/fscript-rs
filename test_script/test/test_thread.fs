@@ -9,9 +9,9 @@ fn abc() {
 
 t2 = thread::Thread(|| {
     println("this is lambda")
-})
+}, [])
 
-t = thread::Thread(abc)
+t = thread::Thread(abc, [])
 
 fn ddc() {
     println("ddc")
