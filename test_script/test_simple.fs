@@ -1,10 +1,5 @@
-import thread
+a = "abcd".as_bytes()
 
+c = a.as_hex()
 
-t2 = thread::Thread(|x| {
-    println("this is lambda")
-    println(x)
-    println(Thread::thread_id())
-}, [1, 2, 3])
-
-t2.join()
+println(c)

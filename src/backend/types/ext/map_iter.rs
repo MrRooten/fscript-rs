@@ -58,16 +58,6 @@ impl AnyDebugSend for FSRMapIter {
 }
 
 impl FSRMapIter {
-    // pub fn new(callback: ObjId, prev_iterator: ObjId) -> FSRValue<'static> {
-    //     FSRValue::Any(Box::new(AnyType {
-    //         value: Box::new(FSRMapIter {
-    //             callback,
-    //             prev_iterator,
-    //             module: todo!(),
-    //         })
-    //     }))
-    // }
-
     pub fn get_class() -> FSRClass<'static> {
         let mut cls = FSRClass::new("FSRMapIter");
         cls

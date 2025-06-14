@@ -46,29 +46,6 @@ pub struct MarkSweepGarbageCollector<'a> {
 const THROLD: usize = 10240 * 2;
 
 impl<'a> MarkSweepGarbageCollector<'a> {
-    // pub fn init_size(&mut self) {
-    //     let mut res = 0;
-    //     for v in self.objects.iter() {
-    //         if let Some(obj) = v {
-    //             if obj.free {
-    //                 continue;
-    //             }
-    //             res += obj.get_size();
-    //         }
-    //     }
-
-    //     for v in self.marjor_arena.iter() {
-    //         if let Some(obj) = v {
-    //             if obj.free {
-    //                 continue;
-    //             }
-    //             res += obj.get_size();
-    //         }
-    //     }
-
-    //     self.tracker.memory_size = res;
-    // }
-
     pub fn get_stop_time(&self) -> u64 {
         self.tracker.collect_time
     }

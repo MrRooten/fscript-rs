@@ -1,22 +1,17 @@
 
-class Abc {
-    @jit
-    fn __add__(self, abc) {
-        println("test: ", self, abc)
-        return 1
-    }
-}
 
 @jit
 fn jit_test() {
     a = 0
-    while a < 3000000 {
+    while a < 5 {
+        
+        if a == 1 {
+            a = a + 1
+            continue
+        }
+        println(a)
         a = a + 1
-
     }
-
-    println("jit_test done: ", a)
 }
 
-a = Abc()
 jit_test()

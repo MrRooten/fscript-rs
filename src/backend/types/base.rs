@@ -252,8 +252,15 @@ impl<'a> FSRValue<'a> {
             }
             FSRValue::Any(_) => Some(Arc::new(FSRInnerString::new("AnyType"))),
             FSRValue::Bytes(fsrinner_bytes) => {
-                Some(Arc::new(FSRInnerString::new("Bytes()")))
-            },
+                let print_s = fsrinner_bytes
+                    .bytes
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<Vec<_>>()
+                    .join("");
+                let print_s = format!("Bytes(0x{})", print_s);
+                Some(Arc::new(FSRInnerString::new(print_s)))
+            }
         };
 
         s

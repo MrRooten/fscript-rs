@@ -70,6 +70,7 @@ struct OperatorContext {
     for_obj: Vec<Value>,
     for_iter_obj: Vec<Value>,
     logic_end_block: Option<Block>,
+    body_continue: bool,
     logic_rest_bytecode_count: Option<usize>, // used to track the remaining bytecode count in a logic block
                                               //if_body_line: Option<usize>,
 }
@@ -229,6 +230,7 @@ impl JitBuilder<'_> {
     }
 
     fn load_while_end(&mut self, context: &mut OperatorContext) -> Result<()> {
+        context.body_continue = false;
         self.builder
             .ins()
             .jump(*context.loop_blocks.last().unwrap(), &[]);
@@ -249,6 +251,15 @@ impl JitBuilder<'_> {
         context.ins_check_gc = true;
         Ok(())
         //self.builder.ins().iconst(self.int, 0);
+    }
+
+    fn load_continue(&mut self, context: &mut OperatorContext) -> Result<()> {
+        self.builder.ins().jump(
+            *context.loop_blocks.last().unwrap(),
+            &[],
+        );
+        context.body_continue = true;
+        Ok(())
     }
 
     fn load_for_iter(&mut self, context: &mut OperatorContext) {
@@ -401,13 +412,15 @@ impl JitBuilder<'_> {
         //self.builder.seal_block(exit_block.0);
 
         // get last current block param
-        if context.if_exit_blocks.last().unwrap().1 {
+        if context.if_exit_blocks.last().unwrap().1 || context.body_continue {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
             self.builder
                 .ins()
                 .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
         }
+
+        context.body_continue = false;
 
         let v = context.if_header_blocks.pop().unwrap();
         self.builder.seal_block(v);
@@ -467,13 +480,15 @@ impl JitBuilder<'_> {
         //self.builder.seal_block(exit_block.0);
 
         // get last current block param
-        if context.if_exit_blocks.last().unwrap().1 {
+        if context.if_exit_blocks.last().unwrap().1 || context.body_continue {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
             self.builder
                 .ins()
                 .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
         }
+
+        context.body_continue = false;
 
         let v = context.if_header_blocks.pop().unwrap();
         self.builder.seal_block(v);
@@ -507,13 +522,16 @@ impl JitBuilder<'_> {
     }
 
     fn load_if_end(&mut self, context: &mut OperatorContext) {
-        if context.if_exit_blocks.last().unwrap().1 {
+        
+        if context.if_exit_blocks.last().unwrap().1 || context.body_continue {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
             self.builder
                 .ins()
                 .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
         }
+
+        context.body_continue = false;
 
         //self.builder.ins().nop();
 
@@ -1840,6 +1858,9 @@ impl JitBuilder<'_> {
                 BytecodeOperator::LoadList => {
                     self.load_list(context, arg);
                 }
+                BytecodeOperator::Continue => {
+                    self.load_continue(context);
+                }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())
                 }
@@ -2034,6 +2055,7 @@ impl CraneLiftJitBackend {
             middle_value: vec![],
             //if_body_line: None,
             if_body_blocks: vec![],
+            body_continue: false,
         };
         // Since this is the entry block, add block parameters corresponding to
         // the function's parameters.

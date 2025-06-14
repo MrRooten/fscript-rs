@@ -115,6 +115,12 @@ fn div(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "div requires exactly 2 arguments",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -141,6 +147,12 @@ pub fn reminder(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "reminder requires exactly 2 arguments",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -263,6 +275,12 @@ pub fn greater_equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "greater_equal requires at least 2 arguments",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -309,19 +327,15 @@ pub fn equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "equal requires at least 2 arguments",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-
-    // if let FSRValue::Integer(self_int) = self_object.value {
-    //     if let FSRValue::Integer(other_int) = other_object.value {
-    //         if self_int == other_int {
-    //             return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
-    //         } else {
-    //             return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
-    //         }
-    //     }
-    // }
     match (&self_object.value, &other_object.value) {
         (FSRValue::Integer(self_int), FSRValue::Integer(other_int)) => {
             if *self_int == *other_int {
@@ -344,6 +358,12 @@ pub fn not_equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "not_equal requires at least 2 arguments",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -367,6 +387,12 @@ pub fn sorted_value(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 1 {
+        return Err(FSRError::new(
+            "sorted_value requires exactly 1 argument",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_obj(args[0]);
 
@@ -382,6 +408,12 @@ fn hash_integer(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 1 {
+        return Err(FSRError::new(
+            "hash_integer requires exactly 1 argument",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_obj(args[0]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
