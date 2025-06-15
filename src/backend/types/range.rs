@@ -4,12 +4,11 @@ use crate::{
     backend::{
         compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::base::FSRObject,
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
-    },
-    utils::error::FSRError,
+    }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, utils::error::FSRError
 };
 
 use super::{
-    base::{AtomicObjId, GlobalObj, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, ext::{filter_iter::FSRFilterIter, map_iter::FSRMapIter}, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}
+    base::{AtomicObjId, GlobalObj, FSRRetValue, FSRValue, ObjId}, class::FSRClass, class_inst::FSRClassInst, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}
 };
 
 #[derive(Debug, Clone)]
@@ -155,7 +154,7 @@ fn enumerate(
 ) -> Result<FSRRetValue, FSRError> {
     let iterator = iter_obj(args, len, thread, code)?.get_id();
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    let enumerate_iterator = crate::backend::types::ext::enumerate::FSREnumerateIter {
+    let enumerate_iterator = FSREnumerateIter {
         prev_iterator: iterator,
         index: 0,
         code,

@@ -85,6 +85,7 @@ pub enum GlobalObj {
     HashMapCls,
     NoneCls,
     BytesCls,
+    HashSetCls,
 }
 
 impl GlobalObj {

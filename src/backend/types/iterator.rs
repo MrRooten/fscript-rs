@@ -4,20 +4,15 @@ use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
-        types::{
-            ext::enumerate::{self, FSREnumerateIter},
-            list::FSRList,
-        },
+        types::list::FSRList,
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
-    },
-    utils::error::{FSRErrCode, FSRError},
+    }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, utils::error::{FSRErrCode, FSRError}
 };
 
 use super::{
     base::{AtomicObjId, GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
     class::FSRClass,
     code::FSRCode,
-    ext::{filter_iter::FSRFilterIter, map_iter::FSRMapIter},
     fn_def::FSRFn,
 };
 

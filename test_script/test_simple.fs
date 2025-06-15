@@ -1,5 +1,8 @@
-a = "abcd".as_bytes()
+a = HashSet::new()
 
-c = a.as_hex()
-
-println(c)
+a.insert(1)
+a.insert(2)
+a.insert(1)
+for i in a {
+    println(i)
+}

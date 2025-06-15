@@ -15,7 +15,7 @@ use crate::{
         class::FSRClass,
         code::FSRCode,
         error::FSRException,
-        ext::{hashmap::FSRHashMap, map_iter::FSRMapIter},
+        ext::{hashmap::FSRHashMap, hashset::FSRHashSet},
         float::FSRFloat,
         fn_def::FSRFn,
         integer::FSRInteger,
@@ -321,6 +321,12 @@ impl<'a> FSRVM<'a> {
                     )))),
                 );
 
+                OBJECTS.insert(GlobalObj::HashSetCls as usize, 
+                    Some(Self::new_stataic_object_with_id(FSRValue::Class(Box::new(
+                        FSRHashSet::get_class(),
+                    )))),
+                );
+
                 for object in OBJECTS.iter_mut() {
                     if let Some(object) = object {
                         if let FSRValue::Class(_) = object.value {
@@ -370,6 +376,10 @@ impl<'a> FSRVM<'a> {
         self.global.insert(
             "HashMap".to_string(),
             get_object_by_global_id(GlobalObj::HashMapCls) as ObjId,
+        );
+        self.global.insert(
+            "HashSet".to_string(),
+            get_object_by_global_id(GlobalObj::HashSetCls) as ObjId,
         );
     }
 

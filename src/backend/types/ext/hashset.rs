@@ -28,62 +28,62 @@ use crate::{
 
 const MAX_SEGMENT_SIZE: usize = 409600;
 
-struct SegmentHashMap {
+struct SegmentHashSet {
     // is_dirty: bool,
     // area: Area,
-    hashmap: IndexMap<u64, SmallVec<[(AtomicObjId, AtomicObjId); 1]>, ahash::RandomState>,
+    hashset: IndexMap<u64, SmallVec<[(AtomicObjId); 1]>, ahash::RandomState>,
 }
 
-impl Debug for SegmentHashMap {
+impl Debug for SegmentHashSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SegmentHashMap")
+        f.debug_struct("SegmentHashSet")
             // .field("is_dirty", &self.is_dirty)
             .finish()
     }
 }
 
-impl SegmentHashMap {
+impl SegmentHashSet {
     pub fn new() -> Self {
         Self {
             // is_dirty: true,
-            hashmap: IndexMap::with_hasher(ahash::RandomState::new()), // area: Area::Minjor,
+            hashset: IndexMap::with_hasher(ahash::RandomState::new()), // area: Area::Minjor,
         }
     }
 
     pub fn len(&self) -> usize {
-        self.hashmap.len()
+        self.hashset.len()
     }
 
-    pub fn get(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
-        self.hashmap.get(&key)
+    pub fn get(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId); 1]>> {
+        self.hashset.get(&key)
     }
 
-    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
-        self.hashmap.get_mut(&key)
+    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId); 1]>> {
+        self.hashset.get_mut(&key)
     }
 
-    pub fn insert(&mut self, key: u64, value: SmallVec<[(AtomicObjId, AtomicObjId); 1]>) {
-        self.hashmap.insert(key, value);
+    pub fn insert(&mut self, key: u64, value: SmallVec<[(AtomicObjId); 1]>) {
+        self.hashset.insert(key, value);
     }
 
     pub fn remove(&mut self, key: u64) {
-        self.hashmap.swap_remove(&key);
+        self.hashset.swap_remove(&key);
     }
 
     pub fn clear(&mut self) {
-        self.hashmap.clear();
+        self.hashset.clear();
     }
     // pub fn is_dirty(&self) -> bool {
     //     self.is_dirty
     // }
 }
 
-pub struct FSRHashMap {
+pub struct FSRHashSet {
     // inner_map: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
-    segment_map: Vec<SegmentHashMap>,
+    segment_map: Vec<SegmentHashSet>,
 }
 
-impl Debug for FSRHashMap {
+impl Debug for FSRHashSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FSRHashMap")
             .field("inner_map", &self.segment_map)
@@ -91,7 +91,7 @@ impl Debug for FSRHashMap {
     }
 }
 
-impl AnyDebugSend for FSRHashMap {
+impl AnyDebugSend for FSRHashSet {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -101,21 +101,21 @@ impl AnyDebugSend for FSRHashMap {
     }
 }
 
-type HashMapIterType<'a> = Iter<'a, u64, SmallVec<[(AtomicObjId, AtomicObjId); 1]>>;
+type HashSetIterType<'a> = Iter<'a, u64, SmallVec<[(AtomicObjId); 1]>>;
 
 struct FSRHashMapRefIterator<'a> {
-    hashmap: &'a FSRHashMap,
+    hashset: &'a FSRHashSet,
     segment_idx: usize,
-    vec_iter: Option<std::slice::Iter<'a, (AtomicObjId, AtomicObjId)>>,
-    hash_iter: Option<HashMapIterType<'a>>,
-    current_pair: Option<&'a (AtomicObjId, AtomicObjId)>,
+    vec_iter: Option<std::slice::Iter<'a, (AtomicObjId)>>,
+    hash_iter: Option<HashSetIterType<'a>>,
+    current_pair: Option<&'a (AtomicObjId)>,
     yield_key: bool,
 }
 
 impl<'a> FSRHashMapRefIterator<'a> {
-    fn new(hashmap: &'a FSRHashMap) -> Self {
+    fn new(hashset: &'a FSRHashSet) -> Self {
         let mut iter = Self {
-            hashmap,
+            hashset,
             segment_idx: 0,
             vec_iter: None,
             hash_iter: None,
@@ -124,8 +124,8 @@ impl<'a> FSRHashMapRefIterator<'a> {
         };
 
         // 初始化第一个segment的迭代器
-        if !hashmap.segment_map.is_empty() {
-            iter.hash_iter = Some(hashmap.segment_map[0].hashmap.iter());
+        if !hashset.segment_map.is_empty() {
+            iter.hash_iter = Some(hashset.segment_map[0].hashset.iter());
         }
 
         // 初始化第一个vec迭代器
@@ -145,8 +145,8 @@ impl<'a> FSRHashMapRefIterator<'a> {
 
         // 尝试移动到下一个segment
         self.segment_idx += 1;
-        if self.segment_idx < self.hashmap.segment_map.len() {
-            self.hash_iter = Some(self.hashmap.segment_map[self.segment_idx].hashmap.iter());
+        if self.segment_idx < self.hashset.segment_map.len() {
+            self.hash_iter = Some(self.hashset.segment_map[self.segment_idx].hashset.iter());
             self.advance_hash_iterator()
         } else {
             self.vec_iter = None;
@@ -164,7 +164,7 @@ impl<'a> FSRHashMapRefIterator<'a> {
             }
         }
 
-        // 尝试移动到下一个hashmap条目
+        // 尝试移动到下一个hashset条目
         self.advance_hash_iterator()
     }
 }
@@ -176,9 +176,9 @@ impl Iterator for FSRHashMapRefIterator<'_> {
         if let Some(pair) = self.current_pair {
             if self.yield_key {
                 self.yield_key = false;
-                return Some(pair.0.load(Ordering::Relaxed));
+                return Some(pair.load(Ordering::Relaxed));
             } else {
-                let value = pair.1.load(Ordering::Relaxed);
+                let value = pair.load(Ordering::Relaxed);
                 self.advance_vec_iterator();
                 return Some(value);
             }
@@ -188,7 +188,7 @@ impl Iterator for FSRHashMapRefIterator<'_> {
     }
 }
 
-impl GetReference for FSRHashMap {
+impl GetReference for FSRHashSet {
     /// Try to process in here instead of return a iterator
     fn get_reference<'a>(
         &'a self,
@@ -198,8 +198,8 @@ impl GetReference for FSRHashMap {
     ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         //let mut v = Vec::with_capacity(self.len() * 2);
         for segment in self.segment_map.iter() {
-            for (_, vec) in segment.hashmap.iter() {
-                for (key, value) in vec.iter() {
+            for (_, vec) in segment.hashset.iter() {
+                for (key) in vec.iter() {
                     //v.push(key.load(Ordering::Relaxed));
                     //v.push(value.load(Ordering::Relaxed));
                     #[allow(clippy::never_loop)]
@@ -218,19 +218,19 @@ impl GetReference for FSRHashMap {
                         break;
                     }
 
-                    {
-                        let ref_id = value.load(Ordering::Relaxed);
-                        let obj = FSRObject::id_to_obj(ref_id);
-                        if obj.area == Area::Minjor {
-                            *is_add = true;
-                        } else if !full {
-                            continue;
-                        }
+                    // {
+                    //     let ref_id = value.load(Ordering::Relaxed);
+                    //     let obj = FSRObject::id_to_obj(ref_id);
+                    //     if obj.area == Area::Minjor {
+                    //         *is_add = true;
+                    //     } else if !full {
+                    //         continue;
+                    //     }
 
-                        if !obj.is_marked() {
-                            worklist.push(ref_id);
-                        }
-                    }
+                    //     if !obj.is_marked() {
+                    //         worklist.push(ref_id);
+                    //     }
+                    // }
                 }
             }
         }
@@ -247,7 +247,7 @@ impl GetReference for FSRHashMap {
 
 pub struct FSRHashMapIterator<'a> {
     pub(crate) list_obj: ObjId,
-    pub(crate) iter: Box<dyn Iterator<Item = (ObjId, ObjId)> + Send + 'a>,
+    pub(crate) iter: Box<dyn Iterator<Item = (ObjId)> + Send + 'a>,
 }
 
 impl FSRIteratorReferences for FSRHashMapIterator<'_> {
@@ -267,36 +267,31 @@ impl FSRIterator for FSRHashMapIterator<'_> {
         //         .new_object(list, get_object_by_global_id(FSRGlobalObjId::ListCls) as ObjId);
         //     Ok(ret)
         // })
-        if let Some((key, value)) = c {
-            let vs = vec![key, value];
-            let list = FSRList::new_value(vs);
-            let ret = thread
-                .garbage_collect
-                .new_object(list, get_object_by_global_id(GlobalObj::ListCls) as ObjId);
-            Ok(Some(ret))
+        if let Some((key)) = c {
+            Ok(Some(key))
         } else {
             Ok(None)
         }
     }
 }
 
-pub fn fsr_fn_hashmap_iter(
+pub fn fsr_fn_hashset_iter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    let hashmap = FSRObject::id_to_obj(args[0]);
-    if let FSRValue::Any(any) = &hashmap.value {
-        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
-            let iter = hashmap
+    let hashset = FSRObject::id_to_obj(args[0]);
+    if let FSRValue::Any(any) = &hashset.value {
+        if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
+            let iter = hashset
                 .segment_map
                 .iter()
-                .flat_map(|s| s.hashmap.iter())
+                .flat_map(|s| s.hashset.iter())
                 .flat_map(|(k, v)| {
-                    v.iter().map(move |(key, value)| {
-                        (key.load(Ordering::Relaxed), value.load(Ordering::Relaxed))
+                    v.iter().map(move |(key)| {
+                        (key.load(Ordering::Relaxed))
                     })
                 });
             let iter_obj = FSRHashMapIterator {
@@ -319,55 +314,49 @@ pub fn fsr_fn_hashmap_iter(
     }
 }
 
-pub fn fsr_fn_hashmap_new(
+pub fn fsr_fn_hashset_new(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    let hashmap = FSRHashMap::new_hashmap();
+    let hashset = FSRHashSet::new_hashset();
     let object = thread
         .garbage_collect
-        .new_object(hashmap.to_any_type(), get_object_by_global_id(GlobalObj::HashMapCls));
+        .new_object(hashset.to_any_type(), get_object_by_global_id(GlobalObj::HashSetCls));
     Ok(FSRRetValue::GlobalId(object))
 }
 
-/// Insert a key-value pair into the hashmap
+/// Insert a key-value pair into the hashset
 /// accepts 3 arguments
-/// 1. hashmap object
+/// 1. hashset object
 /// 2. key
 /// 3. value
-pub fn fsr_fn_hashmap_insert(
+pub fn fsr_fn_hashset_insert(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    if args.len() != 3 {
+    if args.len() != 2 {
         return Err(FSRError::new(
             "not valid args",
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    let hashset = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
     let key = args[1];
-    let value = args[2];
-    if hashmap.area.is_long() {
+    if hashset.area.is_long() {
         let key_obj = FSRObject::id_to_obj(key);
         if key_obj.area == Area::Minjor {
-            hashmap.set_write_barrier(true);
-        }
-
-        let value_obj = FSRObject::id_to_obj(value);
-        if value_obj.area == Area::Minjor {
-            hashmap.set_write_barrier(true);
+            hashset.set_write_barrier(true);
         }
     }
-    if let FSRValue::Any(any) = &mut hashmap.value {
-        if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
-            hashmap.insert(key, value, thread)?;
+    if let FSRValue::Any(any) = &mut hashset.value {
+        if let Some(hashset) = any.value.as_any_mut().downcast_mut::<FSRHashSet>() {
+            hashset.insert(key, thread)?;
         } else {
             unimplemented!()
         }
@@ -377,19 +366,19 @@ pub fn fsr_fn_hashmap_insert(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-pub fn fsr_fn_hashmap_get(
+pub fn fsr_fn_hashset_get(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    let hashmap = FSRObject::id_to_obj(args[0]);
+    let hashset = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
-    if let FSRValue::Any(any) = &hashmap.value {
-        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
-            if let Some(value) = hashmap.get(key, thread) {
+    if let FSRValue::Any(any) = &hashset.value {
+        if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
+            if let Some(value) = hashset.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(
                     value.load(std::sync::atomic::Ordering::Relaxed),
                 ));
@@ -403,19 +392,19 @@ pub fn fsr_fn_hashmap_get(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-pub fn fsr_fn_hashmap_get_reference(
+pub fn fsr_fn_hashset_get_reference(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    let hashmap_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    let hashset_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
     let key = args[1];
     let mut flag = false;
-    if let FSRValue::Any(any) = &hashmap_obj.value {
-        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
-            if let Some(value) = hashmap.get(key, thread) {
+    if let FSRValue::Any(any) = &hashset_obj.value {
+        if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
+            if let Some(value) = hashset.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(value.load(Ordering::Relaxed)));
             }
         }
@@ -425,19 +414,19 @@ pub fn fsr_fn_hashmap_get_reference(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-pub fn fsr_fn_hashmap_contains(
+pub fn fsr_fn_hashset_contains(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    let hashmap = FSRObject::id_to_obj(args[0]);
+    let hashset = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
-    if let FSRValue::Any(any) = &hashmap.value {
-        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
-            if hashmap.get(key, thread).is_some() {
+    if let FSRValue::Any(any) = &hashset.value {
+        if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
+            if hashset.get(key, thread).is_some() {
                 return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             }
         } else {
@@ -449,19 +438,19 @@ pub fn fsr_fn_hashmap_contains(
     Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
-pub fn fsr_fn_hashmap_remove(
+pub fn fsr_fn_hashset_remove(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    let hashset = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
     let key = args[1];
 
-    if let FSRValue::Any(any) = &mut hashmap.value {
-        if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
-            hashmap.remove(key, thread);
+    if let FSRValue::Any(any) = &mut hashset.value {
+        if let Some(hashset) = any.value.as_any_mut().downcast_mut::<FSRHashSet>() {
+            hashset.remove(key, thread);
         } else {
             unimplemented!()
         }
@@ -471,10 +460,10 @@ pub fn fsr_fn_hashmap_remove(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-impl FSRHashMap {
-    pub fn new_hashmap() -> Self {
+impl FSRHashSet {
+    pub fn new_hashset() -> Self {
         Self {
-            segment_map: vec![SegmentHashMap::new()],
+            segment_map: vec![SegmentHashSet::new()],
         }
     }
 
@@ -492,7 +481,7 @@ impl FSRHashMap {
         self.len() == 0
     }
 
-    pub fn get_item(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
+    pub fn get_item(&self, key: u64) -> Option<&SmallVec<[(AtomicObjId); 1]>> {
         for segment in self.segment_map.iter() {
             if let Some(value) = segment.get(key) {
                 return Some(value);
@@ -501,7 +490,7 @@ impl FSRHashMap {
         None
     }
 
-    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId, AtomicObjId); 1]>> {
+    pub fn get_mut(&mut self, key: u64) -> Option<&mut SmallVec<[(AtomicObjId); 1]>> {
         for segment in self.segment_map.iter_mut() {
             if let Some(value) = segment.get_mut(key) {
                 return Some(value);
@@ -510,22 +499,22 @@ impl FSRHashMap {
         None
     }
 
-    pub fn insert_item(&mut self, hash: u64, key: ObjId, value: ObjId) -> Option<()> {
+    pub fn insert_item(&mut self, hash: u64, key: ObjId) -> Option<()> {
         for segment in self.segment_map.iter_mut() {
             if segment.len() < MAX_SEGMENT_SIZE {
                 segment.insert(
                     hash,
-                    [(AtomicObjId::new(key), AtomicObjId::new(value))].into(),
+                    [(AtomicObjId::new(key))].into(),
                 );
                 // segment.is_dirty = true;
                 return Some(());
             }
         }
 
-        let mut new_segment = SegmentHashMap::new();
+        let mut new_segment = SegmentHashSet::new();
         new_segment.insert(
             hash,
-            [(AtomicObjId::new(key), AtomicObjId::new(value))].into(),
+            [(AtomicObjId::new(key))].into(),
         );
         // new_segment.is_dirty = true;
         self.segment_map.push(new_segment);
@@ -533,7 +522,7 @@ impl FSRHashMap {
         Some(())
     }
 
-    pub fn try_insert_item(&mut self, hash: u64, key: ObjId, value: ObjId) -> Option<()> {
+    pub fn try_insert_item(&mut self, hash: u64, key: ObjId) -> Option<()> {
         for segment in self.segment_map.iter_mut() {
             if segment.len() < MAX_SEGMENT_SIZE {
                 // segment.insert(
@@ -541,10 +530,10 @@ impl FSRHashMap {
                 //     [(AtomicObjId::new(key), AtomicObjId::new(value))].into(),
                 // );
 
-                match segment.hashmap.entry(hash) {
+                match segment.hashset.entry(hash) {
                     indexmap::map::Entry::Occupied(occupied_entry) => return None,
                     indexmap::map::Entry::Vacant(vacant_entry) => {
-                        vacant_entry.insert([(AtomicObjId::new(key), AtomicObjId::new(value))].into());
+                        vacant_entry.insert([(AtomicObjId::new(key))].into());
                     },
                 };
                 // segment.is_dirty = true;
@@ -552,10 +541,10 @@ impl FSRHashMap {
             }
         }
 
-        let mut new_segment = SegmentHashMap::new();
+        let mut new_segment = SegmentHashSet::new();
         new_segment.insert(
             hash,
-            [(AtomicObjId::new(key), AtomicObjId::new(value))].into(),
+            [(AtomicObjId::new(key))].into(),
         );
         // new_segment.is_dirty = true;
         self.segment_map.push(new_segment);
@@ -565,7 +554,7 @@ impl FSRHashMap {
 
     pub fn remove_item(&mut self, key: u64) {
         for segment in self.segment_map.iter_mut() {
-            if segment.hashmap.contains_key(&key) {
+            if segment.hashset.contains_key(&key) {
                 // segment.is_dirty = true;
             } else {
                 continue;
@@ -601,97 +590,41 @@ impl FSRHashMap {
         Ok(hash)
     }
 
-    pub fn try_insert_if_not_exist(
-        &mut self,
-        key: ObjId,
-        value: ObjId,
-        thread: &mut FSRThreadRuntime,
-    ) -> Result<(), FSRError> {
-        let hash = Self::call_hash(key, thread)?;
-
-        if self.get_item(hash).is_none() {
-            self.insert_item(hash, key, value);
-            return Ok(());
-        }
-        let res = {
-            let res = self.get_mut(hash).unwrap();
-            for save_item in res.iter() {
-                let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
-                if save_key == key {
-                    // save_item
-                    //     .1
-                    //     .store(value, std::sync::atomic::Ordering::Relaxed);
-                    return Ok(());
-                }
-
-                let eq_fn_id = FSRObject::id_to_obj(save_key)
-                    .get_cls_offset_attr(BinaryOffset::Equal)
-                    .unwrap()
-                    .load(std::sync::atomic::Ordering::Relaxed);
-                let eq_fn = FSRObject::id_to_obj(eq_fn_id);
-                let is_same = eq_fn
-                    .call(&[save_key, value], thread, 0, eq_fn_id)?
-                    .get_id();
-
-                if is_same == FSRObject::true_id() {
-                    // save_item
-                    //     .1
-                    //     .store(value, std::sync::atomic::Ordering::Relaxed);
-                    return Ok(());
-                }
-            }
-            res
-        };
-
-        res.push((AtomicObjId::new(key), AtomicObjId::new(value)));
-
-        Ok(())
-    }
 
     pub fn insert(
         &mut self,
         key: ObjId,
-        value: ObjId,
         thread: &mut FSRThreadRuntime,
     ) -> Result<(), FSRError> {
         let hash = Self::call_hash(key, thread)?;
 
         // if let None = self.get_mut(hash) {
-        if self.try_insert_item(hash, key, value).is_some() {
+        if self.try_insert_item(hash, key).is_some() {
             return Ok(());
         }
 
         let res = {
             let res = self.get_mut(hash).unwrap();
             for save_item in res.iter() {
-                let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
-                if save_key == key {
-                    save_item
-                        .1
-                        .store(value, std::sync::atomic::Ordering::Relaxed);
-                    return Ok(());
-                }
-
-                let eq_fn_id = FSRObject::id_to_obj(save_key)
+                let eq_fn_id = FSRObject::id_to_obj(key)
                     .get_cls_offset_attr(BinaryOffset::Equal)
                     .unwrap()
                     .load(std::sync::atomic::Ordering::Relaxed);
                 let eq_fn = FSRObject::id_to_obj(eq_fn_id);
                 let is_same = eq_fn
-                    .call(&[save_key, value], thread, 0, eq_fn_id)?
+                    .call(&[key, save_item.load(Ordering::Relaxed)], thread, 0, eq_fn_id)?
                     .get_id();
 
                 if is_same == FSRObject::true_id() {
                     save_item
-                        .1
-                        .store(value, std::sync::atomic::Ordering::Relaxed);
+                        .store(key, std::sync::atomic::Ordering::Relaxed);
                     return Ok(());
                 }
             }
             res
         };
 
-        res.push((AtomicObjId::new(key), AtomicObjId::new(value)));
+        res.push((AtomicObjId::new(key)));
 
         Ok(())
     }
@@ -701,9 +634,9 @@ impl FSRHashMap {
 
         let res = self.get_item(hash)?;
         for save_item in res.iter() {
-            let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
+            let save_key = save_item.load(std::sync::atomic::Ordering::Relaxed);
             if save_key == key {
-                return Some(&save_item.1);
+                return Some(&save_item);
             }
 
             let eq_fn_id = FSRObject::id_to_obj(save_key)
@@ -717,7 +650,7 @@ impl FSRHashMap {
                 .get_id();
 
             if is_same == FSRObject::true_id() {
-                return Some(&save_item.1);
+                return Some(&save_item);
             }
         }
         None
@@ -754,7 +687,7 @@ impl FSRHashMap {
         let res = self.get_mut(hash).unwrap();
         for i in 0..len {
             let save_item = &res[i];
-            let save_key = save_item.0.load(std::sync::atomic::Ordering::Relaxed);
+            let save_key = save_item.load(std::sync::atomic::Ordering::Relaxed);
             if save_key == key {
                 res.remove(i);
                 return;
@@ -777,30 +710,26 @@ impl FSRHashMap {
     }
 
     pub fn get_class() -> FSRClass<'static> {
-        let mut cls = FSRClass::new("HashMap");
+        let mut cls = FSRClass::new("HashSet");
         // let len_m = FSRFn::from_rust_fn_static(string_len, "string_len");
         // cls.insert_attr("len", len_m);
         // let add_fn = FSRFn::from_rust_fn_static(add, "string_add");
         // //cls.insert_attr("__add__", add_fn);
         // cls.insert_offset_attr(BinaryOffset::Add, add_fn);
-        let new = FSRFn::from_rust_fn_static(fsr_fn_hashmap_new, "new");
+        let new = FSRFn::from_rust_fn_static(fsr_fn_hashset_new, "new");
         cls.insert_attr("new", new);
-        let insert = FSRFn::from_rust_fn_static(fsr_fn_hashmap_insert, "insert");
+        let insert = FSRFn::from_rust_fn_static(fsr_fn_hashset_insert, "insert");
         cls.insert_attr("insert", insert);
-        let set_item = FSRFn::from_rust_fn_static(fsr_fn_hashmap_insert, "hashmap__setitem__");
+        let set_item = FSRFn::from_rust_fn_static(fsr_fn_hashset_insert, "hashset__setitem__");
         cls.insert_offset_attr(BinaryOffset::SetItem, set_item);
-        let get = FSRFn::from_rust_fn_static(fsr_fn_hashmap_get, "get");
-        cls.insert_attr("get", get);
-        let get_item = FSRFn::from_rust_fn_static(fsr_fn_hashmap_get, "__getitem__");
-        cls.insert_offset_attr(BinaryOffset::GetItem, get_item);
-        let iter = FSRFn::from_rust_fn_static(fsr_fn_hashmap_iter, "iter");
+        let iter = FSRFn::from_rust_fn_static(fsr_fn_hashset_iter, "iter");
         cls.insert_attr("__iter__", iter);
-        let contains = FSRFn::from_rust_fn_static(fsr_fn_hashmap_contains, "contains");
+        let contains = FSRFn::from_rust_fn_static(fsr_fn_hashset_contains, "contains");
         cls.insert_attr("contains", contains);
-        let remove = FSRFn::from_rust_fn_static(fsr_fn_hashmap_remove, "remove");
+        let remove = FSRFn::from_rust_fn_static(fsr_fn_hashset_remove, "remove");
         cls.insert_attr("remove", remove);
         let get_item_ref =
-            FSRFn::from_rust_fn_static(fsr_fn_hashmap_get_reference, "__getitem__ref");
+            FSRFn::from_rust_fn_static(fsr_fn_hashset_get_reference, "__getitem__ref");
         cls.insert_offset_attr(BinaryOffset::GetItem, get_item_ref);
 
         cls
