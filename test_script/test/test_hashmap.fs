@@ -1,13 +1,11 @@
 a = HashMap::new()
 
-for i in 0..1000000 {
+for i in 0..100 {
     a.insert(i, i)
 }
 
-for i in 0..1000000 {
+for i in 0..100 {
     b = a[i]
 }
 
-dump(a)
-
-gc_info()
+println(a)

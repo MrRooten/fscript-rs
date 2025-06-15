@@ -251,7 +251,22 @@ impl<'a> FSRValue<'a> {
             FSRValue::Module(fsrmodule) => {
                 Some(Arc::new(FSRInnerString::new(fsrmodule.as_string())))
             }
-            FSRValue::Any(_) => Some(Arc::new(FSRInnerString::new("AnyType"))),
+            FSRValue::Any(_) => {
+                if FSRObject::id_to_obj(self_id).cls.get_attr("__str__").is_none() {
+                    return None;
+                }
+                let res = FSRObject::invoke_method("__str__", &[self_id], thread, code).unwrap();;
+                match &res {
+                    FSRRetValue::GlobalId(id) => {
+                        let obj = FSRObject::id_to_obj(*id);
+                        if let FSRValue::String(s) = &obj.value {
+                            return Some(s.clone());
+                        }
+
+                        return None;
+                    }
+                }
+            },
             FSRValue::Bytes(fsrinner_bytes) => {
                 let print_s = fsrinner_bytes
                     .bytes

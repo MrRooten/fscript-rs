@@ -1,7 +1,7 @@
 use std::{
     any::Any,
     fmt::{Debug, Formatter},
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{atomic::{AtomicUsize, Ordering}, Arc},
 };
 
 use ahash::AHashMap;
@@ -14,12 +14,12 @@ use crate::{
         memory::GarbageCollector,
         types::{
             any::{AnyDebugSend, AnyType, GetReference},
-            base::{Area, AtomicObjId, GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
+            base::{Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             error::FSRException,
             fn_def::FSRFn,
             iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences},
-            list::FSRList,
+            list::FSRList, string::FSRInnerString,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
@@ -401,6 +401,70 @@ pub fn fsr_fn_hashmap_get(
         unimplemented!()
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
+}
+
+fn hashmap_string(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let mut s = FSRInnerString::new("HashMap");
+    s.push('(');
+    let obj_id = args[0];
+    let obj = FSRObject::id_to_obj(obj_id);
+    if let FSRValue::Any(l) = &obj.value {
+        let l = l.value.as_any().downcast_ref::<FSRHashMap>()
+            .ok_or(FSRError::new(
+                "not a hashset",
+                crate::utils::error::FSRErrCode::RuntimeError,
+            ))?;
+        
+        let mut vs = vec![];
+        for seg in l.segment_map.iter() {
+            for (hash_id, bucket) in seg.hashmap.iter() {
+                for (key, value) in bucket.iter() {
+                    let key_obj = FSRObject::id_to_obj(key.load(Ordering::Relaxed));
+                    let value_obj = FSRObject::id_to_obj(value.load(Ordering::Relaxed));
+                    let key_str = key_obj.to_string(thread, code);
+                    let value_str = value_obj.to_string(thread, code);
+                    if let FSRValue::String(k) = &key_str {
+                        if let FSRValue::String(v) = &value_str {
+                            vs.push(format!("{} => {}", k, v));
+                        } else {
+                            return Err(FSRError::new(
+                                "HashMap contains non-string value",
+                                crate::utils::error::FSRErrCode::RuntimeError,
+                            ));
+                        }
+                    } else {
+                        return Err(FSRError::new(
+                            "HashMap contains non-string key",
+                            crate::utils::error::FSRErrCode::RuntimeError,
+                        ));
+                    }
+                }
+            }
+        }
+
+        let join_str = vs.join(", ");
+        if !join_str.is_empty() {
+            s.push_str(&join_str);
+        }
+    } else {
+        return Err(FSRError::new(
+            "not a hashset",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
+
+    s.push(')');
+    let obj_id = thread.garbage_collect.new_object(
+        FSRValue::String(Arc::new(s)),
+        get_object_by_global_id(GlobalObj::StringCls),
+    );
+    Ok(FSRRetValue::GlobalId(obj_id))
 }
 
 pub fn fsr_fn_hashmap_get_reference(
@@ -802,7 +866,8 @@ impl FSRHashMap {
         let get_item_ref =
             FSRFn::from_rust_fn_static(fsr_fn_hashmap_get_reference, "__getitem__ref");
         cls.insert_offset_attr(BinaryOffset::GetItem, get_item_ref);
-
+        let to_str = FSRFn::from_rust_fn_static(hashmap_string, "to_string");
+        cls.insert_attr("__str__", to_str);
         cls
     }
 }
