@@ -44,6 +44,8 @@ impl FSRInnerBytes {
 
         let as_hex = FSRFn::from_rust_fn_static(as_hex, "bytes_as_hex");
         cls.insert_attr("as_hex", as_hex);
+        let get_len = FSRFn::from_rust_fn_static(get_len, "bytes_get_len");
+        cls.insert_attr("len", get_len);
         return cls;
     }
 }
@@ -103,6 +105,37 @@ fn get_sub_bytes(
         Err(FSRError::new(
             "left value is not a bytes",
             crate::utils::error::FSRErrCode::NotValidArgs,
+        ))
+    }
+}
+
+pub fn get_len(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args.len() != 1 {
+        return Err(FSRError::new(
+            "get_len requires exactly 1 argument",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let self_id = args[0];
+    let obj = FSRObject::id_to_obj(self_id);
+    
+    if let FSRValue::Bytes(bytes) = &obj.value {
+        let len = bytes.bytes.len() as i64;
+        let obj_id = thread.garbage_collect.new_object(
+            FSRValue::Integer(len),
+            GlobalObj::IntegerCls.get_id(),
+        );
+        Ok(FSRRetValue::GlobalId(obj_id))
+    } else {
+        Err(FSRError::new(
+            "left value is not a bytes",
+            FSRErrCode::NotValidArgs,
         ))
     }
 }

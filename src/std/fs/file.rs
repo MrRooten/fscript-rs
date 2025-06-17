@@ -5,17 +5,24 @@ use anyhow::{anyhow, Context};
 use crate::{
     backend::{
         types::{
-            any::{AnyDebugSend, AnyType, GetReference}, base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
+            any::{AnyDebugSend, AnyType, GetReference}, base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, bytes::FSRInnerBytes, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
     utils::error::{FSRErrCode, FSRError},
 };
 
+#[derive(PartialEq, Debug)]
+enum OpMode {
+    Bytes,
+    String
+}
+
 #[derive(Debug)]
 pub struct FSRInnerFile {
     pub reader: BufReader<File>,
     pub writer: Option<BufWriter<File>>,
+    mode: OpMode,
     pub path: PathBuf,
 }
 
@@ -43,12 +50,22 @@ impl AnyDebugSend for FSRInnerFile {
 }
 
 impl FSRInnerFile {
-    pub fn new(path: &str) -> Result<Self, FSRError> {
+    fn get_mode(mode_str: &str) -> OpMode {
+        match mode_str {
+            "b" => OpMode::Bytes,
+            "s" => OpMode::String,
+            _ => panic!("Invalid mode for FSRInnerFile: {}", mode_str),
+            
+        }
+    }
+
+    pub fn new(path: &str, mode: &str) -> Result<Self, FSRError> {
         let path_buf = PathBuf::from(path);
         let file = std::fs::File::open(&path_buf)?;
         Ok(FSRInnerFile {
             reader: BufReader::new(file),
             writer: None, // Writer can be initialized later if needed
+            mode: Self::get_mode(mode),
             path: path_buf,
         })
     }
@@ -84,7 +101,8 @@ impl FSRInnerFile {
         cls.insert_attr("read_all", read_all);
         let file_lines = FSRFn::from_rust_fn_static(fsr_fn_file_lines, "lines");
         cls.insert_attr("lines", file_lines);
-
+        let read = FSRFn::from_rust_fn_static(fsr_fn_read, "read");
+        cls.insert_attr("read", read);
         cls
     }
 }
@@ -104,9 +122,21 @@ pub fn fsr_fn_open_file(
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let file_cls = args[0];
     let file_path = args[1];
+    let mode = if let Some(s) = args.get(2) {
+        if let FSRValue::String(s) = &FSRObject::id_to_obj(*s).value {
+            s.as_str()
+        } else {
+            return Err(FSRError::new(
+                "Invalid mode argument, expected a string",
+                FSRErrCode::RuntimeError,
+            ));
+        }
+    } else {
+        "s" // Default to string mode if not provided
+    };
     let file_path_obj = FSRObject::id_to_obj(file_path);
     if let FSRValue::String(s) = &file_path_obj.value {
-        let inner_file = FSRInnerFile::new(s.as_str())?;
+        let inner_file = FSRInnerFile::new(s.as_str(), mode)?;
         let object = thread
             .garbage_collect
             .new_object(inner_file.to_any_type(), file_cls);
@@ -116,6 +146,7 @@ pub fn fsr_fn_open_file(
     panic!("Invalid file path argument")
 }
 
+// file.read_all() -> Bytes
 pub fn fsr_fn_read_all(
     args: *const ObjId,
     len: usize,
@@ -135,6 +166,18 @@ pub fn fsr_fn_read_all(
     if let FSRValue::Any(any_type) = &mut file_obj.value {
         if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
             use std::io::Read;
+            if inner_file.mode == OpMode::Bytes {
+                let mut content = Vec::new();
+                inner_file
+                    .reader
+                    .read_to_end(&mut content)
+                    .with_context(|| anyhow!("Failed to read from file: {}", inner_file.get_path()))?;
+                let ret = FSRValue::Bytes(Box::new(FSRInnerBytes::new(content)));
+                let ret = thread
+                    .garbage_collect
+                    .new_object(ret, get_object_by_global_id(GlobalObj::BytesCls));
+                return Ok(FSRRetValue::GlobalId(ret));
+            }
             let mut content = String::new();
             inner_file
                 .reader
@@ -145,6 +188,76 @@ pub fn fsr_fn_read_all(
                 .garbage_collect
                 .new_object(ret, get_object_by_global_id(GlobalObj::StringCls));
             return Ok(FSRRetValue::GlobalId(ret));
+        }
+    }
+
+    Err(FSRError::new(
+        "Invalid file object",
+        FSRErrCode::RuntimeError,
+    ))
+}
+
+// file.read(offset: Integer, size: Integer) -> Bytes | String
+pub fn fsr_fn_read(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    if len < 3 {
+        return Err(FSRError::new(
+            "fsr_fn_read requires at least 2 arguments",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let file_obj_id = args[0];
+    let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
+    let offset = args[1];
+    let size = args[2];
+
+    let offset = if let FSRValue::Integer(i) = &FSRObject::id_to_obj(offset).value {
+        *i as usize
+    } else {
+        return Err(FSRError::new(
+            "Offset must be an integer",
+            FSRErrCode::RuntimeError,
+        ));
+    };
+
+    let size = if let FSRValue::Integer(i) = &FSRObject::id_to_obj(size).value {
+        *i as usize
+    } else {
+        return Err(FSRError::new(
+            "Size must be an integer",
+            FSRErrCode::RuntimeError,
+        ));
+    };
+    
+    if let FSRValue::Any(any_type) = &mut file_obj.value {
+        if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
+            use std::io::Read;
+            inner_file.seek(offset)?;
+            let mut buffer = vec![0; size];
+            inner_file
+                .reader
+                .read_exact(&mut buffer)
+                .with_context(|| anyhow!("Failed to read from file: {}", inner_file.get_path()))?;
+            if inner_file.mode == OpMode::Bytes {
+                let ret = FSRValue::Bytes(Box::new(FSRInnerBytes::new(buffer)));
+                let ret = thread
+                    .garbage_collect
+                    .new_object(ret, get_object_by_global_id(GlobalObj::BytesCls));
+                return Ok(FSRRetValue::GlobalId(ret));
+            } else {
+                let ret = String::from_utf8(buffer)
+                    .map_err(|e| FSRError::new(e.to_string(), FSRErrCode::RuntimeError))?;
+                let ret = FSRString::new_value(ret);
+                let ret = thread
+                    .garbage_collect
+                    .new_object(ret, get_object_by_global_id(GlobalObj::StringCls));
+                return Ok(FSRRetValue::GlobalId(ret));
+            }
         }
     }
 

@@ -1,12 +1,7 @@
-a = HashSet::new()
+import fs 
 
-a.insert(1)
-a.insert(2)
-a.insert(1)
-println(a)
+file = fs::File.open("./.gitignore", "b")
 
-println("----- remove item test -----")
-a.remove(1)
-for i in a {
-    println(i)
-}
+data = file.read_all()
+
+println(data.len())

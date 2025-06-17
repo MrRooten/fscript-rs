@@ -1772,15 +1772,7 @@ impl JitBuilder<'_> {
                 }
 
                 BytecodeOperator::EndFn => {
-                    // let null_value = self.builder.ins().iconst(self.int, 0);
-                    // self.builder.ins().return_(&[null_value]);
-                    // let end_bloack = self.builder.create_block();
-                    // self.builder.switch_to_block(end_bloack);
-                    // self.builder.seal_block(end_bloack);
-                    // let ptr = self.module.target_config().pointer_type();
-                    // let null_value = self.builder.ins().iconst(ptr, 0);
-
-                    // self.builder.ins().return_(&[null_value]);
+                    // do nothing, function will auto add return operator
                 }
                 BytecodeOperator::WhileTest => {
                     self.load_while(context);
