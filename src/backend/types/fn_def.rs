@@ -210,7 +210,7 @@ impl<'a> FSRFn<'a> {
     }
 
     pub fn get_class() -> FSRClass<'static> {
-        FSRClass::new("Fn")
+        FSRClass::new_without_method("Fn")
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]

@@ -95,6 +95,7 @@ impl FSRInnerFile {
 
     pub fn get_class() -> FSRClass<'static> {
         let mut cls = FSRClass::new("File");
+        cls.init_method();
         let open = FSRFn::from_rust_fn_static(fsr_fn_open_file, "new");
         cls.insert_attr("open", open);
         let read_all = FSRFn::from_rust_fn_static(fsr_fn_read_all, "read_all");

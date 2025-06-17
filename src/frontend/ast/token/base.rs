@@ -136,6 +136,12 @@ impl FSRToken {
         matches!(self, FSRToken::EmptyExpr(_))
     }
 
+    pub fn is_check_exception(&self) -> bool {
+        match self {
+            _ => false,
+        }
+    }
+
     pub fn try_push_stack_expr(&mut self, value: FSRToken) -> Result<(), SyntaxError> {
         if let FSRToken::StackExpr(e) = self {
             e.1.push(value);

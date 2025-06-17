@@ -5,7 +5,7 @@ use std::{
 
 use ahash::AHashMap;
 
-use crate::backend::{compiler::bytecode::BinaryOffset, vm::virtual_machine::FSRVM};
+use crate::{backend::{compiler::bytecode::BinaryOffset, types::base::{FSRRetValue, GlobalObj}, vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM}}, utils::error::FSRError};
 
 use super::{
     base::{AtomicObjId, FSRObject, FSRValue, ObjId},
@@ -63,14 +63,128 @@ impl Debug for FSRClass<'_> {
     }
 }
 
+pub fn map_err(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    if len < 2 {
+        return Err(FSRError::new(
+            "map requires at least 2 arguments: function and iterable",
+            crate::utils::error::FSRErrCode::NotValidArgs
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let may_err_object = FSRObject::id_to_obj(args[0]);
+    let fn_callback = FSRObject::id_to_obj(args[1]);
+    if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
+        return fn_callback.call(&[args[0]], thread, code, args[1]);
+    }
+
+    return Ok(FSRRetValue::GlobalId(args[0]));
+}
+
+pub fn is_err(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "is_err requires at least 1 argument",
+            crate::utils::error::FSRErrCode::NotValidArgs
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let may_err_object = FSRObject::id_to_obj(args[0]);
+    if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
+        return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+    }
+
+    return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+}
+
+pub fn map_ok(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    if len < 2 {
+        return Err(FSRError::new(
+            "map_ok requires at least 2 arguments: function and iterable",
+            crate::utils::error::FSRErrCode::NotValidArgs
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let may_err_object = FSRObject::id_to_obj(args[0]);
+    let fn_callback = FSRObject::id_to_obj(args[1]);
+    if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
+        return Ok(FSRRetValue::GlobalId(args[0]));
+    }
+
+    return fn_callback.call(&[args[0]], thread, code, args[1]);
+}
+
+pub fn is_none(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "is_none requires at least 1 argument",
+            crate::utils::error::FSRErrCode::NotValidArgs
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args[0] == FSRObject::none_id() {
+        return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+    }
+
+    return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+}
+
 impl<'a> FSRClass<'a> {
+    pub fn default_method(cls: &mut FSRClass) {
+        let map_err = FSRFn::from_rust_fn_static(map_err, "object_map_err");
+        cls.insert_attr("map_err", map_err);
+        let is_err = FSRFn::from_rust_fn_static(is_err, "object_is_err");
+        cls.insert_attr("is_err", is_err);
+        let map_ok = FSRFn::from_rust_fn_static(map_ok, "object_map_ok");
+        cls.insert_attr("map_ok", map_ok);
+        let is_none = FSRFn::from_rust_fn_static(is_none, "object_is_none");
+        cls.insert_attr("is_none", is_none);
+    }
+
     pub fn new(name: &'a str) -> FSRClass<'a> {
-        FSRClass {
+        let mut cls = FSRClass {
             name: name.to_string(),
             attrs: AHashMap::new(),
             offset_attrs: vec![],
             offset_rust_fn: [None; 30],
-        }
+        };
+
+        cls
+    }
+
+    pub fn init_method(&mut self) {
+        let map_err = FSRFn::from_rust_fn_static(map_err, "object_map_err");
+        self.insert_attr("map_err", map_err);
+    }
+
+    pub fn new_without_method(name: &'a str) -> FSRClass<'a> {
+        let mut cls = FSRClass {
+            name: name.to_string(),
+            attrs: AHashMap::new(),
+            offset_attrs: vec![],
+            offset_rust_fn: [None; 30],
+        };
+
+        cls
     }
 
     pub fn insert_attr(&mut self, name: &'a str, object: FSRObject<'a>) {

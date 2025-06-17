@@ -1,7 +1,3 @@
-import fs 
 
-file = fs::File.open("./.gitignore", "b")
-
-data = file.read_all()
-
-println(data.len())
+a = -1 + -3 + 4
+println(a)

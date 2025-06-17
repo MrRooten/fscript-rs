@@ -85,6 +85,7 @@ impl AnyDebugSend for FSREnumerateIter {
 impl FSREnumerateIter {
     pub fn get_class() -> FSRClass<'static> {
         let mut cls = FSRClass::new("FSRMapIter");
+        cls.init_method();
         cls
     }
 }

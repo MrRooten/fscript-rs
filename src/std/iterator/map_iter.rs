@@ -60,6 +60,7 @@ impl AnyDebugSend for FSRMapIter {
 impl FSRMapIter {
     pub fn get_class() -> FSRClass<'static> {
         let mut cls = FSRClass::new("FSRMapIter");
+        cls.init_method();
         cls
     }
 }

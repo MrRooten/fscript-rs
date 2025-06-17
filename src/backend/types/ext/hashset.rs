@@ -789,6 +789,7 @@ impl FSRHashSet {
         cls.insert_offset_attr(BinaryOffset::GetItem, get_item_ref);
         let to_str = FSRFn::from_rust_fn_static(hashset_string, "to_string");
         cls.insert_attr("__str__", to_str);
+        
         cls
     }
 }

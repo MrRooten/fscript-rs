@@ -153,16 +153,16 @@ impl<'a> Node<'a> {
 
     pub fn get_single_op_level(op: &SingleOp) -> i32 {
         if op.eq(&SingleOp::Not) {
-            return 1;
+            return -1;
         }
 
         if op.eq(&SingleOp::Minus) {
-            return 2;
+            return 3;
         }
 
-        // if op.eq("~") {
-        //     return 2;
-        // }
+        if op.eq(&SingleOp::Reverse) {
+            return 3;
+        }
 
         -1
     }
@@ -193,26 +193,26 @@ impl<'a> Node<'a> {
         }
 
         if op.eq("&&") || op.eq("and") {
-            return -2;
-        }
-
-        if op.eq("||") || op.eq("or") {
             return -3;
         }
 
-        if op.eq("=") {
+        if op.eq("||") || op.eq("or") {
             return -4;
         }
 
+        if op.eq("=") {
+            return -5;
+        }
+
         if op.eq(":") {
-            return 5;
+            return 6;
         }
 
         if op.eq(",") {
-            return -6;
+            return -7;
         }
 
-        -1
+        -2
     }
 
     pub fn is_higher_priority(op1: &str, op2: &str) -> Ordering {
@@ -241,6 +241,7 @@ pub enum FSRBinOpResult {
 pub enum SingleOp {
     Not,
     Minus,
+    Reverse
 }
 
 struct StmtContext {
