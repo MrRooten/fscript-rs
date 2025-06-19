@@ -108,7 +108,7 @@ pub fn is_err(
     return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
 }
 
-pub fn map_ok(
+pub fn then(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
@@ -124,6 +124,7 @@ pub fn map_ok(
     let may_err_object = FSRObject::id_to_obj(args[0]);
     let fn_callback = FSRObject::id_to_obj(args[1]);
     if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
+        // return error
         return Ok(FSRRetValue::GlobalId(args[0]));
     }
 
@@ -210,8 +211,8 @@ impl<'a> FSRClass<'a> {
         self.insert_attr("map_err", map_err);
         let is_err = FSRFn::from_rust_fn_static(is_err, "object_is_err");
         self.insert_attr("is_err", is_err);
-        let map_ok = FSRFn::from_rust_fn_static(map_ok, "object_map_ok");
-        self.insert_attr("map_ok", map_ok);
+        let then = FSRFn::from_rust_fn_static(then, "object_map_ok");
+        self.insert_attr("then", then);
         let is_none = FSRFn::from_rust_fn_static(is_none, "object_is_none");
         self.insert_attr("is_none", is_none);
         let unwrap = FSRFn::from_rust_fn_static(unwrap, "object_unwrap");

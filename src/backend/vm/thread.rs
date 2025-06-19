@@ -23,9 +23,7 @@ use crate::{
             GarbageCollector,
         },
         types::{
-            base::{
-                self, Area, AtomicObjId, GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId,
-            },
+            base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
             code::FSRCode,
@@ -386,7 +384,7 @@ impl GcContext {
 }
 
 pub struct ThreadShared {
-    objects: Vec<Arc<ObjId>>
+    objects: Vec<Arc<ObjId>>,
 }
 
 impl ThreadShared {
@@ -399,7 +397,6 @@ impl ThreadShared {
     pub fn insert(&mut self, obj: Arc<ObjId>) {
         self.objects.push(obj);
     }
-    
 }
 
 #[allow(clippy::vec_box)]
@@ -411,8 +408,8 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) frame_free_list: FrameFreeList<'a>,
     pub(crate) thread_allocator: FSRObjectAllocator<'a>,
     pub(crate) flow_tracker: FlowTracker,
-    pub(crate) exception: ObjId,
-    pub(crate) exception_flag: bool,
+    // pub(crate) exception: ObjId,
+    // pub(crate) exception_flag: bool,
     pub(crate) garbage_collect: MarkSweepGarbageCollector<'a>,
     // pub(crate) op_quick: Box<Ops>,
     pub(crate) counter: usize,
@@ -459,8 +456,8 @@ impl<'a> FSRThreadRuntime<'a> {
             frame_free_list: FrameFreeList::new_list(),
             thread_allocator: FSRObjectAllocator::new(),
             flow_tracker: FlowTracker::new(),
-            exception: FSRObject::none_id(),
-            exception_flag: false,
+            // exception: FSRObject::none_id(),
+            // exception_flag: false,
             garbage_collect: MarkSweepGarbageCollector::new_gc(),
             thread_id: 0,
             // op_quick: Box::new(Ops::new_init()),
@@ -600,7 +597,6 @@ impl<'a> FSRThreadRuntime<'a> {
         for obj in others {
             work_list.push(obj);
         }
-
 
         for shared_object in &self.thread_shared.objects {
             work_list.push(**shared_object);
@@ -1526,10 +1522,10 @@ impl<'a> FSRThreadRuntime<'a> {
             let v = match fn_obj.call(args, self, self.get_context().code, fn_id) {
                 Ok(o) => o,
                 Err(e) => {
-                    if e.inner.code == FSRErrCode::RuntimeError {
-                        self.exception = e.inner.exception.unwrap();
-                        return Ok(false);
-                    }
+                    // if e.inner.code == FSRErrCode::RuntimeError {
+                    //     self.exception = e.inner.exception.unwrap();
+                    //     return Ok(false);
+                    // }
 
                     panic!("error: in call_process_ret: {}", e);
                 }
@@ -2154,10 +2150,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().middle_value.push(v_id);
             }
 
-            let list = self.garbage_collect.new_object(
-                FSRList::new_value(list),
-                GlobalObj::ListCls.get_id(),
-            );
+            let list = self
+                .garbage_collect
+                .new_object(FSRList::new_value(list), GlobalObj::ListCls.get_id());
             self.get_cur_mut_frame().exp.push(list);
         }
 
@@ -2242,7 +2237,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let mut cls_obj = FSRObject::new();
             // cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
             cls_obj.set_cls(get_object_by_global_id(GlobalObj::ClassCls));
-            
+
             let mut obj = state.cur_cls.take().unwrap();
             let name = obj.get_name().to_string();
             cls_obj.set_value(FSRValue::Class(obj));
@@ -2281,8 +2276,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let obj = self.flow_tracker.for_iter_obj.last().cloned().unwrap();
         let obj_value = FSRObject::id_to_obj(obj);
         let res = if obj_value.cls
-            == FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::InnerIterator))
-                .as_class()
+            == FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::InnerIterator)).as_class()
         {
             // next_obj(&[obj], self, self.get_context().code)?
             let args = [obj];
@@ -2448,12 +2442,13 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = match v {
             Ok(o) => o,
             Err(e) => {
-                if e.inner.code == FSRErrCode::RuntimeError {
-                    self.exception = e.inner.exception.unwrap();
-                    return Ok(false);
-                }
+                // if e.inner.code == FSRErrCode::RuntimeError {
+                //     self.exception = e.inner.exception.unwrap();
+                //     return Ok(false);
+                // }
 
-                return Err(e);
+                // return Err(e);
+                panic!("error in process: {}", e);
             }
         };
 
@@ -2535,10 +2530,9 @@ impl<'a> FSRThreadRuntime<'a> {
                 //     FSRObject::new_inst(obj, get_object_by_global_id(FSRGlobalObjId::StringCls));
                 // let ptr = FSRVM::leak_object(Box::new(obj));
 
-                let ptr = self.garbage_collect.new_object(
-                    FSRString::new_value(s),
-                    GlobalObj::StringCls.get_id()
-                );
+                let ptr = self
+                    .garbage_collect
+                    .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id());
 
                 self.get_cur_mut_frame().insert_const({ *index }, ptr);
             }
@@ -2703,30 +2697,22 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn exception_process(&mut self) -> bool {
-        if self.exception_flag {
-            if !self.get_cur_mut_frame().catch_ends.is_empty() {
-                self.get_cur_mut_frame().handling_exception = self.exception;
-                self.exception = FSRObject::none_id();
-                self.exception_flag = false;
-                self.get_cur_mut_context().ip =
-                    (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
-                // self.garbage_collect.add_root(exception_handling);
-                return true;
-            } else {
-                if self.call_frames.is_empty() {
-                    panic!("No handle of error")
-                }
-                self.pop_stack();
-                let cur = self.get_cur_mut_frame();
-                let ip_0 = cur.reverse_ip.0;
-                let ip_1 = cur.reverse_ip.1;
-                let code = cur.code;
-                self.get_cur_mut_context().ip = (ip_0, ip_1 + 1);
-                self.get_cur_mut_context().code = code;
-                self.get_cur_mut_context().context_call_count -= 1;
-                // self.garbage_collect.add_root(self.exception);
-                return true;
+        if self.get_cur_frame().catch_ends.is_empty() {
+            return false;
+        }
+        if let Some(id) = self.get_cur_frame().exp.last() {
+            let obj = FSRObject::id_to_obj(*id);
+            if !obj.is_error() {
+                return false;
             }
+
+            self.get_cur_mut_frame().handling_exception = *id;
+            // self.exception = FSRObject::none_id();
+            // self.exception_flag = false;
+            self.get_cur_mut_context().ip =
+                (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
+            // self.garbage_collect.add_root(exception_handling);
+            return true;
         }
 
         false
@@ -2863,6 +2849,10 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             v = self.process(arg)?;
 
+            if Self::exception_process(self) {
+                return Ok(true);
+            }
+
             if v {
                 if self.get_cur_frame().ret_val.is_some() {
                     return Ok(true);
@@ -2872,9 +2862,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(false);
             }
 
-            if self.exception_flag && Self::exception_process(self) {
-                return Ok(true);
-            }
+            
         }
         self.end_expr();
         Ok(false)
@@ -2934,8 +2922,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let base_fn = FSRFn::new_empty();
-        let base_fn_id =
-            FSRObject::new_inst(base_fn, get_object_by_global_id(GlobalObj::FnCls));
+        let base_fn_id = FSRObject::new_inst(base_fn, get_object_by_global_id(GlobalObj::FnCls));
         let base_fn_id = FSRVM::leak_object(Box::new(base_fn_id));
 
         self.cur_frame.code = code_id;
@@ -2989,14 +2976,14 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
         while let Some(expr) = code.get_expr(self.get_context().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
-            if self.exception_flag {
-                // If this is last function call, in this call_fn
-                if self.get_context().context_call_count == 0 {
-                    let context = self.pop_context();
-                    self.thread_allocator.free_code_context(context);
-                    return Err(FSRError::new_runtime_error(self.exception));
-                }
-            }
+            // if self.exception_flag {
+            //     // If this is last function call, in this call_fn
+            //     if self.get_context().context_call_count == 0 {
+            //         let context = self.pop_context();
+            //         self.thread_allocator.free_code_context(context);
+            //         return Err(FSRError::new_runtime_error(self.exception));
+            //     }
+            // }
 
             if self.get_context().context_call_count == 0 {
                 break;

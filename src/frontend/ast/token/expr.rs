@@ -1387,6 +1387,8 @@ impl FSRExpr {
             unimplemented!()
         }
 
+
+        // if ctx.candidates > 2 then we need to process the operators
         let operator = ctx.operators[0];
 
         let split_offset = operator.1;

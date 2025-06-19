@@ -773,8 +773,15 @@ impl<'a> FSRObject<'a> {
         panic!("as_fn_mut: Not a function object");
     }
 
-    pub fn get_self_id(&self) -> u64 {
-        self as *const Self as u64
+    pub fn get_self_id(&self) -> ObjId {
+        self as *const Self as ObjId
+    }
+
+    pub fn is_error(&self) -> bool {
+        if self.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
+            return true;
+        }
+        false
     }
 
     pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>, module: ObjId) -> FSRValue<'a> {

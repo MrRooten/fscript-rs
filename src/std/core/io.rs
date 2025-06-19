@@ -114,12 +114,13 @@ pub fn fsr_fn_throw_error(
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    if args.is_empty() || args[0] == 0 {
-        thread.exception = FSRObject::none_id();
-    } else {
-        thread.exception = args[0];
-        thread.exception_flag = true;
-    }
+    panic!("deprecated function `throw_error`");
+    // if args.is_empty() || args[0] == 0 {
+    //     thread.exception = FSRObject::none_id();
+    // } else {
+    //     thread.exception = args[0];
+    //     thread.exception_flag = true;
+    // }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
