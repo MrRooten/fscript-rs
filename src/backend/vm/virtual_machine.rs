@@ -329,11 +329,13 @@ impl<'a> FSRVM<'a> {
 
                 for object in OBJECTS.iter_mut() {
                     if let Some(object) = object {
+                        let obj_id = FSRObject::obj_to_id(object);
                         if let FSRValue::Class(c) = &mut object.value {
                             object.cls =
                                 FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::ClassCls))
                                     .as_class();
                             c.init_method();
+                            c.set_object_id(obj_id);
                         }
 
                         if let FSRValue::Bool(_) = object.value {

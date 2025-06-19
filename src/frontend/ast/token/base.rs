@@ -23,6 +23,7 @@ pub enum FSRToken {
     Break(FSRPosition),
     Continue(FSRPosition),
     Expr(FSRExpr),
+    // Case like a[0][1]
     StackExpr((Option<SingleOp>, Vec<FSRToken>)),
     ForBlock(FSRFor),
     Call(FSRCall),

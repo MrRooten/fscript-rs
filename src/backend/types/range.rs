@@ -170,6 +170,44 @@ fn enumerate(
     Ok(FSRRetValue::GlobalId(enumerate_iterator_id))
 }
 
+fn contains(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args.len() != 2 {
+        return Err(FSRError::new(
+            "contains requires exactly 2 arguments",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
+    let self_id = args[0];
+    let obj = FSRObject::id_to_obj(self_id);
+    
+    if let FSRValue::Range(it) = &obj.value {
+        let value = args[1];
+        if let FSRValue::Integer(i) = &FSRObject::id_to_obj(value).value {
+            let contains = it.range.contains(i);
+            if contains {
+                return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+            }
+            return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+        } else {
+            return Err(FSRError::new(
+                "right value is not an integer",
+                crate::utils::error::FSRErrCode::NotValidArgs,
+            ));
+        }
+    } else {
+        Err(FSRError::new(
+            "left value is not a range",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ))
+    }
+}
+
 impl FSRRange {
     pub fn get_class() -> FSRClass<'static> {
         let mut r = FSRClass::new("Range");
@@ -183,6 +221,8 @@ impl FSRRange {
         r.insert_attr("enumerate", enumerate);
         let as_list = FSRFn::from_rust_fn_static(as_list, "range_as_list");
         r.insert_attr("as_list", as_list);
+        let contains = FSRFn::from_rust_fn_static(contains, "range_contains");
+        r.insert_attr("contains", contains);
         r
     }
 

@@ -271,7 +271,7 @@ pub struct ReferenceArgs<'a> {
 /// Context for bytecode, if fs code call from rust fn will create new context
 pub struct FSCodeContext {
     // tracing call stack, is call stack is empty means end of this call except start of this call
-    pub(crate) call_end: u32,
+    pub(crate) context_call_count: u32,
     ip: (usize, usize),
     pub(crate) code: ObjId,
 }
@@ -282,7 +282,7 @@ impl FSCodeContext {
             // exp: Vec::with_capacity(8),
             ip: (0, 0),
             code,
-            call_end: 1,
+            context_call_count: 1,
         }
     }
 
@@ -1317,7 +1317,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let new_obj = FSRObject::id_to_obj(self_new_obj);
 
             if let FSRValue::Function(f) = &new_obj.value {
-                self.get_cur_mut_context().call_end += 1;
+                self.get_cur_mut_context().context_call_count += 1;
                 let frame = self.frame_free_list.new_frame(f.code, self_new_obj);
                 self.get_cur_mut_context().code = f.code;
                 self.push_frame(frame);
@@ -1356,7 +1356,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //state.exp = store_exp;
 
             if let FSRValue::Function(f) = &fn_obj.value {
-                self.get_cur_mut_context().call_end += 1;
+                self.get_cur_mut_context().context_call_count += 1;
                 let mut frame = self
                     .frame_free_list
                     .new_frame(f.code, FSRObject::obj_to_id(fn_obj));
@@ -1427,7 +1427,7 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_obj: &FSRObject<'a>,
         args: &mut SmallVec<[ObjId; 4]>,
     ) -> Result<(), FSRError> {
-        self.get_cur_mut_context().call_end += 1;
+        self.get_cur_mut_context().context_call_count += 1;
         self.save_ip_to_callstate();
         let f = fn_obj.as_fn();
         let frame = self.frame_free_list.new_frame(f.code, fn_id);
@@ -1578,8 +1578,8 @@ impl<'a> FSRThreadRuntime<'a> {
             Self::call_process_set_args(args_num, self, &mut args);
 
             father = self.get_cur_mut_frame().exp.pop().unwrap();
-            let father_obj = FSRObject::id_to_obj(father);
-            let fn_id = father_obj.get_attr(&pack.2).unwrap();
+            let father_cls = FSRObject::id_to_obj(father).cls;
+            let fn_id = father_cls.get_attr(&pack.2).unwrap();
             fn_id.load(Ordering::Relaxed)
         } else {
             unimplemented!()
@@ -1707,6 +1707,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 let tmp = self.get_context().ip.0;
                 self.get_cur_mut_context().ip = (tmp + n.0 as usize + 1_usize, 0);
                 return Ok(true);
+            } else {
+                return Err(FSRError::new(
+                    "else if match not have next",
+                    FSRErrCode::NotValidArgs,
+                ));
             }
         }
         self.flow_tracker.false_last_if_test();
@@ -2036,7 +2041,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let code = cur.code;
         self.get_cur_mut_context().ip = (ip_0, ip_1);
         self.get_cur_mut_context().code = code;
-        self.get_cur_mut_context().call_end -= 1;
+        self.get_cur_mut_context().context_call_count -= 1;
         // self.garbage_collect.add_root(v);
         Ok(true)
     }
@@ -2051,7 +2056,7 @@ impl<'a> FSRThreadRuntime<'a> {
         cur.ret_val = Some(last_expr_val);
         self.get_cur_mut_context().ip = (ip_0, ip_1);
         self.get_cur_mut_context().code = code;
-        self.get_cur_mut_context().call_end -= 1;
+        self.get_cur_mut_context().context_call_count -= 1;
         Ok(true)
     }
 
@@ -2237,11 +2242,16 @@ impl<'a> FSRThreadRuntime<'a> {
             let mut cls_obj = FSRObject::new();
             // cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
             cls_obj.set_cls(get_object_by_global_id(GlobalObj::ClassCls));
-            let obj = state.cur_cls.take().unwrap();
-
+            
+            let mut obj = state.cur_cls.take().unwrap();
             let name = obj.get_name().to_string();
             cls_obj.set_value(FSRValue::Class(obj));
             let obj_id = FSRVM::register_object(cls_obj);
+
+            if let FSRValue::Class(c) = &mut FSRObject::id_to_mut_obj(obj_id).unwrap().value {
+                c.set_object_id(obj_id);
+            }
+
             state.insert_var(id, obj_id);
             // FSRObject::id_to_mut_obj(self.get_context().code)
             //     .expect("not a code object")
@@ -2713,7 +2723,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 let code = cur.code;
                 self.get_cur_mut_context().ip = (ip_0, ip_1 + 1);
                 self.get_cur_mut_context().code = code;
-                self.get_cur_mut_context().call_end -= 1;
+                self.get_cur_mut_context().context_call_count -= 1;
                 // self.garbage_collect.add_root(self.exception);
                 return true;
             }
@@ -2884,7 +2894,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //exp: Vec::with_capacity(8),
             ip: (0, 0),
             code: code_id,
-            call_end: 1,
+            context_call_count: 1,
         });
 
         self.push_context(context);
@@ -2981,14 +2991,14 @@ impl<'a> FSRThreadRuntime<'a> {
             let v = self.run_expr_wrapper(expr)?;
             if self.exception_flag {
                 // If this is last function call, in this call_fn
-                if self.get_context().call_end == 0 {
+                if self.get_context().context_call_count == 0 {
                     let context = self.pop_context();
                     self.thread_allocator.free_code_context(context);
                     return Err(FSRError::new_runtime_error(self.exception));
                 }
             }
 
-            if self.get_context().call_end == 0 {
+            if self.get_context().context_call_count == 0 {
                 break;
             }
 

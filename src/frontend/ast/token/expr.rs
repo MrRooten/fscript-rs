@@ -581,7 +581,7 @@ impl FSRExpr {
                 && Node::get_single_op_level(ctx.single_op.as_ref().unwrap())
                     < Node::get_op_level(op)
             {
-                println!("sdfsdf");
+                panic!("Wait to impl the operator with single op: single_op: {:?}, op: {}", ctx.single_op, op);
             }
             ctx.operators.push((op, ctx.start));
             ctx.states.pop_state();
@@ -853,6 +853,14 @@ impl FSRExpr {
                     }
                     if is_float {
                         break;
+                    }
+
+                    // check after dot is digit or not
+                    if ctx.start + ctx.length + 1 < source.len() {
+                        let next_c = source[ctx.start + ctx.length + 1] as char;
+                        if !next_c.is_ascii_digit() {
+                            break;
+                        }
                     }
                     is_float = true;
                     ctx.length += 1;

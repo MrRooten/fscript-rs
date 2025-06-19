@@ -15,6 +15,8 @@ use std::fmt::Debug;
 
 #[repr(C)]
 pub struct FSRClass<'a> {
+    /// This will be set after the class object is created
+    object_id: Option<ObjId>,
     pub(crate) offset_rust_fn: [Option<FSRRustFn>; 30],
     pub(crate) name: String,
     pub(crate) attrs: AHashMap<&'a str, AtomicObjId>,
@@ -148,20 +150,52 @@ pub fn is_none(
     return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
 }
 
-impl<'a> FSRClass<'a> {
-    pub fn default_method(cls: &mut FSRClass) {
-        let map_err = FSRFn::from_rust_fn_static(map_err, "object_map_err");
-        cls.insert_attr("map_err", map_err);
-        let is_err = FSRFn::from_rust_fn_static(is_err, "object_is_err");
-        cls.insert_attr("is_err", is_err);
-        let map_ok = FSRFn::from_rust_fn_static(map_ok, "object_map_ok");
-        cls.insert_attr("map_ok", map_ok);
-        let is_none = FSRFn::from_rust_fn_static(is_none, "object_is_none");
-        cls.insert_attr("is_none", is_none);
+pub fn unwrap(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "unwrap requires at least 1 argument",
+            crate::utils::error::FSRErrCode::NotValidArgs
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let may_err_object = FSRObject::id_to_obj(args[0]);
+    if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
+        panic!("unwrap called on an error object: {:?}", may_err_object);
     }
 
+    return Ok(FSRRetValue::GlobalId(args[0]));
+}
+
+pub fn expect(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "expect requires at least 2 arguments: message and object",
+            crate::utils::error::FSRErrCode::NotValidArgs
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let message_object = FSRObject::id_to_obj(args[1]);
+    if let FSRValue::String(message) = &message_object.value {
+        panic!("expect called with message: {}", message);
+    }
+
+    return Ok(FSRRetValue::GlobalId(args[0]));
+}
+
+impl<'a> FSRClass<'a> {
     pub fn new(name: &'a str) -> FSRClass<'a> {
         let mut cls = FSRClass {
+            object_id: None,
             name: name.to_string(),
             attrs: AHashMap::new(),
             offset_attrs: vec![],
@@ -174,6 +208,16 @@ impl<'a> FSRClass<'a> {
     pub fn init_method(&mut self) {
         let map_err = FSRFn::from_rust_fn_static(map_err, "object_map_err");
         self.insert_attr("map_err", map_err);
+        let is_err = FSRFn::from_rust_fn_static(is_err, "object_is_err");
+        self.insert_attr("is_err", is_err);
+        let map_ok = FSRFn::from_rust_fn_static(map_ok, "object_map_ok");
+        self.insert_attr("map_ok", map_ok);
+        let is_none = FSRFn::from_rust_fn_static(is_none, "object_is_none");
+        self.insert_attr("is_none", is_none);
+        let unwrap = FSRFn::from_rust_fn_static(unwrap, "object_unwrap");
+        self.insert_attr("unwrap", unwrap);
+        let expect = FSRFn::from_rust_fn_static(expect, "object_expect");
+        self.insert_attr("expect", expect);
     }
 
     pub fn new_without_method(name: &'a str) -> FSRClass<'a> {
@@ -182,6 +226,7 @@ impl<'a> FSRClass<'a> {
             attrs: AHashMap::new(),
             offset_attrs: vec![],
             offset_rust_fn: [None; 30],
+            object_id: None,
         };
 
         cls
@@ -212,6 +257,10 @@ impl<'a> FSRClass<'a> {
         self.attrs
             .insert(offset.alias_name(), AtomicUsize::new(obj_id));
         self.offset_attrs[offset as usize] = Some(AtomicUsize::new(obj_id));
+    }
+
+    pub fn set_object_id(&mut self, id: ObjId) {
+        self.object_id = Some(id);
     }
 
     #[inline(always)]

@@ -489,12 +489,7 @@ pub fn equal(
 
 impl FSRList {
     pub fn get_class<'a>() -> FSRClass<'a> {
-        let mut cls = FSRClass {
-            name: "List".to_string(),
-            attrs: AHashMap::new(),
-            offset_attrs: vec![],
-            offset_rust_fn: [None; 30],
-        };
+        let mut cls = FSRClass::new("List");
         let len_m = FSRFn::from_rust_fn_static(list_len, "list_len");
         cls.insert_attr("len", len_m);
         let to_string = FSRFn::from_rust_fn_static(list_string, "list_string");
