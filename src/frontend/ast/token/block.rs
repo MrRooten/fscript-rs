@@ -223,10 +223,7 @@ impl FSRBlock {
                     length = 0;
                 } else if t == &NodeType::Else {
                     // not support else without if
-                    return Err(SyntaxError::new(
-                        &context.new_pos(),
-                        "else without if",
-                    ));
+                    return Err(SyntaxError::new(&context.new_pos(), "else without if"));
                     // let mut sub_meta = context.new_pos();
                     // let else_expr = FSRElse::parse(&source[start..], sub_meta, context)?;
                 } else if t == &NodeType::Break {
@@ -259,6 +256,13 @@ impl FSRBlock {
                     let import_def = FSRImport::parse(&source[start..], sub_meta, context)?;
                     length += import_def.1;
                     block.tokens.push(FSRToken::Import(import_def.0));
+                    start += length;
+                    length = 0;
+                } else if t == &NodeType::Root {
+                    let mut sub_meta = context.new_pos();
+                    let expr = FSRExpr::parse(&source[start..], false, sub_meta, context)?;
+                    length += expr.1;
+                    block.tokens.push(expr.0);
                     start += length;
                     length = 0;
                 } else {

@@ -47,13 +47,13 @@ pub extern "C" fn save_to_exp(
 ) {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let frame = thread.get_cur_mut_frame();
-    frame.exp.clear();
-    frame.exp.extend_from_slice(args);
+    frame.clear_exp();
+    frame.extend_exp(args);
 }
 
 pub extern "C" fn clear_exp(thread: &mut FSRThreadRuntime) {
     let frame = thread.get_cur_mut_frame();
-    frame.exp.clear();
+    frame.clear_exp();
 }
 
 pub extern "C" fn malloc(size: usize) -> *mut ObjId {

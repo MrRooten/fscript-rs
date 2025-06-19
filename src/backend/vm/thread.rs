@@ -176,7 +176,7 @@ pub struct CallFrame<'a> {
     pub(crate) args: Vec<ObjId>,
     cur_cls: Option<Box<FSRClass<'a>>>,
     pub(crate) ret_val: Option<ObjId>,
-    pub(crate) exp: Vec<ObjId>,
+    exp: Vec<ObjId>,
     /// in case of garbage collection collecting this object, this object is for middle value for expression
     pub(crate) middle_value: Vec<ObjId>,
     pub(crate) code: ObjId,
@@ -208,8 +208,48 @@ impl<'a> CallFrame<'a> {
         self.var_map.get(id)
     }
 
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_attr(&self, i: usize, j: usize) -> Option<&'a AtomicObjId> {
         self.attr_map.get_attr(i, j)
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn push_exp(&mut self, obj_id: ObjId) {
+        self.exp.push(obj_id);
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn clear_exp(&mut self) {
+        self.exp.clear();
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn len_exp(&self) -> usize {
+        self.exp.len()
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn extend_exp(&mut self, objs: &[ObjId]) {
+        self.exp.extend_from_slice(objs);
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn last_exp(&self) -> Option<&ObjId> {
+        self.exp.last()
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn get_exp(&self, index: usize) -> Option<&ObjId> {
+        self.exp.get(index)
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn pop_exp(&mut self) -> Option<ObjId> {
+        self.exp.pop()
+    }
+
+    pub fn is_exp_empty(&self) -> bool {
+        self.exp.is_empty()
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -748,9 +788,9 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let index = self.get_cur_mut_frame().exp.pop().unwrap();
+        let index = self.get_cur_mut_frame().pop_exp().unwrap();
 
-        let container = self.get_cur_mut_frame().exp.pop().unwrap();
+        let container = self.get_cur_mut_frame().pop_exp().unwrap();
 
         let index_obj_v = FSRObject::id_to_obj(index);
         let list_obj_v = FSRObject::id_to_obj(container);
@@ -765,7 +805,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_frame().exp.push(res_id);
+                self.get_cur_mut_frame().push_exp(res_id);
             }
         };
 
@@ -778,10 +818,10 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &'a BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let len = self.get_cur_frame().exp.len();
-        let index_obj = *self.get_cur_frame().exp.last().unwrap();
-        let container_obj = *self.get_cur_frame().exp.get(len - 2).unwrap();
-        let value_obj = *self.get_cur_frame().exp.get(len - 3).unwrap();
+        let len = self.get_cur_frame().len_exp();
+        let index_obj = *self.get_cur_frame().last_exp().unwrap();
+        let container_obj = *self.get_cur_frame().get_exp(len - 2).unwrap();
+        let value_obj = *self.get_cur_frame().get_exp(len - 3).unwrap();
 
         let containter_obj_v = FSRObject::id_to_obj(container_obj);
         let index_obj_v = FSRObject::id_to_obj(index_obj);
@@ -800,9 +840,9 @@ impl<'a> FSRThreadRuntime<'a> {
         );
 
         // pop 3 values from stack, pop after set item fn, because set item may trigger gc
-        self.get_cur_mut_frame().exp.pop();
-        self.get_cur_mut_frame().exp.pop();
-        self.get_cur_mut_frame().exp.pop();
+        self.get_cur_mut_frame().pop_exp();
+        self.get_cur_mut_frame().pop_exp();
+        self.get_cur_mut_frame().pop_exp();
 
         Ok(false)
     }
@@ -813,9 +853,9 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &'a BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::Attr(attr_id, name) = bytecode.get_arg() {
-            let len = self.get_cur_frame().exp.len();
-            let father = *self.get_cur_frame().exp.last().unwrap();
-            let assign_value = *self.get_cur_frame().exp.get(len - 2).unwrap();
+            let len = self.get_cur_frame().len_exp();
+            let father = *self.get_cur_frame().last_exp().unwrap();
+            let assign_value = *self.get_cur_frame().get_exp(len - 2).unwrap();
 
             let father_obj = FSRObject::id_to_mut_obj(father).unwrap();
             father_obj.set_attr(name, assign_value);
@@ -832,7 +872,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         if let ArgType::Local(v) = bytecode.get_arg() {
             let var_id = v.0;
-            let obj_id = match self.get_cur_mut_frame().exp.pop() {
+            let obj_id = match self.get_cur_mut_frame().pop_exp() {
                 Some(s) => s,
                 None => {
                     return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
@@ -853,14 +893,14 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         //Assign variable name
-        let assign_id = match self.get_cur_mut_frame().exp.pop() {
+        let assign_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
             }
         };
 
-        let to_assign_obj_id = self.get_cur_mut_frame().exp.pop().unwrap();
+        let to_assign_obj_id = self.get_cur_mut_frame().pop_exp().unwrap();
 
         self.get_cur_mut_frame().middle_value.push(to_assign_obj_id);
         // self.get_cur_mut_frame().middle_value.push(assign_id);
@@ -870,7 +910,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_add_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
-        let right = match self.get_cur_mut_frame().exp.pop() {
+        let right = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -880,7 +920,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let left = match self.get_cur_mut_frame().exp.pop() {
+        let left = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -898,7 +938,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             match res {
                 FSRRetValue::GlobalId(res_id) => {
-                    self.get_cur_mut_frame().exp.push(res_id);
+                    self.get_cur_mut_frame().push_exp(res_id);
                 }
             };
 
@@ -914,7 +954,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_frame().exp.push(res_id);
+                self.get_cur_mut_frame().push_exp(res_id);
             }
         };
 
@@ -926,7 +966,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let right = match self.get_cur_mut_frame().exp.pop() {
+        let right = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -936,7 +976,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let left = match self.get_cur_mut_frame().exp.pop() {
+        let left = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -958,7 +998,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_frame().exp.push(res_id);
+                self.get_cur_mut_frame().push_exp(res_id);
             }
         };
 
@@ -970,7 +1010,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let right_id = match self.get_cur_mut_frame().exp.pop() {
+        let right_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -980,7 +1020,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let left_id = match self.get_cur_mut_frame().exp.pop() {
+        let left_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1002,7 +1042,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_frame().exp.push(res_id);
+                self.get_cur_mut_frame().push_exp(res_id);
             }
         };
         Ok(false)
@@ -1013,7 +1053,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let right_id = match self.get_cur_mut_frame().exp.pop() {
+        let right_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1023,7 +1063,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let left_id = match self.get_cur_mut_frame().exp.pop() {
+        let left_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1044,7 +1084,7 @@ impl<'a> FSRThreadRuntime<'a> {
         )?;
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_frame().exp.push(res_id);
+                self.get_cur_mut_frame().push_exp(res_id);
             }
         };
 
@@ -1056,7 +1096,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let right_id = match self.get_cur_mut_frame().exp.pop() {
+        let right_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1066,7 +1106,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let left_id = match self.get_cur_mut_frame().exp.pop() {
+        let left_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1086,7 +1126,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             match res {
                 FSRRetValue::GlobalId(res_id) => {
-                    self.get_cur_mut_frame().exp.push(res_id);
+                    self.get_cur_mut_frame().push_exp(res_id);
                 }
             };
 
@@ -1101,7 +1141,7 @@ impl<'a> FSRThreadRuntime<'a> {
         )?;
         match res {
             FSRRetValue::GlobalId(res_id) => {
-                self.get_cur_mut_frame().exp.push(res_id);
+                self.get_cur_mut_frame().push_exp(res_id);
             }
         };
 
@@ -1119,7 +1159,7 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             unimplemented!()
         };
-        let dot_father = match self.get_cur_mut_frame().exp.pop() {
+        let dot_father = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1154,8 +1194,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         self.get_cur_mut_frame()
-            .exp
-            .push(id.load(Ordering::Relaxed));
+            .push_exp(id.load(Ordering::Relaxed));
         self.get_cur_mut_frame().middle_value.push(dot_father);
         self.get_cur_mut_frame()
             .middle_value
@@ -1175,7 +1214,7 @@ impl<'a> FSRThreadRuntime<'a> {
             unimplemented!()
         };
 
-        let dot_father = match self.get_cur_mut_frame().exp.pop() {
+        let dot_father = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1192,8 +1231,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if let Some(id) = id {
             self.get_cur_mut_frame()
-                .exp
-                .push(id.load(Ordering::Relaxed));
+                .push_exp(id.load(Ordering::Relaxed));
             self.get_cur_mut_frame().middle_value.push(dot_father);
             self.get_cur_mut_frame()
                 .middle_value
@@ -1206,7 +1244,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn binary_range_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
-        let rhs_id = match self.get_cur_mut_frame().exp.pop() {
+        let rhs_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1216,7 +1254,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        let lhs_id = match self.get_cur_mut_frame().exp.pop() {
+        let lhs_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -1240,7 +1278,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     get_object_by_global_id(GlobalObj::RangeCls) as ObjId,
                 );
 
-                self.get_cur_mut_frame().exp.push(id);
+                self.get_cur_mut_frame().push_exp(id);
                 self.get_cur_mut_frame().middle_value.push(rhs_id);
                 self.get_cur_mut_frame().middle_value.push(lhs_id);
                 return Ok(false);
@@ -1253,7 +1291,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn call_process_set_args(args_num: usize, thread: &mut Self, args: &mut SmallVec<[ObjId; 4]>) {
         let mut i = 0;
         while i < args_num {
-            let a_id = thread.get_cur_mut_frame().exp.pop().unwrap();
+            let a_id = thread.get_cur_mut_frame().pop_exp().unwrap();
             thread.get_cur_mut_frame().middle_value.push(a_id);
             args.push(a_id);
             i += 1;
@@ -1290,7 +1328,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     cls_id,
                 );
 
-                self.get_cur_mut_frame().exp.push(self_id);
+                self.get_cur_mut_frame().push_exp(self_id);
 
                 return Ok(false);
             }
@@ -1383,7 +1421,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .unwrap();
 
             let id = v.get_id();
-            self.get_cur_mut_frame().exp.push(id);
+            self.get_cur_mut_frame().push_exp(id);
         }
         Ok(false)
     }
@@ -1455,7 +1493,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let fn_id = self.try_get_obj_by_name(var.1, &var.2).unwrap();
             Ok(fn_id)
         } else {
-            let fn_id = self.get_cur_mut_frame().exp.pop().unwrap();
+            let fn_id = self.get_cur_mut_frame().pop_exp().unwrap();
             self.get_cur_mut_frame().middle_value.push(fn_id);
             Ok(fn_id)
         }
@@ -1501,7 +1539,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     let res = call_fn(self, self.get_context().code, args, args.len() as i32);
                     let v = self.pop_frame();
                     self.frame_free_list.free(v);
-                    self.get_cur_mut_frame().exp.push(res);
+                    self.get_cur_mut_frame().push_exp(res);
                     return Ok(false);
                 }
             }
@@ -1532,7 +1570,7 @@ impl<'a> FSRThreadRuntime<'a> {
             };
 
             let id = v.get_id();
-            self.get_cur_mut_frame().exp.push(id);
+            self.get_cur_mut_frame().push_exp(id);
         }
 
         Ok(false)
@@ -1573,7 +1611,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let args_num = pack.0;
             Self::call_process_set_args(args_num, self, &mut args);
 
-            father = self.get_cur_mut_frame().exp.pop().unwrap();
+            father = self.get_cur_mut_frame().pop_exp().unwrap();
             let father_cls = FSRObject::id_to_obj(father).cls;
             let fn_id = father_cls.get_attr(&pack.2).unwrap();
             fn_id.load(Ordering::Relaxed)
@@ -1629,7 +1667,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let test_val = self.get_cur_mut_frame().exp.pop().unwrap();
+        let test_val = self.get_cur_mut_frame().pop_exp().unwrap();
         //let mut name = "";
 
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
@@ -1657,7 +1695,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let test_val = self.get_cur_mut_frame().exp.pop().unwrap();
+        let test_val = self.get_cur_mut_frame().pop_exp().unwrap();
         self.get_cur_mut_frame().middle_value.push(test_val);
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
@@ -1740,7 +1778,7 @@ impl<'a> FSRThreadRuntime<'a> {
     // save will fix
     fn for_block_ref(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let obj_id = {
-            let obj_id = *self.get_cur_frame().exp.last().unwrap();
+            let obj_id = *self.get_cur_frame().last_exp().unwrap();
 
             obj_id
         };
@@ -1754,7 +1792,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let iter_id = self.get_cur_mut_frame().exp.pop().unwrap();
+        let iter_id = self.get_cur_mut_frame().pop_exp().unwrap();
 
         let iter_obj = FSRObject::id_to_obj(iter_id);
         let read_iter_id = match iter_obj.get_attr("__iter__") {
@@ -1785,7 +1823,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let test_val = self.get_cur_mut_frame().exp.pop().unwrap();
+        let test_val = self.get_cur_mut_frame().pop_exp().unwrap();
         self.get_cur_mut_frame().middle_value.push(test_val);
 
         if let ArgType::WhileTest(n) = bytecode.get_arg() {
@@ -1927,14 +1965,14 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::Compare(op) = bytecode.get_arg() {
-            //let len = self.get_cur_mut_frame().exp.len();
-            let right_id = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
+            //let len = self.get_cur_mut_frame().len_exp();
+            let right_id = self.get_cur_mut_frame().pop_exp().ok_or_else(|| {
                 FSRError::new(
                     "Failed to pop right operand from stack in compare_test",
                     FSRErrCode::EmptyExpStack,
                 )
             })?;
-            let left_id = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
+            let left_id = self.get_cur_mut_frame().pop_exp().ok_or_else(|| {
                 FSRError::new(
                     "Failed to pop left operand from stack in compare_test",
                     FSRErrCode::EmptyExpStack,
@@ -1947,9 +1985,9 @@ impl<'a> FSRThreadRuntime<'a> {
             let v = Self::compare(left_id, right_id, *op, self)?;
 
             if v {
-                self.get_cur_mut_frame().exp.push(FSRObject::true_id())
+                self.get_cur_mut_frame().push_exp(FSRObject::true_id())
             } else {
-                self.get_cur_mut_frame().exp.push(FSRObject::false_id())
+                self.get_cur_mut_frame().push_exp(FSRObject::false_id())
             }
 
             #[cfg(feature = "predict_op")]
@@ -1977,11 +2015,11 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let right = self.get_cur_mut_frame().exp.pop().unwrap();
-        let left = *self.get_cur_mut_frame().exp.last().unwrap();
+        let right = self.get_cur_mut_frame().pop_exp().unwrap();
+        let left = *self.get_cur_mut_frame().last_exp().unwrap();
 
         if right == left {
-            self.get_cur_mut_frame().exp.push(FSRObject::true_id());
+            self.get_cur_mut_frame().push_exp(FSRObject::true_id());
             return Ok(false);
         }
 
@@ -1991,9 +2029,9 @@ impl<'a> FSRThreadRuntime<'a> {
             let res = rust_fn(args.as_ptr(), len, self, self.get_context().code)?;
 
             if res.get_id() == FSRObject::true_id() {
-                self.get_cur_mut_frame().exp.push(FSRObject::true_id())
+                self.get_cur_mut_frame().push_exp(FSRObject::true_id())
             } else {
-                self.get_cur_mut_frame().exp.push(FSRObject::false_id())
+                self.get_cur_mut_frame().push_exp(FSRObject::false_id())
             }
 
             return Ok(false);
@@ -2010,9 +2048,9 @@ impl<'a> FSRThreadRuntime<'a> {
         //};
 
         if v {
-            self.get_cur_mut_frame().exp.push(FSRObject::true_id())
+            self.get_cur_mut_frame().push_exp(FSRObject::true_id())
         } else {
-            self.get_cur_mut_frame().exp.push(FSRObject::false_id())
+            self.get_cur_mut_frame().push_exp(FSRObject::false_id())
         }
 
         Ok(false)
@@ -2022,10 +2060,10 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let v = if self.get_cur_mut_frame().exp.is_empty() {
+        let v = if self.get_cur_mut_frame().is_exp_empty() {
             FSRObject::none_id()
         } else {
-            self.get_cur_mut_frame().exp.pop().unwrap()
+            self.get_cur_mut_frame().pop_exp().unwrap()
         };
 
         self.get_cur_mut_frame().middle_value.push(v);
@@ -2083,7 +2121,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn load_closure(&mut self, closure: &(u64, String)) -> Result<(), FSRError> {
-        let obj_id = match self.get_cur_mut_frame().exp.pop() {
+        let obj_id = match self.get_cur_mut_frame().pop_exp() {
             Some(s) => s,
             None => {
                 return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
@@ -2139,7 +2177,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let mut list = Vec::with_capacity(*n);
             let n = *n;
             for _ in 0..n {
-                let v_id = self.get_cur_mut_frame().exp.pop().ok_or_else(|| {
+                let v_id = self.get_cur_mut_frame().pop_exp().ok_or_else(|| {
                     FSRError::new(
                         "Failed to pop value from stack in load_list",
                         FSRErrCode::EmptyExpStack,
@@ -2153,7 +2191,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let list = self
                 .garbage_collect
                 .new_object(FSRList::new_value(list), GlobalObj::ListCls.get_id());
-            self.get_cur_mut_frame().exp.push(list);
+            self.get_cur_mut_frame().push_exp(list);
         }
 
         Ok(false)
@@ -2313,7 +2351,7 @@ impl<'a> FSRThreadRuntime<'a> {
             state.insert_var(v.0, res_id);
             return Ok(false);
         }
-        self.get_cur_mut_frame().exp.push(res_id);
+        self.get_cur_mut_frame().push_exp(res_id);
         Ok(false)
     }
 
@@ -2321,11 +2359,11 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let first = self.get_cur_mut_frame().exp.pop().unwrap();
+        let first = self.get_cur_mut_frame().pop_exp().unwrap();
         if first == FSRObject::none_id() || first == FSRObject::false_id() {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
                 self.get_cur_mut_context().ip.1 += *offset;
-                self.get_cur_mut_frame().exp.push(FSRObject::false_id());
+                self.get_cur_mut_frame().push_exp(FSRObject::false_id());
             }
         }
 
@@ -2337,11 +2375,11 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let first = self.get_cur_mut_frame().exp.pop().unwrap();
+        let first = self.get_cur_mut_frame().pop_exp().unwrap();
         if first != FSRObject::none_id() && first != FSRObject::false_id() {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
                 self.get_cur_mut_context().ip.1 += *offset;
-                self.get_cur_mut_frame().exp.push(FSRObject::true_id());
+                self.get_cur_mut_frame().push_exp(FSRObject::true_id());
             }
         }
 
@@ -2349,7 +2387,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn not_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
-        let v1_id = match self.get_cur_frame().exp.last() {
+        let v1_id = match self.get_cur_frame().last_exp() {
             Some(s) => *s,
             None => {
                 return Err(FSRError::new(
@@ -2362,14 +2400,14 @@ impl<'a> FSRThreadRuntime<'a> {
         // let mut target = false;
         let target = FSRObject::none_id() == v1_id || FSRObject::false_id() == v1_id;
 
-        if let Some(x) = self.get_cur_mut_frame().exp.pop() {}
+        if let Some(x) = self.get_cur_mut_frame().pop_exp() {}
 
         self.get_cur_mut_frame().middle_value.push(v1_id);
 
         if target {
-            self.get_cur_mut_frame().exp.push(FSRObject::true_id());
+            self.get_cur_mut_frame().push_exp(FSRObject::true_id());
         } else {
-            self.get_cur_mut_frame().exp.push(FSRObject::false_id());
+            self.get_cur_mut_frame().push_exp(FSRObject::false_id());
         }
 
         Ok(false)
@@ -2610,7 +2648,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 } else {
                     Self::get_chains(self, state, var).unwrap()
                 };
-                self.get_cur_mut_frame().exp.push(id);
+                self.get_cur_mut_frame().push_exp(id);
             }
             ArgType::Const(index) => {
                 let code = FSRObject::id_to_obj(self.get_context().code)
@@ -2622,7 +2660,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     .get_const(index)
                     .unwrap()
                     .load(Ordering::Relaxed);
-                self.get_cur_mut_frame().exp.push(obj);
+                self.get_cur_mut_frame().push_exp(obj);
             }
 
             ArgType::ClosureVar(v) => {
@@ -2644,28 +2682,28 @@ impl<'a> FSRThreadRuntime<'a> {
                     var
                 };
 
-                self.get_cur_mut_frame().exp.push(var);
+                self.get_cur_mut_frame().push_exp(var);
             }
             ArgType::CurrentFn => {
                 let fn_id = self.get_cur_frame().fn_obj;
                 if fn_id == FSRObject::none_id() {
                     panic!("not found function object");
                 }
-                self.get_cur_mut_frame().exp.push(fn_id);
+                self.get_cur_mut_frame().push_exp(fn_id);
             }
             ArgType::Global(name) => {
                 let state = self.get_cur_frame();
                 let id = Self::get_chain_by_name(self, name).unwrap();
-                self.get_cur_mut_frame().exp.push(id);
+                self.get_cur_mut_frame().push_exp(id);
             }
             ArgType::LoadTrue => {
-                self.get_cur_mut_frame().exp.push(FSRObject::true_id());
+                self.get_cur_mut_frame().push_exp(FSRObject::true_id());
             }
             ArgType::LoadFalse => {
-                self.get_cur_mut_frame().exp.push(FSRObject::false_id());
+                self.get_cur_mut_frame().push_exp(FSRObject::false_id());
             }
             ArgType::LoadNone => {
-                self.get_cur_mut_frame().exp.push(FSRObject::none_id());
+                self.get_cur_mut_frame().push_exp(FSRObject::none_id());
             }
             _ => {
                 println!("{:?}", self.get_cur_mut_frame().exp);
@@ -2691,7 +2729,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if self.get_cur_mut_frame().ret_val.is_some() {
             let v = self.get_cur_mut_frame().ret_val.take().unwrap();
-            self.get_cur_mut_frame().exp.push(v);
+            self.get_cur_mut_frame().push_exp(v);
         }
     }
 
@@ -2700,7 +2738,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if self.get_cur_frame().catch_ends.is_empty() {
             return false;
         }
-        if let Some(id) = self.get_cur_frame().exp.last() {
+        if let Some(id) = self.get_cur_frame().last_exp() {
             let obj = FSRObject::id_to_obj(*id);
             if !obj.is_error() {
                 return false;
@@ -2803,11 +2841,10 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_context().ip.1 = 0;
         self.get_cur_mut_frame().last_expr_val = self
             .get_cur_mut_frame()
-            .exp
-            .last()
+            .last_exp()
             .cloned()
             .unwrap_or(FSRObject::none_id());
-        self.get_cur_mut_frame().exp.clear();
+        self.get_cur_mut_frame().clear_exp();
         self.get_cur_mut_frame().middle_value.clear();
 
         if self.garbage_collect.will_collect() {
@@ -2857,12 +2894,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 if self.get_cur_frame().ret_val.is_some() {
                     return Ok(true);
                 }
-                self.get_cur_mut_frame().exp.clear();
+                self.get_cur_mut_frame().clear_exp();
                 self.get_cur_mut_frame().middle_value.clear();
                 return Ok(false);
             }
-
-            
         }
         self.end_expr();
         Ok(false)
@@ -2965,7 +3000,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.push_context(context);
         //self.rt_lock();
         {
-            self.get_cur_mut_frame().exp.clear();
+            self.get_cur_mut_frame().clear_exp();
 
             for arg in args.iter().rev() {
                 self.get_cur_mut_frame().args.push(*arg);
@@ -3157,96 +3192,6 @@ mod test {
         try {
             a = 1 == 1
         } catch {
-            println("catch")
-        }
-
-        println('ok')
-        "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
-        let obj_id = FSRVM::leak_object(obj);
-        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
-        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
-        obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
-        // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
-    }
-
-    #[test]
-    fn test_try_catch_failed() {
-        let source_code = r#"
-        try {
-            a = 1 == 1
-            throw_error(1)
-            println('if not error will print this text')
-        } catch {
-            e = get_error()
-            println(e)
-            println("catch")
-        }
-
-        println('ok')
-        "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
-        let obj_id = FSRVM::leak_object(obj);
-        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
-        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
-        obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
-        // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
-    }
-
-    #[test]
-    fn test_try_catch_failed2() {
-        let source_code = r#"
-        fn abc() {
-            throw_error(1)
-            println('in abc')
-        }
-        try {
-            a = 1 == 1
-            abc()
-            println('if not error will print')
-        } catch {
-            e = get_error()
-            println(e)
-            println("catch")
-        }
-
-        println('ok')
-        "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
-        let obj_id = FSRVM::leak_object(obj);
-        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
-        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
-        obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
-        // let base_module = FSRVM::leak_object(Box::new(v));
-        let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
-    }
-
-    #[test]
-    fn test_try_catch_failed3() {
-        let source_code = r#"
-        fn abc() {
-            try {
-                throw_error(1)
-            } catch {
-            }
-
-            println('in abc')
-        }
-        try {
-            a = 1 == 1
-            abc()
-            println('if not error will print')
-        } catch {
-            e = get_error()
-            println(e)
             println("catch")
         }
 
