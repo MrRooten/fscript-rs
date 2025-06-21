@@ -1237,7 +1237,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .middle_value
                 .push(id.load(Ordering::Relaxed));
         } else {
-            panic!("not found object")
+            panic!("{}: not found attr, {}", dot_father_obj.cls.name, name)
         }
 
         Ok(false)

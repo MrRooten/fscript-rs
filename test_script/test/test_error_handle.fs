@@ -1,6 +1,7 @@
 fn abc() {
     try {
-        throw_error(1)
+        Exception()
+        assert(false, 'should not reach here')
     } catch {
         println('in fn abc catch')
     }
