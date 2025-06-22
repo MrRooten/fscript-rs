@@ -1935,11 +1935,11 @@ impl<'a> Bytecode {
             if last.last().is_some()
                 && last.last().unwrap().operator != BytecodeOperator::ReturnValue
             {
-                fn_body.push(vec![BytecodeArg {
+                fn_body.last_mut().unwrap().push(BytecodeArg {
                     operator: BytecodeOperator::ReturnValue,
                     arg: ArgType::None,
                     info: FSRByteInfo::new(fn_def.get_meta().clone()),
-                }]);
+                });
             }
         }
         // fn_body.push(vec![BytecodeArg {

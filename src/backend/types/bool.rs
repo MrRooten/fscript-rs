@@ -1,4 +1,4 @@
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}}, utils::error::FSRError};
+use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}}, utils::error::{FSRErrCode, FSRError}};
 
 use super::{base::{GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
@@ -13,6 +13,12 @@ pub fn equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "bool_eq: Expected exactly two arguments for equality check.",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     if args[0] == args[1] {
         Ok(FSRRetValue::GlobalId(FSRObject::true_id()))

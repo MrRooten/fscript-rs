@@ -184,7 +184,7 @@ pub struct CallFrame<'a> {
     pub(crate) handling_exception: ObjId,
     // Record current call fn_obj
     pub(crate) fn_obj: ObjId,
-    pub(crate) last_expr_val: ObjId,
+    //pub(crate) last_expr_val: ObjId,
     #[cfg(feature = "predict_op")]
     pub(crate) next_arg: Option<&'a BytecodeArg>,
 }
@@ -200,7 +200,7 @@ impl<'a> CallFrame<'a> {
         self.attr_map.clear();
         self.handling_exception = FSRObject::none_id();
         self.middle_value.clear();
-        self.last_expr_val = FSRObject::none_id();
+        //self.last_expr_val = FSRObject::none_id();
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -248,6 +248,7 @@ impl<'a> CallFrame<'a> {
         self.exp.pop()
     }
 
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn is_exp_empty(&self) -> bool {
         self.exp.is_empty()
     }
@@ -291,7 +292,7 @@ impl<'a> CallFrame<'a> {
             fn_obj,
             attr_map: AttrMap::new(),
             middle_value: vec![],
-            last_expr_val: FSRObject::none_id(),
+            //last_expr_val: FSRObject::none_id(),
             #[cfg(feature = "predict_op")]
             next_arg: None,
             const_map: IndexMap::new(),
@@ -595,9 +596,9 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(it.handling_exception);
         }
 
-        if it.last_expr_val != FSRObject::none_id() {
-            work_list.push(it.last_expr_val);
-        }
+        // if it.last_expr_val != FSRObject::none_id() {
+        //     work_list.push(it.last_expr_val);
+        // }
 
         for value in &it.middle_value {
             work_list.push(*value);
@@ -681,10 +682,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             let obj = FSRObject::id_to_obj(id);
-            // if obj.cls == 0 {
-            //     continue;
-            // }
-            //println!("marking object: {:?}", obj);
             if obj.is_marked() {
                 continue;
             }
@@ -879,11 +876,16 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
+            // if let Some(cls) = &mut self.get_cur_mut_frame().cur_cls {
+            //     cls.insert_attr_id(v.1.as_str(), obj_id);
+            // } else {
             let state = &mut self.cur_frame;
             state.insert_var(var_id, obj_id);
 
             state.middle_value.push(obj_id);
             state.attr_map.clear_var(var_id as usize);
+            //}
+
             return Ok(false);
         }
 
@@ -2081,13 +2083,13 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn end_fn(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
-        let last_expr_val = self.get_cur_frame().last_expr_val;
+        //let last_expr_val = self.get_cur_frame().last_expr_val;
         self.pop_stack();
         let cur = self.get_cur_mut_frame();
         let ip_0 = cur.reverse_ip.0;
         let ip_1 = cur.reverse_ip.1;
         let code = cur.code;
-        cur.ret_val = Some(last_expr_val);
+        cur.ret_val = Some(FSRObject::none_id());
         self.get_cur_mut_context().ip = (ip_0, ip_1);
         self.get_cur_mut_context().code = code;
         self.get_cur_mut_context().context_call_count -= 1;
@@ -2839,11 +2841,11 @@ impl<'a> FSRThreadRuntime<'a> {
     fn end_expr(&mut self) {
         self.get_cur_mut_context().ip.0 += 1;
         self.get_cur_mut_context().ip.1 = 0;
-        self.get_cur_mut_frame().last_expr_val = self
-            .get_cur_mut_frame()
-            .last_exp()
-            .cloned()
-            .unwrap_or(FSRObject::none_id());
+        // self.get_cur_mut_frame().last_expr_val = self
+        //     .get_cur_mut_frame()
+        //     .last_exp()
+        //     .cloned()
+        //     .unwrap_or(FSRObject::none_id());
         self.get_cur_mut_frame().clear_exp();
         self.get_cur_mut_frame().middle_value.clear();
 

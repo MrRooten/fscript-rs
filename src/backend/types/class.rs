@@ -245,12 +245,6 @@ impl<'a> FSRClass<'a> {
 
         if let FSRValue::Function(f) = &object.value {
             if let FSRnE::RustFn(rust_fn) = &f.fn_def {
-                // self.offset_rust_fn.push(Some(rust_fn.1));
-                // } else {
-                //     self.offset_rust_fn.push(None);
-                // }
-                // self.offset_rust_fn
-                //     .resize_with(offset as usize + 1, || None);
                 self.offset_rust_fn[offset as usize] = Some(rust_fn.1);
             }
         }
