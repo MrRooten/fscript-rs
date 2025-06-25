@@ -172,7 +172,7 @@ pub struct CallFrame<'a> {
     pub(crate) var_map: IndexMap,
     pub(crate) const_map: IndexMap,
     attr_map: AttrMap<'a>,
-    reverse_ip: (usize, usize),
+    //reverse_ip: (usize, usize),
     pub(crate) args: Vec<ObjId>,
     cur_cls: Option<Box<FSRClass<'a>>>,
     pub(crate) ret_val: Option<ObjId>,
@@ -187,6 +187,7 @@ pub struct CallFrame<'a> {
     //pub(crate) last_expr_val: ObjId,
     #[cfg(feature = "predict_op")]
     pub(crate) next_arg: Option<&'a BytecodeArg>,
+    pub(crate) ip: (usize, usize)
 }
 
 impl<'a> CallFrame<'a> {
@@ -274,14 +275,14 @@ impl<'a> CallFrame<'a> {
         self.const_map.get(id)
     }
 
-    pub fn set_reverse_ip(&mut self, ip: (usize, usize)) {
-        self.reverse_ip = ip;
-    }
+    // pub fn set_reverse_ip(&mut self, ip: (usize, usize)) {
+    //     self.reverse_ip = ip;
+    // }
 
     pub fn new(code: ObjId, fn_obj: ObjId) -> Self {
         Self {
             var_map: IndexMap::new(),
-            reverse_ip: (0, 0),
+            //reverse_ip: (0, 0),
             args: Vec::with_capacity(4),
             cur_cls: None,
             ret_val: None,
@@ -296,6 +297,7 @@ impl<'a> CallFrame<'a> {
             #[cfg(feature = "predict_op")]
             next_arg: None,
             const_map: IndexMap::new(),
+            ip: (0, 0),
         }
     }
 }
@@ -311,7 +313,7 @@ pub struct ReferenceArgs<'a> {
 pub struct FSCodeContext {
     // tracing call stack, is call stack is empty means end of this call except start of this call
     pub(crate) context_call_count: u32,
-    ip: (usize, usize),
+    // ip: (usize, usize),
     pub(crate) code: ObjId,
 }
 
@@ -319,7 +321,7 @@ impl FSCodeContext {
     pub fn new_context(code: ObjId) -> Self {
         FSCodeContext {
             // exp: Vec::with_capacity(8),
-            ip: (0, 0),
+            // ip: (0, 0),
             code,
             context_call_count: 1,
         }
@@ -327,7 +329,7 @@ impl FSCodeContext {
 
     pub fn clear(&mut self) {
         //self.exp.clear();
-        self.ip = (0, 0);
+        //self.ip = (0, 0);
     }
 }
 
@@ -1306,11 +1308,11 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         //ip: &mut (usize, usize),
     ) {
-        let ip = self.get_context().ip;
+        let ip = self.get_cur_frame().ip;
         let code = self.get_context().code;
 
         let state = self.get_cur_mut_frame();
-        state.set_reverse_ip(ip);
+        // state.set_reverse_ip(ip);
 
         state.code = code;
     }
@@ -1367,7 +1369,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             let offset = new_obj.get_fsr_offset().1;
-            self.get_cur_mut_context().ip = (offset.0, 0);
+            self.get_cur_mut_frame().ip = (offset.0, 0);
             Ok(true)
         } else {
             unimplemented!()
@@ -1384,11 +1386,11 @@ impl<'a> FSRThreadRuntime<'a> {
         // push object the call this method, case like a.b(c) will like A::b(a, c)
         args.push(obj_id);
         if fn_obj.is_fsr_function() {
-            let ip = self.get_context().ip;
+            let ip = self.get_cur_frame().ip;
 
             let state = self.get_cur_mut_frame();
             //Save callstate
-            state.set_reverse_ip(ip);
+            // state.set_reverse_ip(ip);
             //state.exp = store_exp;
 
             if let FSRValue::Function(f) = &fn_obj.value {
@@ -1409,7 +1411,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if let FSRValue::Function(obj) = &fn_obj.value {
                 self.get_cur_mut_context().code = obj.code;
             }
-            self.get_cur_mut_context().ip = (offset.0, 0);
+            self.get_cur_mut_frame().ip = (offset.0, 0);
             return Ok(true);
         } else {
             args.reverse();
@@ -1479,7 +1481,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_context().code = f.code;
         //}
 
-        self.get_cur_mut_context().ip = (0, 0);
+        self.get_cur_mut_frame().ip = (0, 0);
         Ok(())
     }
 
@@ -1639,7 +1641,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 ))
             }
         };
-        let ip_0 = self.get_context().ip.0;
+        let ip_0 = self.get_cur_frame().ip.0;
 
         self.get_cur_mut_frame()
             .catch_ends
@@ -1649,7 +1651,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn try_end(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let end = self.get_cur_mut_frame().catch_ends.pop().unwrap();
-        self.get_cur_mut_context().ip = (end.1, 0);
+        self.get_cur_mut_frame().ip = (end.1, 0);
         Ok(true)
     }
 
@@ -1674,8 +1676,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                let tmp = self.get_context().ip.0;
-                self.get_cur_mut_context().ip = (tmp + n.0 as usize + 1_usize, 0);
+                let tmp = self.get_cur_frame().ip.0;
+                self.get_cur_mut_frame().ip = (tmp + n.0 as usize + 1_usize, 0);
                 self.flow_tracker.push_last_if_test(false);
                 return Ok(true);
             }
@@ -1701,8 +1703,8 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_frame().middle_value.push(test_val);
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                let tmp = self.get_context().ip.0;
-                self.get_cur_mut_context().ip = (tmp + n.0 as usize + 1_usize, 0);
+                let tmp = self.get_cur_frame().ip.0;
+                self.get_cur_mut_frame().ip = (tmp + n.0 as usize + 1_usize, 0);
                 self.flow_tracker.false_last_if_test();
                 return Ok(true);
             } else {
@@ -1723,8 +1725,8 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         if self.flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                self.get_cur_mut_context().ip =
-                    (self.get_context().ip.0 + n.0 as usize + 1_usize, 0);
+                self.get_cur_mut_frame().ip =
+                    (self.get_cur_frame().ip.0 + n.0 as usize + 1_usize, 0);
                 return Ok(true);
             }
         }
@@ -1740,8 +1742,8 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         if self.flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                let tmp = self.get_context().ip.0;
-                self.get_cur_mut_context().ip = (tmp + n.0 as usize + 1_usize, 0);
+                let tmp = self.get_cur_frame().ip.0;
+                self.get_cur_mut_frame().ip = (tmp + n.0 as usize + 1_usize, 0);
                 return Ok(true);
             } else {
                 return Err(FSRError::new(
@@ -1762,7 +1764,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.flow_tracker.is_break = true;
         let l = self.flow_tracker.continue_line.len();
         let continue_line = self.flow_tracker.continue_line[l - 1];
-        self.get_cur_mut_context().ip = (continue_line, 0);
+        self.get_cur_mut_frame().ip = (continue_line, 0);
         Ok(true)
     }
 
@@ -1773,7 +1775,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let l = self.flow_tracker.continue_line.len();
         let continue_line = self.flow_tracker.continue_line[l - 1];
-        self.get_cur_mut_context().ip = (continue_line, 0);
+        self.get_cur_mut_frame().ip = (continue_line, 0);
         Ok(true)
     }
 
@@ -1811,10 +1813,10 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::ForLine(n) = bytecode.get_arg() {
             self.flow_tracker
                 .break_line
-                .push(self.get_context().ip.0 + *n as usize);
+                .push(self.get_cur_frame().ip.0 + *n as usize);
             self.flow_tracker
                 .continue_line
-                .push(self.get_context().ip.0 + 1);
+                .push(self.get_cur_frame().ip.0 + 1);
         }
         self.flow_tracker.for_iter_obj.push(read_iter_id);
         Ok(false)
@@ -1831,27 +1833,27 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::WhileTest(n) = bytecode.get_arg() {
             // Avoid repeat add break ip and continue ip
             if let Some(s) = self.flow_tracker.break_line.last() {
-                if self.get_context().ip.0 + *n as usize + 1 != *s {
+                if self.get_cur_frame().ip.0 + *n as usize + 1 != *s {
                     self.flow_tracker
                         .break_line
-                        .push(self.get_context().ip.0 + *n as usize + 1);
+                        .push(self.get_cur_frame().ip.0 + *n as usize + 1);
                 }
             } else {
                 self.flow_tracker
                     .break_line
-                    .push(self.get_context().ip.0 + *n as usize + 1);
+                    .push(self.get_cur_frame().ip.0 + *n as usize + 1);
             }
 
             if let Some(s) = self.flow_tracker.continue_line.last() {
-                if self.get_context().ip.0 != *s {
+                if self.get_cur_frame().ip.0 != *s {
                     self.flow_tracker
                         .continue_line
-                        .push(self.get_context().ip.0);
+                        .push(self.get_cur_frame().ip.0);
                 }
             } else {
                 self.flow_tracker
                     .continue_line
-                    .push(self.get_context().ip.0);
+                    .push(self.get_cur_frame().ip.0);
             }
         }
 
@@ -1860,7 +1862,7 @@ impl<'a> FSRThreadRuntime<'a> {
         {
             self.flow_tracker.is_break = false;
             if let ArgType::WhileTest(n) = bytecode.get_arg() {
-                self.get_cur_mut_context().ip = (self.get_context().ip.0 + *n as usize + 1, 0);
+                self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + *n as usize + 1, 0);
                 self.flow_tracker.break_line.pop();
                 self.flow_tracker.continue_line.pop();
                 return Ok(true);
@@ -1915,11 +1917,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 let offset = BinaryOffset::from_alias_name(name.as_str());
                 if let Some(offset) = offset {
                     cur_cls.insert_offset_attr_obj_id(offset, fn_id);
-                    self.get_cur_mut_context().ip = (self.get_context().ip.0 + 1, 0);
+                    self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
                     return Ok(true);
                 }
                 cur_cls.insert_attr_id(name, fn_id);
-                self.get_cur_mut_context().ip = (self.get_context().ip.0 + 1, 0);
+                self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
                 return Ok(true);
             }
 
@@ -1949,8 +1951,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             }
 
-            let ip_0 = self.get_context().ip.0;
-            self.get_cur_mut_context().ip = (ip_0 + 1, 0);
+            let ip_0 = self.get_cur_frame().ip.0;
+            self.get_cur_mut_frame().ip = (ip_0 + 1, 0);
             return Ok(true);
         } else {
             return Err(FSRError::new(
@@ -1995,10 +1997,10 @@ impl<'a> FSRThreadRuntime<'a> {
             #[cfg(feature = "predict_op")]
             if let Some(s) = self.get_cur_frame().next_arg {
                 if s.get_operator() == &BytecodeOperator::CompareTest {
-                    self.get_cur_mut_context().ip.1 += 1;
+                    self.get_cur_mut_frame().ip.1 += 1;
                     return Self::if_test_process(self, s);
                 } else if s.get_operator() == &BytecodeOperator::OrJump {
-                    self.get_cur_mut_context().ip.1 += 1;
+                    self.get_cur_mut_frame().ip.1 += 1;
                     return Self::process_logic_or(self, s);
                 }
             }
@@ -2072,10 +2074,10 @@ impl<'a> FSRThreadRuntime<'a> {
         self.pop_stack();
         let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(v);
-        let ip_0 = cur.reverse_ip.0;
-        let ip_1 = cur.reverse_ip.1;
+        // let ip_0 = cur.reverse_ip.0;
+        // let ip_1 = cur.reverse_ip.1;
         let code = cur.code;
-        self.get_cur_mut_context().ip = (ip_0, ip_1);
+        //self.get_cur_mut_frame().ip = (ip_0, ip_1);
         self.get_cur_mut_context().code = code;
         self.get_cur_mut_context().context_call_count -= 1;
         // self.garbage_collect.add_root(v);
@@ -2086,11 +2088,11 @@ impl<'a> FSRThreadRuntime<'a> {
         //let last_expr_val = self.get_cur_frame().last_expr_val;
         self.pop_stack();
         let cur = self.get_cur_mut_frame();
-        let ip_0 = cur.reverse_ip.0;
-        let ip_1 = cur.reverse_ip.1;
+        // let ip_0 = cur.reverse_ip.0;
+        // let ip_1 = cur.reverse_ip.1;
         let code = cur.code;
         cur.ret_val = Some(FSRObject::none_id());
-        self.get_cur_mut_context().ip = (ip_0, ip_1);
+        //self.get_cur_mut_frame().ip = (ip_0, ip_1);
         self.get_cur_mut_context().code = code;
         self.get_cur_mut_context().context_call_count -= 1;
         Ok(true)
@@ -2101,8 +2103,8 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::ForEnd(n) = bytecode.get_arg() {
-            let tmp = self.get_context().ip.0;
-            self.get_cur_mut_context().ip = (tmp - *n as usize, 0);
+            let tmp = self.get_cur_frame().ip.0;
+            self.get_cur_mut_frame().ip = (tmp - *n as usize, 0);
             return Ok(true);
         }
 
@@ -2114,8 +2116,8 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::WhileEnd(n) = bytecode.get_arg() {
-            let tmp = self.get_context().ip.0;
-            self.get_cur_mut_context().ip = (tmp - *n as usize, 0);
+            let tmp = self.get_cur_frame().ip.0;
+            self.get_cur_mut_frame().ip = (tmp - *n as usize, 0);
             return Ok(true);
         }
 
@@ -2344,7 +2346,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let _ = self.flow_tracker.for_iter_obj.pop().unwrap();
             let _ = self.flow_tracker.ref_for_obj.pop().unwrap();
 
-            self.get_cur_mut_context().ip = (break_line, 0);
+            self.get_cur_mut_frame().ip = (break_line, 0);
             return Ok(true);
         }
 
@@ -2364,7 +2366,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let first = self.get_cur_mut_frame().pop_exp().unwrap();
         if first == FSRObject::none_id() || first == FSRObject::false_id() {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
-                self.get_cur_mut_context().ip.1 += *offset;
+                self.get_cur_mut_frame().ip.1 += *offset;
                 self.get_cur_mut_frame().push_exp(FSRObject::false_id());
             }
         }
@@ -2380,7 +2382,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let first = self.get_cur_mut_frame().pop_exp().unwrap();
         if first != FSRObject::none_id() && first != FSRObject::false_id() {
             if let ArgType::AddOffset(offset) = bc.get_arg() {
-                self.get_cur_mut_context().ip.1 += *offset;
+                self.get_cur_mut_frame().ip.1 += *offset;
                 self.get_cur_mut_frame().push_exp(FSRObject::true_id());
             }
         }
@@ -2716,7 +2718,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // #[cfg(feature = "predict_op")]
         // if let Some(s) = self.get_cur_frame().next_arg {
         //     if s.get_operator() == &BytecodeOperator::CompareTest {
-        //         self.get_cur_mut_context().ip.1 += 1;
+        //         self.get_cur_mut_frame().ip.1 += 1;
         //         let v = Self::compare_test(self, s);
         //         return v
         //     }
@@ -2749,7 +2751,7 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_frame().handling_exception = *id;
             // self.exception = FSRObject::none_id();
             // self.exception_flag = false;
-            self.get_cur_mut_context().ip =
+            self.get_cur_mut_frame().ip =
                 (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
             // self.garbage_collect.add_root(exception_handling);
             return true;
@@ -2839,8 +2841,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn end_expr(&mut self) {
-        self.get_cur_mut_context().ip.0 += 1;
-        self.get_cur_mut_context().ip.1 = 0;
+        self.get_cur_mut_frame().ip.0 += 1;
+        self.get_cur_mut_frame().ip.1 = 0;
         // self.get_cur_mut_frame().last_expr_val = self
         //     .get_cur_mut_frame()
         //     .last_exp()
@@ -2868,12 +2870,12 @@ impl<'a> FSRThreadRuntime<'a> {
     fn run_expr(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
         let mut v;
         self.set_exp_stack_ret();
-        while let Some(arg) = expr.get(self.get_context().ip.1) {
-            self.get_cur_mut_context().ip.1 += 1;
+        while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
+            self.get_cur_mut_frame().ip.1 += 1;
             // let arg = &expr[context.ip.1];
             #[cfg(feature = "bytecode_trace")]
             {
-                let t = format!("{:?} => {:?}", self.get_context().ip, arg);
+                let t = format!("{:?} => {:?}", self.get_cur_frame().ip, arg);
                 println!("{:?}", self.get_cur_frame().exp);
                 println!("{}", t);
             }
@@ -2884,7 +2886,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             #[cfg(feature = "predict_op")]
             {
-                self.get_cur_mut_frame().next_arg = expr.get(self.get_context().ip.1);
+                self.get_cur_mut_frame().next_arg = expr.get(self.get_cur_frame().ip.1);
             }
             v = self.process(arg)?;
 
@@ -2917,7 +2919,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let code_id = FSRObject::obj_to_id(code);
         let context = Box::new(FSCodeContext {
             //exp: Vec::with_capacity(8),
-            ip: (0, 0),
             code: code_id,
             context_call_count: 1,
         });
@@ -2928,7 +2929,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.push_frame(frame);
         //self.unlock_and_lock();
         let mut code = FSRObject::id_to_obj(code_id).as_code();
-        while let Some(expr) = code.get_expr(self.get_context().ip.0) {
+        while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
             code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
@@ -2967,7 +2968,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_context().code = FSRObject::obj_to_id(main_code.unwrap());
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         //self.get_cur_mut_frame().fn_obj = code_id;
-        while let Some(expr) = code.get_expr(self.get_context().ip.0) {
+        while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             #[cfg(feature = "bytecode_trace")]
             {
                 println!(
@@ -2996,7 +2997,7 @@ impl<'a> FSRThreadRuntime<'a> {
         code: ObjId,
     ) -> Result<ObjId, FSRError> {
         let mut context = self.thread_allocator.new_code_context(code);
-        context.ip = fn_def.get_ip();
+        //context.ip = fn_def.get_ip();
         context.code = code;
 
         self.push_context(context);
@@ -3008,10 +3009,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().args.push(*arg);
             }
             let offset = fn_def.get_ip();
-            self.get_cur_mut_context().ip = (offset.0, 0);
+            self.get_cur_mut_frame().ip = (offset.0, 0);
         }
         let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
-        while let Some(expr) = code.get_expr(self.get_context().ip.0) {
+        while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
             // if self.exception_flag {
             //     // If this is last function call, in this call_fn
