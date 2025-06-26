@@ -6,7 +6,7 @@ use std::{
 use crate::{
     backend::{
         types::{
-            base::{Area, GlobalObj, FSRObject, ObjId},
+            base::{Area, FSRObject, GlobalObj, ObjId},
             float::FSRFloat,
             integer::FSRInteger,
             string::FSRString,
@@ -172,6 +172,7 @@ pub enum BytecodeOperator {
     AssignAttr = 48,
     CallMethod = 49,
     CompareEqual = 50,
+    TryException = 51,
     Load = 254,
 }
 
@@ -971,11 +972,7 @@ impl<'a> Bytecode {
         }
 
         if let Some(ref_map) = context.ref_map_stack.last() {
-            if ref_map
-                .get(var.get_name())
-                .cloned()
-                .unwrap_or(false)
-            {
+            if ref_map.get(var.get_name()).cloned().unwrap_or(false) {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
                 let op_arg: BytecodeArg = BytecodeArg {
                     operator: BytecodeOperator::AssignArgs,
@@ -1016,6 +1013,19 @@ impl<'a> Bytecode {
         }
 
         (result)
+    }
+
+    /// Use to trigger special attribute
+    /// like var.await, var.yield, var.return, var.throw
+    fn special_variable_trigger(var: &FSRVariable) -> Option<BytecodeArg> {
+        if var.get_name().eq("try") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::TryException,
+                arg: ArgType::None,
+                info: FSRByteInfo::new(var.get_meta().clone()),
+            });
+        }
+        None
     }
 
     fn load_expr(
@@ -1063,9 +1073,20 @@ impl<'a> Bytecode {
             //
         } else if let FSRToken::Variable(v) = expr.get_right() {
             let mut is_attr = false;
+
+            if expr.get_op().eq(".") {
+                let v = Self::special_variable_trigger(v);
+                if let Some(op_arg) = v {
+                    second.push(op_arg);
+                    op_code.append(&mut second);
+                    return (op_code);
+                }
+            }
+
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 is_attr = true;
             }
+
             let v = Self::load_variable(v, var_map, is_attr, const_map);
             match v {
                 AttrIdOrCode::Bytecode(mut bytecode_args) => {
@@ -1793,7 +1814,6 @@ impl<'a> Bytecode {
                 });
                 return (result_list);
             }
-            
         }
 
         let load_list = BytecodeArg {
@@ -2519,6 +2539,18 @@ a[0] = 1
     fn test_class_getter2() {
         let expr = "
         f = fs::File.open(\"./.gitignore\")
+        ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_exp_throw() {
+        let expr = "
+        a.try
         ";
 
         let meta = FSRPosition::new();

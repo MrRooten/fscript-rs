@@ -2084,6 +2084,20 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    fn try_exception_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let cur = self.get_cur_frame();
+        let val = *cur.last_exp().unwrap();
+        let obj = FSRObject::id_to_obj(val);
+        if obj.is_error() {
+            return Self::ret_value(self, bytecode)
+        }
+        
+        Ok(false)
+    }
+
     fn end_fn(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
         //let last_expr_val = self.get_cur_frame().last_expr_val;
         self.pop_stack();
@@ -2476,6 +2490,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
             BytecodeOperator::CompareEqual => Self::compare_equal_process(self, bytecode),
             BytecodeOperator::Load => Self::load_var(self, bytecode),
+            BytecodeOperator::TryException => Self::try_exception_process(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }

@@ -1,5 +1,10 @@
-fn abc() { Exception() }
+fn abc() {
+    a = Exception()
+    a = a.try + 2
 
-a = abc()
+    return a
+}
 
-println(a)
+b = abc()
+
+println(b)

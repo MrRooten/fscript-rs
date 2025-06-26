@@ -132,7 +132,11 @@ impl Error for FSRError {
 
 impl Display for FSRError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        if let Some(exception) = &self.inner.exception {
+            write!(f, "FSR Error: {} (code: {:?}, exception: {})", self.inner.msg, self.inner.code, exception)
+        } else {
+            write!(f, "FSR Error: {} (code: {:?})", self.inner.msg, self.inner.code)
+        }
     }
 }
 
