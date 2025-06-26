@@ -1,10 +1,8 @@
 fn abc() {
-    a = Exception()
-    a = a.try + 2
-
-    return a
+    a = 1
+    for i in 0..30000000 {
+        a.try
+    }
 }
 
 b = abc()
-
-println(b)

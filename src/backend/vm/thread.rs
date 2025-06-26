@@ -187,7 +187,7 @@ pub struct CallFrame<'a> {
     //pub(crate) last_expr_val: ObjId,
     #[cfg(feature = "predict_op")]
     pub(crate) next_arg: Option<&'a BytecodeArg>,
-    pub(crate) ip: (usize, usize)
+    pub(crate) ip: (usize, usize),
 }
 
 impl<'a> CallFrame<'a> {
@@ -1231,7 +1231,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
         // println!("father: {:#?}", dot_father_obj);
         let name = &attr_id.1;
-        let id = dot_father_obj.get_attr(name);
+        let id = dot_father_obj.get_cls_getter_attr(name);
 
         if let Some(id) = id {
             self.get_cur_mut_frame()
@@ -1286,20 +1286,36 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().middle_value.push(rhs_id);
                 self.get_cur_mut_frame().middle_value.push(lhs_id);
                 return Ok(false);
+            } else {
+                return Err(FSRError::new(
+                    "right side of range is not integer",
+                    FSRErrCode::NotValidArgs,
+                ));
             }
+        } else {
+            return Err(FSRError::new(
+                "left side of range is not integer",
+                FSRErrCode::NotValidArgs,
+            ));
         }
-        unimplemented!()
     }
 
     #[inline]
-    fn call_process_set_args(args_num: usize, thread: &mut Self, args: &mut SmallVec<[ObjId; 4]>) {
+    fn call_process_set_args(args_num: usize, thread: &mut Self, args: &mut SmallVec<[ObjId; 4]>) -> Result<(), FSRError> {
         let mut i = 0;
         while i < args_num {
-            let a_id = thread.get_cur_mut_frame().pop_exp().unwrap();
+            let a_id = thread.get_cur_mut_frame().pop_exp().ok_or_else(|| {
+                FSRError::new(
+                    "error in call process, not enough args",
+                    FSRErrCode::EmptyExpStack,
+                )
+            })?;
             thread.get_cur_mut_frame().middle_value.push(a_id);
             args.push(a_id);
             i += 1;
         }
+
+        Ok(())
     }
 
     // exp will be cleared after call
@@ -1589,11 +1605,11 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
         //let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
         if let ArgType::CallArgsNumber(args_num) = *bytecode.get_arg() {
-            Self::call_process_set_args(args_num, self, &mut args);
+            Self::call_process_set_args(args_num, self, &mut args)?;
             //args.reverse();
         } else if let ArgType::CallArgsNumberWithVar(pack) = bytecode.get_arg() {
             let args_num = pack.0;
-            Self::call_process_set_args(args_num, self, &mut args);
+            Self::call_process_set_args(args_num, self, &mut args)?;
             var = Some(pack);
             //args.reverse();
         };
@@ -1613,14 +1629,14 @@ impl<'a> FSRThreadRuntime<'a> {
         let father;
         let method = if let ArgType::CallArgsNumberWithAttr(pack) = bytecode.get_arg() {
             let args_num = pack.0;
-            Self::call_process_set_args(args_num, self, &mut args);
+            Self::call_process_set_args(args_num, self, &mut args)?;
 
             father = self.get_cur_mut_frame().pop_exp().unwrap();
-            let father_cls = FSRObject::id_to_obj(father).cls;
+            let father_cls = FSRObject::id_to_obj(father);
             let fn_id = father_cls.get_attr(&pack.2).unwrap();
             fn_id.load(Ordering::Relaxed)
         } else {
-            unimplemented!()
+            panic!("not support ArgType: {:?}", bytecode.get_arg());
         };
 
         let mut object_id: Option<ObjId> = Some(father);
@@ -1657,7 +1673,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn catch_end(
         self: &mut FSRThreadRuntime<'a>,
-
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_frame();
@@ -2084,6 +2099,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn try_exception_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -2092,9 +2108,10 @@ impl<'a> FSRThreadRuntime<'a> {
         let val = *cur.last_exp().unwrap();
         let obj = FSRObject::id_to_obj(val);
         if obj.is_error() {
-            return Self::ret_value(self, bytecode)
+            // if obj is error just return error to caller
+            return Self::ret_value(self, bytecode);
         }
-        
+        // do nothing if not error
         Ok(false)
     }
 
@@ -2250,18 +2267,25 @@ impl<'a> FSRThreadRuntime<'a> {
         bc: &BytecodeArg,
         context: ObjId,
     ) -> Result<bool, FSRError> {
+        macro_rules! as_mut_module {
+            ($id:expr) => {
+                FSRObject::id_to_mut_obj(FSRObject::id_to_obj($id).as_code().module)
+                    .unwrap()
+                    .as_mut_module()
+            };
+        }
         if let ArgType::ImportModule(v, module_name) = bc.get_arg() {
             if let Some(module_fn) = self.get_vm().core_module.get(module_name[0].as_str()) {
                 let module = module_fn(self);
-                let module =
-                    FSRObject::new_inst(module, get_object_by_global_id(GlobalObj::ModuleCls));
+                let module = FSRObject::new_inst(module, GlobalObj::ModuleCls.get_id());
                 let module_id = FSRVM::leak_object(Box::new(module));
                 let state = self.get_cur_mut_frame();
                 state.insert_var(*v, module_id);
-                let cur_module =
-                    FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
-                        .unwrap()
-                        .as_mut_module();
+                // let cur_module =
+                //     FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
+                //         .unwrap()
+                //         .as_mut_module();
+                let cur_module = as_mut_module!(context);
                 cur_module.register_object(module_name.last().unwrap(), module_id);
                 return Ok(false);
             }
@@ -2277,9 +2301,10 @@ impl<'a> FSRThreadRuntime<'a> {
 
             let state = self.get_cur_mut_frame();
             state.insert_var(*v, module_id);
-            let module = FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
-                .unwrap()
-                .as_mut_module();
+            // let module = FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
+            //     .unwrap()
+            //     .as_mut_module();
+            let module = as_mut_module!(context);
             module.register_object(module_name.last().unwrap(), module_id);
             return Ok(false);
         }
@@ -2766,8 +2791,7 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_frame().handling_exception = *id;
             // self.exception = FSRObject::none_id();
             // self.exception_flag = false;
-            self.get_cur_mut_frame().ip =
-                (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
+            self.get_cur_mut_frame().ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
             // self.garbage_collect.add_root(exception_handling);
             return true;
         }
@@ -2905,9 +2929,9 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             v = self.process(arg)?;
 
-            if Self::exception_process(self) {
-                return Ok(true);
-            }
+            // if Self::exception_process(self) {
+            //     return Ok(true);
+            // }
 
             if v {
                 if self.get_cur_frame().ret_val.is_some() {

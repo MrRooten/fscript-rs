@@ -736,6 +736,33 @@ impl<'a> FSRObject<'a> {
             return s.get_attr(name);
         }
 
+        // if let FSRValue::Module(m) = &self.value {
+        //     return m.get_object(name);
+        // }
+
+        None
+    }
+
+    #[inline]
+    pub fn get_cls_getter_attr(&self, name: &str) -> Option<&AtomicObjId> {
+        if let Some(s) = self.get_cls_attr(name) {
+            return Some(s);
+        }
+
+        if let FSRValue::ClassInst(inst) = &self.value {
+            let v = match inst.get_attr(name) {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
+            return Some(v);
+        }
+
+        if let FSRValue::Class(s) = &self.value {
+            return s.get_attr(name);
+        }
+
         if let FSRValue::Module(m) = &self.value {
             return m.get_object(name);
         }
@@ -777,6 +804,7 @@ impl<'a> FSRObject<'a> {
         self as *const Self as ObjId
     }
 
+    #[inline(always)]
     pub fn is_error(&self) -> bool {
         if self.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
             return true;
