@@ -2929,9 +2929,11 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             v = self.process(arg)?;
 
-            // if Self::exception_process(self) {
-            //     return Ok(true);
-            // }
+            if Self::exception_process(self) {
+                self.get_cur_mut_frame().clear_exp();
+                self.get_cur_mut_frame().middle_value.clear();
+                return Ok(true);
+            }
 
             if v {
                 if self.get_cur_frame().ret_val.is_some() {
