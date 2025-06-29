@@ -1532,17 +1532,15 @@ impl<'a> FSRThreadRuntime<'a> {
         if fn_obj.is_fsr_function() && !call_method {
             if let FSRnE::FSRFn(f) = &fn_obj.as_fn().fn_def {
                 if f.jit_code.is_some() {
+                    if f.is_async {
+                        return Err(FSRError::new(
+                            "async function not support in this version",
+                            FSRErrCode::NotValidArgs,
+                        ));
+                    }
                     let code = *f.jit_code.as_ref().unwrap();
                     let code = code as *const u8;
-                    //  self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
-                    // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
-                    // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
-                    // self.ctx
-                    //     .func
-                    //     .signature
-                    //     .params
-                    //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
-                    // self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
+
                     let frame = self
                         .frame_free_list
                         .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
@@ -1561,6 +1559,10 @@ impl<'a> FSRThreadRuntime<'a> {
                     self.frame_free_list.free(v);
                     self.get_cur_mut_frame().push_exp(res);
                     return Ok(false);
+                }
+
+                if f.is_async {
+                    panic!("unimplemented: async function call in FSRThreadRuntime");
                 }
             }
             self.process_fsr_fn(fn_id, fn_obj, args)?;
@@ -1921,6 +1923,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 fn_code_id,
                 self.get_cur_frame().fn_obj,
                 code,
+                fn_code_inner.get_bytecode().is_async
             );
 
             let fn_obj = self

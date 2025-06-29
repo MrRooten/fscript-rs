@@ -35,6 +35,7 @@ pub struct FSRFnInner<'a> {
     name: Cow<'a, str>,
     fn_ip: (usize, usize),
     pub(crate) jit_code: Option<usize>,
+    pub(crate) is_async: bool,
     //bytecode: &'a Bytecode,
 }
 
@@ -143,6 +144,7 @@ impl<'a> FSRFn<'a> {
             name: Cow::Owned("__main__".to_string()),
             fn_ip: (0, 0),
             jit_code: None,
+            is_async: false,
         };
 
         let v = Self {
@@ -162,11 +164,13 @@ impl<'a> FSRFn<'a> {
         code_obj: ObjId,
         fn_id: ObjId, // Which father fn define this son fn
         jit_code: Option<*const u8>,
+        is_async: bool,
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
             fn_ip: u,
             jit_code: jit_code.map(|x| x as usize),
+            is_async: false,
             //bytecode,
         };
 

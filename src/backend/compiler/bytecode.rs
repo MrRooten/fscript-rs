@@ -173,6 +173,8 @@ pub enum BytecodeOperator {
     CallMethod = 49,
     CompareEqual = 50,
     TryException = 51,
+    Await = 52, // await expression
+    Yield = 53, // yield expression
     Load = 254,
 }
 
@@ -463,6 +465,7 @@ pub struct FnDef {
     code: Vec<Vec<BytecodeArg>>,
     var_map: VarMap,
     is_jit: bool,
+    is_async: bool
 }
 
 #[derive(Debug)]
@@ -631,6 +634,7 @@ pub struct Bytecode {
     pub(crate) bytecode: Vec<Vec<BytecodeArg>>,
     pub(crate) var_map: VarMap,
     pub(crate) is_jit: bool,
+    pub(crate) is_async: bool
 }
 
 enum AttrIdOrCode {
@@ -1021,6 +1025,18 @@ impl<'a> Bytecode {
         if var.get_name().eq("try") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::TryException,
+                arg: ArgType::None,
+                info: FSRByteInfo::new(var.get_meta().clone()),
+            });
+        } else if var.get_name().eq("await") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::Await,
+                arg: ArgType::None,
+                info: FSRByteInfo::new(var.get_meta().clone()),
+            });
+        } else if var.get_name().eq("yield") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::Yield,
                 arg: ArgType::None,
                 info: FSRByteInfo::new(var.get_meta().clone()),
             });
@@ -1603,6 +1619,7 @@ impl<'a> Bytecode {
                     bytecode: v.0,
                     var_map: v.1,
                     is_jit: false,
+                    is_async: false,
                 });
                 let c_id = var_map
                     .last_mut()
@@ -1982,6 +1999,11 @@ impl<'a> Bytecode {
                 .as_ref()
                 .map(|x| x.value.eq("@jit"))
                 .unwrap_or(false),
+            is_async: fn_def
+                .teller
+                .as_ref()
+                .map(|x| x.value.eq("@async"))
+                .unwrap_or(false),
         };
         bytecontext.fn_def_map.insert(cur_name, fn_def);
 
@@ -2159,6 +2181,7 @@ impl<'a> Bytecode {
                 bytecode: result,
                 var_map: vs.1,
                 is_jit: false,
+                is_async: false,
             },
         );
 
@@ -2171,6 +2194,7 @@ impl<'a> Bytecode {
                 bytecode: code.1.code,
                 var_map: code.1.var_map,
                 is_jit: code.1.is_jit,
+                is_async: code.1.is_async,
             };
 
             res.insert(code.0.to_string(), bytecode);
