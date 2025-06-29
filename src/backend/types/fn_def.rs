@@ -170,8 +170,7 @@ impl<'a> FSRFn<'a> {
             name: Cow::Owned(fn_name.to_string()),
             fn_ip: u,
             jit_code: jit_code.map(|x| x as usize),
-            is_async: false,
-            //bytecode,
+            is_async,
         };
 
         let c = if fn_id != 0 {

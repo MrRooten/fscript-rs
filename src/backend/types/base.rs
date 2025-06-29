@@ -12,7 +12,7 @@ use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
         memory::size_alloc::FSRObjectAllocator,
-        types::{bytes::FSRInnerBytes, fn_def::FSRnE},
+        types::{any::GetReference, asynclib::future::FSRFuture, bytes::FSRInnerBytes, fn_def::FSRnE},
         vm::{
             thread::FSRThreadRuntime,
             virtual_machine::{get_object_by_global_id, FSRVM, OBJECTS},
@@ -86,6 +86,7 @@ pub enum GlobalObj {
     NoneCls,
     BytesCls,
     HashSetCls,
+    FutureCls,
 }
 
 impl GlobalObj {
@@ -133,6 +134,7 @@ pub enum FSRValue<'a> {
     // module is define in single file
     Module(Box<FSRModule<'a>>),
     Bytes(Box<FSRInnerBytes>),
+    Future(Box<FSRFuture<'a>>),
     None,
 }
 
@@ -157,6 +159,7 @@ impl FSRValue<'_> {
             FSRValue::Bytes(fsrinner_bytes) => {
                 std::mem::size_of::<FSRInnerBytes>() + fsrinner_bytes.len()
             }
+            FSRValue::Future(fsrfuture) => std::mem::size_of::<FSRFuture>(),
         }
     }
 }
@@ -252,10 +255,14 @@ impl<'a> FSRValue<'a> {
                 Some(Arc::new(FSRInnerString::new(fsrmodule.as_string())))
             }
             FSRValue::Any(_) => {
-                if FSRObject::id_to_obj(self_id).cls.get_attr("__str__").is_none() {
+                if FSRObject::id_to_obj(self_id)
+                    .cls
+                    .get_attr("__str__")
+                    .is_none()
+                {
                     return None;
                 }
-                let res = FSRObject::invoke_method("__str__", &[self_id], thread, code).unwrap();;
+                let res = FSRObject::invoke_method("__str__", &[self_id], thread, code).unwrap();
                 match &res {
                     FSRRetValue::GlobalId(id) => {
                         let obj = FSRObject::id_to_obj(*id);
@@ -266,7 +273,7 @@ impl<'a> FSRValue<'a> {
                         return None;
                     }
                 }
-            },
+            }
             FSRValue::Bytes(fsrinner_bytes) => {
                 let print_s = fsrinner_bytes
                     .bytes
@@ -275,6 +282,10 @@ impl<'a> FSRValue<'a> {
                     .collect::<Vec<_>>()
                     .join("");
                 let print_s = format!("Bytes(0x{})", print_s);
+                Some(Arc::new(FSRInnerString::new(print_s)))
+            }
+            FSRValue::Future(fsrfuture) => {
+                let print_s = format!("Future({:?})", fsrfuture);
                 Some(Arc::new(FSRInnerString::new(print_s)))
             }
         };
@@ -941,6 +952,7 @@ impl<'a> FSRObject<'a> {
             FSRValue::Iterator(iterator) => Box::new(iterator.get_references().into_iter()),
             FSRValue::Any(any) => Box::new(any.iter_values(full, worklist, is_add)),
             FSRValue::Range(r) => Box::new(r.get_references().into_iter()),
+            FSRValue::Future(f) => f.get_reference(full, worklist, is_add),
             _ => Box::new(std::iter::empty()),
         }
         //Box::new(self.value.get_references().into_iter())

@@ -1,4 +1,4 @@
-use crate::backend::{types::{any::{AnyDebugSend, GetReference}, base::ObjId}, vm::thread::{CallFrame, FSCodeContext}};
+use crate::backend::{types::{any::{AnyDebugSend, AnyType, GetReference}, base::{FSRValue, ObjId}, class::FSRClass}, vm::thread::{CallFrame, FSCodeContext}};
 use std::fmt::Debug;
 pub enum FSRFutureState {
     Running,
@@ -46,5 +46,26 @@ impl AnyDebugSend for FSRFuture<'static> {
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+}
+
+impl<'a> FSRFuture<'a> {
+    pub fn get_class() -> FSRClass<'static> {
+        let cls = FSRClass::new("Future");
+        cls
+    }
+
+    pub fn new_value(
+        fn_obj: ObjId,
+        frame: Box<CallFrame<'a>>,
+    ) -> FSRValue<'a> {
+
+        let v = FSRFuture {
+            state: FSRFutureState::Suspended,
+            fn_obj,
+            frame: frame,
+        };
+
+        FSRValue::Future(Box::new(v))
     }
 }

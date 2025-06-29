@@ -23,17 +23,7 @@ use crate::{
             GarbageCollector,
         },
         types::{
-            base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
-            class::FSRClass,
-            class_inst::FSRClassInst,
-            code::FSRCode,
-            float::FSRFloat,
-            fn_def::{FSRFn, FSRFnInner, FSRnE},
-            integer::FSRInteger,
-            list::FSRList,
-            module::FSRModule,
-            range::FSRRange,
-            string::FSRString,
+            asynclib::future::FSRFuture, base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, class::FSRClass, class_inst::FSRClassInst, code::FSRCode, float::FSRFloat, fn_def::{FSRFn, FSRFnInner, FSRnE}, integer::FSRInteger, list::FSRList, module::FSRModule, range::FSRRange, string::FSRString
         },
     },
     frontend::ast::token::expr::SingleOp,
@@ -1562,7 +1552,18 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
 
                 if f.is_async {
-                    panic!("unimplemented: async function call in FSRThreadRuntime");
+                    let frame = self
+                        .frame_free_list
+                        .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+                    let value = FSRFuture::new_value(fn_id, frame);
+                    let future_id = self.garbage_collect.new_object(
+                        value,
+                        get_object_by_global_id(GlobalObj::FutureCls) as ObjId,
+                    );
+
+                    self.get_cur_mut_frame().push_exp(future_id);
+                    //panic!("unimplemented: async function call in FSRThreadRuntime");
+                    return Ok(false);
                 }
             }
             self.process_fsr_fn(fn_id, fn_obj, args)?;
