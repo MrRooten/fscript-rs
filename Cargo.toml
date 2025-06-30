@@ -21,7 +21,7 @@ cranelift-native = "0.118.0"
 # opt-level = 2
 
 [features]
-default = ["track_memory_size", "mimalloc", "more_inline"]
+default = ["track_memory_size", "mimalloc", "more_inline", "bytecode_trace"]
 bytecode_trace = []
 track_memory_size = []
 mimalloc = []

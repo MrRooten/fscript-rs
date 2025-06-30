@@ -2141,7 +2141,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         let mut frame = self.pop_stack();
-        frame.ip = (frame.ip.0, frame.ip.1 + 1);
+        frame.ip = (frame.ip.0, frame.ip.1);
         let future_mut = FSRObject::id_to_mut_obj(future_obj)
             .expect("not a future object")
             .as_mut_future();
@@ -3163,6 +3163,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
+            //println!("epxr: {:?}", expr);
             let v = self.run_expr_wrapper(expr)?;
             if self.get_context().context_call_count == 0 {
                 break;

@@ -12,7 +12,7 @@ use crate::{
 };
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FSRFutureState {
     Running,
     Suspended,
@@ -76,6 +76,9 @@ pub fn poll_future(
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("not a valid object");
     let fn_obj_code;
     if let FSRValue::Future(future) = &mut self_object.value {
+        if future.state == FSRFutureState::Completed {
+            return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
+        }
         let fn_obj = FSRObject::id_to_obj(future.fn_obj).as_fn();
         let mut frame = future.frame.take().expect("future frame is None");
         for arg in args.iter().rev() {

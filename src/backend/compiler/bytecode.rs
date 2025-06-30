@@ -1969,14 +1969,14 @@ impl<'a> Bytecode {
 
         fn_body.insert(0, load_args);
         if let Some(last) = fn_body.last() {
-            if last.last().is_some()
-                && last.last().unwrap().operator != BytecodeOperator::ReturnValue
+            if last.last().is_none()
+                || last.last().unwrap().operator != BytecodeOperator::ReturnValue
             {
-                fn_body.last_mut().unwrap().push(BytecodeArg {
+                fn_body.push(vec![BytecodeArg {
                     operator: BytecodeOperator::ReturnValue,
                     arg: ArgType::None,
                     info: FSRByteInfo::new(fn_def.get_meta().clone()),
-                });
+                }]);
             }
         }
         // fn_body.push(vec![BytecodeArg {
@@ -2437,12 +2437,11 @@ a[0] = 1
     #[test]
     fn test_simple() {
         let expr = "
-        if abc > 1 {
-            println(' > 1: ', abc)
-        } else if abc < -1 {
-            println(' < -1: ', abc)
-        } else {
-            println('else:', abc)
+        @async
+        fn abc() {
+            for i in 0..1 {
+                i.yield
+            }
         }
 
         ";

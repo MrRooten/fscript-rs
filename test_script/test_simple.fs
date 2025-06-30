@@ -1,17 +1,14 @@
 @async
 fn abc() {
-    1.yield
-    2.yield
-    return 0
+    for i in 0..1 {
+        i.yield
+    }
+    println("done")
 }
 
 
 a = abc()
-v1 = a.poll_future()
-println(v1)
-v2 = a.poll_future()
-println(v2)
-v3 = a.poll_future()
-println(v3)
+i = 0
+while a.poll_future() != none {
 
-println(a)
+}
