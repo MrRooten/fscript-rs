@@ -217,6 +217,16 @@ impl FSRFnDef {
         ))
     }
 
+    fn count_line(source: &[u8], len: usize, context: &mut ASTContext) {
+        let mut i = 0;
+        while i < len {
+            if source[i] == b'\n' {
+                context.add_line();
+            }
+            i += 1;
+        }
+    }
+
     pub fn parse(
         source: &[u8],
         meta: FSRPosition,
@@ -225,6 +235,7 @@ impl FSRFnDef {
         let mut start = 0;
         let teller = if source[0] == b'@' {
             let teller = FSRTell::parse(source, context.new_pos())?;
+            Self::count_line(source, teller.len, context);
             start += teller.len;
 
 

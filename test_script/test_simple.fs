@@ -1,6 +1,6 @@
 @async
 fn abc() {
-    for i in 0..1 {
+    for i in 0..3000000 {
         i.yield
     }
     println("done")

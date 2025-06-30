@@ -1997,12 +1997,12 @@ impl<'a> Bytecode {
             is_jit: fn_def
                 .teller
                 .as_ref()
-                .map(|x| x.value.eq("@jit"))
+                .map(|x| x.value.iter().any(|x| x.eq("@jit")))
                 .unwrap_or(false),
             is_async: fn_def
                 .teller
                 .as_ref()
-                .map(|x| x.value.eq("@async"))
+                .map(|x| x.value.iter().any(|x| x.eq("@async")))
                 .unwrap_or(false),
         };
         bytecontext.fn_def_map.insert(cur_name, fn_def);

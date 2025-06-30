@@ -13,6 +13,7 @@ pub enum SyntaxErrType {
     OperatorError,
     QuoteNotClose,
     CommentError,
+    NotMatchAttribute,
     None,
 }
 
