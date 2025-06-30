@@ -1,8 +1,13 @@
 @async
 fn abc() {
+    1.yield
+    2.yield
     return 0
 }
 
 
 a = abc()
-dump(a)
+v1 = a.poll_future()
+println(v1)
+v2 = a.poll_future()
+println(v2)

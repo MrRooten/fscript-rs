@@ -2309,7 +2309,7 @@ a.abc(0)
     fn test_class() {
         let expr = "
         class Ddc {
-            fn __new__(self) {
+            fn __new__(self, ddc) {
                 self.ddc = 123 + 1
                 return self
             }

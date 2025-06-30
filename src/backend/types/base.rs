@@ -431,6 +431,13 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    pub fn as_mut_future(&mut self) -> &mut FSRFuture<'a> {
+        match &mut self.value {
+            FSRValue::Future(fsrfuture) => fsrfuture,
+            _ => unimplemented!(),
+        }
+    }
+
     pub fn as_mut_module(&mut self) -> &mut FSRModule<'a> {
         match &mut self.value {
             FSRValue::Module(fsrmodule) => fsrmodule,

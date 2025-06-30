@@ -23,7 +23,18 @@ use crate::{
             GarbageCollector,
         },
         types::{
-            asynclib::future::FSRFuture, base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, class::FSRClass, class_inst::FSRClassInst, code::FSRCode, float::FSRFloat, fn_def::{FSRFn, FSRFnInner, FSRnE}, integer::FSRInteger, list::FSRList, module::FSRModule, range::FSRRange, string::FSRString
+            asynclib::future::FSRFuture,
+            base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
+            class::FSRClass,
+            class_inst::FSRClassInst,
+            code::FSRCode,
+            float::FSRFloat,
+            fn_def::{FSRFn, FSRFnInner, FSRnE},
+            integer::FSRInteger,
+            list::FSRList,
+            module::FSRModule,
+            range::FSRRange,
+            string::FSRString,
         },
     },
     frontend::ast::token::expr::SingleOp,
@@ -178,6 +189,7 @@ pub struct CallFrame<'a> {
     #[cfg(feature = "predict_op")]
     pub(crate) next_arg: Option<&'a BytecodeArg>,
     pub(crate) ip: (usize, usize),
+    pub(crate) future: Option<ObjId>,
 }
 
 impl<'a> CallFrame<'a> {
@@ -288,6 +300,7 @@ impl<'a> CallFrame<'a> {
             next_arg: None,
             const_map: IndexMap::new(),
             ip: (0, 0),
+            future: None,
         }
     }
 }
@@ -768,9 +781,10 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(id == FSRObject::true_id())
     }
 
-    fn pop_stack(&mut self) {
+    fn pop_stack(&mut self) -> Box<CallFrame<'a>> {
         let v = self.pop_frame();
-        self.frame_free_list.free(v);
+        //self.frame_free_list.free(v);
+        v
     }
 
     fn getter_process(
@@ -1291,7 +1305,11 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[inline]
-    fn call_process_set_args(args_num: usize, thread: &mut Self, args: &mut SmallVec<[ObjId; 4]>) -> Result<(), FSRError> {
+    fn call_process_set_args(
+        args_num: usize,
+        thread: &mut Self,
+        args: &mut SmallVec<[ObjId; 4]>,
+    ) -> Result<(), FSRError> {
         let mut i = 0;
         while i < args_num {
             let a_id = thread.get_cur_mut_frame().pop_exp().ok_or_else(|| {
@@ -1924,7 +1942,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 fn_code_id,
                 self.get_cur_frame().fn_obj,
                 code,
-                fn_code_inner.get_bytecode().is_async
+                fn_code_inner.get_bytecode().is_async,
             );
 
             let fn_obj = self
@@ -2090,7 +2108,8 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         self.get_cur_mut_frame().middle_value.push(v);
-        self.pop_stack();
+        let frame = self.pop_stack();
+        self.frame_free_list.free(frame);
         let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(v);
         // let ip_0 = cur.reverse_ip.0;
@@ -2102,6 +2121,37 @@ impl<'a> FSRThreadRuntime<'a> {
         // self.garbage_collect.add_root(v);
         Ok(true)
     }
+
+    fn yield_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let future_obj = self.get_cur_frame().future.unwrap();
+        let v = if self.get_cur_mut_frame().is_exp_empty() {
+            FSRObject::none_id()
+        } else {
+            self.get_cur_mut_frame().pop_exp().unwrap()
+        };
+
+        let mut frame = self.pop_stack();
+        frame.ip = (frame.ip.0, frame.ip.1 + 1);
+        let future_mut = FSRObject::id_to_mut_obj(future_obj)
+            .expect("not a future object")
+            .as_mut_future();
+        future_mut.frame = Some(frame);
+
+        self.get_cur_mut_frame().middle_value.push(v);
+        let cur = self.get_cur_mut_frame();
+        cur.ret_val = Some(v);
+        // let ip_0 = cur.reverse_ip.0;
+        // let ip_1 = cur.reverse_ip.1;
+        let code = cur.code;
+        //self.get_cur_mut_frame().ip = (ip_0, ip_1);
+        self.get_cur_mut_context().code = code;
+        self.get_cur_mut_context().context_call_count -= 1;
+        Ok(true)
+    }
+
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn try_exception_process(
@@ -2118,6 +2168,8 @@ impl<'a> FSRThreadRuntime<'a> {
         // do nothing if not error
         Ok(false)
     }
+
+    
 
     fn end_fn(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
         //let last_expr_val = self.get_cur_frame().last_expr_val;
@@ -2520,6 +2572,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::CompareEqual => Self::compare_equal_process(self, bytecode),
             BytecodeOperator::Load => Self::load_var(self, bytecode),
             BytecodeOperator::TryException => Self::try_exception_process(self, bytecode),
+            BytecodeOperator::Yield => Self::yield_process(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3068,6 +3121,42 @@ impl<'a> FSRThreadRuntime<'a> {
             //     }
             // }
 
+            if self.get_context().context_call_count == 0 {
+                break;
+            }
+
+            code = FSRObject::id_to_obj(self.get_context().code).as_code();
+        }
+
+        let cur = self.get_cur_mut_frame();
+        if cur.ret_val.is_none() {
+            let context = self.pop_context();
+            self.thread_allocator.free_code_context(context);
+            return Ok(FSRObject::none_id());
+        }
+        let ret_val = cur.ret_val.take();
+
+        let context = self.pop_context();
+        self.thread_allocator.free_code_context(context);
+        match ret_val {
+            Some(s) => Ok(s),
+            None => Ok(0),
+        }
+    }
+
+
+    /// Caller call this function will push the frame by Caller
+    pub fn poll_fn(&mut self, code: ObjId) -> Result<ObjId, FSRError> {
+        let mut context = self.thread_allocator.new_code_context(code);
+        context.code = code;
+
+        self.push_context(context);
+        {
+            self.get_cur_mut_frame().clear_exp();
+        }
+        let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
+        while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
+            let v = self.run_expr_wrapper(expr)?;
             if self.get_context().context_call_count == 0 {
                 break;
             }
