@@ -2109,6 +2109,13 @@ impl<'a> FSRThreadRuntime<'a> {
 
         self.get_cur_mut_frame().middle_value.push(v);
         let frame = self.pop_stack();
+        if let Some(s) = frame.future.clone() {
+            let future_obj = FSRObject::id_to_mut_obj(s)
+                .expect("not a future object")
+                .as_mut_future();
+            future_obj.set_completed();
+            //future_obj.frame = Some(frame);
+        }
         self.frame_free_list.free(frame);
         let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(v);

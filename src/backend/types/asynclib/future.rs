@@ -11,6 +11,8 @@ use crate::{
     utils::error::FSRError,
 };
 use std::fmt::Debug;
+
+#[derive(Debug)]
 pub enum FSRFutureState {
     Running,
     Suspended,
@@ -31,7 +33,7 @@ pub struct FSRFuture<'a> {
 
 impl Debug for FSRFuture<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FSRFuture ")
+        write!(f, "FSRFuture {{ state: {:?}, fn_obj: {} }}", self.state, self.fn_obj)
     }
 }
 
@@ -110,5 +112,9 @@ impl<'a> FSRFuture<'a> {
         };
 
         FSRValue::Future(Box::new(v))
+    }
+
+    pub fn set_completed(&mut self) {
+        self.state = FSRFutureState::Completed;
     }
 }
