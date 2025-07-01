@@ -455,7 +455,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
     pub(crate) frame_free_list: FrameFreeList<'a>,
     pub(crate) thread_allocator: FSRObjectAllocator<'a>,
-    
+
     // pub(crate) exception: ObjId,
     // pub(crate) exception_flag: bool,
     pub(crate) garbage_collect: MarkSweepGarbageCollector<'a>,
@@ -586,7 +586,7 @@ impl<'a> FSRThreadRuntime<'a> {
         &self.cur_frame
     }
 
-    fn process_callframe(&self, work_list: &mut Vec<ObjId>, it: &CallFrame<'a>) {
+    pub fn process_callframe(work_list: &mut Vec<ObjId>, it: &CallFrame<'a>) {
         for obj in it.var_map.iter() {
             work_list.push(obj.load(Ordering::Relaxed));
         }
@@ -626,25 +626,28 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(obj.load(Ordering::Relaxed));
             //}
         }
+
+        let mut others = it.flow_tracker.for_iter_obj.clone();
+        others.extend(it.flow_tracker.ref_for_obj.clone());
+
+        work_list.extend_from_slice(others.as_ref());
     }
 
     /// Add all objects in current call frame to worklist, wait to gc to reference
     fn add_worklist(&self) -> Vec<ObjId> {
-        let mut others = self.get_cur_frame().flow_tracker.for_iter_obj.clone();
-        others.extend(self.get_cur_frame().flow_tracker.ref_for_obj.clone());
         let frames = &self.call_frames;
         let cur_frame = self.get_cur_frame();
         let mut work_list = Vec::with_capacity(16);
         for it in frames {
-            self.process_callframe(&mut work_list, it);
+            Self::process_callframe(&mut work_list, it);
         }
 
         let it = cur_frame;
-        self.process_callframe(&mut work_list, it);
+        Self::process_callframe(&mut work_list, it);
 
-        for obj in others {
-            work_list.push(obj);
-        }
+        // for obj in others {
+        //     work_list.push(obj);
+        // }
 
         for shared_object in &self.thread_shared.objects {
             work_list.push(**shared_object);
@@ -1716,13 +1719,17 @@ impl<'a> FSRThreadRuntime<'a> {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 let tmp = self.get_cur_frame().ip.0;
                 self.get_cur_mut_frame().ip = (tmp + n.0 as usize + 1_usize, 0);
-                self.get_cur_mut_frame().flow_tracker.push_last_if_test(false);
+                self.get_cur_mut_frame()
+                    .flow_tracker
+                    .push_last_if_test(false);
                 return Ok(true);
             }
         }
 
         //self.get_cur_mut_frame().middle_value.push(test_val);
-        self.get_cur_mut_frame().flow_tracker.push_last_if_test(true);
+        self.get_cur_mut_frame()
+            .flow_tracker
+            .push_last_if_test(true);
         Ok(false)
     }
 
@@ -1825,7 +1832,10 @@ impl<'a> FSRThreadRuntime<'a> {
             obj_id
         };
 
-        self.get_cur_mut_frame().flow_tracker.ref_for_obj.push(obj_id);
+        self.get_cur_mut_frame()
+            .flow_tracker
+            .ref_for_obj
+            .push(obj_id);
         Ok(false)
     }
 
@@ -1850,15 +1860,20 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_frame().middle_value.push(iter_id);
         if let ArgType::ForLine(n) = bytecode.get_arg() {
             let ip_0 = self.get_cur_frame().ip.0;
-            self.get_cur_mut_frame().flow_tracker
+            self.get_cur_mut_frame()
+                .flow_tracker
                 .break_line
                 .push(ip_0 + *n as usize);
             let ip_0 = self.get_cur_frame().ip.0;
-            self.get_cur_mut_frame().flow_tracker
+            self.get_cur_mut_frame()
+                .flow_tracker
                 .continue_line
                 .push(ip_0 + 1);
         }
-        self.get_cur_mut_frame().flow_tracker.for_iter_obj.push(read_iter_id);
+        self.get_cur_mut_frame()
+            .flow_tracker
+            .for_iter_obj
+            .push(read_iter_id);
         Ok(false)
     }
 
@@ -1872,30 +1887,46 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if let ArgType::WhileTest(n) = bytecode.get_arg() {
             // Avoid repeat add break ip and continue ip
-            if let Some(s) = self.get_cur_mut_frame().flow_tracker.break_line.last().cloned() {
+            if let Some(s) = self
+                .get_cur_mut_frame()
+                .flow_tracker
+                .break_line
+                .last()
+                .cloned()
+            {
                 if self.get_cur_frame().ip.0 + *n as usize + 1 != s {
                     let ip_0 = self.get_cur_frame().ip.0;
-                    self.get_cur_mut_frame().flow_tracker
+                    self.get_cur_mut_frame()
+                        .flow_tracker
                         .break_line
                         .push(ip_0 + *n as usize + 1);
                 }
             } else {
                 let ip_0 = self.get_cur_frame().ip.0;
-                self.get_cur_mut_frame().flow_tracker
+                self.get_cur_mut_frame()
+                    .flow_tracker
                     .break_line
                     .push(ip_0 + *n as usize + 1);
             }
 
-            if let Some(s) = self.get_cur_mut_frame().flow_tracker.continue_line.last().cloned() {
+            if let Some(s) = self
+                .get_cur_mut_frame()
+                .flow_tracker
+                .continue_line
+                .last()
+                .cloned()
+            {
                 if self.get_cur_frame().ip.0 != s {
                     let ip_0 = self.get_cur_frame().ip.0;
-                    self.get_cur_mut_frame().flow_tracker
+                    self.get_cur_mut_frame()
+                        .flow_tracker
                         .continue_line
                         .push(ip_0);
                 }
             } else {
                 let ip_0 = self.get_cur_frame().ip.0;
-                self.get_cur_mut_frame().flow_tracker
+                self.get_cur_mut_frame()
+                    .flow_tracker
                     .continue_line
                     .push(ip_0);
             }
@@ -2154,6 +2185,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .expect("not a future object")
             .as_mut_future();
         future_mut.frame = Some(frame);
+        future_mut.set_suspend();
 
         self.get_cur_mut_frame().middle_value.push(v);
         let cur = self.get_cur_mut_frame();
@@ -2166,7 +2198,6 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_context().context_call_count -= 1;
         Ok(true)
     }
-
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn try_exception_process(
@@ -2183,8 +2214,6 @@ impl<'a> FSRThreadRuntime<'a> {
         // do nothing if not error
         Ok(false)
     }
-
-    
 
     fn end_fn(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
         //let last_expr_val = self.get_cur_frame().last_expr_val;
@@ -2425,7 +2454,13 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         arg: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let obj = self.get_cur_mut_frame().flow_tracker.for_iter_obj.last().cloned().unwrap();
+        let obj = self
+            .get_cur_mut_frame()
+            .flow_tracker
+            .for_iter_obj
+            .last()
+            .cloned()
+            .unwrap();
         let obj_value = FSRObject::id_to_obj(obj);
         let res = if obj_value.cls
             == FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::InnerIterator)).as_class()
@@ -2451,10 +2486,25 @@ impl<'a> FSRThreadRuntime<'a> {
         let res_id = res.get_id();
         if res_id == FSRObject::none_id() || self.get_cur_mut_frame().flow_tracker.is_break {
             self.get_cur_mut_frame().flow_tracker.is_break = false;
-            let break_line = self.get_cur_mut_frame().flow_tracker.break_line.pop().unwrap();
+            let break_line = self
+                .get_cur_mut_frame()
+                .flow_tracker
+                .break_line
+                .pop()
+                .unwrap();
             self.get_cur_mut_frame().flow_tracker.continue_line.pop();
-            let _ = self.get_cur_mut_frame().flow_tracker.for_iter_obj.pop().unwrap();
-            let _ = self.get_cur_mut_frame().flow_tracker.ref_for_obj.pop().unwrap();
+            let _ = self
+                .get_cur_mut_frame()
+                .flow_tracker
+                .for_iter_obj
+                .pop()
+                .unwrap();
+            let _ = self
+                .get_cur_mut_frame()
+                .flow_tracker
+                .ref_for_obj
+                .pop()
+                .unwrap();
 
             self.get_cur_mut_frame().ip = (break_line, 0);
             return Ok(true);
@@ -3127,15 +3177,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
-            // if self.exception_flag {
-            //     // If this is last function call, in this call_fn
-            //     if self.get_context().context_call_count == 0 {
-            //         let context = self.pop_context();
-            //         self.thread_allocator.free_code_context(context);
-            //         return Err(FSRError::new_runtime_error(self.exception));
-            //     }
-            // }
-
             if self.get_context().context_call_count == 0 {
                 break;
             }
@@ -3143,25 +3184,24 @@ impl<'a> FSRThreadRuntime<'a> {
             code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
 
+        let context = self.pop_context();
+        self.thread_allocator.free_code_context(context);
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
-            let context = self.pop_context();
-            self.thread_allocator.free_code_context(context);
             return Ok(FSRObject::none_id());
         }
         let ret_val = cur.ret_val.take();
 
-        let context = self.pop_context();
-        self.thread_allocator.free_code_context(context);
         match ret_val {
             Some(s) => Ok(s),
             None => Ok(0),
         }
     }
 
-
     /// Caller call this function will push the frame by Caller
     pub fn poll_fn(&mut self, code: ObjId) -> Result<ObjId, FSRError> {
+        let future = self.get_cur_frame().future.unwrap();
+        FSRObject::id_to_mut_obj(future).unwrap().as_mut_future().set_running();
         let mut context = self.thread_allocator.new_code_context(code);
         context.code = code;
 
@@ -3180,16 +3220,16 @@ impl<'a> FSRThreadRuntime<'a> {
             code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
 
+        let context = self.pop_context();
+        self.thread_allocator.free_code_context(context);
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
-            let context = self.pop_context();
-            self.thread_allocator.free_code_context(context);
             return Ok(FSRObject::none_id());
         }
         let ret_val = cur.ret_val.take();
 
-        let context = self.pop_context();
-        self.thread_allocator.free_code_context(context);
+        // let context = self.pop_context();
+        // self.thread_allocator.free_code_context(context);
         match ret_val {
             Some(s) => Ok(s),
             None => Ok(0),

@@ -4,7 +4,7 @@ use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
-        types::list::FSRList,
+        types::{asynclib::future::poll_future, list::FSRList},
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, utils::error::{FSRErrCode, FSRError}
 };
@@ -59,6 +59,9 @@ pub fn next_obj(
                 let ret = obj.call(&[it.obj], thread, code, obj_id);
                 result = Some(ret?);
             }
+        } else if let FSRValue::Future(future) = &from_obj.value {
+            let res = poll_future(args.as_ptr(), len, thread, code);
+            return res
         } else {
             let iter = it.iterator.as_mut().unwrap();
             if let Some(obj) = iter.next(thread)? {

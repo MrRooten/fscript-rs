@@ -102,7 +102,9 @@ mod test {
         @jit
         ";
 
-        let tell = FSRTell::parse(a.as_bytes(), FSRPosition::new()).unwrap();
-        println!("{:?}", tell);
+        let tell = FSRTell::parse(a.as_bytes(), FSRPosition::new());
+        if tell.is_ok() {
+            assert!(false, "not a valid tell, should be error")
+        }
     }
 }

@@ -44,7 +44,12 @@ impl<'a> GetReference for FSRFuture<'a> {
         worklist: &mut Vec<ObjId>,
         is_add: &mut bool,
     ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        Box::new(vec![self.fn_obj].into_iter())
+        let mut add_list = vec![];
+        if let Some(frame) = self.frame.as_ref() {
+            FSRThreadRuntime::process_callframe(&mut add_list, frame);
+        }
+        add_list.push(self.fn_obj);
+        Box::new(add_list.into_iter())
     }
 
     fn set_undirty(&mut self) {}
@@ -99,11 +104,22 @@ pub fn poll_future(
     })
 }
 
+pub fn next_obj(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    poll_future(args, len, thread, code)
+}
+
 impl<'a> FSRFuture<'a> {
     pub fn get_class() -> FSRClass<'static> {
         let mut cls = FSRClass::new("Future");
         let poll = FSRFn::from_rust_fn_static(poll_future, "future_poll");
-        cls.insert_attr("poll_future", poll);
+        cls.insert_attr("poll", poll);
+        let next_obj = FSRFn::from_rust_fn_static(next_obj, "future_next");
+        cls.insert_offset_attr(crate::backend::compiler::bytecode::BinaryOffset::NextObject, next_obj);
         cls
     }
 
@@ -120,4 +136,13 @@ impl<'a> FSRFuture<'a> {
     pub fn set_completed(&mut self) {
         self.state = FSRFutureState::Completed;
     }
+
+    pub fn set_suspend(&mut self) {
+        self.state = FSRFutureState::Suspended;
+    }
+
+    pub fn set_running(&mut self) {
+        self.state = FSRFutureState::Running;
+    }
+
 }

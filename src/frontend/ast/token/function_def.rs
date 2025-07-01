@@ -36,6 +36,8 @@ enum State {
     Continue,
 }
 
+const FN_IDENTIFY: &str = "fn";
+
 impl FSRFnDef {
     pub fn clone_ref_map(&self) -> HashMap<String, ASTVariableState> {
         self.ref_map.borrow().clone()
@@ -260,7 +262,7 @@ impl FSRFnDef {
             let err = SyntaxError::new(&sub_meta, "fn define body length too small");
             return Err(err);
         }
-        if s != "fn" {
+        if s != FN_IDENTIFY {
             let mut sub_meta = context.new_pos();
             let err = SyntaxError::new(&sub_meta, "not fn token");
             return Err(err);
