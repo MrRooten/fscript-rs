@@ -2401,9 +2401,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             let state = self.get_cur_mut_frame();
             state.insert_var(*v, module_id);
-            // let module = FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
-            //     .unwrap()
-            //     .as_mut_module();
+
             let module = as_mut_module!(context);
             module.register_object(module_name.last().unwrap(), module_id);
             return Ok(false);
@@ -2429,10 +2427,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             state.insert_var(id, obj_id);
-            // FSRObject::id_to_mut_obj(self.get_context().code)
-            //     .expect("not a code object")
-            //     .as_mut_code()
-            //     .register_object(&name, obj_id);
             let module = FSRObject::id_to_mut_obj(
                 FSRObject::id_to_obj(self.get_context().code)
                     .as_code()
@@ -2577,6 +2571,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn empty_process(self: &mut FSRThreadRuntime<'a>, _bc: &BytecodeArg) -> Result<bool, FSRError> {
         Ok(false)
     }
@@ -2646,12 +2641,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = match v {
             Ok(o) => o,
             Err(e) => {
-                // if e.inner.code == FSRErrCode::RuntimeError {
-                //     self.exception = e.inner.exception.unwrap();
-                //     return Ok(false);
-                // }
-
-                // return Err(e);
                 panic!("error in process: {}", e);
             }
         };
@@ -2695,17 +2684,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 } else {
                     i
                 };
-                // let ptr = {
-                //     let mut obj = FSRInteger::new_inst(i);
-                //     // obj.ref_add();
-                //     obj.area = Area::Global;
-                //     FSRVM::leak_object(Box::new(obj))
-                // };
-                let ptr = self.garbage_collect.new_object(
+
+                let new_integer = self.garbage_collect.new_object(
                     FSRValue::Integer(i),
                     get_object_by_global_id(GlobalObj::IntegerCls) as ObjId,
                 );
-                self.get_cur_mut_frame().insert_const({ *index }, ptr);
+                self.get_cur_mut_frame().insert_const({ *index }, new_integer);
             }
             ArgType::ConstFloat(index, obj, single_op) => {
                 let i = Self::process_float(obj)?;
@@ -2714,31 +2698,20 @@ impl<'a> FSRThreadRuntime<'a> {
                 } else {
                     i
                 };
-                // let ptr = {
-                //     let mut obj = FSRFloat::new_inst(i);
-                //     // obj.ref_add();
-                //     obj.area = Area::Global;
-                //     FSRVM::leak_object(Box::new(obj))
-                // };
-                let ptr = self.garbage_collect.new_object(
+
+                let new_float = self.garbage_collect.new_object(
                     FSRValue::Float(i),
                     get_object_by_global_id(GlobalObj::FloatCls) as ObjId,
                 );
 
-                self.get_cur_mut_frame().insert_const({ *index }, ptr);
+                self.get_cur_mut_frame().insert_const({ *index }, new_float);
             }
             ArgType::ConstString(index, s) => {
-                // let obj = FSRString::new_value(s);
-                // // obj.ref_add();
-                // let obj =
-                //     FSRObject::new_inst(obj, get_object_by_global_id(FSRGlobalObjId::StringCls));
-                // let ptr = FSRVM::leak_object(Box::new(obj));
-
-                let ptr = self
+                let new_string = self
                     .garbage_collect
                     .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id());
 
-                self.get_cur_mut_frame().insert_const({ *index }, ptr);
+                self.get_cur_mut_frame().insert_const({ *index }, new_string);
             }
             _ => unimplemented!(),
         }
@@ -3201,14 +3174,17 @@ impl<'a> FSRThreadRuntime<'a> {
     /// Caller call this function will push the frame by Caller
     pub fn poll_fn(&mut self, code: ObjId) -> Result<ObjId, FSRError> {
         let future = self.get_cur_frame().future.unwrap();
-        FSRObject::id_to_mut_obj(future).unwrap().as_mut_future().set_running();
+        FSRObject::id_to_mut_obj(future)
+            .unwrap()
+            .as_mut_future()
+            .set_running();
         let mut context = self.thread_allocator.new_code_context(code);
         context.code = code;
 
         self.push_context(context);
-        {
-            self.get_cur_mut_frame().clear_exp();
-        }
+        // {
+        //     self.get_cur_mut_frame().clear_exp();
+        // }
         let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             //println!("epxr: {:?}", expr);
