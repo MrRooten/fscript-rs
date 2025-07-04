@@ -1,8 +1,10 @@
-@jit
-fn abc() {
-    for i in 0..30000000 {
-
+@async
+fn yield_test() {
+    for i in 0..30000 {
+        i.yield
     }
 }
 
-abc()
+for i in yield_test() {
+    println(i)
+}

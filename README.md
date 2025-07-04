@@ -182,6 +182,22 @@ jit_test(a)
 
 performance is 1.5-2.0x faster than origin
 
+
+### Yield Support
+
+```rust
+@async
+fn yield_test() {
+    for i in 0..30000 {
+        i.yield
+    }
+}
+
+for i in yield_test() {
+    println(i)
+}
+```
+
 ### More Examples
 more examples can be found in the `test_script/` directory.
 
