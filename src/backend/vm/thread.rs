@@ -2247,8 +2247,8 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::WhileEnd(n) = bytecode.get_arg() {
-            let tmp = self.get_cur_frame().ip.0;
-            self.get_cur_mut_frame().ip = (tmp - *n as usize, 0);
+            let ip_0 = self.get_cur_frame().ip.0;
+            self.get_cur_mut_frame().ip = (ip_0 - *n as usize, 0);
             return Ok(true);
         }
 

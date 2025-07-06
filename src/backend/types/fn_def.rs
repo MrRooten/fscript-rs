@@ -231,17 +231,8 @@ impl<'a> FSRFn<'a> {
             return v;
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             if f.jit_code.is_some() {
-                let code = *f.jit_code.as_ref().unwrap();
-                let code = code as *const u8;
-                //  self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
-                // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
-                // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
-                // self.ctx
-                //     .func
-                //     .signature
-                //     .params
-                //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
-                // self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
+                let jit_code = *f.jit_code.as_ref().unwrap();
+                let code = jit_code as *const u8;
                 let frame = thread
                     .frame_free_list
                     .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
@@ -264,30 +255,6 @@ impl<'a> FSRFn<'a> {
             let frame = thread.frame_free_list.new_frame(code, fn_id);
             thread.push_frame(frame);
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code)?;
-            return Ok(FSRRetValue::GlobalId(v));
-        }
-        unimplemented!()
-    }
-
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn invoke_binary(
-        &'a self,
-        left: ObjId,
-        right: ObjId,
-        thread: &mut FSRThreadRuntime<'a>,
-        code: ObjId,
-        fn_id: ObjId,
-    ) -> Result<FSRRetValue, FSRError> {
-        if let FSRnE::RustFn(f) = &self.fn_def {
-            let args = [left, right];
-            let len = args.len();
-            let args = args.as_ptr();
-            let v = f.1(args, len, thread, code);
-            return v;
-        } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            let frame = thread.frame_free_list.new_frame(code, fn_id);
-            thread.push_frame(frame);
-            let v = FSRThreadRuntime::call_fn(thread, f, &[left, right], self.code)?;
             return Ok(FSRRetValue::GlobalId(v));
         }
         unimplemented!()
