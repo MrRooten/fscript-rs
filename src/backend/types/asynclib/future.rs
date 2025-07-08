@@ -10,7 +10,7 @@ use crate::{
     },
     utils::error::FSRError,
 };
-use std::fmt::Debug;
+use std::{fmt::Debug, future};
 
 #[derive(Debug, PartialEq)]
 pub enum FSRFutureState {
@@ -26,9 +26,10 @@ pub enum FSRFutureState {
 
 pub struct FSRFuture<'a> {
     //status: FutureStatus<'a>,
-    state: FSRFutureState,
-    fn_obj: ObjId,
+    pub(crate)  state: FSRFutureState,
+    pub(crate) fn_obj: ObjId,
     pub(crate) frame: Option<Box<CallFrame<'a>>>,
+    result: Option<ObjId>
 }
 
 impl Debug for FSRFuture<'_> {
@@ -79,8 +80,7 @@ pub fn poll_future(
     }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("not a valid object");
-    let fn_obj_code;
-    if let FSRValue::Future(future) = &mut self_object.value {
+    let res = if let FSRValue::Future(future) = &mut self_object.value {
         if future.state == FSRFutureState::Completed {
             return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
         }
@@ -91,12 +91,13 @@ pub fn poll_future(
         }
         frame.future = Some(args[0]);
         thread.push_frame(frame);
-        fn_obj_code = fn_obj.code;    
+        let res = thread.poll_fn(future.fn_obj);
+        res
     } else {
         panic!("poll_future called on a non-future object");
-    }
+    };
     
-    let res = thread.poll_fn(fn_obj_code);
+    
 
     
     return res.map(|x| {
@@ -128,6 +129,7 @@ impl<'a> FSRFuture<'a> {
             state: FSRFutureState::Suspended,
             fn_obj,
             frame: Some(frame),
+            result: None
         };
 
         FSRValue::Future(Box::new(v))
@@ -135,6 +137,14 @@ impl<'a> FSRFuture<'a> {
 
     pub fn set_completed(&mut self) {
         self.state = FSRFutureState::Completed;
+    }
+
+    pub fn set_result(&mut self, obj: ObjId) {
+        self.result = Some(obj);
+    }
+
+    pub fn take_reuslt(&mut self) -> Option<ObjId> {
+        self.result.take()
     }
 
     pub fn set_suspend(&mut self) {

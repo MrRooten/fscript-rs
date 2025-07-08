@@ -27,7 +27,6 @@ track_memory_size = []
 mimalloc = []
 count_bytecode = []
 more_inline = []
-predict_op = []
 
 [profile.release]
 overflow-checks = false
