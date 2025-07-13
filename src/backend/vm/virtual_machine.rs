@@ -12,7 +12,7 @@ use crate::{
     },
     std::{
         core::{gc::init_gc, io::init_io, thread::init_thread, utils::init_utils},
-        fs::{file::FSRInnerFile, FSRFileSystem},
+        fs::{file::FSRInnerFile, FSRFileSystem}, os::FSROs,
     },
 };
 
@@ -80,6 +80,7 @@ impl<'a> FSRVM<'a> {
         let mut res: AHashMap<&'static str, fn(&mut FSRThreadRuntime<'_>) -> FSRValue<'static>> =
             AHashMap::new();
         res.insert("fs", FSRFileSystem::new_module);
+        res.insert("os", FSROs::new_module);
         res
     }
 

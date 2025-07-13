@@ -104,6 +104,10 @@ impl FSRInnerFile {
         cls.insert_attr("lines", file_lines);
         let read = FSRFn::from_rust_fn_static(fsr_fn_read, "read");
         cls.insert_attr("read", read);
+        let is_file = FSRFn::from_rust_fn_static(fsr_fn_is_file, "is_file");
+        cls.insert_attr("is_file", is_file);
+        let is_dir = FSRFn::from_rust_fn_static(fsr_fn_is_dir, "is_dir");
+        cls.insert_attr("is_dir", is_dir);
         cls
     }
 }
@@ -194,6 +198,64 @@ pub fn fsr_fn_read_all(
 
     Err(FSRError::new(
         "Invalid file object",
+        FSRErrCode::RuntimeError,
+    ))
+}
+
+pub fn fsr_fn_is_file(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "fsr_fn_is_file requires at least 1 argument",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let file_path = args[0];
+    let file_path_obj = FSRObject::id_to_obj(file_path);
+    if let FSRValue::String(s) = &file_path_obj.value {
+        let path = PathBuf::from(s.as_str());
+        if path.is_file() {
+            return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+        }
+        return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+    }
+
+    Err(FSRError::new(
+        "Invalid file path argument",
+        FSRErrCode::RuntimeError,
+    ))
+}
+
+pub fn fsr_fn_is_dir(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "fsr_fn_is_dir requires at least 1 argument",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let dir_path = args[0];
+    let dir_path_obj = FSRObject::id_to_obj(dir_path);
+    if let FSRValue::String(s) = &dir_path_obj.value {
+        let path = PathBuf::from(s.as_str());
+        if path.is_dir() {
+            return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
+        }
+        return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+    }
+
+    Err(FSRError::new(
+        "Invalid directory path argument",
         FSRErrCode::RuntimeError,
     ))
 }

@@ -1,5 +1,5 @@
 pub mod file;
-use crate::{backend::{types::{base::{FSRObject, FSRValue}, module::FSRModule}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}}, std::fs::file::FSRInnerFile};
+use crate::{backend::{types::{base::{FSRObject, FSRValue}, fn_def::FSRFn, module::FSRModule}, vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id}}, std::fs::file::{fsr_fn_is_dir, fsr_fn_is_file, FSRInnerFile}};
 
 pub struct FSRFileSystem {
 
@@ -16,6 +16,10 @@ impl FSRFileSystem {
             c.set_object_id(object_id);
         }
         module.register_object("File", object_id);
+        let is_file = FSRFn::from_rust_fn_static_value(fsr_fn_is_file, "is_file");
+        module.register_object("is_file", thread.garbage_collect.new_object(is_file, crate::backend::types::base::GlobalObj::FnCls.get_id()));
+        let is_dir = FSRFn::from_rust_fn_static_value(fsr_fn_is_dir, "is_dir");
+        module.register_object("is_dir", thread.garbage_collect.new_object(is_dir, crate::backend::types::base::GlobalObj::FnCls.get_id()));
         FSRValue::Module(Box::new(module))
     }
 }

@@ -2213,35 +2213,32 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let future_obj = self.get_cur_frame().future.unwrap();
-        let awaitable_value = if self.get_cur_mut_frame().is_exp_empty() {
-            FSRObject::none_id()
-        } else {
-            top_exp!(self).unwrap()
-        };
-        {
-            let awaitable_future = FSRObject::id_to_mut_obj(awaitable_value)
-                .unwrap()
-                .as_mut_future();
-            if awaitable_future.state == FSRFutureState::Completed {
-                let awaitable_result = awaitable_future.take_reuslt().unwrap();
-                push_exp!(self, awaitable_result);
-                return Ok(false);
-            }
-            let args = [awaitable_value].as_ptr();
-            poll_future(args, 1, self, self.get_context().code)?;
-        }
+        let awaitable_value = top_exp!(self).unwrap_or(FSRObject::none_id());
+        
+        // {
+        //     let awaitable_future = FSRObject::id_to_mut_obj(awaitable_value)
+        //         .unwrap()
+        //         .as_mut_future();
+        //     if awaitable_future.state == FSRFutureState::Completed {
+        //         let awaitable_result = awaitable_future.take_reuslt().unwrap();
+        //         push_exp!(self, awaitable_result);
+        //         return Ok(false);
+        //     }
+        //     let args = [awaitable_value].as_ptr();
+        //     poll_future(args, 1, self, self.get_context().code)?;
+        // }
 
-        let awaitable_future = FSRObject::id_to_mut_obj(awaitable_value)
-            .unwrap()
-            .as_mut_future();
-        if awaitable_future.state == FSRFutureState::Completed {
-            let awaitable_result = awaitable_future.take_reuslt().unwrap();
-            push_exp!(self, awaitable_result);
-            return Ok(false);
-        }
+        // let awaitable_future = FSRObject::id_to_mut_obj(awaitable_value)
+        //     .unwrap()
+        //     .as_mut_future();
+        // if awaitable_future.state == FSRFutureState::Completed {
+        //     let awaitable_result = awaitable_future.take_reuslt().unwrap();
+        //     push_exp!(self, awaitable_result);
+        //     return Ok(false);
+        // }
 
         let mut frame = self.pop_stack();
-        frame.ip = (frame.ip.0, frame.ip.1 - 1);
+        frame.ip = (frame.ip.0, frame.ip.1);
         let future_mut = FSRObject::id_to_mut_obj(future_obj)
             .expect("not a future object")
             .as_mut_future();

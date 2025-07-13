@@ -51,7 +51,8 @@ impl FSRNone {
         let mut cls = FSRClass::new("None");
         let not_eq = FSRFn::from_rust_fn_static(not_equal, "none_not_eq");
         cls.insert_offset_attr(BinaryOffset::NotEqual, not_eq);
-        let eq = FSRFn::from_rust_fn_static(equal, "none_eq");  
+        let eq = FSRFn::from_rust_fn_static(equal, "none_eq");
+        cls.insert_offset_attr(BinaryOffset::Equal, eq);
         cls
     }
 }

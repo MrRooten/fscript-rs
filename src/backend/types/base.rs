@@ -628,11 +628,11 @@ impl<'a> FSRObject<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub extern "C" fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
-        if id >= 1000 {
+        //if id >= 1000 {
             unsafe { &*(id as *const FSRObject) }
-        } else {
-            panic!("Invalid object ID: {}", id);
-        }
+        // } else {
+        //     panic!("Invalid object ID: {}", id);
+        // }
 
         // unsafe {
         //     if let Some(obj) = OBJECTS.get(id) {

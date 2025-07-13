@@ -202,14 +202,23 @@ impl<'a> FSRFn<'a> {
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
             cls: FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::FnCls)).as_class(),
-            // garbage_id: 0,
-            // garbage_collector_id: 0,
             free: false,
             mark: AtomicBool::new(false),
             area: Area::Global,
             write_barrier: AtomicBool::new(true),
             gc_count: 0,
         }
+    }
+
+    pub fn from_rust_fn_static_value(f: FSRRustFn, name: &'a str) -> FSRValue<'a> {
+        let v = Self {
+            fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
+            code: 0,
+            closure_fn: vec![],
+            store_cells: AHashMap::new(),
+        };
+
+        FSRValue::Function(Box::new(v))
     }
 
     pub fn get_class() -> FSRClass<'static> {
