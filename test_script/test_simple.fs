@@ -1,6 +1,5 @@
-import os 
-env = os::get_environ()
+import str 
 
-for kv in env {
-    println(kv)
-}
+f = "abc {} ddc".format("1234")
+println(f)
+

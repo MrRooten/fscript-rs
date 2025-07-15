@@ -6,7 +6,7 @@ pub mod logger;
 #[macro_export]
 macro_rules! register_fn {
     ($module:expr, $thread:expr, $name:expr, $func:expr) => {{
-        let fn_obj = FSRFn::from_rust_fn_static_value($func, $name);
+        let fn_obj = crate::backend::types::fn_def::FSRFn::from_rust_fn_static_value($func, $name);
         let fn_id = $thread.garbage_collect.new_object(fn_obj, crate::backend::types::base::GlobalObj::FnCls.get_id());
         $module.register_object($name, fn_id);
     }};

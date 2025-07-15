@@ -514,6 +514,80 @@ fn lowercase(
     unimplemented!()
 }
 
+/// format string like, support format("{} {}", "hello", "world")
+pub fn fsr_fn_format_string(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "format_string requires at least 2 arguments",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
+    }
+
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let format_str_id = args[0];
+    let format_args = &args[1..len];
+
+    let format_str = if let FSRValue::String(s) = &FSRObject::id_to_obj(format_str_id).value {
+        s.as_str()
+    } else {
+        return Err(FSRError::new(
+            "First argument must be a string",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
+    };
+
+    let mut arg_strings = Vec::new();
+    for &arg_id in format_args {
+        let obj = FSRObject::id_to_obj(arg_id);
+        let res = obj.to_string(thread, code);
+        if let FSRValue::String(s) = &res {
+            arg_strings.push(s.as_str().to_string());
+        }
+    }
+
+    let mut result = String::new();
+    let mut arg_iter = arg_strings.iter();
+    let mut chars = format_str.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '{' {
+            if chars.peek() == Some(&'{') {
+                chars.next(); // consume second '{'
+                result.push('{');
+            } else if chars.peek() == Some(&'}') {
+                chars.next(); // consume '}'
+                if let Some(val) = arg_iter.next() {
+                    result.push_str(val);
+                } else {
+                    result.push_str("{}");
+                }
+            } else {
+                result.push('{');
+            }
+        } else if c == '}' {
+            if chars.peek() == Some(&'}') {
+                chars.next(); // consume second '}'
+                result.push('}');
+            } else {
+                result.push('}');
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    let value = FSRString::new_value(result);
+    let res = thread.garbage_collect.new_object(
+        value,
+        crate::backend::types::base::GlobalObj::StringCls.get_id(),
+    );
+    Ok(FSRRetValue::GlobalId(res))
+}
+
 impl FSRString {
     pub fn get_class<'a>() -> FSRClass {
         let mut cls = FSRClass::new("String");
@@ -557,7 +631,8 @@ impl FSRString {
         cls.insert_attr("uppercase", uppercase);
         let lowercase = FSRFn::from_rust_fn_static(lowercase, "string_lowercase");
         cls.insert_attr("lowercase", lowercase);
-
+        let format_string = FSRFn::from_rust_fn_static(fsr_fn_format_string, "format_string");
+        cls.insert_attr("format", format_string);
         cls
     }
 

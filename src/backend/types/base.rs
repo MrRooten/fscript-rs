@@ -856,10 +856,10 @@ impl<'a> FSRObject<'a> {
         false
     }
 
-    pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>, module: ObjId) -> FSRValue<'a> {
+    pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>, code: ObjId) -> FSRValue<'a> {
         let s = self
             .value
-            .to_string(FSRObject::obj_to_id(self), thread, module);
+            .to_string(FSRObject::obj_to_id(self), thread, code);
         if let Some(s) = s {
             return FSRString::new_inst_with_inner(s);
         }

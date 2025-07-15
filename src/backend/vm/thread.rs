@@ -1420,7 +1420,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             for arg in args.iter() {
-                //obj.ref_add();
                 self.get_cur_mut_frame().args.push(*arg);
             }
 
