@@ -221,7 +221,7 @@ impl<'a> FSRFn<'a> {
         FSRValue::Function(Box::new(v))
     }
 
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         FSRClass::new_without_method("Fn")
     }
 

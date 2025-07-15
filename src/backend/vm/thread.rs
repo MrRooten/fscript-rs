@@ -217,12 +217,12 @@ impl<'a> AttrMap<'a> {
     }
 }
 
-pub struct CallFrame<'a> {
+pub struct CallFrame {
     pub(crate) local_var: IndexMap,
     pub(crate) const_map: IndexMap,
     //reverse_ip: (usize, usize),
     pub(crate) args: Vec<ObjId>,
-    cur_cls: Option<Box<FSRClass<'a>>>,
+    cur_cls: Option<Box<FSRClass>>,
     pub(crate) ret_val: Option<ObjId>,
     exp: Vec<ObjId>,
     /// in case of garbage collection collecting this object, this object is for middle value for expression
@@ -237,7 +237,7 @@ pub struct CallFrame<'a> {
     pub(crate) flow_tracker: FlowTracker,
 }
 
-impl<'a> CallFrame<'a> {
+impl CallFrame {
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear(&mut self) {
         self.local_var.clear();
@@ -483,9 +483,9 @@ impl ThreadShared {
 pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_id: usize,
     /// cur call frame, save for quick access
-    pub(crate) cur_frame: Box<CallFrame<'a>>,
-    pub(crate) call_frames: Vec<Box<CallFrame<'a>>>,
-    pub(crate) frame_free_list: FrameFreeList<'a>,
+    pub(crate) cur_frame: Box<CallFrame>,
+    pub(crate) call_frames: Vec<Box<CallFrame>>,
+    pub(crate) frame_free_list: FrameFreeList,
     pub(crate) thread_allocator: FSRObjectAllocator<'a>,
 
     // pub(crate) exception: ObjId,
@@ -572,20 +572,20 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_cur_mut_frame(&mut self) -> &mut CallFrame<'a> {
+    pub fn get_cur_mut_frame(&mut self) -> &mut CallFrame {
         &mut self.cur_frame
     }
 
     /// Push new call frame to call stack, and replace current call frame with new one
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn push_frame(&mut self, frame: Box<CallFrame<'a>>) {
+    pub fn push_frame(&mut self, frame: Box<CallFrame>) {
         let old_frame = std::mem::replace(&mut self.cur_frame, frame);
         self.call_frames.push(old_frame);
     }
 
     /// Pop current call frame and replace with the last one
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn pop_frame(&mut self) -> Box<CallFrame<'a>> {
+    pub fn pop_frame(&mut self) -> Box<CallFrame> {
         let v = self.call_frames.pop().unwrap();
         std::mem::replace(&mut self.cur_frame, v)
     }
@@ -614,11 +614,11 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_cur_frame(&self) -> &CallFrame<'a> {
+    pub fn get_cur_frame(&self) -> &CallFrame {
         &self.cur_frame
     }
 
-    pub fn process_callframe(work_list: &mut Vec<ObjId>, it: &CallFrame<'a>) {
+    pub fn process_callframe(work_list: &mut Vec<ObjId>, it: &CallFrame) {
         for obj in it.local_var.iter() {
             work_list.push(obj.load(Ordering::Relaxed));
         }
@@ -818,7 +818,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(id == FSRObject::true_id())
     }
 
-    fn pop_stack(&mut self) -> Box<CallFrame<'a>> {
+    fn pop_stack(&mut self) -> Box<CallFrame> {
         let v = self.pop_frame();
         //self.frame_free_list.free(v);
         v
@@ -1384,7 +1384,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let FSRValue::Class(c) = &cls.value {
             if c.get_attr("__new__").is_none() {
                 let self_id = self.garbage_collect.new_object(
-                    FSRValue::ClassInst(Box::new(FSRClassInst::new(c.get_name()))),
+                    FSRValue::ClassInst(Box::new(FSRClassInst::new(c.get_arc_name()))),
                     cls_id,
                 );
 
@@ -2091,7 +2091,6 @@ impl<'a> FSRThreadRuntime<'a> {
             } else {
                 self.get_cur_mut_frame().push_exp(FSRObject::false_id())
             }
-
         } else {
             return Err(FSRError::new(
                 "not a compare test",
@@ -2214,7 +2213,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let future_obj = self.get_cur_frame().future.unwrap();
         let awaitable_value = top_exp!(self).unwrap_or(FSRObject::none_id());
-        
+
         // {
         //     let awaitable_future = FSRObject::id_to_mut_obj(awaitable_value)
         //         .unwrap()
@@ -2429,29 +2428,35 @@ impl<'a> FSRThreadRuntime<'a> {
             };
         }
         if let ArgType::ImportModule(v, module_name) = bc.get_arg() {
-            if let Some(module_fn) = self.get_vm().core_module.get(module_name[0].as_str()) {
-                let module = module_fn(self);
-                let module = FSRObject::new_inst(module, GlobalObj::ModuleCls.get_id());
-                let module_id = FSRVM::leak_object(Box::new(module));
-                let state = self.get_cur_mut_frame();
-                state.insert_var(*v, module_id);
-                // let cur_module =
-                //     FSRObject::id_to_mut_obj(FSRObject::id_to_obj(context).as_code().module)
-                //         .unwrap()
-                //         .as_mut_module();
-                let cur_module = as_mut_module!(context);
-                cur_module.register_object(module_name.last().unwrap(), module_id);
-                return Ok(false);
-            }
+            let module_id = if let Some(s) = self.get_vm().module_manager.get_module(&module_name) {
+                s
+            } else {
+                let module_id = if let Some(module_fn) =
+                    self.get_vm().core_module.get(module_name[0].as_str())
+                {
+                    let module = module_fn(self);
+                    let module = FSRObject::new_inst(module, GlobalObj::ModuleCls.get_id());
+                    let module_id = FSRVM::leak_object(Box::new(module));
+                    module_id
+                } else {
+                    let code = Self::read_code_from_module(module_name)?;
+                    let mut module = FSRModule::new_object(&module_name.join("."));
+                    let module_id = FSRVM::leak_object(Box::new(module));
+                    let fn_map = FSRCode::from_code(&module_name.join("."), &code, module_id)?;
+                    let module = FSRObject::id_to_mut_obj(module_id).unwrap();
+                    module.as_mut_module().init_fn_map(fn_map);
 
-            let code = Self::read_code_from_module(module_name)?;
-            let mut module = FSRModule::new_object(&module_name.join("."));
-            let module_id = FSRVM::leak_object(Box::new(module));
-            let fn_map = FSRCode::from_code(&module_name.join("."), &code, module_id)?;
-            let module = FSRObject::id_to_mut_obj(module_id).unwrap();
-            module.as_mut_module().init_fn_map(fn_map);
+                    let obj_id = { self.load(module_id)? };
 
-            let obj_id = { self.load(module_id)? };
+                    module_id
+                };
+
+                self.get_vm()
+                    .module_manager
+                    .register_module(module_name.clone(), module_id);
+
+                module_id
+            };
 
             let state = self.get_cur_mut_frame();
             state.insert_var(*v, module_id);
@@ -2778,7 +2783,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn get_chains(
         thread: &FSRThreadRuntime,
-        state: &CallFrame<'_>,
+        state: &CallFrame,
         var: &(u64, String, bool),
     ) -> Option<ObjId> {
         let fn_id = state.fn_obj;

@@ -63,7 +63,7 @@ impl<'a> FSRModule<'a> {
         self.fn_map = fn_map;
     }
 
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         FSRClass::new("FSRModule")
     }
 

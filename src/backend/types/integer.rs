@@ -424,7 +424,7 @@ fn hash_integer(
 }
 
 impl<'a> FSRInteger {
-    pub fn get_class() -> FSRClass<'a> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Integer");
         let add_fn = FSRFn::from_rust_fn_static(add, "integer_add");
         //cls.insert_attr("__add__", add_fn);

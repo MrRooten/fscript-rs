@@ -13,7 +13,7 @@ use crate::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
         types::{
-            any::{AnyDebugSend, AnyType, GetReference},
+            any::{ExtensionTrait, FSRExtension},
             base::{Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             error::FSRException,
@@ -91,13 +91,67 @@ impl Debug for FSRHashSet {
     }
 }
 
-impl AnyDebugSend for FSRHashSet {
+impl ExtensionTrait for FSRHashSet {
     fn as_any(&self) -> &dyn Any {
         self
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn get_reference<'a>(
+        &'a self,
+        full: bool,
+        worklist: &mut Vec<ObjId>,
+        is_add: &mut bool,
+    ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+        //let mut v = Vec::with_capacity(self.len() * 2);
+        for segment in self.segment_map.iter() {
+            for (_, vec) in segment.hashset.iter() {
+                for (key) in vec.iter() {
+                    //v.push(key.load(Ordering::Relaxed));
+                    //v.push(value.load(Ordering::Relaxed));
+                    #[allow(clippy::never_loop)]
+                    loop {
+                        let ref_id = key.load(Ordering::Relaxed);
+                        let obj = FSRObject::id_to_obj(ref_id);
+                        if obj.area == Area::Minjor {
+                            *is_add = true;
+                        } else if full {
+                            break;
+                        }
+
+                        if !obj.is_marked() {
+                            worklist.push(ref_id);
+                        }
+                        break;
+                    }
+
+                    // {
+                    //     let ref_id = value.load(Ordering::Relaxed);
+                    //     let obj = FSRObject::id_to_obj(ref_id);
+                    //     if obj.area == Area::Minjor {
+                    //         *is_add = true;
+                    //     } else if !full {
+                    //         continue;
+                    //     }
+
+                    //     if !obj.is_marked() {
+                    //         worklist.push(ref_id);
+                    //     }
+                    // }
+                }
+            }
+        }
+
+        Box::new(std::iter::empty())
+    }
+
+    fn set_undirty(&mut self) {
+        // for segment in self.segment_map.iter_mut() {
+        //     segment.is_dirty = false;
+        // }
     }
 }
 
@@ -188,62 +242,6 @@ impl Iterator for FSRHashMapRefIterator<'_> {
     }
 }
 
-impl GetReference for FSRHashSet {
-    /// Try to process in here instead of return a iterator
-    fn get_reference<'a>(
-        &'a self,
-        full: bool,
-        worklist: &mut Vec<ObjId>,
-        is_add: &mut bool,
-    ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        //let mut v = Vec::with_capacity(self.len() * 2);
-        for segment in self.segment_map.iter() {
-            for (_, vec) in segment.hashset.iter() {
-                for (key) in vec.iter() {
-                    //v.push(key.load(Ordering::Relaxed));
-                    //v.push(value.load(Ordering::Relaxed));
-                    #[allow(clippy::never_loop)]
-                    loop {
-                        let ref_id = key.load(Ordering::Relaxed);
-                        let obj = FSRObject::id_to_obj(ref_id);
-                        if obj.area == Area::Minjor {
-                            *is_add = true;
-                        } else if full {
-                            break;
-                        }
-
-                        if !obj.is_marked() {
-                            worklist.push(ref_id);
-                        }
-                        break;
-                    }
-
-                    // {
-                    //     let ref_id = value.load(Ordering::Relaxed);
-                    //     let obj = FSRObject::id_to_obj(ref_id);
-                    //     if obj.area == Area::Minjor {
-                    //         *is_add = true;
-                    //     } else if !full {
-                    //         continue;
-                    //     }
-
-                    //     if !obj.is_marked() {
-                    //         worklist.push(ref_id);
-                    //     }
-                    // }
-                }
-            }
-        }
-
-        Box::new(std::iter::empty())
-    }
-
-    fn set_undirty(&mut self) {
-        // for segment in self.segment_map.iter_mut() {
-        //     segment.is_dirty = false;
-        // }
-    }
-}
 
 pub struct FSRHashMapIterator<'a> {
     pub(crate) list_obj: ObjId,
@@ -283,7 +281,7 @@ pub fn fsr_fn_hashset_iter(
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let hashset = FSRObject::id_to_obj(args[0]);
-    if let FSRValue::Any(any) = &hashset.value {
+    if let FSRValue::Extension(any) = &hashset.value {
         if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
             let iter = hashset
                 .segment_map
@@ -354,7 +352,7 @@ pub fn fsr_fn_hashset_insert(
             hashset.set_write_barrier(true);
         }
     }
-    if let FSRValue::Any(any) = &mut hashset.value {
+    if let FSRValue::Extension(any) = &mut hashset.value {
         if let Some(hashset) = any.value.as_any_mut().downcast_mut::<FSRHashSet>() {
             hashset.insert(key, thread)?;
         } else {
@@ -376,7 +374,7 @@ pub fn fsr_fn_hashset_get(
     let hashset = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
-    if let FSRValue::Any(any) = &hashset.value {
+    if let FSRValue::Extension(any) = &hashset.value {
         if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
             if let Some(value) = hashset.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(
@@ -402,7 +400,7 @@ pub fn fsr_fn_hashset_get_reference(
     let hashset_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
     let key = args[1];
     let mut flag = false;
-    if let FSRValue::Any(any) = &hashset_obj.value {
+    if let FSRValue::Extension(any) = &hashset_obj.value {
         if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
             if let Some(value) = hashset.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(value.load(Ordering::Relaxed)));
@@ -424,7 +422,7 @@ pub fn fsr_fn_hashset_contains(
     let hashset = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
-    if let FSRValue::Any(any) = &hashset.value {
+    if let FSRValue::Extension(any) = &hashset.value {
         if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
             if hashset.get(key, thread).is_some() {
                 return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
@@ -448,7 +446,7 @@ pub fn fsr_fn_hashset_remove(
     let hashset = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
     let key = args[1];
 
-    if let FSRValue::Any(any) = &mut hashset.value {
+    if let FSRValue::Extension(any) = &mut hashset.value {
         if let Some(hashset) = any.value.as_any_mut().downcast_mut::<FSRHashSet>() {
             hashset.remove(key, thread);
         } else {
@@ -471,7 +469,7 @@ fn hashset_string(
     s.push('(');
     let obj_id = args[0];
     let obj = FSRObject::id_to_obj(obj_id);
-    if let FSRValue::Any(l) = &obj.value {
+    if let FSRValue::Extension(l) = &obj.value {
         let l = l.value.as_any().downcast_ref::<FSRHashSet>()
             .ok_or(FSRError::new(
                 "not a hashset",
@@ -524,7 +522,7 @@ impl FSRHashSet {
     }
 
     pub fn to_any_type(self) -> FSRValue<'static> {
-        FSRValue::Any(Box::new(AnyType {
+        FSRValue::Extension(Box::new(FSRExtension {
             value: Box::new(self),
         }))
     }
@@ -765,7 +763,7 @@ impl FSRHashSet {
         }
     }
 
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("HashSet");
         // let len_m = FSRFn::from_rust_fn_static(string_len, "string_len");
         // cls.insert_attr("len", len_m);

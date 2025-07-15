@@ -2,16 +2,29 @@
 use crate::{
     backend::{
         types::{
-            base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, class::FSRClass, fn_def::FSRFn, integer::FSRInteger, module::FSRModule, string::FSRString
+            base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, class::FSRClass, ext::hashmap::FSRHashMap, fn_def::FSRFn, integer::FSRInteger, module::FSRModule, string::FSRString
         },
         vm::thread::FSRThreadRuntime,
-    },
-    utils::error::FSRError,
+    }, register_fn, utils::error::FSRError
 };
 
 pub struct FSROs {}
 
-pub fn fsr_fn_get_os(
+pub fn fsr_fn_cpu_arch(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let arch = std::env::consts::ARCH;
+    let value = FSRString::new_value(arch);
+    let res = thread
+        .garbage_collect
+        .new_object(value, GlobalObj::StringCls.get_id());
+    Ok(FSRRetValue::GlobalId(res))
+}
+
+pub fn fsr_fn_platform(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
@@ -52,6 +65,7 @@ pub fn fsr_fn_get_pid(
     Ok(FSRRetValue::GlobalId(res))
 }
 
+
 pub fn fsr_fn_get_environ(
     args: *const ObjId,
     len: usize,
@@ -77,7 +91,20 @@ pub fn fsr_fn_get_environ(
             .new_object(value, GlobalObj::StringCls.get_id());
         Ok(FSRRetValue::GlobalId(res))
     } else {
-        panic!("get_environ expects 1 argument, got {}", len);
+        let mut fsr_hashmap = FSRHashMap::new_hashmap();
+        let environ = std::env::vars().map(|x| (x.0, x.1)).collect::<Vec<_>>();
+        for (key, value) in environ {
+            let key_obj = FSRString::new_value(&key);
+            let value_obj = FSRString::new_value(&value);
+            let key_id = thread.garbage_collect.new_object(key_obj, GlobalObj::StringCls.get_id());
+            let value_id = thread.garbage_collect.new_object(value_obj, GlobalObj::StringCls.get_id());
+            fsr_hashmap.insert(key_id, value_id, thread);
+        }
+
+        let res = thread
+            .garbage_collect
+            .new_object(fsr_hashmap.to_any_type(), GlobalObj::HashMapCls.get_id());
+        Ok(FSRRetValue::GlobalId(res))
     }
 }
 
@@ -117,45 +144,20 @@ pub fn fsr_fn_command(
 }
 
 impl FSROs {
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Os");
         cls.init_method();
-        let get_os = FSRFn::from_rust_fn_static(fsr_fn_get_os, "get_os");
-        cls.insert_attr("get_os", get_os);
-        let os_version = FSRFn::from_rust_fn_static(fsr_fn_os_version, "os_version");
-        cls.insert_attr("os_version", os_version);
-        let get_pid = FSRFn::from_rust_fn_static(fsr_fn_get_pid, "get_pid");
-        cls.insert_attr("get_pid", get_pid);
         cls
     }
 
     pub fn new_module(thread: &mut FSRThreadRuntime) -> FSRValue<'static> {
         let mut module = FSRModule::new_module("os");
-        let get_os = FSRFn::from_rust_fn_static_value(fsr_fn_get_os, "get_os");
-        let get_os_fn_id = thread
-            .garbage_collect
-            .new_object(get_os, GlobalObj::FnCls.get_id());
-        module.register_object("get_os", get_os_fn_id);
-        let os_version = FSRFn::from_rust_fn_static_value(fsr_fn_os_version, "os_version");
-        let os_version_fn_id = thread
-            .garbage_collect
-            .new_object(os_version, GlobalObj::FnCls.get_id());
-        module.register_object("os_version", os_version_fn_id);
-        let get_pid = FSRFn::from_rust_fn_static_value(fsr_fn_get_pid, "get_pid");
-        let get_pid_fn_id = thread
-            .garbage_collect
-            .new_object(get_pid, GlobalObj::FnCls.get_id());
-        module.register_object("get_pid", get_pid_fn_id);
-        let get_environ = FSRFn::from_rust_fn_static_value(fsr_fn_get_environ, "get_environ");
-        let get_environ_fn_id = thread
-            .garbage_collect
-            .new_object(get_environ, GlobalObj::FnCls.get_id());
-        module.register_object("get_environ", get_environ_fn_id);
-        let command = FSRFn::from_rust_fn_static_value(fsr_fn_command, "command");
-        let command_fn_id = thread
-            .garbage_collect
-            .new_object(command, GlobalObj::FnCls.get_id());
-        module.register_object("command", command_fn_id);
+        register_fn!(module, thread, "get_pid", fsr_fn_get_pid);
+        register_fn!(module, thread, "platform", fsr_fn_platform);
+        register_fn!(module, thread, "os_version", fsr_fn_os_version);
+        register_fn!(module, thread, "get_environ", fsr_fn_get_environ);
+        register_fn!(module, thread, "command", fsr_fn_command);
+        register_fn!(module, thread, "cpu_arch", fsr_fn_cpu_arch);
         FSRValue::Module(Box::new(module))
     }
 }

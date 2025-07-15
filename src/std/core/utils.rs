@@ -156,7 +156,7 @@ pub fn fsr_fn_type(
             FSRString::new_value("Range"),
             get_object_by_global_id(GlobalObj::StringCls),
         ))),
-        FSRValue::Any(any_type) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+        FSRValue::Extension(any_type) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Any"),
             get_object_by_global_id(GlobalObj::StringCls),
         ))),

@@ -22,15 +22,15 @@ use super::{
     class::FSRClass,
 };
 
-pub struct FSRCode<'a> {
-    name: Cow<'a, str>,
+pub struct FSRCode {
+    name: String,
     bytecode: Bytecode,
     //object_map: AHashMap<String, AtomicObjId>,
     //const_table: Vec<Option<ObjId>>,
     pub(crate) module: ObjId,
 }
 
-impl Debug for FSRCode<'_> {
+impl Debug for FSRCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let v = addr_of!(self.bytecode);
         let s = format!("<Code `{}`>", v as usize);
@@ -41,8 +41,8 @@ impl Debug for FSRCode<'_> {
     }
 }
 
-impl<'a> FSRCode<'a> {
-    pub fn get_class() -> FSRClass<'static> {
+impl FSRCode {
+    pub fn get_class() -> FSRClass {
         FSRClass::new("FSRCode")
     }
 
@@ -54,12 +54,12 @@ impl<'a> FSRCode<'a> {
         unimplemented!()
     }
 
-    pub fn from_code(name: &str, code: &str, module: ObjId) -> Result<HashMap<String, FSRObject<'a>>, FSRError> {
+    pub fn from_code<'a>(name: &str, code: &str, module: ObjId) -> Result<HashMap<String, FSRObject<'a>>, FSRError> {
         let bytecode = Bytecode::compile(name, code);
         let mut res = HashMap::new();
         for code in bytecode {
             let code = Self {
-                name: Cow::Owned(code.0),
+                name: code.0.to_string(),
                 bytecode: code.1,
                 //object_map: AHashMap::new(),
                 //const_table: vec![],

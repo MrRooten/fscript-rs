@@ -1,6 +1,6 @@
 use std::{
     collections::{hash_map::Keys, HashMap},
-    fmt::Debug,
+    fmt::Debug, sync::Arc,
 };
 
 use ahash::AHashMap;
@@ -9,7 +9,7 @@ use super::base::{AtomicObjId, FSRObject, FSRValue, ObjId};
 
 pub struct FSRClassInst<'a> {
     #[allow(unused)]
-    name: &'a str,
+    name: Arc<String>,
     attrs: AHashMap<&'a str, AtomicObjId>,
 }
 
@@ -31,7 +31,7 @@ impl Debug for FSRClassInst<'_> {
 }
 
 impl<'a> FSRClassInst<'a> {
-    pub fn new(name: &'a str) -> FSRClassInst<'a> {
+    pub fn new(name: Arc<String>) -> FSRClassInst<'a> {
         Self {
             name,
             attrs: AHashMap::new(),
@@ -59,6 +59,6 @@ impl<'a> FSRClassInst<'a> {
     }
 
     pub fn get_cls_name(&self) -> &str {
-        self.name
+        self.name.as_str()
     }
 }

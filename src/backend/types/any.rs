@@ -11,7 +11,15 @@ use super::{
     fn_def::FSRFn,
 };
 
-pub trait GetReference {
+// pub trait GetReference {
+    
+// }
+
+pub trait ExtensionTrait: Send {
+    fn as_any(&self) -> &dyn Any;
+
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+
     fn get_reference<'a>(
         &'a self,
         full: bool,
@@ -22,18 +30,18 @@ pub trait GetReference {
     fn set_undirty(&mut self);
 }
 
-pub trait AnyDebugSend: Any + Debug + Send + GetReference {
-    fn as_any(&self) -> &dyn Any;
 
-    fn as_any_mut(&mut self) -> &mut dyn Any;
+pub struct FSRExtension {
+    pub value: Box<dyn ExtensionTrait>,
 }
 
-#[derive(Debug)]
-pub struct AnyType {
-    pub value: Box<dyn AnyDebugSend>,
+impl Debug for FSRExtension {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "AnyType({:?})", self.value.as_any())
+    }
 }
 
-impl AnyType {
+impl FSRExtension {
     pub fn iter_values<'a>(
         &'a self,
         full: bool,
@@ -53,7 +61,7 @@ pub struct FSRThreadHandle {
     pub thread: Option<std::thread::JoinHandle<()>>,
 }
 
-impl AnyDebugSend for FSRThreadHandle {
+impl ExtensionTrait for FSRThreadHandle {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -61,9 +69,7 @@ impl AnyDebugSend for FSRThreadHandle {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-}
 
-impl GetReference for FSRThreadHandle {
     fn get_reference<'a>(
         &'a self,
         full: bool,
@@ -76,6 +82,7 @@ impl GetReference for FSRThreadHandle {
     fn set_undirty(&mut self) {}
 }
 
+
 fn join(
     args: *const ObjId,
     len: usize,
@@ -85,7 +92,7 @@ fn join(
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
 
-    if let FSRValue::Any(any) = &mut self_object.value {
+    if let FSRValue::Extension(any) = &mut self_object.value {
         if let Some(handle) = any.value.as_any_mut().downcast_mut::<FSRThreadHandle>() {
             //thread.release();
             let _ = handle.join();
@@ -117,12 +124,12 @@ impl FSRThreadHandle {
     }
 
     pub fn to_any_type(self) -> FSRValue<'static> {
-        FSRValue::Any(Box::new(AnyType {
+        FSRValue::Extension(Box::new(FSRExtension {
             value: Box::new(self),
         }))
     }
 
-    pub fn thread_cls() -> FSRClass<'static> {
+    pub fn thread_cls() -> FSRClass {
         let mut cls = FSRClass::new("Thread");
         let thread_join_fn = FSRFn::from_rust_fn_static(join, "__thread_join");
         cls.insert_attr("join", thread_join_fn);

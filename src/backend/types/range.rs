@@ -209,7 +209,7 @@ fn contains(
 }
 
 impl FSRRange {
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut r = FSRClass::new("Range");
         let iter = FSRFn::from_rust_fn_static(iter_obj, "range_iter");
         r.insert_attr("__iter__", iter);

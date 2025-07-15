@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{atomic::{AtomicUsize, Ordering}, Arc},
 };
 
 use ahash::AHashMap;
@@ -14,23 +14,23 @@ use super::{
 use std::fmt::Debug;
 
 #[repr(C)]
-pub struct FSRClass<'a> {
+pub struct FSRClass {
     /// This will be set after the class object is created
     object_id: Option<ObjId>,
     pub(crate) offset_rust_fn: [Option<FSRRustFn>; 30],
-    pub(crate) name: String,
-    pub(crate) attrs: AHashMap<&'a str, AtomicObjId>,
+    pub(crate) name: Arc<String>,
+    pub(crate) attrs: AHashMap<String, AtomicObjId>,
     pub(crate) offset_attrs: Vec<Option<AtomicObjId>>,
 }
 
-impl PartialEq for FSRClass<'_> {
+impl PartialEq for FSRClass {
     fn eq(&self, other: &Self) -> bool {
         // pointer is same
         std::ptr::eq(self, other)
     }
 }
 
-impl Eq for FSRClass<'_> {
+impl Eq for FSRClass {
     
 }
 
@@ -41,7 +41,7 @@ enum TmpObject<'a> {
     String(String),
 }
 
-impl Debug for FSRClass<'_> {
+impl Debug for FSRClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut new_hash = HashMap::new();
         for kv in &self.attrs {
@@ -193,11 +193,11 @@ pub fn expect(
     return Ok(FSRRetValue::GlobalId(args[0]));
 }
 
-impl<'a> FSRClass<'a> {
-    pub fn new(name: &'a str) -> FSRClass<'a> {
+impl FSRClass {
+    pub fn new(name: &str) -> FSRClass {
         let mut cls = FSRClass {
             object_id: None,
-            name: name.to_string(),
+            name: Arc::new(name.to_string()),
             attrs: AHashMap::new(),
             offset_attrs: vec![],
             offset_rust_fn: [None; 30],
@@ -221,9 +221,9 @@ impl<'a> FSRClass<'a> {
         self.insert_attr("expect", expect);
     }
 
-    pub fn new_without_method(name: &'a str) -> FSRClass<'a> {
+    pub fn new_without_method(name: &str) -> FSRClass {
         let mut cls = FSRClass {
-            name: name.to_string(),
+            name: Arc::new(name.to_string()),
             attrs: AHashMap::new(),
             offset_attrs: vec![],
             offset_rust_fn: [None; 30],
@@ -233,12 +233,12 @@ impl<'a> FSRClass<'a> {
         cls
     }
 
-    pub fn insert_attr(&mut self, name: &'a str, object: FSRObject<'a>) {
+    pub fn insert_attr<'a>(&mut self, name: &str, object: FSRObject<'a>) {
         let obj_id = FSRVM::register_object(object);
-        self.attrs.insert(name, AtomicUsize::new(obj_id));
+        self.attrs.insert(name.to_string(), AtomicUsize::new(obj_id));
     }
 
-    pub fn insert_offset_attr(&mut self, offset: BinaryOffset, object: FSRObject<'a>) {
+    pub fn insert_offset_attr<'a>(&mut self, offset: BinaryOffset, object: FSRObject<'a>) {
         if self.offset_attrs.len() <= offset as usize {
             self.offset_attrs.resize_with(offset as usize + 1, || None);
         }
@@ -250,7 +250,7 @@ impl<'a> FSRClass<'a> {
         }
         let obj_id = FSRVM::register_object(object);
         self.attrs
-            .insert(offset.alias_name(), AtomicUsize::new(obj_id));
+            .insert(offset.alias_name().to_string(), AtomicUsize::new(obj_id));
         self.offset_attrs[offset as usize] = Some(AtomicUsize::new(obj_id));
     }
 
@@ -273,11 +273,11 @@ impl<'a> FSRClass<'a> {
         self.insert_attr_id(offset.alias_name(), id);
     }
 
-    pub fn insert_attr_id(&mut self, name: &'a str, obj_id: ObjId) {
+    pub fn insert_attr_id(&mut self, name: &str, obj_id: ObjId) {
         if let Some(v) = self.attrs.get_mut(name) {
             v.store(obj_id, Ordering::Relaxed);
         } else {
-            self.attrs.insert(name, AtomicUsize::new(obj_id));
+            self.attrs.insert(name.to_string(), AtomicUsize::new(obj_id));
         }
     }
 
@@ -309,5 +309,9 @@ impl<'a> FSRClass<'a> {
 
     pub fn get_name(&self) -> &str {
         self.name.as_str()
+    }
+
+    pub fn get_arc_name(&self) -> Arc<String> {
+        self.name.clone()
     }
 }

@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context};
 use crate::{
     backend::{
         types::{
-            any::{AnyDebugSend, AnyType, GetReference}, base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, bytes::FSRInnerBytes, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
+            any::{ExtensionTrait, FSRExtension}, base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, bytes::FSRInnerBytes, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
     },
@@ -26,7 +26,16 @@ pub struct FSRInnerFile {
     pub path: PathBuf,
 }
 
-impl GetReference for FSRInnerFile {
+
+impl ExtensionTrait for FSRInnerFile {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn get_reference<'a>(
         &'a self,
         full: bool,
@@ -37,16 +46,6 @@ impl GetReference for FSRInnerFile {
     }
 
     fn set_undirty(&mut self) {}
-}
-
-impl AnyDebugSend for FSRInnerFile {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
 }
 
 impl FSRInnerFile {
@@ -88,12 +87,12 @@ impl FSRInnerFile {
     }
 
     pub fn to_any_type(self) -> FSRValue<'static> {
-        FSRValue::Any(Box::new(AnyType {
+        FSRValue::Extension(Box::new(FSRExtension {
             value: Box::new(self),
         }))
     }
 
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("File");
         cls.init_method();
         let open = FSRFn::from_rust_fn_static(fsr_fn_open_file, "new");
@@ -168,7 +167,7 @@ pub fn fsr_fn_read_all(
     let file_obj_id = args[0];
     let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
 
-    if let FSRValue::Any(any_type) = &mut file_obj.value {
+    if let FSRValue::Extension(any_type) = &mut file_obj.value {
         if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
             use std::io::Read;
             if inner_file.mode == OpMode::Bytes {
@@ -297,7 +296,7 @@ pub fn fsr_fn_read(
         ));
     };
     
-    if let FSRValue::Any(any_type) = &mut file_obj.value {
+    if let FSRValue::Extension(any_type) = &mut file_obj.value {
         if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
             use std::io::Read;
             inner_file.seek(offset)?;
@@ -346,7 +345,7 @@ pub fn fsr_fn_file_lines(
     let file_obj_id = args[0];
     let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
 
-    if let FSRValue::Any(any_type) = &mut file_obj.value {
+    if let FSRValue::Extension(any_type) = &mut file_obj.value {
         if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
             let file = File::open(inner_file.get_path())
                 .with_context(|| anyhow!("Failed to open file: {}", inner_file.get_path()))?;

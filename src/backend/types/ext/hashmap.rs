@@ -13,7 +13,7 @@ use crate::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
         types::{
-            any::{AnyDebugSend, AnyType, GetReference},
+            any::{ExtensionTrait, FSRExtension},
             base::{Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             error::FSRException,
@@ -91,13 +91,67 @@ impl Debug for FSRHashMap {
     }
 }
 
-impl AnyDebugSend for FSRHashMap {
+impl ExtensionTrait for FSRHashMap {
     fn as_any(&self) -> &dyn Any {
         self
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn get_reference<'a>(
+        &'a self,
+        full: bool,
+        worklist: &mut Vec<ObjId>,
+        is_add: &mut bool,
+    ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+        //let mut v = Vec::with_capacity(self.len() * 2);
+        for segment in self.segment_map.iter() {
+            for (_, vec) in segment.hashmap.iter() {
+                for (key, value) in vec.iter() {
+                    //v.push(key.load(Ordering::Relaxed));
+                    //v.push(value.load(Ordering::Relaxed));
+                    #[allow(clippy::never_loop)]
+                    loop {
+                        let ref_id = key.load(Ordering::Relaxed);
+                        let obj = FSRObject::id_to_obj(ref_id);
+                        if obj.area == Area::Minjor {
+                            *is_add = true;
+                        } else if full {
+                            break;
+                        }
+
+                        if !obj.is_marked() {
+                            worklist.push(ref_id);
+                        }
+                        break;
+                    }
+
+                    {
+                        let ref_id = value.load(Ordering::Relaxed);
+                        let obj = FSRObject::id_to_obj(ref_id);
+                        if obj.area == Area::Minjor {
+                            *is_add = true;
+                        } else if !full {
+                            continue;
+                        }
+
+                        if !obj.is_marked() {
+                            worklist.push(ref_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        Box::new(std::iter::empty())
+    }
+
+    fn set_undirty(&mut self) {
+        // for segment in self.segment_map.iter_mut() {
+        //     segment.is_dirty = false;
+        // }
     }
 }
 
@@ -188,63 +242,6 @@ impl Iterator for FSRHashMapRefIterator<'_> {
     }
 }
 
-impl GetReference for FSRHashMap {
-    /// Try to process in here instead of return a iterator
-    fn get_reference<'a>(
-        &'a self,
-        full: bool,
-        worklist: &mut Vec<ObjId>,
-        is_add: &mut bool,
-    ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        //let mut v = Vec::with_capacity(self.len() * 2);
-        for segment in self.segment_map.iter() {
-            for (_, vec) in segment.hashmap.iter() {
-                for (key, value) in vec.iter() {
-                    //v.push(key.load(Ordering::Relaxed));
-                    //v.push(value.load(Ordering::Relaxed));
-                    #[allow(clippy::never_loop)]
-                    loop {
-                        let ref_id = key.load(Ordering::Relaxed);
-                        let obj = FSRObject::id_to_obj(ref_id);
-                        if obj.area == Area::Minjor {
-                            *is_add = true;
-                        } else if full {
-                            break;
-                        }
-
-                        if !obj.is_marked() {
-                            worklist.push(ref_id);
-                        }
-                        break;
-                    }
-
-                    {
-                        let ref_id = value.load(Ordering::Relaxed);
-                        let obj = FSRObject::id_to_obj(ref_id);
-                        if obj.area == Area::Minjor {
-                            *is_add = true;
-                        } else if !full {
-                            continue;
-                        }
-
-                        if !obj.is_marked() {
-                            worklist.push(ref_id);
-                        }
-                    }
-                }
-            }
-        }
-
-        Box::new(std::iter::empty())
-    }
-
-    fn set_undirty(&mut self) {
-        // for segment in self.segment_map.iter_mut() {
-        //     segment.is_dirty = false;
-        // }
-    }
-}
-
 pub struct FSRHashMapIterator<'a> {
     pub(crate) list_obj: ObjId,
     pub(crate) iter: Box<dyn Iterator<Item = (ObjId, ObjId)> + Send + 'a>,
@@ -288,7 +285,7 @@ pub fn fsr_fn_hashmap_iter(
 ) -> Result<FSRRetValue, FSRError> {
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     let hashmap = FSRObject::id_to_obj(args[0]);
-    if let FSRValue::Any(any) = &hashmap.value {
+    if let FSRValue::Extension(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             let iter = hashmap
                 .segment_map
@@ -365,7 +362,7 @@ pub fn fsr_fn_hashmap_insert(
             hashmap.set_write_barrier(true);
         }
     }
-    if let FSRValue::Any(any) = &mut hashmap.value {
+    if let FSRValue::Extension(any) = &mut hashmap.value {
         if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
             hashmap.insert(key, value, thread)?;
         } else {
@@ -387,7 +384,7 @@ pub fn fsr_fn_hashmap_get(
     let hashmap = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
-    if let FSRValue::Any(any) = &hashmap.value {
+    if let FSRValue::Extension(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             if let Some(value) = hashmap.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(
@@ -414,7 +411,7 @@ fn hashmap_string(
     s.push('(');
     let obj_id = args[0];
     let obj = FSRObject::id_to_obj(obj_id);
-    if let FSRValue::Any(l) = &obj.value {
+    if let FSRValue::Extension(l) = &obj.value {
         let l = l.value.as_any().downcast_ref::<FSRHashMap>()
             .ok_or(FSRError::new(
                 "not a hashset",
@@ -477,7 +474,7 @@ pub fn fsr_fn_hashmap_get_reference(
     let hashmap_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
     let mut flag = false;
-    if let FSRValue::Any(any) = &hashmap_obj.value {
+    if let FSRValue::Extension(any) = &hashmap_obj.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             if let Some(value) = hashmap.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(value.load(Ordering::Relaxed)));
@@ -499,7 +496,7 @@ pub fn fsr_fn_hashmap_contains(
     let hashmap = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
-    if let FSRValue::Any(any) = &hashmap.value {
+    if let FSRValue::Extension(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             if hashmap.get(key, thread).is_some() {
                 return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
@@ -523,7 +520,7 @@ pub fn fsr_fn_hashmap_remove(
     let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
 
-    if let FSRValue::Any(any) = &mut hashmap.value {
+    if let FSRValue::Extension(any) = &mut hashmap.value {
         if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
             hashmap.remove(key, thread);
         } else {
@@ -535,6 +532,31 @@ pub fn fsr_fn_hashmap_remove(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
+pub fn fsr_fn_hashmap_len(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let hashmap = FSRObject::id_to_obj(args[0]);
+    
+    if let FSRValue::Extension(any) = &hashmap.value {
+        if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
+            let len = hashmap.len();
+            let obj_id = thread.garbage_collect.new_object(
+                FSRValue::Integer(len as i64),
+                get_object_by_global_id(GlobalObj::IntegerCls),
+            );
+            return Ok(FSRRetValue::GlobalId(obj_id));
+        } else {
+            unimplemented!()
+        }
+    } else {
+        unimplemented!()
+    }
+}
+
 impl FSRHashMap {
     pub fn new_hashmap() -> Self {
         Self {
@@ -543,7 +565,7 @@ impl FSRHashMap {
     }
 
     pub fn to_any_type(self) -> FSRValue<'static> {
-        FSRValue::Any(Box::new(AnyType {
+        FSRValue::Extension(Box::new(FSRExtension {
             value: Box::new(self),
         }))
     }
@@ -840,7 +862,7 @@ impl FSRHashMap {
         }
     }
 
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("HashMap");
         // let len_m = FSRFn::from_rust_fn_static(string_len, "string_len");
         // cls.insert_attr("len", len_m);
@@ -868,6 +890,8 @@ impl FSRHashMap {
         cls.insert_offset_attr(BinaryOffset::GetItem, get_item_ref);
         let to_str = FSRFn::from_rust_fn_static(hashmap_string, "to_string");
         cls.insert_attr("__str__", to_str);
+        let len = FSRFn::from_rust_fn_static(fsr_fn_hashmap_len, "len");
+        cls.insert_attr("len", len);
         cls
     }
 }

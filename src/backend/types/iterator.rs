@@ -310,7 +310,7 @@ pub fn count(
 }
 
 impl FSRInnerIterator {
-    pub fn get_class<'a>() -> FSRClass<'a> {
+    pub fn get_class<'a>() -> FSRClass {
         let mut cls = FSRClass::new("InnerIterator");
         let next = FSRFn::from_rust_fn_static(next_obj, "inner_iterator_next");
 

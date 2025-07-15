@@ -4,7 +4,7 @@ use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
         types::{
-            any::{AnyDebugSend, AnyType, GetReference},
+            any::{ExtensionTrait, FSRExtension},
             base::{FSRObject, FSRValue, ObjId},
             class::FSRClass,
             fn_def::FSRFn,
@@ -80,7 +80,15 @@ impl FSRIterator for FSRFilterIter {
     }
 }
 
-impl GetReference for FSRFilterIter {
+impl ExtensionTrait for FSRFilterIter {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn get_reference<'a>(
         &'a self,
         full: bool,
@@ -93,16 +101,6 @@ impl GetReference for FSRFilterIter {
     fn set_undirty(&mut self) {}
 }
 
-impl AnyDebugSend for FSRFilterIter {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
 impl FSRFilterIter {
     // pub fn new(callback: ObjId, prev_iterator: ObjId) -> FSRValue<'static> {
     //     FSRValue::Any(Box::new(AnyType {
@@ -113,7 +111,7 @@ impl FSRFilterIter {
     //     }))
     // }
 
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("FSRMapIter");
         cls.init_method();
         cls

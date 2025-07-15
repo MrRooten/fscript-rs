@@ -1,18 +1,15 @@
 use std::{
-    borrow::Cow,
-    collections::hash_map::Keys,
-    fmt::Debug,
-    sync::{
+    any::Any, borrow::Cow, collections::hash_map::Keys, fmt::Debug, sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
-    },
+    }
 };
 
 use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
         memory::size_alloc::FSRObjectAllocator,
-        types::{any::GetReference, asynclib::future::FSRFuture, bytes::FSRInnerBytes, fn_def::FSRnE},
+        types::{any::ExtensionTrait, asynclib::future::FSRFuture, bytes::FSRInnerBytes, fn_def::FSRnE},
         vm::{
             thread::FSRThreadRuntime,
             virtual_machine::{get_object_by_global_id, FSRVM, OBJECTS},
@@ -22,7 +19,7 @@ use crate::{
 };
 
 use super::{
-    any::AnyType,
+    any::FSRExtension,
     class::FSRClass,
     class_inst::FSRClassInst,
     code::FSRCode,
@@ -122,19 +119,19 @@ pub enum FSRValue<'a> {
     Integer(i64),
     Float(f64),
     String(Arc<FSRInnerString>),
-    Class(Box<FSRClass<'a>>),
+    Class(Box<FSRClass>),
     ClassInst(Box<FSRClassInst<'a>>),
     Function(Box<FSRFn<'a>>),
     Bool(bool),
     List(Box<FSRList>),
     Iterator(Box<FSRInnerIterator>),
-    Code(Box<FSRCode<'a>>),
+    Code(Box<FSRCode>),
     Range(Box<FSRRange>),
-    Any(Box<AnyType>),
+    Extension(Box<FSRExtension>),
     // module is define in single file
     Module(Box<FSRModule<'a>>),
     Bytes(Box<FSRInnerBytes>),
-    Future(Box<FSRFuture<'a>>),
+    Future(Box<FSRFuture>),
     None,
 }
 
@@ -154,7 +151,7 @@ impl FSRValue<'_> {
             FSRValue::Range(_) => std::mem::size_of::<FSRRange>(),
             FSRValue::Module(_) => std::mem::size_of::<FSRModule>(),
             FSRValue::Bool(_) => std::mem::size_of::<bool>(),
-            FSRValue::Any(_) => std::mem::size_of::<AnyType>(),
+            FSRValue::Extension(_) => std::mem::size_of::<FSRExtension>(),
             FSRValue::None => std::mem::size_of::<()>(),
             FSRValue::Bytes(fsrinner_bytes) => {
                 std::mem::size_of::<FSRInnerBytes>() + fsrinner_bytes.len()
@@ -204,10 +201,6 @@ impl<'a> FSRValue<'a> {
                 }
             };
 
-            // if let FSRRetValue::Value(v) = ret_value {
-            //     return Some(Box::new(Cow::Owned(v.as_string().to_string())));
-            // }
-
             let id = ret_value.get_id();
             let obj = FSRObject::id_to_obj(id);
             if let FSRValue::String(s) = &obj.value {
@@ -254,7 +247,7 @@ impl<'a> FSRValue<'a> {
             FSRValue::Module(fsrmodule) => {
                 Some(Arc::new(FSRInnerString::new(fsrmodule.as_string())))
             }
-            FSRValue::Any(_) => {
+            FSRValue::Extension(_) => {
                 if FSRObject::id_to_obj(self_id)
                     .cls
                     .get_attr("__str__")
@@ -292,6 +285,32 @@ impl<'a> FSRValue<'a> {
 
         s
     }
+
+    pub fn as_any<T: 'static>(&self) -> Result<&T, FSRError>
+    where T: ExtensionTrait {
+        match self {
+            FSRValue::Extension(any) => {
+                Ok(any.value.as_any().downcast_ref::<T>().unwrap())
+            },
+            _ => Err(FSRError::new(
+                "Value is not Any",
+                FSRErrCode::NotValidArgs,
+            )),
+        }
+    }
+
+    pub fn as_mut_any<T: 'static>(&mut self) -> Result<&mut T, FSRError>
+    where T: ExtensionTrait {
+        match self {
+            FSRValue::Extension(any) => {
+                Ok(any.value.as_any_mut().downcast_mut::<T>().unwrap())
+            },
+            _ => Err(FSRError::new(
+                "Value is not Any",
+                FSRErrCode::NotValidArgs,
+            )),
+        }
+    }
 }
 
 impl Drop for FSRValue<'_> {
@@ -322,7 +341,7 @@ impl Area {
 
 pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
-    pub(crate) cls: &'static FSRClass<'static>,
+    pub(crate) cls: &'static FSRClass,
     pub(crate) free: bool,
     pub(crate) mark: AtomicBool,
     pub(crate) gc_count: u32,
@@ -409,14 +428,14 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline(always)]
-    pub fn as_code(&self) -> &FSRCode<'a> {
+    pub fn as_code(&self) -> &FSRCode {
         match &self.value {
             FSRValue::Code(fsrmodule) => fsrmodule,
             _ => unimplemented!(),
         }
     }
 
-    pub fn as_mut_code(&mut self) -> &mut FSRCode<'a> {
+    pub fn as_mut_code(&mut self) -> &mut FSRCode {
         match &mut self.value {
             FSRValue::Code(fsrmodule) => fsrmodule,
             _ => unimplemented!(),
@@ -431,14 +450,14 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    pub fn as_mut_future(&mut self) -> &mut FSRFuture<'a> {
+    pub fn as_mut_future(&mut self) -> &mut FSRFuture {
         match &mut self.value {
             FSRValue::Future(fsrfuture) => fsrfuture,
             _ => unimplemented!(),
         }
     }
 
-    pub fn as_future(&self) -> &FSRFuture<'a> {
+    pub fn as_future(&self) -> &FSRFuture {
         match &self.value {
             FSRValue::Future(fsrfuture) => fsrfuture,
             _ => unimplemented!(),
@@ -899,9 +918,9 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    pub fn get_fsr_class_name(&self) -> &str {
+    pub fn get_fsr_class_name(&self) -> Arc<String> {
         if let FSRValue::Class(cls) = &self.value {
-            return cls.get_name();
+            return cls.get_arc_name();
         }
 
         unimplemented!()
@@ -964,7 +983,7 @@ impl<'a> FSRObject<'a> {
             }
             FSRValue::Function(f) => Box::new(f.get_references().into_iter()),
             FSRValue::Iterator(iterator) => Box::new(iterator.get_references().into_iter()),
-            FSRValue::Any(any) => Box::new(any.iter_values(full, worklist, is_add)),
+            FSRValue::Extension(any) => Box::new(any.iter_values(full, worklist, is_add)),
             FSRValue::Range(r) => Box::new(r.get_references().into_iter()),
             FSRValue::Future(f) => f.get_reference(full, worklist, is_add),
             _ => Box::new(std::iter::empty()),
@@ -973,7 +992,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn undirty_object(&mut self) {
-        if let FSRValue::Any(any) = &mut self.value {
+        if let FSRValue::Extension(any) = &mut self.value {
             any.undirty();
         }
     }

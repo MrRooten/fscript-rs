@@ -1,7 +1,7 @@
 use crate::{
     backend::{
         types::{
-            any::{AnyDebugSend, AnyType, GetReference},
+            any::{ExtensionTrait, FSRExtension},
             base::{FSRObject, FSRRetValue, FSRValue, ObjId},
             class::FSRClass,
             fn_def::FSRFn,
@@ -20,49 +20,41 @@ pub enum FSRFutureState {
 }
 
 // struct FutureStatus<'a> {
-//     callframe: Vec<CallFrame<'a>>,
+//     callframe: Vec<CallFrame>,
 //     context: Vec<FSCodeContext>,
 // }
 
-pub struct FSRFuture<'a> {
+pub struct FSRFuture {
     //status: FutureStatus<'a>,
-    pub(crate)  state: FSRFutureState,
+    pub(crate) state: FSRFutureState,
     pub(crate) fn_obj: ObjId,
-    pub(crate) frame: Option<Box<CallFrame<'a>>>,
-    result: Option<ObjId>
+    pub(crate) frame: Option<Box<CallFrame>>,
+    result: Option<ObjId>,
 }
 
-impl Debug for FSRFuture<'_> {
+impl Debug for FSRFuture {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FSRFuture {{ state: {:?}, fn_obj: {} }}", self.state, self.fn_obj)
+        write!(
+            f,
+            "FSRFuture {{ state: {:?}, fn_obj: {} }}",
+            self.state, self.fn_obj
+        )
     }
 }
 
-impl<'a> GetReference for FSRFuture<'a> {
-    fn get_reference(
+impl FSRFuture {
+    pub fn get_reference(
         &self,
         full: bool,
         worklist: &mut Vec<ObjId>,
         is_add: &mut bool,
-    ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
+    ) -> Box<dyn Iterator<Item = ObjId>> {
         let mut add_list = vec![];
         if let Some(frame) = self.frame.as_ref() {
             FSRThreadRuntime::process_callframe(&mut add_list, frame);
         }
         add_list.push(self.fn_obj);
         Box::new(add_list.into_iter())
-    }
-
-    fn set_undirty(&mut self) {}
-}
-
-impl AnyDebugSend for FSRFuture<'static> {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
     }
 }
 
@@ -96,13 +88,8 @@ pub fn poll_future(
     } else {
         panic!("poll_future called on a non-future object");
     };
-    
-    
 
-    
-    return res.map(|x| {
-        FSRRetValue::GlobalId(x)
-    })
+    return res.map(|x| FSRRetValue::GlobalId(x));
 }
 
 pub fn next_obj(
@@ -114,22 +101,25 @@ pub fn next_obj(
     poll_future(args, len, thread, code)
 }
 
-impl<'a> FSRFuture<'a> {
-    pub fn get_class() -> FSRClass<'static> {
+impl FSRFuture {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Future");
         let poll = FSRFn::from_rust_fn_static(poll_future, "future_poll");
         cls.insert_attr("poll", poll);
         let next_obj = FSRFn::from_rust_fn_static(next_obj, "future_next");
-        cls.insert_offset_attr(crate::backend::compiler::bytecode::BinaryOffset::NextObject, next_obj);
+        cls.insert_offset_attr(
+            crate::backend::compiler::bytecode::BinaryOffset::NextObject,
+            next_obj,
+        );
         cls
     }
 
-    pub fn new_value(fn_obj: ObjId, frame: Box<CallFrame<'a>>) -> FSRValue<'a> {
+    pub fn new_value<'a>(fn_obj: ObjId, frame: Box<CallFrame>) -> FSRValue<'a> {
         let v = FSRFuture {
             state: FSRFutureState::Suspended,
             fn_obj,
             frame: Some(frame),
-            result: None
+            result: None,
         };
 
         FSRValue::Future(Box::new(v))
@@ -154,5 +144,4 @@ impl<'a> FSRFuture<'a> {
     pub fn set_running(&mut self) {
         self.state = FSRFutureState::Running;
     }
-
 }

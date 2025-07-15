@@ -58,7 +58,7 @@ fn message(
 
 
 impl FSRException {
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Exception");
         let kind_fn = FSRFn::from_rust_fn_static(kind, "kind");
         //cls.insert_attr("__add__", add_fn);

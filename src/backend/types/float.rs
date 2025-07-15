@@ -289,7 +289,7 @@ impl<'a> FSRFloat {
         object
     }
 
-    pub fn get_class() -> FSRClass<'a> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Float");
         let add_fn = FSRFn::from_rust_fn_static(add, "float_add");
         //cls.insert_attr("__add__", add_fn);

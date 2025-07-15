@@ -18,6 +18,26 @@ use crate::{
 
 use super::thread::FSRThreadRuntime;
 
+pub struct ModuleManager {
+    pub(crate) modules: Mutex<AHashMap<Vec<String>, ObjId>>,
+}
+
+impl ModuleManager {
+    pub fn new() -> Self {
+        Self {
+            modules: Mutex::new(AHashMap::new()),
+        }
+    }
+
+    pub fn register_module(&self, name: Vec<String>, id: ObjId) {
+        self.modules.lock().unwrap().insert(name, id);
+    }
+
+    pub fn get_module(&self, name: &[String]) -> Option<ObjId> {
+        self.modules.lock().unwrap().get(name).copied()
+    }
+}
+
 #[derive(Hash, Debug, Eq, PartialEq)]
 pub enum ConstType<'a> {
     String(&'a str),
@@ -29,6 +49,7 @@ pub struct FSRVM<'a> {
     global_modules: AHashMap<&'a str, ObjId>,
     pub(crate) core_module: AHashMap<&'static str, NewModuleFn>,
     threads: Mutex<Vec<Option<UnsafeCell<FSRThreadRuntime<'a>>>>>,
+    pub(crate) module_manager: ModuleManager,
 }
 
 pub static mut VM: Option<Arc<FSRVM<'static>>> = None;
@@ -73,7 +94,7 @@ pub extern "C" fn get_none() -> ObjId {
     get_object_by_global_id(GlobalObj::NoneObj)
 }
 
-pub static mut GLOBAL_CLASS: Option<FSRClass<'static>> = None;
+pub static mut GLOBAL_CLASS: Option<FSRClass> = None;
 
 impl<'a> FSRVM<'a> {
     pub fn core_module() -> AHashMap<&'static str, NewModuleFn> {
@@ -92,6 +113,7 @@ impl<'a> FSRVM<'a> {
             global_modules: AHashMap::new(),
             threads: Mutex::new(vec![]),
             core_module,
+            module_manager: ModuleManager::new(),
         };
         v.init();
         v

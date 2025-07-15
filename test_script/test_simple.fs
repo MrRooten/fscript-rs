@@ -1,3 +1,6 @@
-import fs
+import os 
+env = os::get_environ()
 
-println(fs::is_dir("/etc/passwd"))
+for kv in env {
+    println(kv)
+}

@@ -174,9 +174,9 @@ pub extern "C" fn get_attr_obj(
         .unwrap_or(FSRObject::none_id())
 }
 
-pub extern "C" fn get_cur_frame<'a>(thread: &'a mut FSRThreadRuntime<'a>) -> *mut CallFrame<'a> {
+pub extern "C" fn get_cur_frame<'a>(thread: &'a mut FSRThreadRuntime<'a>) -> *mut CallFrame {
     let frame = thread.get_cur_mut_frame();
-    frame as *mut CallFrame<'a>
+    frame as *mut CallFrame
 }
 
 /// Get the number of arguments passed to the current function.

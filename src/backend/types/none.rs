@@ -47,7 +47,7 @@ pub fn equal(
 }
 
 impl FSRNone {
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("None");
         let not_eq = FSRFn::from_rust_fn_static(not_equal, "none_not_eq");
         cls.insert_offset_attr(BinaryOffset::NotEqual, not_eq);

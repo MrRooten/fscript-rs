@@ -1,6 +1,19 @@
 use std::any::Any;
 
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::{any::{AnyDebugSend, AnyType, GetReference}, base::{FSRObject, FSRValue, ObjId}, class::FSRClass, fn_def::FSRFn, iterator::{FSRIterator, FSRIteratorReferences}}, vm::thread::FSRThreadRuntime}, utils::error::FSRError};
+use crate::{
+    backend::{
+        compiler::bytecode::BinaryOffset,
+        types::{
+            any::{ExtensionTrait, FSRExtension},
+            base::{FSRObject, FSRValue, ObjId},
+            class::FSRClass,
+            fn_def::FSRFn,
+            iterator::{FSRIterator, FSRIteratorReferences},
+        },
+        vm::thread::FSRThreadRuntime,
+    },
+    utils::error::FSRError,
+};
 
 #[derive(Debug)]
 pub struct FSRMapIter {
@@ -18,21 +31,39 @@ impl FSRIteratorReferences for FSRMapIter {
 impl FSRIterator for FSRMapIter {
     fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
         let prev_iterator = FSRObject::id_to_obj(self.prev_iterator);
-        let next_method_id = prev_iterator.get_cls_offset_attr(BinaryOffset::NextObject).unwrap().load(std::sync::atomic::Ordering::Relaxed);
+        let next_method_id = prev_iterator
+            .get_cls_offset_attr(BinaryOffset::NextObject)
+            .unwrap()
+            .load(std::sync::atomic::Ordering::Relaxed);
         let next_method = FSRObject::id_to_obj(next_method_id);
-        let ret = next_method.call(&[self.prev_iterator], thread, self.code, next_method_id).unwrap().get_id();
+        let ret = next_method
+            .call(&[self.prev_iterator], thread, self.code, next_method_id)
+            .unwrap()
+            .get_id();
         if ret == FSRObject::none_id() {
             return Ok(None);
         }
 
         let callback = FSRObject::id_to_obj(self.callback);
-        let map_ret = callback.call(&[ret], thread, self.code, self.callback).unwrap().get_id();
+        let map_ret = callback
+            .call(&[ret], thread, self.code, self.callback)
+            .unwrap()
+            .get_id();
 
         Ok(Some(map_ret))
     }
 }
 
-impl GetReference for FSRMapIter {
+
+impl ExtensionTrait for FSRMapIter {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn get_reference<'a>(
         &'a self,
         full: bool,
@@ -42,23 +73,11 @@ impl GetReference for FSRMapIter {
         Box::new(vec![self.callback, self.prev_iterator].into_iter())
     }
 
-    fn set_undirty(&mut self) {
-        
-    }
-}
-
-impl AnyDebugSend for FSRMapIter {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
+    fn set_undirty(&mut self) {}
 }
 
 impl FSRMapIter {
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("FSRMapIter");
         cls.init_method();
         cls

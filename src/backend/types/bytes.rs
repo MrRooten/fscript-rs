@@ -31,7 +31,7 @@ impl FSRInnerBytes {
         self.bytes.len()
     }
 
-    pub fn get_class() -> FSRClass<'static> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Bytes");
         cls.insert_offset_attr(
             BinaryOffset::GetItem,

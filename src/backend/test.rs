@@ -214,7 +214,7 @@ pub mod tests {
             Integer(i64),
             Float(f64),
             String(Cow<'a, str>),
-            Class(Box<FSRClass<'a>>),
+            Class(Box<FSRClass>),
             ClassInst(Box<FSRClassInst<'a>>),
             Function(FSRFn<'a>),
             Bool(bool),

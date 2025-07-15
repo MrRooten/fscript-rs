@@ -28,7 +28,7 @@ pub fn equal(
 }
 
 impl<'a> FSRBool {
-    pub fn get_class() -> FSRClass<'a> {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Bool");
         let eq = FSRFn::from_rust_fn_static(equal, "bool_eq");
         cls.insert_offset_attr(BinaryOffset::Equal, eq);

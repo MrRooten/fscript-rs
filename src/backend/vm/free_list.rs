@@ -5,11 +5,11 @@ use crate::backend::types::base::ObjId;
 
 use super::thread::CallFrame;
 
-pub struct FrameFreeList<'a> {
-    list: Vec<Box<CallFrame<'a>>>
+pub struct FrameFreeList {
+    list: Vec<Box<CallFrame>>
 }
 
-impl<'a> FrameFreeList<'a> {
+impl FrameFreeList {
     pub fn new_list() -> Self {
         Self {
             list: Vec::new()
@@ -17,12 +17,12 @@ impl<'a> FrameFreeList<'a> {
     }
 
     #[inline]
-    pub fn free(&mut self, frame: Box<CallFrame<'a>>) {
+    pub fn free(&mut self, frame: Box<CallFrame>) {
         self.list.push(frame);
     }
 
     #[inline]
-    pub fn new_frame(&mut self, code: ObjId, fn_obj: ObjId) -> Box<CallFrame<'a>> {
+    pub fn new_frame(&mut self, code: ObjId, fn_obj: ObjId) -> Box<CallFrame> {
         if let Some(mut frame) = self.list.pop() {
             frame.clear();
             frame.code = code;
