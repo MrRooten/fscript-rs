@@ -514,6 +514,32 @@ fn lowercase(
     unimplemented!()
 }
 
+fn starts_with(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let prefix_object = FSRObject::id_to_obj(args[1]);
+
+    if let FSRValue::String(self_str) = &self_object.value {
+        if let FSRValue::String(prefix_str) = &prefix_object.value {
+            return Ok(FSRRetValue::GlobalId(if self_str.chars.starts_with(prefix_str.as_str()) {
+                FSRObject::true_id()
+            } else {
+                FSRObject::false_id()
+            }));
+        }
+    }
+
+    Err(FSRError::new(
+        "Invalid arguments for starts_with",
+        crate::utils::error::FSRErrCode::NotValidArgs,
+    ))
+}
+
 /// format string like, support format("{} {}", "hello", "world")
 pub fn fsr_fn_format_string(
     args: *const ObjId,
@@ -633,6 +659,8 @@ impl FSRString {
         cls.insert_attr("lowercase", lowercase);
         let format_string = FSRFn::from_rust_fn_static(fsr_fn_format_string, "format_string");
         cls.insert_attr("format", format_string);
+        let starts_with = FSRFn::from_rust_fn_static(starts_with, "string_starts_with");
+        cls.insert_attr("starts_with", starts_with);
         cls
     }
 

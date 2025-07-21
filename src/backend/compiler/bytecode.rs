@@ -1181,7 +1181,23 @@ impl<'a> Bytecode {
         } else if let FSRToken::StackExpr(st) = expr.get_right() {
             let mut v = Self::load_stack_expr(st, var_map, const_map);
             second.append(&mut v);
-            //
+            if expr.get_op().eq(".") || expr.get_op().eq("::") {
+                op_code.append(&mut second);
+                if let Some(single_op) = expr.get_single_op() {
+                    if single_op.eq(&SingleOp::Not) {
+                        op_code.push(BytecodeArg {
+                            operator: BytecodeOperator::NotOperator,
+                            arg: ArgType::None,
+                            info: FSRByteInfo::new(expr.get_meta().clone()),
+                        });
+                    } else {
+                        panic!("not support this single op: {:?}", single_op);
+                    }
+                }
+                return (op_code);
+            }
+
+            second.append(&mut v);
         } else if let FSRToken::List(list) = expr.get_right() {
             let mut v = Self::load_list(list, var_map, const_map);
             second.append(&mut v);
@@ -2437,13 +2453,7 @@ a[0] = 1
     #[test]
     fn test_simple() {
         let expr = "
-        @async
-        fn abc() {
-            for i in 0..1 {
-                i.yield
-            }
-        }
-
+        t.value[0][0]
         ";
 
         let meta = FSRPosition::new();

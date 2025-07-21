@@ -1,9 +1,7 @@
-name = 1
-follow_value = false
-value = 3
+import args
 
-f = "name:{}, follow_value:{}, value: {}".format(name, 
-        follow_value, 
-        value)
+opt = args::ArgOption("name")
+parser = args::ArgParser(["--n"])
+parser.add_option(opt)
 
-println(f)
+parser.parse()

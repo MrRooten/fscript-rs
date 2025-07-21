@@ -615,4 +615,14 @@ try {
         println!("{:#?}", b);
         assert_eq!(b.get_len(), s.len());
     }
+
+    #[test]
+    fn test_simple() {
+        let s = "t.value[0][0]";
+        let meta = FSRPosition::new();
+        let mut context = ASTContext::new_context();
+        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        println!("{:#?}", b);
+        assert_eq!(b.get_len(), s.len());
+    }
 }

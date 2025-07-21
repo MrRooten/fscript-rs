@@ -1682,8 +1682,16 @@ impl<'a> FSRThreadRuntime<'a> {
 
             father = pop_exp!(self).unwrap();
             let father_cls = FSRObject::id_to_obj(father);
-            let fn_id = father_cls.get_attr(&pack.2).unwrap();
-            fn_id.load(Ordering::Relaxed)
+            let fn_id = match father_cls.get_attr(&pack.2) {
+                Some(s) => s.load(Ordering::Relaxed),
+                None => {
+                    return Err(FSRError::new(
+                        format!("not found method: {}", pack.2),
+                        FSRErrCode::NoSuchObject,
+                    ));
+                }
+            };
+            fn_id
         } else {
             panic!("not support ArgType: {:?}", bytecode.get_arg());
         };
