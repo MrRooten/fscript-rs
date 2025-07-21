@@ -1394,12 +1394,12 @@ impl FSRExpr {
         let split_offset = operator.1;
 
         let mut sub_meta = context.new_pos();
-        let left = FSRExpr::parse(&source[0..split_offset], false, sub_meta, context)?.0;
+        let left = FSRExpr::parse(&source[0..split_offset], ignore_nline, sub_meta, context)?.0;
 
         let mut sub_meta = context.new_pos();
         let right = FSRExpr::parse(
             &source[split_offset + operator.0.len()..],
-            false,
+            ignore_nline,
             sub_meta.clone(),
             context,
         )?

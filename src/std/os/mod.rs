@@ -2,7 +2,7 @@
 use crate::{
     backend::{
         types::{
-            base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, class::FSRClass, ext::hashmap::FSRHashMap, fn_def::FSRFn, integer::FSRInteger, module::FSRModule, string::FSRString
+            base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, class::FSRClass, ext::hashmap::FSRHashMap, fn_def::FSRFn, integer::FSRInteger, list::FSRList, module::FSRModule, string::FSRString
         },
         vm::thread::FSRThreadRuntime,
     }, register_fn, utils::error::FSRError
@@ -143,6 +143,29 @@ pub fn fsr_fn_command(
     }
 }
 
+pub fn fsr_fn_get_args(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    // Get the command line arguments passed to the script
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args_vec = std::env::args().skip(1).collect::<Vec<String>>();
+    let mut fsr_args = Vec::new();
+    for arg in args_vec {
+        let value = FSRString::new_value(&arg);
+        let obj_id = thread.garbage_collect.new_object(value, GlobalObj::StringCls.get_id());
+        fsr_args.push(obj_id);
+    }
+    let value = FSRList::new_value(fsr_args);
+    let res = thread
+        .garbage_collect
+        .new_object(value, GlobalObj::ListCls.get_id());
+    Ok(FSRRetValue::GlobalId(res))
+}
+
+
 impl FSROs {
     pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Os");
@@ -158,6 +181,7 @@ impl FSROs {
         register_fn!(module, thread, "get_environ", fsr_fn_get_environ);
         register_fn!(module, thread, "command", fsr_fn_command);
         register_fn!(module, thread, "cpu_arch", fsr_fn_cpu_arch);
+        register_fn!(module, thread, "get_args", fsr_fn_get_args);
         FSRValue::Module(Box::new(module))
     }
 }

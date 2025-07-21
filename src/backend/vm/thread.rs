@@ -230,7 +230,7 @@ pub struct CallFrame {
     pub(crate) code: ObjId,
     catch_ends: Vec<(usize, usize)>,
     pub(crate) handling_exception: ObjId,
-    // Record current call fn_obj
+    /// Record current call fn_obj, Why not use Option, because fn_obj will extern "C", we need the ABI to be stable
     pub(crate) fn_obj: ObjId,
     pub(crate) ip: (usize, usize),
     pub(crate) future: Option<ObjId>,
@@ -677,10 +677,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let it = cur_frame;
         Self::process_callframe(&mut work_list, it);
 
-        // for obj in others {
-        //     work_list.push(obj);
-        // }
-
         for shared_object in &self.thread_shared.objects {
             work_list.push(**shared_object);
         }
@@ -822,6 +818,10 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = self.pop_frame();
         //self.frame_free_list.free(v);
         v
+    }
+
+    pub fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
+        self.garbage_collect.new_object(value, cls)
     }
 
     fn getter_process(
