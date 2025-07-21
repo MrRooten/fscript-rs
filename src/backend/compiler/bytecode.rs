@@ -465,7 +465,7 @@ pub struct FnDef {
     code: Vec<Vec<BytecodeArg>>,
     var_map: VarMap,
     is_jit: bool,
-    is_async: bool
+    is_async: bool,
 }
 
 #[derive(Debug)]
@@ -634,7 +634,7 @@ pub struct Bytecode {
     pub(crate) bytecode: Vec<Vec<BytecodeArg>>,
     pub(crate) var_map: VarMap,
     pub(crate) is_jit: bool,
-    pub(crate) is_async: bool
+    pub(crate) is_async: bool,
 }
 
 enum AttrIdOrCode {
@@ -710,7 +710,8 @@ impl<'a> Bytecode {
             }
         }
 
-        let mut v = Self::load_token_with_map(getter.get_getter(), var_map, const_map);
+        let mut v =
+            Self::load_token_with_map(getter.get_getter(), var_map, const_map, false, false);
         result.append(&mut v[0]);
 
         if !is_assign {
@@ -801,7 +802,7 @@ impl<'a> Bytecode {
         }
 
         for arg in call.get_args() {
-            let mut v = Self::load_token_with_map(arg, var_map, context);
+            let mut v = Self::load_token_with_map(arg, var_map, context, false, false);
             result.append(&mut v[0]);
         }
 
@@ -1005,10 +1006,15 @@ impl<'a> Bytecode {
         var: &(Option<SingleOp>, Vec<FSRToken>),
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
+        mut is_attr: bool,
+        mut is_method_call: bool,
     ) -> (Vec<BytecodeArg>) {
         let mut result = Vec::new();
         for token in var.1.iter() {
-            let mut v = Self::load_token_with_map(token, var_map, const_map);
+            let mut v =
+                Self::load_token_with_map(token, var_map, const_map, is_attr, is_method_call);
+            is_attr = false;
+            is_method_call = false;
             if v.is_empty() {
                 continue;
             }
@@ -1071,7 +1077,7 @@ impl<'a> Bytecode {
             let mut v = Self::load_constant(c, var_map, const_map);
             op_code.append(&mut v);
         } else if let FSRToken::StackExpr(st) = expr.get_left() {
-            let mut v = Self::load_stack_expr(st, var_map, const_map);
+            let mut v = Self::load_stack_expr(st, var_map, const_map, false, false);
             op_code.append(&mut v);
         } else if let FSRToken::List(list) = expr.get_left() {
             let mut v = Self::load_list(list, var_map, const_map);
@@ -1179,7 +1185,16 @@ impl<'a> Bytecode {
             second.append(&mut v);
             //
         } else if let FSRToken::StackExpr(st) = expr.get_right() {
-            let mut v = Self::load_stack_expr(st, var_map, const_map);
+            let mut is_attr = false;
+            let mut is_method_call = true;
+            if expr.get_op().eq(".") || expr.get_op().eq("::") {
+                is_attr = true;
+            }
+
+            if expr.get_op().eq("::") {
+                is_method_call = false;
+            }
+            let mut v = Self::load_stack_expr(st, var_map, const_map, is_attr, is_method_call);
             second.append(&mut v);
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 op_code.append(&mut second);
@@ -1277,7 +1292,7 @@ impl<'a> Bytecode {
     ) -> (Vec<Vec<BytecodeArg>>) {
         let mut vs = vec![];
         for token in block.get_tokens() {
-            let lines = Self::load_token_with_map(token, var_map, const_map);
+            let lines = Self::load_token_with_map(token, var_map, const_map, false, false);
             for line in lines {
                 vs.push(line);
             }
@@ -1302,7 +1317,7 @@ impl<'a> Bytecode {
         let mut vs = vec![];
 
         for token in try_def.get_block().get_tokens() {
-            let lines = Self::load_token_with_map(token, var_map, const_map);
+            let lines = Self::load_token_with_map(token, var_map, const_map, false, false);
             for line in lines {
                 vs.push(line);
             }
@@ -1317,7 +1332,7 @@ impl<'a> Bytecode {
         let catch_start = vs.len();
 
         for token in try_def.get_catch().body.get_tokens() {
-            let lines = Self::load_token_with_map(token, var_map, const_map);
+            let lines = Self::load_token_with_map(token, var_map, const_map, false, false);
             for line in lines {
                 vs.push(line);
             }
@@ -1348,7 +1363,7 @@ impl<'a> Bytecode {
     ) -> (Vec<Vec<BytecodeArg>>) {
         let test_exp = if_def.get_test();
         let mut vs = vec![];
-        let mut v = Self::load_token_with_map(test_exp, var_map, const_map);
+        let mut v = Self::load_token_with_map(test_exp, var_map, const_map, false, false);
         let mut test_list = Vec::new();
         let mut t = v.remove(0);
         test_list.append(&mut t);
@@ -1378,7 +1393,7 @@ impl<'a> Bytecode {
                         arg: ArgType::IfTestNext((block_items.len() as u64, 0)),
                         info: FSRByteInfo::new(if_def.get_meta().clone()),
                     });
-                    let mut v = Self::load_token_with_map(t, var_map, const_map);
+                    let mut v = Self::load_token_with_map(t, var_map, const_map, false, false);
                     let mut t = v.remove(0);
                     test_list.append(&mut t);
                     test_list.push(BytecodeArg {
@@ -1420,7 +1435,7 @@ impl<'a> Bytecode {
     ) -> (Vec<Vec<BytecodeArg>>) {
         let mut result = vec![];
 
-        let v = Self::load_token_with_map(for_def.get_expr(), var_map, const_map);
+        let v = Self::load_token_with_map(for_def.get_expr(), var_map, const_map, false, false);
         let mut expr = v;
 
         let mut t = expr.remove(0);
@@ -1506,7 +1521,7 @@ impl<'a> Bytecode {
     ) -> (Vec<Vec<BytecodeArg>>) {
         let test_exp = while_def.get_test();
         let mut vs = vec![];
-        let mut v = Self::load_token_with_map(test_exp, var_map, const_map);
+        let mut v = Self::load_token_with_map(test_exp, var_map, const_map, false, false);
         let mut test_list = Vec::new();
         let mut t = v.remove(0);
         test_list.append(&mut t);
@@ -1581,6 +1596,8 @@ impl<'a> Bytecode {
         token: &FSRToken,
         var_map: &mut Vec<VarMap>,
         byte_context: &mut BytecodeContext,
+        is_attr: bool,
+        is_method_call: bool,
     ) -> (Vec<Vec<BytecodeArg>>) {
         if let FSRToken::Expr(expr) = token {
             let v = Self::load_expr(expr, var_map, byte_context);
@@ -1595,7 +1612,7 @@ impl<'a> Bytecode {
             let mut vs = vec![];
             let mut ref_self = var_map;
             for token in &m.tokens {
-                let lines = Self::load_token_with_map(token, ref_self, byte_context);
+                let lines = Self::load_token_with_map(token, ref_self, byte_context, false, false);
                 for line in lines {
                     vs.push(line);
                 }
@@ -1616,10 +1633,17 @@ impl<'a> Bytecode {
             let v = Self::load_block(block, var_map, byte_context);
             return (v);
         } else if let FSRToken::Call(call) = token {
-            let v = Self::load_call(call, var_map, false, false, byte_context);
+            let v = Self::load_call(call, var_map, is_attr, is_method_call, byte_context);
             return (vec![v]);
         } else if let FSRToken::Getter(getter) = token {
-            let v = Self::load_list_getter(getter, var_map, false, false, false, byte_context);
+            let v = Self::load_list_getter(
+                getter,
+                var_map,
+                is_attr,
+                is_method_call,
+                false,
+                byte_context,
+            );
             return (vec![v]);
         } else if let FSRToken::Constant(c) = token {
             let v = Self::load_constant(c, var_map, byte_context);
@@ -1675,7 +1699,7 @@ impl<'a> Bytecode {
             let v = Self::load_import(import, var_map);
             return (v);
         } else if let FSRToken::StackExpr(st) = token {
-            let v = Self::load_stack_expr(st, var_map, byte_context);
+            let v = Self::load_stack_expr(st, var_map, byte_context, is_attr, is_method_call);
             return (vec![v]);
         } else if let FSRToken::TryBlock(try_block) = token {
             let v = Self::load_try_def(try_block, var_map, byte_context);
@@ -1712,9 +1736,16 @@ impl<'a> Bytecode {
                 *attr_id
             };
 
-            let mut left = Self::load_token_with_map(v.get_left(), var_map, const_map);
+            let mut left =
+                Self::load_token_with_map(v.get_left(), var_map, const_map, false, false);
 
-            let mut right = Self::load_token_with_map(token.get_assign_expr(), var_map, const_map);
+            let mut right = Self::load_token_with_map(
+                token.get_assign_expr(),
+                var_map,
+                const_map,
+                false,
+                false,
+            );
 
             result_list.append(&mut right[0]);
             result_list.append(&mut left[0]);
@@ -1739,7 +1770,13 @@ impl<'a> Bytecode {
         if let FSRToken::Getter(v) = &**token.get_left() {
             let mut left = Self::load_list_getter(v, var_map, false, false, true, const_map);
 
-            let mut right = Self::load_token_with_map(token.get_assign_expr(), var_map, const_map);
+            let mut right = Self::load_token_with_map(
+                token.get_assign_expr(),
+                var_map,
+                const_map,
+                false,
+                false,
+            );
 
             result_list.append(&mut right[0]);
             result_list.append(&mut left);
@@ -1762,7 +1799,13 @@ impl<'a> Bytecode {
     ) -> (Vec<BytecodeArg>) {
         let mut result_list = Vec::new();
         if let FSRToken::Variable(v) = &**token.get_left() {
-            let mut right = Self::load_token_with_map(token.get_assign_expr(), var_map, const_map);
+            let mut right = Self::load_token_with_map(
+                token.get_assign_expr(),
+                var_map,
+                const_map,
+                false,
+                false,
+            );
             result_list.append(&mut right[0]);
             var_map.last_mut().unwrap().insert_var(v.get_name());
             let id = var_map.last_mut().unwrap().get_var(v.get_name()).unwrap();
@@ -1789,8 +1832,15 @@ impl<'a> Bytecode {
         } else if let Some(v) = Self::load_dot_assign(token, var_map, const_map) {
             v
         } else {
-            let mut left = Self::load_token_with_map(token.get_left(), var_map, const_map);
-            let mut right = Self::load_token_with_map(token.get_assign_expr(), var_map, const_map);
+            let mut left =
+                Self::load_token_with_map(token.get_left(), var_map, const_map, false, false);
+            let mut right = Self::load_token_with_map(
+                token.get_assign_expr(),
+                var_map,
+                const_map,
+                false,
+                false,
+            );
             result_list.append(&mut right[0]);
             result_list.append(&mut left[0]);
             result_list.push(BytecodeArg {
@@ -1835,7 +1885,7 @@ impl<'a> Bytecode {
     ) -> (Vec<BytecodeArg>) {
         let mut result_list = Vec::new();
         for sub_t in token.get_items().iter().rev() {
-            let v = Bytecode::load_token_with_map(sub_t, var_map, const_map);
+            let v = Bytecode::load_token_with_map(sub_t, var_map, const_map, false, false);
             let mut expr = v;
             if !expr.is_empty() {
                 result_list.append(&mut expr[0]);
@@ -1863,7 +1913,7 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
-        let v = Self::load_token_with_map(ret.get_return_expr(), var_map, const_map);
+        let v = Self::load_token_with_map(ret.get_return_expr(), var_map, const_map, false, false);
         let mut ret_expr = Vec::new();
         let mut r = v;
         if !r.is_empty() {
@@ -2140,7 +2190,7 @@ impl<'a> Bytecode {
             const_map.ref_map_stack.push(hash_map_ref_map);
         }
 
-        let mut v = Self::load_token_with_map(token, &mut var_map, const_map);
+        let mut v = Self::load_token_with_map(token, &mut var_map, const_map, false, false);
         let var = var_map.pop().unwrap();
         for sub_def in var.sub_fn_def.iter() {
             v.splice(0..0, sub_def.bytecode.clone());
