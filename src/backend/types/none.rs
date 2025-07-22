@@ -39,7 +39,7 @@ pub fn equal(
         ));
     }
     let args = unsafe { std::slice::from_raw_parts(args, len) };
-    if args[0] == FSRObject::none_id() {
+    if args[1] == FSRObject::none_id() {
         return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
     }
     

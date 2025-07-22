@@ -2397,7 +2397,11 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &'a BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::Local((id, name, store_to_cell)) = bytecode.get_arg() {
-            let new_cls = FSRClass::new(name);
+            let mut new_cls = FSRClass::new(name);
+            let default_equal = FSRFn::from_rust_fn_static(crate::backend::types::class::class_default_equal, "object_equal");
+            new_cls.insert_offset_attr(BinaryOffset::Equal, default_equal);
+            let default_not_equal = FSRFn::from_rust_fn_static(crate::backend::types::class::class_default_not_equal, "object_not_equal");
+            new_cls.insert_offset_attr(BinaryOffset::NotEqual, default_not_equal);
             let state = self.get_cur_mut_frame();
             state.cur_cls = Some(Box::new(new_cls));
 

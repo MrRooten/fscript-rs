@@ -16,7 +16,7 @@ use std::fmt::Debug;
 #[repr(C)]
 pub struct FSRClass {
     /// This will be set after the class object is created
-    object_id: Option<ObjId>,
+    pub(crate) object_id: Option<ObjId>,
     pub(crate) offset_rust_fn: [Option<FSRRustFn>; 30],
     pub(crate) name: Arc<String>,
     pub(crate) attrs: AHashMap<String, AtomicObjId>,
@@ -193,6 +193,46 @@ pub fn expect(
     return Ok(FSRRetValue::GlobalId(args[0]));
 }
 
+pub fn class_default_equal(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "object_eq: Expected exactly two arguments for equality check.",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args[0] == args[1] {
+        Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
+    } else {
+        Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
+    }
+}
+
+pub fn class_default_not_equal(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId
+) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "object_not_eq: Expected exactly two arguments for inequality check.",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
+    }
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args[0] != args[1] {
+        Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
+    } else {
+        Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
+    }
+}
+
 impl FSRClass {
     pub fn new(name: &str) -> FSRClass {
         let mut cls = FSRClass {
@@ -238,6 +278,8 @@ impl FSRClass {
         self.attrs.insert(name.to_string(), AtomicUsize::new(obj_id));
     }
 
+    /// Inserts an attribute with a given offset.
+    /// Can be overridden by the class.
     pub fn insert_offset_attr<'a>(&mut self, offset: BinaryOffset, object: FSRObject<'a>) {
         if self.offset_attrs.len() <= offset as usize {
             self.offset_attrs.resize_with(offset as usize + 1, || None);

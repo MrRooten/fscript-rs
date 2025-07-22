@@ -218,6 +218,22 @@ fn fsr_is_class(
     Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
+fn fsr_get_class(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    if args.len() != 1 {
+        return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
+    }
+
+    let obj = FSRObject::id_to_obj(args[0]);
+    Ok(FSRRetValue::GlobalId(obj.cls.object_id.unwrap()))
+}
+
+
 pub fn fsr_timeit(
     args: *const ObjId,
     len: usize,
@@ -279,6 +295,7 @@ pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let is_class = FSRFn::from_rust_fn_static(fsr_is_class, "is_class");
     let type_fn = FSRFn::from_rust_fn_static(fsr_fn_type, "type");
     let id_fn = FSRFn::from_rust_fn_static(fsr_fn_id, "id");
+    let get_class = FSRFn::from_rust_fn_static(fsr_get_class, "get_class");
     let mut m = HashMap::new();
     m.insert("assert", assert_fn);
     m.insert("export", export_fn);
@@ -288,5 +305,6 @@ pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     m.insert("is_class", is_class);
     m.insert("type", type_fn);
     m.insert("id", id_fn);
+    m.insert("get_class", get_class);
     m
 }
