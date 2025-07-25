@@ -1,19 +1,28 @@
+fn full_to_short(full_name) {
+    short_name = ""
+    for sub in full_name.split("_") {
+        short_name = short_name + sub[0]
+    }
+
+    return short_name
+}
+
 class ArgOption {
     fn __new__(self, name) {
         self.name = name
         self.follow_value = false
         self.value = none
 
-        short_name = name[0]
+        short_name = full_to_short(self.name)
         self.short_name = short_name
+        self.help_message = "not setting helper message "
         return self
     }
 
     fn __str__(self) {
-        return "ArgOption { name:{}, follow_value:{}, value: {}, short_name: {} }".format(self.name, 
+        return "ArgOption { name:{}, follow_value:{}, value: {}}".format(self.name, 
         self.follow_value, 
-        self.value,
-        self.short_name)
+        self.value)
     }
 
     fn set_follow(self) {
@@ -22,6 +31,10 @@ class ArgOption {
 
     fn set_helper(self, message) {
         self.help_message = message
+    }
+
+    fn set_default(self, default_value) {
+        self.value = default_value
     }
 }
 
@@ -58,6 +71,13 @@ class ArgParser {
 
 
         res_map = HashMap::new()
+
+        for opt in self.options {
+            if opt.value != none {
+                res_map[opt.name] = opt.value
+            }
+        }
+
         index = 0
         while index < self.args.len() {
             if self.args[index].starts_with("--") {
@@ -123,7 +143,7 @@ class ArgParser {
 
     fn helper(self) {
         for option in self.options {
-            println(" --{}:".format(option.name))
+            println(" -{}, --{}:".format(option.short_name, option.name))
             println("    ", option.help_message)
         }
     }
