@@ -128,7 +128,7 @@ mod frontend_tests {
         let mut context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
-        assert_eq!(b.get_len(), s.len());
+        assert_eq!(b.0.get_len(), s.len());
     }
 
     #[test]
@@ -318,7 +318,7 @@ while i < b { # while test
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
-        assert_eq!(s.len(), i.get_len())
+        assert_eq!(s.len(), i.0.get_len())
     }
 
     #[test]
@@ -346,7 +346,7 @@ try {
         let meta = FSRPosition::new();
         let i = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", i);
-        assert_eq!(s.len(), i.get_len())
+        assert_eq!(s.len(), i.0.get_len())
     }
 
     #[test]
@@ -613,7 +613,7 @@ try {
         let mut context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
-        assert_eq!(b.get_len(), s.len());
+        assert_eq!(b.0.get_len(), s.len());
     }
 
     #[test]
@@ -623,6 +623,6 @@ try {
         let mut context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
-        assert_eq!(b.get_len(), s.len());
+        assert_eq!(b.0.get_len(), s.len());
     }
 }

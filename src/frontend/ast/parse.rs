@@ -227,12 +227,12 @@ impl ASTParser {
         loop {
             let c = source[len] as char;
             if len >= source.len() {
-                return Err(SyntaxError::new(&context.new_pos(), "not found {"));
+                return Err(SyntaxError::new(&meta.new_offset(0), "not found {"));
             }
             len += 1;
 
             if c == '(' || c == '[' {
-                let sub_meta = context.new_pos();
+                let sub_meta = meta.new_offset(len - 1);
                 let b_len = Self::read_valid_bracket(&source[len-1..], sub_meta, context)?;
                 len += b_len - 1;
                 continue;
@@ -244,7 +244,7 @@ impl ASTParser {
             }
 
             if c == '\n' {
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(0);
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -304,7 +304,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let sub_meta = context.new_pos();
+            let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",
@@ -331,7 +331,7 @@ impl ASTParser {
         }
 
         if !states.is_empty() {
-            let sub_meta = context.new_pos();
+            let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new_with_type(
                 &sub_meta,
                 "not found match bracket",

@@ -180,8 +180,7 @@ pub trait FSRTokenMatcher {
 
 #[derive(Clone, Debug)]
 pub struct FSRPosition {
-    pub(crate) line: usize,
-    pub(crate) column: usize,
+    pub(crate) offset: usize,
 }
 
 impl Default for FSRPosition {
@@ -192,24 +191,31 @@ impl Default for FSRPosition {
 
 impl FSRPosition {
     pub fn new() -> Self {
-        Self {
-            line: 0,
-            column: 0,
-        }
+        Self { offset: 0 }
     }
 
-    #[inline]
-    pub fn from_context(context: &ASTContext) -> FSRPosition {
+    pub fn from_offset(offset: usize) -> Self {
+        Self { offset }
+    }
+
+    pub fn set_offset(&mut self, offset: usize) {
+        self.offset = offset;
+    }
+
+    pub fn get_offset(&self) -> usize {
+        self.offset
+    }
+
+    pub fn new_offset(&self, offset: usize) -> Self {
         Self {
-            line: context.line,
-            column: context.column,
+            offset: self.offset + offset,
         }
     }
 }
 
 impl Display for FSRPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Line: {}, Column: {}", self.line, self.column)
+        write!(f, "FSRPosition(offset: {})", self.offset)
     }
 }
 

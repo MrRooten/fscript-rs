@@ -93,7 +93,7 @@ impl FSRAssign {
             }
 
             if state == FSRAssignState::RightValue {
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(start);
                 let expr = FSRExpr::parse(&source[start..], false, sub_meta, context)?;
                 if let FSRToken::Expr(e) = &expr.0 {
                     len += expr.1;

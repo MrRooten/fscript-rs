@@ -374,17 +374,17 @@ impl FSRExpr {
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
-            let mut sub_meta = context.new_pos();
+            let mut sub_meta = meta.new_offset(0);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{:?} can not follow string", s_op),
             ));
         }
         ctx.start += 1;
-        context.add_column();
+        
         loop {
             if ctx.start + ctx.length >= source.len() {
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
                     "Not Close for Double Quote",
@@ -407,19 +407,14 @@ impl FSRExpr {
                 ctx.states.push_state(ExprState::EscapeChar);
             }
 
-            if c == '\n' {
-                context.add_line()
-            } else {
-                context.add_column();
-            }
 
             ctx.length += 1;
         }
 
         let s = &source[ctx.start..ctx.start + ctx.length];
         let s = FSRExpr::bytes_to_unescaped_string(s)
-            .map_err(|e| SyntaxError::new(&context.new_pos(), e.to_string()))?;
-        let mut sub_meta = context.new_pos();
+            .map_err(|e| SyntaxError::new(&meta.new_offset(ctx.start), e.to_string()))?;
+        let mut sub_meta = meta.new_offset(ctx.start);
         let constant = FSRConstant::from_str(s.as_bytes(), sub_meta);
         ctx.candidates.push(FSRToken::Constant(constant));
         ctx.length += 1;
@@ -437,17 +432,17 @@ impl FSRExpr {
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
-            let mut sub_meta = context.new_pos();
+            let mut sub_meta = meta.new_offset(ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{:?} can not follow string", s_op),
             ));
         }
         ctx.start += 1;
-        context.add_column();
+        
         loop {
             if ctx.start + ctx.length >= source.len() {
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
                     "Not Close for Single Quote",
@@ -469,17 +464,13 @@ impl FSRExpr {
             if c == '\\' {
                 ctx.states.push_state(ExprState::EscapeChar);
             }
-            if c == '\n' {
-                context.add_line()
-            } else {
-                context.add_column();
-            }
+
 
             ctx.length += 1;
         }
 
         let s = &source[ctx.start..ctx.start + ctx.length];
-        let mut sub_meta = context.new_pos();
+        let mut sub_meta = meta.new_offset(ctx.start);
         let constant = FSRConstant::from_str(s, sub_meta);
         ctx.candidates.push(FSRToken::Constant(constant));
         ctx.length += 1;
@@ -499,7 +490,7 @@ impl FSRExpr {
         let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
         let op = ASTParser::get_static_op(op);
         if ctx.start + ctx.length >= source.len() {
-            let mut sub_meta = context.new_pos();
+            let mut sub_meta = meta.new_offset(ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{} must follow a expr or variable", op),
@@ -551,7 +542,7 @@ impl FSRExpr {
         let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
         let op = ASTParser::get_static_op(op);
         if ctx.start + ctx.length >= source.len() {
-            let mut sub_meta = context.new_pos();
+            let mut sub_meta = meta.new_offset(ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{} must follow a expr or variable", op),
@@ -614,7 +605,7 @@ impl FSRExpr {
 
             ctx.start += ctx.length;
             ctx.length = 0;
-            let sub_meta = context.new_pos();
+            let sub_meta = meta.new_offset(ctx.start);
             let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta, context)?.0;
             if let FSRToken::Expr(e) = &mut sub_expr {
                 e.single_op = ctx.single_op;
@@ -646,7 +637,6 @@ impl FSRExpr {
 
         if ctx.bracket_count > 0 {
             ctx.length += 1;
-            context.column += 1;
             return Ok(());
         } else {
             let _ps = &source[ctx.start..ctx.start + ctx.length];
@@ -654,7 +644,7 @@ impl FSRExpr {
 
             ctx.start += ctx.length;
             ctx.length = 0;
-            let sub_meta = context.new_pos();
+            let sub_meta = meta.new_offset(ctx.start);
             let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta, context)?.0;
             if let FSRToken::Expr(e) = &mut sub_expr {
                 e.single_op = ctx.single_op;
@@ -703,7 +693,7 @@ impl FSRExpr {
             }
 
             ctx.length += 1;
-            context.add_column();
+            
         }
 
         macro_rules! cur_byte {
@@ -735,7 +725,7 @@ impl FSRExpr {
                 return Ok(());
                 //ctx.states.pop_state();
             }
-            let mut sub_meta = context.new_pos();
+            let mut sub_meta = meta.new_offset(ctx.start);
             let fsr_type = context.get_token_var_type(&name, context);
             let mut variable = FSRVariable::parse(&name, sub_meta, fsr_type).unwrap();
             if context.is_variable_defined_in_curr(variable.get_name()) {
@@ -789,10 +779,6 @@ impl FSRExpr {
         }
 
         ctx.length += prefix_len;
-        if prefix_len > 0 {
-            context.add_column();
-            context.add_column();
-        }
 
         loop {
             if ctx.start + ctx.length >= source.len() {
@@ -802,7 +788,7 @@ impl FSRExpr {
 
             if c == '_' {
                 ctx.length += 1;
-                context.add_column();
+                
                 continue;
             }
 
@@ -826,7 +812,7 @@ impl FSRExpr {
                     }
                     is_float = true;
                     ctx.length += 1;
-                    context.add_column();
+                    
                     continue;
                 }
                 if c == 'e' || c == 'E' {
@@ -836,13 +822,13 @@ impl FSRExpr {
                     has_exp = true;
                     is_float = true;
                     ctx.length += 1;
-                    context.add_column();
+                    
                     // Process optional sign after exponent
                     if ctx.start + ctx.length < source.len() {
                         let next_c = source[ctx.start + ctx.length] as char;
                         if next_c == '+' || next_c == '-' {
                             ctx.length += 1;
-                            context.add_column();
+                            
                         }
                     }
                     continue;
@@ -862,11 +848,11 @@ impl FSRExpr {
             }
 
             ctx.length += 1;
-            context.add_column();
+            
         }
 
         let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
-        let mut sub_meta = context.new_pos();
+        let mut sub_meta = meta.new_offset(ctx.start);
         let c = if is_float && base == 10 {
             FSRConstant::from_float(sub_meta, ps, ctx.single_op)
         } else {
@@ -913,9 +899,9 @@ impl FSRExpr {
                     || ctx.states.eq_peek(&ExprState::DoubleString)))
             {
                 if ctx.length != 0 {
-                    let sub_meta = context.new_pos();
+                    let sub_meta = meta.new_offset(ctx.start);
                     return Err(SyntaxError::new_with_type(
-                        &context.new_pos(),
+                        &sub_meta,
                         "error # place",
                         SyntaxErrType::CommentError,
                     ));
@@ -925,7 +911,6 @@ impl FSRExpr {
                     && source[ctx.start + ctx.length] != b'\n'
                 {
                     ctx.start += 1;
-                    context.column += 1;
                 }
 
                 continue;
@@ -942,15 +927,11 @@ impl FSRExpr {
                 ctx.last_loop = true;
             }
 
-            if t_c == '\n' && (ctx.states.eq_peek(&ExprState::EscapeNewline) || ignore_nline) {
-                context.add_line();
-            }
-
             if ctx.states.eq_peek(&ExprState::WaitToken) && c == '|' {
                 if !ctx.operators.is_empty() || ctx.candidates.is_empty() {
                     let fn_def = FSRFnDef::parse_lambda(
                         &source[ctx.start..],
-                        context.new_pos(),
+                        meta.new_offset(ctx.start),
                         &format!("___lambda_zXjiTkDs_{}", unsafe { LAMBDA_NUMBER }),
                         context,
                     )?;
@@ -1037,7 +1018,7 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c == '[' {
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let len = ASTParser::read_valid_bracket(
                     &source[ctx.start..],
                     sub_meta.clone(),
@@ -1059,14 +1040,14 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::Variable) && t_c == '(' {
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let len = ASTParser::read_valid_bracket(
                     &source[ctx.start + ctx.length..],
                     sub_meta,
                     &context,
                 )?;
                 ctx.length += len;
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let mut call = FSRCall::parse(
                     &source[ctx.start..ctx.start + ctx.length],
                     sub_meta,
@@ -1110,14 +1091,14 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::Variable) && t_c == '[' {
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let len = ASTParser::read_valid_bracket(
                     &source[ctx.start + ctx.length..],
                     sub_meta,
                     &context,
                 )?;
                 ctx.length += len;
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let mut getter = FSRGetter::parse(
                     &source[ctx.start..ctx.start + ctx.length],
                     sub_meta,
@@ -1177,7 +1158,7 @@ impl FSRExpr {
                     continue;
                 }
 
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let mut variable = FSRVariable::parse(name, sub_meta, None).unwrap();
                 if context.is_variable_defined_in_curr(variable.get_name()) {
                     variable.is_defined = true;
@@ -1206,7 +1187,7 @@ impl FSRExpr {
 
         if ctx.states.eq_peek(&ExprState::Operator) {
             return Err(SyntaxError::new_with_type(
-                &context.new_pos(),
+                &meta.new_offset(ctx.start),
                 "Must have a expr after operator",
                 SyntaxErrType::OperatorError,
             ));
@@ -1226,7 +1207,7 @@ impl FSRExpr {
 
         if ctx.candidates.is_empty() {
             return Ok((
-                FSRToken::EmptyExpr(context.new_pos()),
+                FSRToken::EmptyExpr(meta.new_offset(0)),
                 ctx.start + ctx.length,
             ));
         }
@@ -1325,7 +1306,7 @@ impl FSRExpr {
 
         if ctx.candidates.len().eq(&1) {
             if !ctx.operators.is_empty() {
-                let mut sub_meta = context.new_pos();
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
                     format!(
@@ -1354,10 +1335,10 @@ impl FSRExpr {
 
         let split_offset = operator.1;
 
-        let mut sub_meta = context.new_pos();
+        let mut sub_meta = meta.new_offset(ctx.start);
         let left = FSRExpr::parse(&source[0..split_offset], ignore_nline, sub_meta, context)?.0;
 
-        let mut sub_meta = context.new_pos();
+        let mut sub_meta = meta.new_offset(ctx.start);
         let right = FSRExpr::parse(
             &source[split_offset + operator.0.len()..],
             ignore_nline,

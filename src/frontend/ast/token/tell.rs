@@ -31,9 +31,6 @@ impl FSRTell {
             while start + len < source.len()
                 && ASTParser::is_blank_char_with_new_line(source[start + len])
             {
-                if source[start + len] == b'\n' {
-                    position.line += 1;
-                }
                 len += 1;
             }
 
@@ -51,8 +48,6 @@ impl FSRTell {
             while start + len < source.len() && source[start + len] != b'\n' {
                 len += 1; 
             }
-
-            position.line += 1;
 
             if start + len >= source.len() {
                 start = start + len;

@@ -32,7 +32,7 @@ pub mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 
@@ -44,7 +44,7 @@ pub mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 
@@ -55,7 +55,7 @@ pub mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 
@@ -66,7 +66,7 @@ pub mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 
@@ -76,7 +76,7 @@ pub mod tests {
 
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 
@@ -91,7 +91,7 @@ pub mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 
@@ -108,7 +108,7 @@ pub mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 
@@ -125,7 +125,7 @@ pub mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 
@@ -153,7 +153,7 @@ pub mod tests {
         ";
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
-        let v = Bytecode::load_ast("main", FSRToken::Module(token));
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
 

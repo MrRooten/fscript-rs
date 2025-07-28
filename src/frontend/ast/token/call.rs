@@ -1,7 +1,7 @@
-
 use super::{
     base::{FSRPosition, FSRToken},
-    expr::{FSRExpr, SingleOp}, ASTContext,
+    expr::{FSRExpr, SingleOp},
+    ASTContext,
 };
 use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 use std::str;
@@ -41,35 +41,38 @@ impl FSRCall {
         self.name.as_str()
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext, pre_args: bool) -> Result<Self, SyntaxError> {
+    pub fn parse(
+        source: &[u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+        pre_args: bool,
+    ) -> Result<Self, SyntaxError> {
         let mut state = CallState::Start;
         let mut start = 0;
         let mut length = 0;
-        let name ;
+        let name;
         if b'(' == source[start] {
             name = "";
         } else {
             loop {
                 let i = source[start];
                 let t_i = source[start + length];
-                
-    
+
                 if state == CallState::Start && ASTParser::is_blank_char_with_new_line(i) {
                     start += 1;
                     continue;
                 }
-    
+
                 if ASTParser::is_name_letter(i) && state == CallState::Start {
                     state = CallState::Name;
                     continue;
                 }
-    
+
                 if state == CallState::Name && ASTParser::is_name_letter(t_i) {
                     length += 1;
-                    context.add_column();
                     continue;
                 }
-    
+
                 if state == CallState::Name && t_i as char == '(' {
                     name = str::from_utf8(&source[start..start + length]).unwrap();
                     start += length;
@@ -79,14 +82,19 @@ impl FSRCall {
             }
         }
 
-        let end_blasket = ASTParser::read_valid_bracket(&source[start-1..], context.new_pos(), &context).unwrap();
+        let end_blasket = ASTParser::read_valid_bracket(
+            &source[start - 1..],
+            meta.new_offset(start - 1),
+            &context,
+        )
+        .unwrap();
 
         let s = str::from_utf8(source).unwrap();
         let first = s.find('(').unwrap();
         //let last = s.rfind(')').unwrap();
         let args = &source[start..end_blasket + start - 2];
         let tmp = std::str::from_utf8(args).unwrap();
-        let sub_meta = context.new_pos();
+        let sub_meta = meta.new_offset(start);
         //let exprs = ASTParser::split_by_comma(args, sub_meta)?;
         let (expr, expr_len) = FSRExpr::parse(args, true, sub_meta, context).unwrap();
         let expr = Box::new(expr);
@@ -112,7 +120,6 @@ impl FSRCall {
         self.len
     }
 }
-
 
 mod test {
     use super::*;

@@ -52,38 +52,15 @@ impl ASTVariableState {
 
 pub struct ASTContext {
     pub(crate) variable_define: Vec<Rc<RefCell<HashMap<String, ASTVariableState>>>>,
-    pub(crate) line: usize,
-    pub(crate) column: usize,
 }
 
 impl ASTContext {
-    pub fn add_column(&mut self) {
-        self.column += 1;
-    }
-
-    pub fn add_column_by(&mut self, count: usize) {
-        self.column += count;
-    }
-
-    pub fn add_line(&mut self) {
-        self.line += 1;
-        self.column = 0;
-    }
-
     pub fn new_context() -> Self {
         Self {
             variable_define: vec![Rc::new(RefCell::new(HashMap::new()))],
-            line: 0,
-            column: 0,
         }
     }
 
-    pub fn new_pos(&self) -> FSRPosition {
-        FSRPosition {
-            line: self.line,
-            column: self.column,
-        }
-    }
 
     pub fn add_variable(&self, name: &str, token: Option<FSRToken>) {
         if let Some(s) = self.variable_define.last() {
