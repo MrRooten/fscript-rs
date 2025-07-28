@@ -357,17 +357,12 @@ pub struct FSCodeContext {
 impl FSCodeContext {
     pub fn new_context(code: ObjId) -> Self {
         FSCodeContext {
-            // exp: Vec::with_capacity(8),
-            // ip: (0, 0),
             code,
             context_call_count: 1,
         }
     }
 
-    pub fn clear(&mut self) {
-        //self.exp.clear();
-        //self.ip = (0, 0);
-    }
+    pub fn clear(&mut self) {}
 }
 
 #[derive(Debug, Default)]
@@ -635,10 +630,6 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(it.handling_exception);
         }
 
-        // if it.last_expr_val != FSRObject::none_id() {
-        //     work_list.push(it.last_expr_val);
-        // }
-
         for value in &it.middle_value {
             work_list.push(*value);
         }
@@ -654,9 +645,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         for obj in it.const_map.iter() {
-            //if let Some(obj_id) = obj {
             work_list.push(obj.load(Ordering::Relaxed));
-            //}
         }
 
         let mut others = it.flow_tracker.for_iter_obj.clone();
@@ -1899,6 +1888,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 .flow_tracker
                 .continue_line
                 .push(ip_0 + 1);
+        } else {
+            return Err(FSRError::new(
+                "for line not have next",
+                FSRErrCode::NotValidArgs,
+            ));
         }
         self.get_cur_mut_frame()
             .flow_tracker

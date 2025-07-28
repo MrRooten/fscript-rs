@@ -199,3 +199,39 @@ impl ASTContext {
         None
     }
 }
+
+pub struct FSRSourceChar {
+    char: u8,
+    pub(crate) line: usize,
+    pub(crate) column: usize
+}
+
+pub struct FSRSourceBytes {
+    pub(crate) source: Vec<u8>,
+    lines: Vec<usize>,
+}
+
+impl FSRSourceBytes {
+    pub fn new(source: Vec<u8>) -> Self {
+        let mut lines = vec![0];
+        for (i, &byte) in source.iter().enumerate() {
+            if byte == b'\n' {
+                lines.push(i + 1);
+            }
+        }
+        Self { source, lines }
+    }
+
+    pub fn get_char_at(&self, pos: usize) -> Option<FSRSourceChar> {
+        if pos >= self.source.len() {
+            return None;
+        }
+        let line = self.lines.iter().position(|&x| x > pos).unwrap_or(self.lines.len() - 1);
+        let column = pos % line;
+        Some(FSRSourceChar {
+            char: self.source[pos],
+            line,
+            column
+        })
+    }
+}

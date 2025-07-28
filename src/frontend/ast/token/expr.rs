@@ -241,7 +241,7 @@ pub enum FSRBinOpResult {
 pub enum SingleOp {
     Not,
     Minus,
-    Reverse
+    Reverse,
 }
 
 struct StmtContext {
@@ -581,7 +581,10 @@ impl FSRExpr {
                 && Node::get_single_op_level(ctx.single_op.as_ref().unwrap())
                     < Node::get_op_level(op)
             {
-                panic!("Wait to impl the operator with single op: single_op: {:?}, op: {}", ctx.single_op, op);
+                panic!(
+                    "Wait to impl the operator with single op: single_op: {:?}, op: {}",
+                    ctx.single_op, op
+                );
             }
             ctx.operators.push((op, ctx.start));
             ctx.states.pop_state();
@@ -703,12 +706,22 @@ impl FSRExpr {
             context.add_column();
         }
 
+        macro_rules! cur_byte {
+            ($source: expr) => {
+                $source[ctx.start + ctx.length]
+            };
+        }
+
+        macro_rules! cur_str {
+            ($source: expr) => {
+                &$source[ctx.start..ctx.start + ctx.length]
+            };
+        }
+
         if ctx.start + ctx.length >= source.len()
-            || (source[ctx.start + ctx.length] != b'(' && source[ctx.start + ctx.length] != b'[')
+            || (cur_byte!(source) != b'(' && cur_byte!(source) != b'[')
         {
-            let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length])
-                .unwrap()
-                .to_string();
+            let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
             if name.eq("and") || name.eq("or") || name.eq("not") {
                 if name.eq("not") {
                     ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
@@ -742,57 +755,6 @@ impl FSRExpr {
         Ok(())
     }
 
-    // #[inline]
-    // fn number_process(
-    //     source: &[u8],
-    //     ignore_nline: bool,
-    //     meta: &FSRPosition,
-    //     ctx: &mut StmtContext,
-    //     context: &mut ASTContext,
-    // ) -> Result<(), SyntaxError> {
-    //     let mut is_float = false;
-    //     loop {
-    //         if ctx.start + ctx.length >= source.len() {
-    //             break;
-    //         }
-    //         let c = source[ctx.start + ctx.length] as char;
-
-    //         if c.eq(&'.') {
-    //             if ctx.start + ctx.length + 1 < source.len()
-    //                 && source[ctx.start + ctx.length + 1] == b'.'
-    //             {
-    //                 // like range 0..4
-    //                 break;
-    //             }
-    //             is_float = true;
-    //             ctx.length += 1;
-    //             context.add_column();
-    //             continue;
-    //         }
-
-    //         if !c.is_ascii_digit() {
-    //             break;
-    //         }
-
-    //         ctx.length += 1;
-    //         context.add_column();
-    //     }
-    //     let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
-    //     let mut sub_meta = context.new_pos();
-    //     let c = if is_float {
-    //         FSRConstant::from_float(sub_meta, ps, ctx.single_op)
-    //     } else {
-    //         FSRConstant::from_int(sub_meta, ps, ctx.single_op)
-    //     };
-
-    //     //c.single_op = ctx.single_op;
-    //     ctx.single_op = None;
-    //     ctx.candidates.push(FSRToken::Constant(c));
-    //     ctx.start += ctx.length;
-    //     ctx.length = 0;
-
-    //     Ok(())
-    // }
     #[inline]
     fn number_process3(
         source: &[u8],
@@ -985,9 +947,6 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && c == '|' {
-                // Process lambda, like |a, b| {
-                //
-                // }
                 if !ctx.operators.is_empty() || ctx.candidates.is_empty() {
                     let fn_def = FSRFnDef::parse_lambda(
                         &source[ctx.start..],
@@ -1266,7 +1225,10 @@ impl FSRExpr {
         Self::stmt_loop(source, ignore_nline, &meta, &mut ctx, context)?;
 
         if ctx.candidates.is_empty() {
-            return Ok((FSRToken::EmptyExpr(context.new_pos()), ctx.start + ctx.length));
+            return Ok((
+                FSRToken::EmptyExpr(context.new_pos()),
+                ctx.start + ctx.length,
+            ));
         }
 
         ctx.operators.sort_by(|a, b| -> Ordering {
@@ -1386,7 +1348,6 @@ impl FSRExpr {
             println!("first candidates: {:#?}", ctx.candidates);
             unimplemented!()
         }
-
 
         // if ctx.candidates > 2 then we need to process the operators
         let operator = ctx.operators[0];
