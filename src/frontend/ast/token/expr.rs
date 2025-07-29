@@ -381,7 +381,7 @@ impl FSRExpr {
             ));
         }
         ctx.start += 1;
-        
+
         loop {
             if ctx.start + ctx.length >= source.len() {
                 let mut sub_meta = meta.new_offset(ctx.start);
@@ -406,7 +406,6 @@ impl FSRExpr {
             if c == '\\' {
                 ctx.states.push_state(ExprState::EscapeChar);
             }
-
 
             ctx.length += 1;
         }
@@ -439,7 +438,7 @@ impl FSRExpr {
             ));
         }
         ctx.start += 1;
-        
+
         loop {
             if ctx.start + ctx.length >= source.len() {
                 let mut sub_meta = meta.new_offset(ctx.start);
@@ -464,7 +463,6 @@ impl FSRExpr {
             if c == '\\' {
                 ctx.states.push_state(ExprState::EscapeChar);
             }
-
 
             ctx.length += 1;
         }
@@ -585,6 +583,27 @@ impl FSRExpr {
         Ok(())
     }
 
+    /// Process the end of a bracket, which is used to parse the expression
+    /// inside the bracket.
+    /// # Arguments
+    /// * `source` - The source code to parse.
+    /// * `ignore_nline` - Whether to ignore new line characters.
+    /// * `meta` - The metadata for the position in the source code.
+    /// * `ctx` - The current statement context.
+    /// * `context` - The AST context for the current parsing operation.
+    /// # Returns
+    /// * `Ok(())` if the parsing is successful.
+    /// * `Err(SyntaxError)` if there is a syntax error.
+    /// # Note
+    /// This function will pop the current state from the context's states stack,
+    /// and it will also decrement the bracket count. If the bracket count is greater than zero,
+    /// it will simply increase the length of the current context. If the bracket count reaches zero,
+    /// it will parse the expression inside the bracket and push it to the candidates.
+    /// If the expression is a variable or a call, it will check if the variable is defined in the current context.
+    /// If it is, it will set the `is_defined` field to true, otherwise it will reference the variable in the context.
+    /// The function also handles the case where the expression is a function call or a variable.
+    /// It will set the `single_op` field of the expression to the current single operation,
+    /// and it will reset the `single_op` field of the context to None.
     #[inline]
     fn end_of_bracket(
         source: &[u8],
@@ -607,16 +626,20 @@ impl FSRExpr {
             ctx.length = 0;
             let sub_meta = meta.new_offset(ctx.start);
             let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta, context)?.0;
-            if let FSRToken::Expr(e) = &mut sub_expr {
-                e.single_op = ctx.single_op;
-            }
-            if let FSRToken::Call(c) = &mut sub_expr {
-                c.single_op = ctx.single_op;
-            }
+            // if let FSRToken::Expr(e) = &mut sub_expr {
+            //     e.single_op = ctx.single_op;
+            // }
+            // if let FSRToken::Call(c) = &mut sub_expr {
+            //     c.single_op = ctx.single_op;
+            // }
 
-            if let FSRToken::Variable(v) = &mut sub_expr {
-                v.single_op = ctx.single_op;
-            }
+            // if let FSRToken::Variable(v) = &mut sub_expr {
+            //     v.single_op = ctx.single_op;
+            // }
+
+            ctx.single_op.map(|x| {
+                sub_expr.set_single_op(x);
+            });
 
             ctx.single_op = None;
             ctx.start += 1;
@@ -693,7 +716,6 @@ impl FSRExpr {
             }
 
             ctx.length += 1;
-            
         }
 
         macro_rules! cur_byte {
@@ -723,7 +745,6 @@ impl FSRExpr {
                 }
                 Self::end_of_operator(source, ignore_nline, meta, ctx, context)?;
                 return Ok(());
-                //ctx.states.pop_state();
             }
             let mut sub_meta = meta.new_offset(ctx.start);
             let fsr_type = context.get_token_var_type(&name, context);
@@ -788,7 +809,7 @@ impl FSRExpr {
 
             if c == '_' {
                 ctx.length += 1;
-                
+
                 continue;
             }
 
@@ -812,7 +833,7 @@ impl FSRExpr {
                     }
                     is_float = true;
                     ctx.length += 1;
-                    
+
                     continue;
                 }
                 if c == 'e' || c == 'E' {
@@ -822,13 +843,12 @@ impl FSRExpr {
                     has_exp = true;
                     is_float = true;
                     ctx.length += 1;
-                    
+
                     // Process optional sign after exponent
                     if ctx.start + ctx.length < source.len() {
                         let next_c = source[ctx.start + ctx.length] as char;
                         if next_c == '+' || next_c == '-' {
                             ctx.length += 1;
-                            
                         }
                     }
                     continue;
@@ -848,7 +868,6 @@ impl FSRExpr {
             }
 
             ctx.length += 1;
-            
         }
 
         let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
@@ -1335,10 +1354,10 @@ impl FSRExpr {
 
         let split_offset = operator.1;
 
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let mut sub_meta = meta.new_offset(0);
         let left = FSRExpr::parse(&source[0..split_offset], ignore_nline, sub_meta, context)?.0;
 
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let mut sub_meta = meta.new_offset(split_offset);
         let right = FSRExpr::parse(
             &source[split_offset + operator.0.len()..],
             ignore_nline,

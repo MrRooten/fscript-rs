@@ -240,12 +240,11 @@ impl FSRModuleFrontEnd {
         module.ref_map = scope;
         module.len = start + length;
 
-        let lines: Vec<usize> = source
+        let mut lines: Vec<usize> = source
             .iter()
             .enumerate()
             .filter_map(|(i, &c)| if c == b'\n' { Some(i) } else { None })
             .collect();
-
         Ok((module, lines))
     }
 }

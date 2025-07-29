@@ -264,7 +264,7 @@ impl FSRFor {
             expr: Box::new(expr),
             body: Box::new(body),
             len: start,
-            meta,
+            meta: meta,
         })
     }
 }
