@@ -329,6 +329,7 @@ impl FSRExpr {
         false
     }
 
+    /// Convert a byte slice to a string, handling escape sequences.
     fn bytes_to_unescaped_string(input: &[u8]) -> Result<String, std::str::Utf8Error> {
         let s = std::str::from_utf8(input)?;
         let mut out = String::with_capacity(s.len());
@@ -626,17 +627,6 @@ impl FSRExpr {
             ctx.length = 0;
             let sub_meta = meta.new_offset(ctx.start);
             let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta, context)?.0;
-            // if let FSRToken::Expr(e) = &mut sub_expr {
-            //     e.single_op = ctx.single_op;
-            // }
-            // if let FSRToken::Call(c) = &mut sub_expr {
-            //     c.single_op = ctx.single_op;
-            // }
-
-            // if let FSRToken::Variable(v) = &mut sub_expr {
-            //     v.single_op = ctx.single_op;
-            // }
-
             ctx.single_op.map(|x| {
                 sub_expr.set_single_op(x);
             });
@@ -1080,6 +1070,8 @@ impl FSRExpr {
                 } else {
                     context.ref_variable(call.get_name());
                 }
+
+
                 if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
                     let mut stack_expr = vec![];
                     let mut right = ctx.candidates.pop().unwrap();
@@ -1098,9 +1090,12 @@ impl FSRExpr {
                     ctx.single_op = None;
                 }
 
-                // escape blank char, case like a[1] (1 + 2)
-                while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]) {
-                    ctx.start += 1;
+                if !ctx.operators.is_empty() && ctx.candidates.len() == 1 {
+                    panic!(
+                        "The call should not be the only candidate, operators: {:?}, candidates: {:?}",
+                        ctx.operators,
+                        ctx.candidates
+                    );
                 }
 
                 ctx.start += ctx.length;

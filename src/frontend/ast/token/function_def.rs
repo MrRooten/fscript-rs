@@ -11,7 +11,9 @@ use crate::{
 };
 
 use super::{
-    base::{FSRPosition, FSRToken, FSRType}, tell::FSRTell, ASTContext, ASTVariableState
+    base::{FSRPosition, FSRToken, FSRType},
+    tell::FSRTell,
+    ASTContext, ASTVariableState,
 };
 
 #[derive(Debug, Clone)]
@@ -65,6 +67,20 @@ impl FSRFnDef {
 
     pub fn get_body(&self) -> &FSRBlock {
         &self.body
+    }
+
+    pub fn is_jit(&self) -> bool {
+        self.teller
+            .as_ref()
+            .map(|x| x.value.iter().any(|x| x.eq("@jit")))
+            .unwrap_or(false)
+    }
+
+    pub fn is_async(&self) -> bool {
+        self.teller
+            .as_ref()
+            .map(|x| x.value.iter().any(|x| x.eq("@async")))
+            .unwrap_or(false)
     }
 
     pub fn parse_lambda(
@@ -137,8 +153,11 @@ impl FSRFnDef {
 
                     i += 1;
                 }
-                let mut variable =
-                    FSRVariable::parse(arg, meta.new_offset(1 + pos_arg.0), Some(FSRType::new("Function")))?;
+                let mut variable = FSRVariable::parse(
+                    arg,
+                    meta.new_offset(1 + pos_arg.0),
+                    Some(FSRType::new("Function")),
+                )?;
                 variable.is_defined = true;
                 arg_collect.push(FSRToken::Variable(variable));
             }
@@ -166,7 +185,8 @@ impl FSRFnDef {
         }
 
         let mut sub_meta = meta.new_offset(args_len);
-        let fn_block_len = ASTParser::read_valid_bracket(&source[args_len..], sub_meta.clone(), &context)?;
+        let fn_block_len =
+            ASTParser::read_valid_bracket(&source[args_len..], sub_meta.clone(), &context)?;
         let fn_block = FSRBlock::parse(
             &source[args_len..args_len + fn_block_len],
             sub_meta,
@@ -200,7 +220,9 @@ impl FSRFnDef {
 
         if process_str.starts_with("->") {
             let mut start = 2;
-            while start < process_str.len() && ASTParser::is_blank_char(process_str.as_bytes()[start]) {
+            while start < process_str.len()
+                && ASTParser::is_blank_char(process_str.as_bytes()[start])
+            {
                 start += 1;
             }
             let mut end = process_str.len();
@@ -213,7 +235,7 @@ impl FSRFnDef {
             let type_name = FSRType::new(type_name);
             return Ok(Some(type_name));
         }
-        
+
         Err(SyntaxError::new(
             &meta,
             "Invalid return type, should start with '->'",
@@ -238,7 +260,6 @@ impl FSRFnDef {
             Self::count_line(source, teller.len, context);
             start += teller.len;
 
-
             while start < source.len() && ASTParser::is_blank_char_with_new_line(source[start]) {
                 start += 1;
             }
@@ -249,7 +270,7 @@ impl FSRFnDef {
 
         let source = &source[start..];
         let s = std::str::from_utf8(&source[0..2]).unwrap();
-        
+
         if source.len() < 3 {
             let mut sub_meta = meta.new_offset(start);
             let err = SyntaxError::new(&sub_meta, "fn define body length too small");
@@ -335,25 +356,30 @@ impl FSRFnDef {
             gap_call_len += 1;
         }
 
-        let ret_type_str = &source[start_fn_name + call_len + 1..start_fn_name + call_len + 1 + gap_call_len];
-        let ret_type = Self::parse_ret_type(ret_type_str, meta.new_offset(start_fn_name + call_len + 1), context)?;
+        let ret_type_str =
+            &source[start_fn_name + call_len + 1..start_fn_name + call_len + 1 + gap_call_len];
+        let ret_type = Self::parse_ret_type(
+            ret_type_str,
+            meta.new_offset(start_fn_name + call_len + 1),
+            context,
+        )?;
 
         context.add_variable_prev_one(&name, None);
 
         let fn_block_start = start_fn_name + len;
 
-
-        let fn_block_len =
-            ASTParser::read_valid_bracket(&source[fn_block_start..], meta.new_offset(fn_block_start), &context)?;
-        let block_meta = meta.new_offset(start);
+        let fn_block_len = ASTParser::read_valid_bracket(
+            &source[fn_block_start..],
+            meta.new_offset(fn_block_start),
+            &context,
+        )?;
+        let block_meta = meta.new_offset(fn_block_start);
         for arg in fn_call.get_args_mut() {
             if let FSRToken::Variable(v) = arg {
                 let clone = v.clone();
                 v.is_defined = true;
-                context.add_variable(v.get_name() , Some(FSRToken::Variable(clone)));
+                context.add_variable(v.get_name(), Some(FSRToken::Variable(clone)));
             }
-
-            
         }
         let fn_block = FSRBlock::parse(
             &source[fn_block_start..fn_block_start + fn_block_len],
@@ -361,9 +387,8 @@ impl FSRFnDef {
             context,
         )?;
 
-        
         let cur = context.pop_scope();
-        
+
         let fn_def = Self {
             name: name.to_string(),
             args: fn_call.get_args().clone(),
@@ -375,12 +400,11 @@ impl FSRFnDef {
             ret_type,
             teller,
         };
-        
 
         let fn_def = Rc::new(fn_def);
         context.add_variable(&name, None);
         context.set_variable_token(&name, Some(FSRToken::FunctionDef(fn_def.clone())));
-        
+
         Ok(fn_def)
     }
 }

@@ -1340,8 +1340,8 @@ impl JitBuilder<'_> {
                 .unwrap();
             let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
             let v = match op {
-                Some(SingleOp::Minus) => -s.parse::<i64>().unwrap(),
-                None => s.parse::<i64>().unwrap(),
+                Some(SingleOp::Minus) => -*s,
+                None => *s,
                 _ => panic!("Unsupported single operation for constant integer"),
             };
 

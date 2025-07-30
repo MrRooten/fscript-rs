@@ -2068,35 +2068,37 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        if let ArgType::Compare(op) = bytecode.get_arg() {
-            let right_id = pop_exp!(self).ok_or_else(|| {
-                FSRError::new(
-                    "Failed to pop right operand from stack in compare_test",
-                    FSRErrCode::EmptyExpStack,
-                )
-            })?;
-            let left_id = pop_exp!(self).ok_or_else(|| {
-                FSRError::new(
-                    "Failed to pop left operand from stack in compare_test",
-                    FSRErrCode::EmptyExpStack,
-                )
-            })?;
-
-            push_middle!(self, right_id);
-            push_middle!(self, left_id);
-
-            let v = Self::compare(left_id, right_id, *op, self)?;
-
-            if v {
-                self.get_cur_mut_frame().push_exp(FSRObject::true_id())
-            } else {
-                self.get_cur_mut_frame().push_exp(FSRObject::false_id())
-            }
+        let op = if let ArgType::Compare(op) = bytecode.get_arg() {
+            op
         } else {
             return Err(FSRError::new(
                 "not a compare test",
                 FSRErrCode::NotValidArgs,
             ));
+        };
+
+        let right_id = pop_exp!(self).ok_or_else(|| {
+            FSRError::new(
+                "Failed to pop right operand from stack in compare_test",
+                FSRErrCode::EmptyExpStack,
+            )
+        })?;
+        let left_id = pop_exp!(self).ok_or_else(|| {
+            FSRError::new(
+                "Failed to pop left operand from stack in compare_test",
+                FSRErrCode::EmptyExpStack,
+            )
+        })?;
+
+        push_middle!(self, right_id);
+        push_middle!(self, left_id);
+
+        let v = Self::compare(left_id, right_id, *op, self)?;
+
+        if v {
+            self.get_cur_mut_frame().push_exp(FSRObject::true_id())
+        } else {
+            self.get_cur_mut_frame().push_exp(FSRObject::false_id())
         }
 
         Ok(false)
@@ -2152,11 +2154,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let v = if self.get_cur_mut_frame().is_exp_empty() {
-            FSRObject::none_id()
-        } else {
-            pop_exp!(self).unwrap()
-        };
+        let v = pop_exp!(self).unwrap_or(FSRObject::none_id());
 
         push_middle!(self, v);
         let frame = self.pop_stack();
@@ -2170,10 +2168,9 @@ impl<'a> FSRThreadRuntime<'a> {
         self.frame_free_list.free(frame);
         let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(v);
-        // let ip_0 = cur.reverse_ip.0;
-        // let ip_1 = cur.reverse_ip.1;
+
         let code = cur.code;
-        //self.get_cur_mut_frame().ip = (ip_0, ip_1);
+
         self.get_cur_mut_context().code = code;
         self.get_cur_mut_context().context_call_count -= 1;
         // self.garbage_collect.add_root(v);
@@ -2185,11 +2182,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let future_obj = self.get_cur_frame().future.unwrap();
-        let v = if self.get_cur_mut_frame().is_exp_empty() {
-            FSRObject::none_id()
-        } else {
-            pop_exp!(self).unwrap()
-        };
+        let v = pop_exp!(self).unwrap_or(FSRObject::none_id());
 
         let mut frame = self.pop_stack();
         frame.ip = (frame.ip.0, frame.ip.1);
@@ -2720,8 +2713,8 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn process_integer(ps: &str) -> Result<i64, FSRError> {
-        let new_ps = ps.replace("_", "");
-        let s = new_ps.as_str();
+        //let new_ps = ps.replace("_", "");
+        let s = ps;
         let (s, base) = if s.starts_with("0x") || s.starts_with("0X") {
             (&s[2..], 16)
         } else if s.starts_with("0b") || s.starts_with("0B") {
@@ -2749,7 +2742,8 @@ impl<'a> FSRThreadRuntime<'a> {
         let module = FSRObject::id_to_mut_obj(code).unwrap().as_mut_module();
         match arg.get_arg() {
             ArgType::ConstInteger(index, obj, single_op) => {
-                let i = Self::process_integer(obj)?;
+                // let i = Self::process_integer(obj)?;
+                let i = *obj;
                 let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
                     -i
                 } else {

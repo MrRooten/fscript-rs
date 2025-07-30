@@ -53,6 +53,21 @@ macro_rules! ensure_var_id {
     }};
 }
 
+macro_rules! ensure_const_id {
+    ($var_map:expr, $c:expr) => {{
+        let key = $c.to_2();
+        if !$var_map.last().unwrap().const_map.contains_key(&key) {
+            let r = if $var_map.last().unwrap().const_map.is_empty() {
+                1
+            } else {
+                *$var_map.last().unwrap().const_map.values().max().unwrap() + 1
+            };
+            $var_map.last_mut().unwrap().const_map.insert(key.clone(), r);
+        }
+        *$var_map.last().unwrap().const_map.get(&key).unwrap()
+    }};
+}
+
 pub struct StackVecMap {
     map: Vec<VarMap>,
 }
@@ -322,7 +337,7 @@ pub enum ArgType {
     Lambda((u64, String)),
     ImportModule(u64, Vec<String>),
     VariableList(Vec<(u64, String)>),
-    ConstInteger(u64, String, Option<SingleOp>),
+    ConstInteger(u64, i64, Option<SingleOp>),
     ConstFloat(u64, String, Option<SingleOp>),
     ConstString(u64, String),
     Const(u64),
@@ -364,6 +379,12 @@ impl FSRByteInfo {
         &self.pos
     }
 
+    /// Create a new FSRByteInfo from lines and meta position.
+    /// # Arguments
+    /// * `lines` - A vector of usize representing the lines in the source code.
+    /// * `meta` - A FSRPosition representing the position in the source code.
+    /// # Returns
+    /// * `FSRByteInfo` - A new instance of FSRByteInfo with the position set.
     pub fn new(lines: &[usize], meta: FSRPosition) -> Self {
         if lines.is_empty() {
             return Self {
@@ -606,6 +627,16 @@ impl BytecodeContext {
         false
     }
 
+    /// Check if the variable is in the reference map stack, but not in the last one.
+    /// This is useful for checking if a variable is defined in the current scope but not in the last scope.
+    /// If the stack has less than 2 elements, it returns false.
+    ///
+    /// # Arguments
+    /// * `name` - The name of the variable to check.
+    ///
+    /// # Returns
+    /// * `bool` - Returns true if the variable is found in any of the reference maps except the last one, otherwise false.
+    ///
     pub fn contains_variable_in_ref_stack_not_last(&self, name: &str) -> bool {
         if self.ref_map_stack.len() < 2 {
             return false;
@@ -1898,17 +1929,9 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
-        //let last_var_map = var_map.last_mut().unwrap();
         let c = token.get_const_str();
-        if !var_map.last().unwrap().const_map.contains_key(&c.to_2()) {
-            let r = if var_map.last().unwrap().const_map.is_empty() {
-                1
-            } else {
-                *var_map.last().unwrap().const_map.values().max().unwrap() + 1
-            };
-            var_map.last_mut().unwrap().const_map.insert(c.to_2(), r);
-        }
-        let id = *var_map.last().unwrap().const_map.get(&c.to_2()).unwrap();
+        
+        let id = ensure_const_id!(var_map, c);
 
         let mut result_list = vec![BytecodeArg {
             operator: BytecodeOperator::Load,
@@ -1967,6 +1990,26 @@ impl<'a> Bytecode {
         });
 
         (ret_expr)
+    }
+
+    fn process_integer(ps: &str) -> i64 {
+        //let new_ps = ps.replace("_", "");
+        let s = ps;
+        let (s, base) = if s.starts_with("0x") || s.starts_with("0X") {
+            (&s[2..], 16)
+        } else if s.starts_with("0b") || s.starts_with("0B") {
+            (&s[2..], 2)
+        } else if s.starts_with("0o") || s.starts_with("0O") {
+            (&s[2..], 8)
+        } else {
+            (s, 10)
+        };
+        match i64::from_str_radix(s, base) {
+            Ok(value) => value,
+            Err(_) => {
+                panic!("Invalid integer literal: {}", ps);
+            }
+        }
     }
 
     fn load_function(
@@ -2030,7 +2073,7 @@ impl<'a> Bytecode {
                 FSROrinStr2::Integer(i, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::ConstInteger(*const_var.1, i.to_string(), *v),
+                        arg: ArgType::ConstInteger(*const_var.1, Self::process_integer(i.as_str()), *v),
                         info: FSRByteInfo::new(&bytecontext.lines, FSRPosition::new()),
                     });
                 }
@@ -2081,11 +2124,6 @@ impl<'a> Bytecode {
                 }]);
             }
         }
-        // fn_body.push(vec![BytecodeArg {
-        //     operator: BytecodeOperator::EndFn,
-        //     arg: ArgType::None,
-        //     info: FSRByteInfo::new(fn_def.get_meta().clone()),
-        // }]);
 
         let mut var_map = VarMap::new("_");
         var_map.attr_id = AtomicU64::new(v.attr_id.load(Ordering::Relaxed));
@@ -2096,16 +2134,8 @@ impl<'a> Bytecode {
         let fn_def = FnDef {
             code: fn_body.clone(),
             var_map,
-            is_jit: fn_def
-                .teller
-                .as_ref()
-                .map(|x| x.value.iter().any(|x| x.eq("@jit")))
-                .unwrap_or(false),
-            is_async: fn_def
-                .teller
-                .as_ref()
-                .map(|x| x.value.iter().any(|x| x.eq("@async")))
-                .unwrap_or(false),
+            is_jit: fn_def.is_jit(),
+            is_async: fn_def.is_async(),
         };
         bytecontext.fn_def_map.insert(cur_name, fn_def);
 
@@ -2140,11 +2170,6 @@ impl<'a> Bytecode {
             false
         };
 
-        // let op_arg = BytecodeArg {
-        //     operator: BytecodeOperator::Load,
-        //     arg: ArgType::Variable((arg_id, name.to_string(), store_to_cell)),
-        //     info: FSRByteInfo::new(class_def.get_meta().clone()),
-        // };
 
         let class_var_map = VarMap::new(class_def.get_name());
         var_map.push(class_var_map);
@@ -2213,7 +2238,7 @@ impl<'a> Bytecode {
                 FSROrinStr2::Integer(i, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::ConstInteger(*const_var.1, i.to_string(), *v),
+                        arg: ArgType::ConstInteger(*const_var.1, Self::process_integer(i.as_str()), *v),
                         info: FSRByteInfo::new(&const_table.lines, FSRPosition::new()),
                     });
                 }
@@ -2501,7 +2526,11 @@ a[0] = 1
     #[test]
     fn test_simple() {
         let expr = "
-        t.value[0][0]
+fn abc() {
+    gc_info()
+}
+
+abc()
         ";
 
         let meta = FSRPosition::new();
