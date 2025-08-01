@@ -13,13 +13,16 @@ use ahash::AHashMap;
 use crate::{
     backend::{
         compiler::bytecode::Bytecode,
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{
+            thread::{FSRThreadRuntime, IndexMap},
+            virtual_machine::get_object_by_global_id,
+        },
     },
     utils::error::FSRError,
 };
 
 use super::{
-    base::{Area, AtomicObjId, GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
+    base::{Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
     class::FSRClass,
 };
 
@@ -65,15 +68,8 @@ pub struct FSRFn<'a> {
     pub(crate) closure_fn: Vec<ObjId>, // fn define chain
     /// Store cells for closure variables
     /// The key is the variable name, and the value is the object id
-    ///
-    /// fn abc() {
-    ///     a = 1
-    ///     fn def() {
-    ///          println(a)
-    ///     }
-    /// }
-    ///
     pub(crate) store_cells: AHashMap<&'a str, AtomicObjId>,
+    pub(crate) const_map: Arc<IndexMap>
 }
 
 impl Debug for FSRFn<'_> {
@@ -152,6 +148,7 @@ impl<'a> FSRFn<'a> {
             code: 0,
             closure_fn: vec![],
             store_cells: AHashMap::new(),
+            const_map: Arc::new(IndexMap::new()),
         };
         FSRValue::Function(Box::new(v))
     }
@@ -165,6 +162,7 @@ impl<'a> FSRFn<'a> {
         fn_id: ObjId, // Which father fn define this son fn
         jit_code: Option<*const u8>,
         is_async: bool,
+        const_map: Arc<IndexMap>,
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
@@ -188,6 +186,7 @@ impl<'a> FSRFn<'a> {
             code: code_obj,
             closure_fn: c,
             store_cells: AHashMap::new(),
+            const_map,
         };
         FSRValue::Function(Box::new(v))
     }
@@ -198,6 +197,7 @@ impl<'a> FSRFn<'a> {
             code: 0,
             closure_fn: vec![],
             store_cells: AHashMap::new(),
+            const_map: Arc::new(IndexMap::new()),
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
@@ -216,6 +216,7 @@ impl<'a> FSRFn<'a> {
             code: 0,
             closure_fn: vec![],
             store_cells: AHashMap::new(),
+            const_map: Arc::new(IndexMap::new()),
         };
 
         FSRValue::Function(Box::new(v))
@@ -255,7 +256,12 @@ impl<'a> FSRFn<'a> {
                         extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, *const ObjId, i32) -> ObjId,
                     >(code)
                 };
-                let res = call_fn(thread, thread.get_context().code, args.as_ptr(), args.len() as i32);
+                let res = call_fn(
+                    thread,
+                    thread.get_context().code,
+                    args.as_ptr(),
+                    args.len() as i32,
+                );
                 let v = thread.pop_frame();
                 thread.frame_free_list.free(v);
                 return Ok(FSRRetValue::GlobalId(res));

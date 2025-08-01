@@ -1,5 +1,5 @@
 
-@jit
+
 fn abc() {
     n = 2
     for i in 0..18000000 {
