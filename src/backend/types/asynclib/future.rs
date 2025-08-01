@@ -82,7 +82,7 @@ pub fn poll_future(
             frame.args.push(*arg);
         }
         frame.future = Some(args[0]);
-        thread.push_frame(frame);
+        thread.push_frame(frame, fn_obj.const_map.clone());
         let res = thread.poll_fn(future.fn_obj);
         res
     } else {

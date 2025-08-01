@@ -225,7 +225,7 @@ impl<'a> AttrMap<'a> {
 
 pub struct CallFrame {
     pub(crate) local_var: IndexMap,
-    pub(crate) const_map: IndexMap,
+    pub(crate) const_map: Arc<IndexMap>,
     //reverse_ip: (usize, usize),
     pub(crate) args: Vec<ObjId>,
     cur_cls: Option<Box<FSRClass>>,
@@ -311,10 +311,10 @@ impl CallFrame {
         self.local_var.contains_key(id)
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn insert_const(&mut self, id: u64, obj_id: ObjId) {
-        self.const_map.insert(id, obj_id);
-    }
+    // #[cfg_attr(feature = "more_inline", inline(always))]
+    // pub fn insert_const(&mut self, id: u64, obj_id: ObjId) {
+    //     self.const_map.insert(id, obj_id);
+    // }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_const(&self, id: &u64) -> Option<&AtomicObjId> {
@@ -337,7 +337,7 @@ impl CallFrame {
             handling_exception: FSRObject::none_id(),
             fn_obj,
             middle_value: vec![],
-            const_map: IndexMap::new(),
+            const_map: Arc::new(IndexMap::new()),
             ip: (0, 0),
             future: None,
             flow_tracker: FlowTracker::new(),
@@ -579,7 +579,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
     /// Push new call frame to call stack, and replace current call frame with new one
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn push_frame(&mut self, mut frame: Box<CallFrame>) {
+    pub fn push_frame(&mut self, mut frame: Box<CallFrame>, const_map: Arc<IndexMap>) {
+        frame.const_map = const_map;
         let old_frame = std::mem::replace(&mut self.cur_frame, frame);
         self.call_frames.push(old_frame);
     }
@@ -638,6 +639,10 @@ impl<'a> FSRThreadRuntime<'a> {
 
         for value in &it.middle_value {
             work_list.push(*value);
+        }
+
+        for val in it.const_map.iter() {
+            work_list.push(val.load(Ordering::Relaxed));
         }
 
         let module_id = FSRObject::id_to_obj(it.code).as_code().module;
@@ -1409,7 +1414,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_context().context_call_count += 1;
                 let frame = self.frame_free_list.new_frame(f.code, self_new_obj);
                 self.get_cur_mut_context().code = f.code;
-                self.push_frame(frame);
+                self.push_frame(frame, FSRObject::id_to_obj(self_new_obj).as_fn().const_map.clone());
             } else {
                 unimplemented!()
             }
@@ -1446,7 +1451,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     .frame_free_list
                     .new_frame(f.code, FSRObject::obj_to_id(fn_obj));
                 frame.code = f.code;
-                self.push_frame(frame);
+                self.push_frame(frame, fn_obj.as_fn().const_map.clone());
             } else {
                 panic!("not a function")
             }
@@ -1516,7 +1521,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.save_ip_to_callstate();
         let f = fn_obj.as_fn();
         let frame = self.frame_free_list.new_frame(f.code, fn_id);
-        self.push_frame(frame);
+        self.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
 
         for arg in args.iter() {
             self.get_cur_mut_frame().args.push(*arg);
@@ -1575,7 +1580,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     let frame = self
                         .frame_free_list
                         .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-                    self.push_frame(frame);
+                    self.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
                     for arg in args.iter() {
                         self.get_cur_mut_frame().args.push(*arg);
                     }
@@ -2074,10 +2079,10 @@ impl<'a> FSRThreadRuntime<'a> {
             Arc::new(const_map),
         );
 
-        let fn_obj = self
-            .thread_allocator
+        let fn_id = self
+            .garbage_collect
             .new_object(fn_obj, get_object_by_global_id(GlobalObj::FnCls));
-        let fn_id = FSRVM::leak_object(fn_obj);
+        //let fn_id = FSRVM::leak_object(fn_obj);
         let state = &mut self.cur_frame;
         if let Some(cur_cls) = &mut state.cur_cls {
             let offset = BinaryOffset::from_alias_name(name.as_str());
@@ -2737,7 +2742,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::EndCatch => Self::catch_end(self, bytecode),
             BytecodeOperator::BinaryRange => Self::binary_range_process(self),
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
-            BytecodeOperator::LoadConst => Self::load_const(self, bytecode),
+            BytecodeOperator::LoadConst => Self::empty_process(self, bytecode),
             BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
@@ -2783,52 +2788,52 @@ impl<'a> FSRThreadRuntime<'a> {
             .map_err(|_| FSRError::new("Failed to parse float", FSRErrCode::NotValidArgs))
     }
 
-    fn load_const(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
-        match arg.get_arg() {
-            ArgType::ConstInteger(index, obj, single_op) => {
-                // let i = Self::process_integer(obj)?;
-                let i = *obj;
-                let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
-                    -i
-                } else {
-                    i
-                };
+    // fn load_const(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
+    //     match arg.get_arg() {
+    //         ArgType::ConstInteger(index, obj, single_op) => {
+    //             // let i = Self::process_integer(obj)?;
+    //             let i = *obj;
+    //             let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
+    //                 -i
+    //             } else {
+    //                 i
+    //             };
 
-                let new_integer = self.garbage_collect.new_object(
-                    FSRValue::Integer(i),
-                    get_object_by_global_id(GlobalObj::IntegerCls) as ObjId,
-                );
-                self.get_cur_mut_frame()
-                    .insert_const({ *index }, new_integer);
-            }
-            ArgType::ConstFloat(index, obj, single_op) => {
-                let i = Self::process_float(obj)?;
-                let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
-                    -1.0 * i
-                } else {
-                    i
-                };
+    //             let new_integer = self.garbage_collect.new_object(
+    //                 FSRValue::Integer(i),
+    //                 get_object_by_global_id(GlobalObj::IntegerCls) as ObjId,
+    //             );
+    //             self.get_cur_mut_frame()
+    //                 .insert_const({ *index }, new_integer);
+    //         }
+    //         ArgType::ConstFloat(index, obj, single_op) => {
+    //             let i = Self::process_float(obj)?;
+    //             let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
+    //                 -1.0 * i
+    //             } else {
+    //                 i
+    //             };
 
-                let new_float = self.garbage_collect.new_object(
-                    FSRValue::Float(i),
-                    get_object_by_global_id(GlobalObj::FloatCls) as ObjId,
-                );
+    //             let new_float = self.garbage_collect.new_object(
+    //                 FSRValue::Float(i),
+    //                 get_object_by_global_id(GlobalObj::FloatCls) as ObjId,
+    //             );
 
-                self.get_cur_mut_frame().insert_const({ *index }, new_float);
-            }
-            ArgType::ConstString(index, s) => {
-                let new_string = self
-                    .garbage_collect
-                    .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id());
+    //             self.get_cur_mut_frame().insert_const({ *index }, new_float);
+    //         }
+    //         ArgType::ConstString(index, s) => {
+    //             let new_string = self
+    //                 .garbage_collect
+    //                 .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id());
 
-                self.get_cur_mut_frame()
-                    .insert_const({ *index }, new_string);
-            }
-            _ => unimplemented!(),
-        }
+    //             self.get_cur_mut_frame()
+    //                 .insert_const({ *index }, new_string);
+    //         }
+    //         _ => unimplemented!(),
+    //     }
 
-        Ok(false)
-    }
+    //     Ok(false)
+    // }
 
     fn get_chains(
         thread: &FSRThreadRuntime,
@@ -2901,10 +2906,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 push_exp!(self, id);
             }
             ArgType::Const(index) => {
-                let code = FSRObject::id_to_obj(self.get_context().code)
-                    .as_code()
-                    .module;
-                let module = FSRObject::id_to_obj(code).as_module();
+                // let code = FSRObject::id_to_obj(self.get_context().code)
+                //     .as_code()
+                //     .module;
+                // let module = FSRObject::id_to_obj(code).as_module();
                 let obj = self
                     .get_cur_frame()
                     .get_const(index)
@@ -3164,7 +3169,8 @@ impl<'a> FSRThreadRuntime<'a> {
         self.push_context(context);
 
         let frame = self.frame_free_list.new_frame(code_id, 0);
-        self.push_frame(frame);
+        let const_map = Self::get_const_map(self, code.as_code())?;
+        self.push_frame(frame, Arc::new(const_map));
         //self.unlock_and_lock();
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
@@ -3201,8 +3207,11 @@ impl<'a> FSRThreadRuntime<'a> {
         let base_fn_id = FSRObject::new_inst(base_fn, get_object_by_global_id(GlobalObj::FnCls));
         let base_fn_id = FSRVM::leak_object(Box::new(base_fn_id));
 
+        let const_map = Self::get_const_map(self, main_code.unwrap().as_code())?;
+
         self.cur_frame.code = code_id;
         self.cur_frame.fn_obj = base_fn_id;
+        self.cur_frame.const_map = Arc::new(const_map);
         self.get_cur_mut_context().code = FSRObject::obj_to_id(main_code.unwrap());
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         //self.get_cur_mut_frame().fn_obj = code_id;

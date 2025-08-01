@@ -98,10 +98,16 @@ impl<'a> FSRFn<'a> {
     }
 
     pub fn get_references(&self) -> Vec<ObjId> {
-        self.store_cells
+        let mut v1: Vec<usize> = self.store_cells
             .values()
             .map(|s| s.load(Ordering::Relaxed))
-            .collect()
+            .collect();
+
+        for val in self.const_map.iter() {
+            v1.push(val.load(Ordering::Relaxed));
+        }
+
+        v1
     }
 
     pub fn as_str(&self) -> String {
@@ -246,7 +252,7 @@ impl<'a> FSRFn<'a> {
                 let frame = thread
                     .frame_free_list
                     .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-                thread.push_frame(frame);
+                thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
                 for arg in args.iter() {
                     thread.get_cur_mut_frame().args.push(*arg);
                 }
@@ -268,7 +274,7 @@ impl<'a> FSRFn<'a> {
             }
 
             let frame = thread.frame_free_list.new_frame(code, fn_id);
-            thread.push_frame(frame);
+            thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code)?;
             return Ok(FSRRetValue::GlobalId(v));
         }
