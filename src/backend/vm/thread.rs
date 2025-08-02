@@ -3080,9 +3080,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr_wrapper(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
-        if self.counter - self.last_aquire_counter > 200 {
-            self.rt_yield();
-        }
+        // if self.counter - self.last_aquire_counter > 200 {
+        //     self.rt_yield();
+        // }
 
         self.run_expr(expr)
     }
