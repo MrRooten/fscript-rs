@@ -46,7 +46,7 @@ impl<'a> FSRObjectAllocator<'a> {
         code: ObjId,
     ) -> Box<FSCodeContext> {
         if let Some(mut s) = self.code_context_bins.pop() {
-            s.code = code;
+            s.set_code(code);
             s.context_call_count = 1;
             return s;
         }
