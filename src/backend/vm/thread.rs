@@ -1421,36 +1421,49 @@ impl<'a> FSRThreadRuntime<'a> {
 
         //args.insert(0, self_id);
         args.push(self_id);
-        self.save_ip_to_callstate();
+        args.reverse();
+        // fn_obj.call(args, self, code, cls_id);
+        // self.save_ip_to_callstate();
         let self_obj = FSRObject::id_to_obj(self_id);
-        let self_new = self_obj.get_cls_attr("__new__");
+        let self_new = self_obj.get_cls_attr("__new__").map(|x| x.load(Ordering::Relaxed)).unwrap();
+        let self_new_fn = FSRObject::id_to_obj(self_new);
+        let new_obj = self_new_fn.call(
+            args,
+            self,
+            self.get_context().code,
+            self_new,
+        )?;
 
-        if let Some(self_new_obj) = self_new {
-            let self_new_obj = self_new_obj.load(Ordering::Relaxed);
-            let new_obj = FSRObject::id_to_obj(self_new_obj);
+        push_exp!(self, new_obj.get_id());
 
-            if let FSRValue::Function(f) = &new_obj.value {
-                self.get_cur_mut_context().context_call_count += 1;
-                let frame = self.frame_free_list.new_frame(f.code, self_new_obj);
-                // self.get_cur_mut_context().code = f.code;
-                // self.get_cur_mut_context().code_inst =
-                //     Some(FSRObject::id_to_obj(f.code).as_code());
-                self.get_cur_mut_context().set_code(f.code);
-                self.push_frame(frame, FSRObject::id_to_obj(self_new_obj).as_fn().const_map.clone());
-            } else {
-                unimplemented!()
-            }
+        Ok(false)
 
-            for arg in args.iter() {
-                self.get_cur_mut_frame().args.push(*arg);
-            }
+        // if let Some(self_new_obj) = self_new {
+        //     let self_new_obj = self_new_obj.load(Ordering::Relaxed);
+        //     let new_obj = FSRObject::id_to_obj(self_new_obj);
 
-            let offset = new_obj.get_fsr_offset().1;
-            self.get_cur_mut_frame().ip = (offset.0, 0);
-            Ok(true)
-        } else {
-            unimplemented!()
-        }
+        //     if let FSRValue::Function(f) = &new_obj.value {
+        //         self.get_cur_mut_context().context_call_count += 1;
+        //         let frame = self.frame_free_list.new_frame(f.code, self_new_obj);
+        //         // self.get_cur_mut_context().code = f.code;
+        //         // self.get_cur_mut_context().code_inst =
+        //         //     Some(FSRObject::id_to_obj(f.code).as_code());
+        //         self.get_cur_mut_context().set_code(f.code);
+        //         self.push_frame(frame, FSRObject::id_to_obj(self_new_obj).as_fn().const_map.clone());
+        //     } else {
+        //         unimplemented!()
+        //     }
+
+        //     for arg in args.iter() {
+        //         self.get_cur_mut_frame().args.push(*arg);
+        //     }
+
+        //     let offset = new_obj.get_fsr_offset().1;
+        //     self.get_cur_mut_frame().ip = (offset.0, 0);
+        //     Ok(true)
+        // } else {
+        //     unimplemented!()
+        // }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -1594,7 +1607,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         ));
                     }
                     let code = *f.jit_code.as_ref().unwrap();
-                    let code = code as *const u8;
+                    let jit_code = code as *const u8;
 
                     let frame = self
                         .frame_free_list
@@ -1607,7 +1620,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         std::mem::transmute::<
                             _,
                             extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
-                        >(code)
+                        >(jit_code)
                     };
                     let res = call_fn(self, self.get_context().code, args, args.len() as i32);
                     let v = self.pop_frame();
@@ -1630,8 +1643,13 @@ impl<'a> FSRThreadRuntime<'a> {
                     //panic!("unimplemented: async function call in FSRThreadRuntime");
                     return Ok(false);
                 }
+
+                let res = fn_obj.call(args, self, self.get_context().code, fn_id)?;
+                push_exp!(self, res.get_id());
+
+                return Ok(false)
             }
-            self.process_fsr_fn(fn_id, fn_obj, args)?;
+            // self.process_fsr_fn(fn_id, fn_obj, args)?;
             return Ok(true);
         } else if fn_obj.is_fsr_cls() {
             let v = Self::process_fsr_cls(self, fn_id, args)?;

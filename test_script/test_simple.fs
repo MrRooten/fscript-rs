@@ -1,15 +1,17 @@
+class SortItem {
+    fn __new__(self, value) {
+        self.value = value
+        return self
+    }
 
-fn fib(n) {
-    if n == 1 or n == 2 {
-        return 1
-    } else {
-        return fib(n - 1) + fib(n - 2)
+    fn __gt__(self, other) {
+        return self.value > other.value
+    }
+
+    fn __str__(self) {
+        return "SortItem" + "(" + str(self.value) + ")"
     }
 }
 
-a = 1
+a1 = [SortItem(3), SortItem(4), SortItem(1), SortItem(2), SortItem(5)]
 
-for i in 0..18000 {
-    println(i)
-    fib(2)
-}
