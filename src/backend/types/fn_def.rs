@@ -248,7 +248,7 @@ impl<'a> FSRFn<'a> {
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             if f.jit_code.is_some() {
                 let jit_code = *f.jit_code.as_ref().unwrap();
-                let code = jit_code as *const u8;
+                let jit_code = jit_code as *const u8;
                 let frame = thread
                     .frame_free_list
                     .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
@@ -260,11 +260,11 @@ impl<'a> FSRFn<'a> {
                     std::mem::transmute::<
                         _,
                         extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, *const ObjId, i32) -> ObjId,
-                    >(code)
+                    >(jit_code)
                 };
                 let res = call_fn(
                     thread,
-                    thread.get_context().code,
+                    code,
                     args.as_ptr(),
                     args.len() as i32,
                 );

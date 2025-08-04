@@ -1,17 +1,19 @@
-class SortItem {
-    fn __new__(self, value) {
-        self.value = value
-        return self
-    }
+import args
 
-    fn __gt__(self, other) {
-        return self.value > other.value
-    }
+opt = args::ArgOption("name")
+opt.set_follow()
+opt.set_helper("test name value")
+opt2 = args::ArgOption("file")
+opt2.set_follow()
+opt2.set_helper("test file value")
+default_opt = args::ArgOption("default")
+default_opt.set_default("default_value")
+side_opt = args::ArgOption("side_file")
+side_opt.set_follow()
+parser = args::ArgParser(["--name", "abc", "-f", "value2", "-sf", "test"])
 
-    fn __str__(self) {
-        return "SortItem" + "(" + str(self.value) + ")"
-    }
-}
+parser.add_option([opt, opt2, default_opt, side_opt])
+res = parser.parse()
+println(res)
 
-a1 = [SortItem(3), SortItem(4), SortItem(1), SortItem(2), SortItem(5)]
-
+parser.helper()

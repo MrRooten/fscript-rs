@@ -359,7 +359,7 @@ pub struct FSCodeContext {
     pub(crate) code: ObjId,
     // cache code instance, so we don't need to call FSRObject::id_to_obj every time
     // it could save some performance
-    pub(crate) code_inst: Option<&'static FSRCode>
+    // pub(crate) code_inst: Option<&'static FSRCode>,
 }
 
 impl FSCodeContext {
@@ -368,13 +368,13 @@ impl FSCodeContext {
             return Self {
                 code,
                 context_call_count: 1,
-                code_inst: None,
+                // code_inst: None,
             };
         }
         FSCodeContext {
             code,
             context_call_count: 1,
-            code_inst: Some(FSRObject::id_to_obj(code).as_code())
+            // code_inst: Some(FSRObject::id_to_obj(code).as_code()),
         }
     }
 
@@ -382,7 +382,7 @@ impl FSCodeContext {
 
     pub fn set_code(&mut self, code: ObjId) {
         self.code = code;
-        self.code_inst = Some(FSRObject::id_to_obj(code).as_code());
+        // self.code_inst = Some(FSRObject::id_to_obj(code).as_code());
     }
 
     pub fn get_code(&self) -> ObjId {
@@ -1425,45 +1425,16 @@ impl<'a> FSRThreadRuntime<'a> {
         // fn_obj.call(args, self, code, cls_id);
         // self.save_ip_to_callstate();
         let self_obj = FSRObject::id_to_obj(self_id);
-        let self_new = self_obj.get_cls_attr("__new__").map(|x| x.load(Ordering::Relaxed)).unwrap();
+        let self_new = self_obj
+            .get_cls_attr("__new__")
+            .map(|x| x.load(Ordering::Relaxed))
+            .unwrap();
         let self_new_fn = FSRObject::id_to_obj(self_new);
-        let new_obj = self_new_fn.call(
-            args,
-            self,
-            self.get_context().code,
-            self_new,
-        )?;
+        let new_obj = self_new_fn.call(args, self, self.get_context().code, self_new)?;
 
         push_exp!(self, new_obj.get_id());
 
         Ok(false)
-
-        // if let Some(self_new_obj) = self_new {
-        //     let self_new_obj = self_new_obj.load(Ordering::Relaxed);
-        //     let new_obj = FSRObject::id_to_obj(self_new_obj);
-
-        //     if let FSRValue::Function(f) = &new_obj.value {
-        //         self.get_cur_mut_context().context_call_count += 1;
-        //         let frame = self.frame_free_list.new_frame(f.code, self_new_obj);
-        //         // self.get_cur_mut_context().code = f.code;
-        //         // self.get_cur_mut_context().code_inst =
-        //         //     Some(FSRObject::id_to_obj(f.code).as_code());
-        //         self.get_cur_mut_context().set_code(f.code);
-        //         self.push_frame(frame, FSRObject::id_to_obj(self_new_obj).as_fn().const_map.clone());
-        //     } else {
-        //         unimplemented!()
-        //     }
-
-        //     for arg in args.iter() {
-        //         self.get_cur_mut_frame().args.push(*arg);
-        //     }
-
-        //     let offset = new_obj.get_fsr_offset().1;
-        //     self.get_cur_mut_frame().ip = (offset.0, 0);
-        //     Ok(true)
-        // } else {
-        //     unimplemented!()
-        // }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -1473,49 +1444,20 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_obj: &'a FSRObject<'a>,
         args: &mut SmallVec<[usize; 4]>,
     ) -> Result<bool, FSRError> {
-        // push object the call this method, case like a.b(c) will like A::b(a, c)
         args.push(obj_id);
-        if fn_obj.is_fsr_function() {
-            let ip = self.get_cur_frame().ip;
+        args.reverse();
+        let v = fn_obj
+            .call(
+                args,
+                self,
+                self.get_context().code,
+                FSRObject::obj_to_id(fn_obj),
+            )
+            .unwrap();
 
-            let state = self.get_cur_mut_frame();
-
-            if let FSRValue::Function(f) = &fn_obj.value {
-                self.get_cur_mut_context().context_call_count += 1;
-                let mut frame = self
-                    .frame_free_list
-                    .new_frame(f.code, FSRObject::obj_to_id(fn_obj));
-                frame.code = f.code;
-                self.push_frame(frame, fn_obj.as_fn().const_map.clone());
-            } else {
-                panic!("not a function")
-            }
-
-            for arg in args.iter() {
-                self.get_cur_mut_frame().args.push(*arg);
-            }
-            let offset = fn_obj.get_fsr_offset().1;
-            if let FSRValue::Function(obj) = &fn_obj.value {
-                // self.get_cur_mut_context().code = obj.code;
-                // self.get_cur_mut_context().code_inst = Some(FSRObject::id_to_obj(obj.code).as_code());
-                self.get_cur_mut_context().set_code(obj.code);
-            }
-            self.get_cur_mut_frame().ip = (offset.0, 0);
-            return Ok(true);
-        } else {
-            args.reverse();
-            let v = fn_obj
-                .call(
-                    args,
-                    self,
-                    self.get_context().code,
-                    FSRObject::obj_to_id(fn_obj),
-                )
-                .unwrap();
-
-            let id = v.get_id();
-            push_exp!(self, id);
-        }
+        let id = v.get_id();
+        push_exp!(self, id);
+        //}
         Ok(false)
     }
 
@@ -1647,7 +1589,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 let res = fn_obj.call(args, self, self.get_context().code, fn_id)?;
                 push_exp!(self, res.get_id());
 
-                return Ok(false)
+                return Ok(false);
             }
             // self.process_fsr_fn(fn_id, fn_obj, args)?;
             return Ok(true);
@@ -2024,7 +1966,10 @@ impl<'a> FSRThreadRuntime<'a> {
         jit.compile(code.get_bytecode()).unwrap()
     }
 
-    fn get_const_map(self: &mut FSRThreadRuntime<'a>, code: &FSRCode) -> Result<IndexMap, FSRError> {
+    fn get_const_map(
+        self: &mut FSRThreadRuntime<'a>,
+        code: &FSRCode,
+    ) -> Result<IndexMap, FSRError> {
         let mut res_map = IndexMap::new();
         let const_map = &code.get_bytecode().var_map.const_map;
         for const_val in const_map {
@@ -2924,8 +2869,12 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
         // let module = FSRObject::id_to_obj(state.code).as_code();
-        let module =
-            FSRObject::id_to_obj(FSRObject::id_to_obj(state.code).as_code().module).as_module();
+        let module = FSRObject::id_to_obj(
+            FSRObject::id_to_obj(thread.get_context().code)
+                .as_code()
+                .module,
+        )
+        .as_module();
         let vm = thread.get_vm();
         let v = match module.get_object(name) {
             Some(s) => s.load(Ordering::Relaxed),
@@ -3210,7 +3159,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let context = Box::new(FSCodeContext {
             code: code_id,
             context_call_count: 1,
-            code_inst: Some(FSRObject::id_to_obj(code_id).as_code()),
+            // code_inst: Some(FSRObject::id_to_obj(code_id).as_code()),
         });
 
         self.push_context(context);
@@ -3222,7 +3171,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
-            code = FSRObject::id_to_obj(self.get_context().code).as_code();
+            // code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
 
         self.pop_frame();
@@ -3262,7 +3211,8 @@ impl<'a> FSRThreadRuntime<'a> {
         // self.get_cur_mut_context().code = FSRObject::obj_to_id(main_code.unwrap());
         // self.get_cur_mut_context().code_inst =
         //     Some(FSRObject::id_to_obj(self.get_context().code).as_code());
-        self.get_cur_mut_context().set_code(FSRObject::obj_to_id(main_code.unwrap()));
+        self.get_cur_mut_context()
+            .set_code(FSRObject::obj_to_id(main_code.unwrap()));
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         //self.get_cur_mut_frame().fn_obj = code_id;
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
@@ -3276,7 +3226,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 )
             }
             self.run_expr_wrapper(expr)?;
-            code = self.get_context().code_inst.unwrap();
+            // code = self.get_context().code_inst.unwrap();
         }
 
         println!("count: {}", self.counter);
@@ -3316,7 +3266,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             // code = FSRObject::id_to_obj(self.get_context().code).as_code();
-            code = self.get_context().code_inst.unwrap();
+            // code = self.get_context().code_inst.unwrap();
         }
 
         let context = self.pop_context();
@@ -3355,7 +3305,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             // code = FSRObject::id_to_obj(self.get_context().code).as_code();
-            code = self.get_context().code_inst.unwrap();
+            // code = self.get_context().code_inst.unwrap();
         }
 
         let context = self.pop_context();
