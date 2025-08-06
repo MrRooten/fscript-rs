@@ -253,6 +253,9 @@ impl CallFrame {
         self.exp.clear();
         self.handling_exception = FSRObject::none_id();
         self.middle_value.clear();
+        self.flow_tracker.clear();
+        self.catch_ends.clear();
+        self.future = None;
         //self.last_expr_val = FSRObject::none_id();
     }
 
@@ -345,36 +348,17 @@ impl CallFrame {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ReferenceArgs<'a> {
-    pub(crate) father: ObjId,
-    pub(crate) atomic_usize: &'a AtomicObjId,
-    pub(crate) call_method: bool,
-}
-
 /// Context for bytecode, if fs code call from rust fn will create new context
 pub struct FSCodeContext {
     // tracing call stack, is call stack is empty means end of this call except start of this call
-    pub(crate) context_call_count: u32,
+    // pub(crate) context_call_count: u32,
     pub(crate) code: ObjId,
-    // cache code instance, so we don't need to call FSRObject::id_to_obj every time
-    // it could save some performance
-    // pub(crate) code_inst: Option<&'static FSRCode>,
 }
 
 impl FSCodeContext {
     pub fn new_context(code: ObjId) -> Self {
-        if code == 0 {
-            return Self {
-                code,
-                context_call_count: 1,
-                // code_inst: None,
-            };
-        }
         FSCodeContext {
             code,
-            context_call_count: 1,
-            // code_inst: Some(FSRObject::id_to_obj(code).as_code()),
         }
     }
 
@@ -406,6 +390,15 @@ pub struct FlowTracker {
 }
 
 impl FlowTracker {
+    pub fn clear(&mut self) {
+        self.last_if_test.clear();
+        self.break_line.clear();
+        self.continue_line.clear();
+        self.ref_for_obj.clear();
+        self.for_iter_obj.clear();
+        self.is_break = false;
+    }
+
     pub fn new() -> Self {
         Self {
             last_if_test: Vec::new(),
@@ -515,8 +508,8 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) counter: usize,
     pub(crate) last_aquire_counter: usize,
     pub(crate) til: ThreadLockerState,
-    pub(crate) thread_context_stack: Vec<Box<FSCodeContext>>,
-    pub(crate) thread_context: Box<FSCodeContext>,
+    pub(crate) thread_context_stack: Vec<FSCodeContext>,
+    pub(crate) thread_context: FSCodeContext,
     pub(crate) gc_context: GcContext,
     pub(crate) thread_shared: ThreadShared,
     #[cfg(feature = "count_bytecode")]
@@ -565,7 +558,7 @@ impl<'a> FSRThreadRuntime<'a> {
             til: ThreadLockerState::new_state(),
             last_aquire_counter: 0,
             thread_context_stack: Vec::with_capacity(8),
-            thread_context: Box::new(FSCodeContext::new_context(0)),
+            thread_context: FSCodeContext::new_context(0),
             gc_context: GcContext::new_context(),
             #[cfg(feature = "count_bytecode")]
             bytecode_counter: vec![0; 256],
@@ -616,12 +609,12 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self.thread_context
     }
 
-    pub fn push_context(&mut self, context: Box<FSCodeContext>) {
+    pub fn push_context(&mut self, context: FSCodeContext) {
         let out = std::mem::replace(&mut self.thread_context, context);
         self.thread_context_stack.push(out);
     }
 
-    pub fn pop_context(&mut self) -> Box<FSCodeContext> {
+    pub fn pop_context(&mut self) -> FSCodeContext {
         if let Some(s) = self.thread_context_stack.pop() {
             let out = std::mem::replace(&mut self.thread_context, s);
             return out;
@@ -1496,8 +1489,8 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_obj: &FSRObject<'a>,
         args: &mut SmallVec<[ObjId; 4]>,
     ) -> Result<(), FSRError> {
-        self.get_cur_mut_context().context_call_count += 1;
-        self.save_ip_to_callstate();
+        //self.get_cur_mut_context().context_call_count += 1;
+        // self.save_ip_to_callstate();
         let f = fn_obj.as_fn();
         let frame = self.frame_free_list.new_frame(f.code, fn_id);
         self.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
@@ -2080,6 +2073,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
         state.insert_var(*name_id, fn_id);
         let define_fn_obj = self.get_cur_frame().fn_obj;
+
+        // if function define in base function, register to module
         if is_base_fn!(define_fn_obj) {
             let module = FSRObject::id_to_mut_obj(
                 FSRObject::id_to_obj(self.get_context().code)
@@ -2090,6 +2085,8 @@ impl<'a> FSRThreadRuntime<'a> {
             .as_mut_module();
             module.register_object(name, fn_id);
         }
+
+        // is this function is a closure function
         if *store_to_cell && !is_base_fn!(define_fn_obj) {
             let define_fn_obj = self.get_cur_frame().fn_obj;
             let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj)
@@ -2202,7 +2199,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let v = pop_exp!(self).unwrap_or(FSRObject::none_id());
 
-        push_middle!(self, v);
+        // push_middle!(self, v);
         let frame = self.pop_stack();
         if let Some(s) = frame.future.clone() {
             let future_obj = FSRObject::id_to_mut_obj(s)
@@ -2221,7 +2218,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // self.get_cur_mut_context().code_inst =
         //     Some(FSRObject::id_to_obj(code).as_code());
         self.get_cur_mut_context().set_code(code);
-        self.get_cur_mut_context().context_call_count -= 1;
+        //self.get_cur_mut_context().context_call_count -= 1;
         // self.garbage_collect.add_root(v);
         Ok(true)
     }
@@ -2249,7 +2246,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // self.get_cur_mut_context().code_inst =
         //     Some(FSRObject::id_to_obj(code).as_code());
         self.get_cur_mut_context().set_code(code);
-        self.get_cur_mut_context().context_call_count -= 1;
+        //self.get_cur_mut_context().context_call_count -= 1;
         Ok(true)
     }
 
@@ -2278,7 +2275,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // self.get_cur_mut_context().code_inst =
         //     Some(FSRObject::id_to_obj(code).as_code());
         self.get_cur_mut_context().set_code(code);
-        self.get_cur_mut_context().context_call_count -= 1;
+        //self.get_cur_mut_context().context_call_count -= 1;
         Ok(true)
     }
 
@@ -2307,7 +2304,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // self.get_cur_mut_context().code = code;
         // self.get_cur_mut_context().code_inst = Some(FSRObject::id_to_obj(code).as_code());
         self.get_cur_mut_context().set_code(code);
-        self.get_cur_mut_context().context_call_count -= 1;
+        //self.get_cur_mut_context().context_call_count -= 1;
         Ok(true)
     }
 
@@ -3156,11 +3153,11 @@ impl<'a> FSRThreadRuntime<'a> {
             .get_fn("__main__")
             .unwrap();
         let code_id = FSRObject::obj_to_id(code);
-        let context = Box::new(FSCodeContext {
+        let context = FSCodeContext {
             code: code_id,
-            context_call_count: 1,
+            //context_call_count: 1,
             // code_inst: Some(FSRObject::id_to_obj(code_id).as_code()),
-        });
+        };
 
         self.push_context(context);
 
@@ -3261,26 +3258,19 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
-            if self.get_context().context_call_count == 0 {
+            if v {
                 break;
             }
-
-            // code = FSRObject::id_to_obj(self.get_context().code).as_code();
-            // code = self.get_context().code_inst.unwrap();
         }
 
         let context = self.pop_context();
-        self.thread_allocator.free_code_context(context);
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
             return Ok(FSRObject::none_id());
         }
-        let ret_val = cur.ret_val.take();
+        let ret_val = cur.ret_val.take().unwrap();
 
-        match ret_val {
-            Some(s) => Ok(s),
-            None => Ok(0),
-        }
+        Ok(ret_val)
     }
 
     /// Caller call this function will push the frame by Caller
@@ -3300,7 +3290,7 @@ impl<'a> FSRThreadRuntime<'a> {
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             //println!("epxr: {:?}", expr);
             let v = self.run_expr_wrapper(expr)?;
-            if self.get_context().context_call_count == 0 {
+            if v {
                 break;
             }
 
@@ -3309,7 +3299,6 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let context = self.pop_context();
-        self.thread_allocator.free_code_context(context);
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
             return Ok(FSRObject::none_id());

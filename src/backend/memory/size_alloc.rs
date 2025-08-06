@@ -44,18 +44,7 @@ impl<'a> FSRObjectAllocator<'a> {
     pub fn new_code_context(
         &mut self,
         code: ObjId,
-    ) -> Box<FSCodeContext> {
-        if let Some(mut s) = self.code_context_bins.pop() {
-            s.set_code(code);
-            s.context_call_count = 1;
-            return s;
-        }
-
-        Box::new(FSCodeContext::new_context(code))
-    }
-
-    pub fn free_code_context(&mut self, mut obj: Box<FSCodeContext>) {
-        obj.clear();
-        self.code_context_bins.push(obj);
+    ) -> FSCodeContext {
+        FSCodeContext::new_context(code)
     }
 }

@@ -5,6 +5,8 @@ fn abc() {
     }
 }
 
+v = 0
 for i in abc() {
-    println(i)
+    assert(i == v)
+    v = v + 1
 }
