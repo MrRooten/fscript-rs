@@ -357,9 +357,7 @@ pub struct FSCodeContext {
 
 impl FSCodeContext {
     pub fn new_context(code: ObjId) -> Self {
-        FSCodeContext {
-            code,
-        }
+        FSCodeContext { code }
     }
 
     pub fn clear(&mut self) {}
@@ -1412,11 +1410,9 @@ impl<'a> FSRThreadRuntime<'a> {
             cls_id,
         );
 
-        //args.insert(0, self_id);
         args.push(self_id);
         args.reverse();
-        // fn_obj.call(args, self, code, cls_id);
-        // self.save_ip_to_callstate();
+
         let self_obj = FSRObject::id_to_obj(self_id);
         let self_new = self_obj
             .get_cls_attr("__new__")
@@ -1439,14 +1435,12 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         args.push(obj_id);
         args.reverse();
-        let v = fn_obj
-            .call(
-                args,
-                self,
-                self.get_context().code,
-                FSRObject::obj_to_id(fn_obj),
-            )
-            .unwrap();
+        let v = fn_obj.call(
+            args,
+            self,
+            self.get_context().code,
+            FSRObject::obj_to_id(fn_obj),
+        )?;
 
         let id = v.get_id();
         push_exp!(self, id);
@@ -1522,6 +1516,58 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
+    fn jit_call(
+        &mut self,
+        fn_id: ObjId,
+        args: &mut SmallVec<[ObjId; 4]>,
+        f: &FSRFnInner,
+    ) -> Result<bool, FSRError> {
+        if f.is_async {
+            return Err(FSRError::new(
+                "async function not support in this version",
+                FSRErrCode::NotValidArgs,
+            ));
+        }
+        let code = *f.jit_code.as_ref().unwrap();
+        let jit_code = code as *const u8;
+
+        let frame = self
+            .frame_free_list
+            .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+        self.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
+        for arg in args.iter() {
+            self.get_cur_mut_frame().args.push(*arg);
+        }
+        let call_fn = unsafe {
+            std::mem::transmute::<
+                _,
+                extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
+            >(jit_code)
+        };
+        let res = call_fn(self, self.get_context().code, args, args.len() as i32);
+        let v = self.pop_frame();
+        self.frame_free_list.free(v);
+        push_exp!(self, res);
+        return Ok(false);
+    }
+
+    fn async_call(
+        &mut self,
+        fn_id: ObjId,
+        args: &mut SmallVec<[ObjId; 4]>,
+    ) -> Result<bool, FSRError> {
+        let frame = self
+            .frame_free_list
+            .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+        let value = FSRFuture::new_value(fn_id, frame);
+        let future_id = self
+            .garbage_collect
+            .new_object(value, GlobalObj::FutureCls.get_id());
+
+        push_exp!(self, future_id);
+        Ok(false)
+    }
+
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn call_process_ret(
         &mut self,
@@ -1535,48 +1581,11 @@ impl<'a> FSRThreadRuntime<'a> {
         if fn_obj.is_fsr_function() && !call_method {
             if let FSRnE::FSRFn(f) = &fn_obj.as_fn().fn_def {
                 if f.jit_code.is_some() {
-                    if f.is_async {
-                        return Err(FSRError::new(
-                            "async function not support in this version",
-                            FSRErrCode::NotValidArgs,
-                        ));
-                    }
-                    let code = *f.jit_code.as_ref().unwrap();
-                    let jit_code = code as *const u8;
-
-                    let frame = self
-                        .frame_free_list
-                        .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-                    self.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
-                    for arg in args.iter() {
-                        self.get_cur_mut_frame().args.push(*arg);
-                    }
-                    let call_fn = unsafe {
-                        std::mem::transmute::<
-                            _,
-                            extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
-                        >(jit_code)
-                    };
-                    let res = call_fn(self, self.get_context().code, args, args.len() as i32);
-                    let v = self.pop_frame();
-                    self.frame_free_list.free(v);
-                    push_exp!(self, res);
-                    return Ok(false);
+                    return self.jit_call(fn_id, args, f);
                 }
 
                 if f.is_async {
-                    let frame = self
-                        .frame_free_list
-                        .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-                    let value = FSRFuture::new_value(fn_id, frame);
-                    let future_id = self.garbage_collect.new_object(
-                        value,
-                        get_object_by_global_id(GlobalObj::FutureCls) as ObjId,
-                    );
-
-                    push_exp!(self, future_id);
-                    //panic!("unimplemented: async function call in FSRThreadRuntime");
-                    return Ok(false);
+                    return self.async_call(fn_id, args);
                 }
 
                 let res = fn_obj.call(args, self, self.get_context().code, fn_id)?;
@@ -1719,14 +1728,18 @@ impl<'a> FSRThreadRuntime<'a> {
         //let mut name = "";
 
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
-            if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                let tmp = self.get_cur_frame().ip.0;
-                self.get_cur_mut_frame().ip = (tmp + n.0 as usize + 1_usize, 0);
-                self.get_cur_mut_frame()
-                    .flow_tracker
-                    .push_last_if_test(false);
-                return Ok(true);
-            }
+            let ArgType::IfTestNext(n) = bytecode.get_arg() else {
+                return Err(FSRError::new(
+                    "if test process not have next",
+                    FSRErrCode::NotValidArgs,
+                ));
+            };
+            let cur_ip = self.get_cur_frame().ip.0;
+            self.get_cur_mut_frame().ip = (cur_ip + n.0 as usize + 1_usize, 0);
+            self.get_cur_mut_frame()
+                .flow_tracker
+                .push_last_if_test(false);
+            return Ok(true);
         }
 
         //push_middle!(self, test_val);
@@ -1772,11 +1785,14 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         if self.get_cur_mut_frame().flow_tracker.peek_last_if_test() {
-            if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                self.get_cur_mut_frame().ip =
-                    (self.get_cur_frame().ip.0 + n.0 as usize + 1_usize, 0);
-                return Ok(true);
-            }
+            let ArgType::IfTestNext(n) = bytecode.get_arg() else {
+                return Err(FSRError::new(
+                    "else process not have next",
+                    FSRErrCode::NotValidArgs,
+                ));
+            };
+            self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + n.0 as usize + 1_usize, 0);
+            return Ok(true);
         }
 
         self.get_cur_mut_frame().flow_tracker.false_last_if_test();
@@ -1790,8 +1806,8 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         if self.get_cur_frame().flow_tracker.peek_last_if_test() {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
-                let tmp = self.get_cur_frame().ip.0;
-                self.get_cur_mut_frame().ip = (tmp + n.0 as usize + 1_usize, 0);
+                let cur_ip = self.get_cur_frame().ip.0;
+                self.get_cur_mut_frame().ip = (cur_ip + n.0 as usize + 1_usize, 0);
                 return Ok(true);
             } else {
                 return Err(FSRError::new(
@@ -2778,53 +2794,6 @@ impl<'a> FSRThreadRuntime<'a> {
             .map_err(|_| FSRError::new("Failed to parse float", FSRErrCode::NotValidArgs))
     }
 
-    // fn load_const(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
-    //     match arg.get_arg() {
-    //         ArgType::ConstInteger(index, obj, single_op) => {
-    //             // let i = Self::process_integer(obj)?;
-    //             let i = *obj;
-    //             let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
-    //                 -i
-    //             } else {
-    //                 i
-    //             };
-
-    //             let new_integer = self.garbage_collect.new_object(
-    //                 FSRValue::Integer(i),
-    //                 get_object_by_global_id(GlobalObj::IntegerCls) as ObjId,
-    //             );
-    //             self.get_cur_mut_frame()
-    //                 .insert_const({ *index }, new_integer);
-    //         }
-    //         ArgType::ConstFloat(index, obj, single_op) => {
-    //             let i = Self::process_float(obj)?;
-    //             let i = if single_op.is_some() && single_op.as_ref().unwrap().eq(&SingleOp::Minus) {
-    //                 -1.0 * i
-    //             } else {
-    //                 i
-    //             };
-
-    //             let new_float = self.garbage_collect.new_object(
-    //                 FSRValue::Float(i),
-    //                 get_object_by_global_id(GlobalObj::FloatCls) as ObjId,
-    //             );
-
-    //             self.get_cur_mut_frame().insert_const({ *index }, new_float);
-    //         }
-    //         ArgType::ConstString(index, s) => {
-    //             let new_string = self
-    //                 .garbage_collect
-    //                 .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id());
-
-    //             self.get_cur_mut_frame()
-    //                 .insert_const({ *index }, new_string);
-    //         }
-    //         _ => unimplemented!(),
-    //     }
-
-    //     Ok(false)
-    // }
-
     fn get_chains(
         thread: &FSRThreadRuntime,
         state: &CallFrame,
@@ -3213,15 +3182,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         //self.get_cur_mut_frame().fn_obj = code_id;
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
-            #[cfg(feature = "bytecode_trace")]
-            {
-                println!(
-                    "cur_module: {}",
-                    FSRObject::id_to_obj(self.get_context().code)
-                        .as_code()
-                        .as_string()
-                )
-            }
             self.run_expr_wrapper(expr)?;
             // code = self.get_context().code_inst.unwrap();
         }
@@ -3288,14 +3248,10 @@ impl<'a> FSRThreadRuntime<'a> {
         self.push_context(context);
         let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
-            //println!("epxr: {:?}", expr);
             let v = self.run_expr_wrapper(expr)?;
             if v {
                 break;
             }
-
-            // code = FSRObject::id_to_obj(self.get_context().code).as_code();
-            // code = self.get_context().code_inst.unwrap();
         }
 
         let context = self.pop_context();
