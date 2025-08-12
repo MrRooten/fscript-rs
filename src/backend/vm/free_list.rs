@@ -26,7 +26,7 @@ impl FrameFreeList {
         if let Some(mut frame) = self.list.pop() {
             frame.clear();
             frame.code = code;
-            frame.fn_obj = fn_obj;
+            frame.fn_id = fn_obj;
             return frame;
         }
 

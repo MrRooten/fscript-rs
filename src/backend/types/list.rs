@@ -278,7 +278,7 @@ pub fn sort_by(
             //let thread = unsafe { &mut *thread_ptr }; // Use raw pointer to avoid borrowing issues
 
             let ret = compare_fn
-                .call(&[l_id, r_id], thread, code, compare_fn_id)
+                .call(&[l_id, r_id], thread, code)
                 .unwrap();
             if !FSRObject::id_to_obj(ret.get_id()).is_false() {
                 std::cmp::Ordering::Greater
@@ -332,7 +332,7 @@ pub fn sort_key(
             let l_id = a.load(Ordering::Relaxed);
             //let thread = unsafe { &mut *thread_ptr }; // Use raw pointer to avoid borrowing issues
 
-            let ret = key_fn.call(&[l_id], thread, code, key_fn_id).unwrap();
+            let ret = key_fn.call(&[l_id], thread, code).unwrap();
             let ret_id = ret.get_id();
             let obj = FSRObject::id_to_obj(ret_id);
             if let FSRValue::Integer(i) = &obj.value {
@@ -341,7 +341,7 @@ pub fn sort_key(
                 let ord_fn = obj.get_cls_offset_attr(BinaryOffset::Order).unwrap();
                 let ord_fn_id = ord_fn.load(Ordering::Relaxed);
                 let ord_fn = FSRObject::id_to_obj(ord_fn_id);
-                let ord_value = ord_fn.call(&[ret_id], thread, code, ord_fn_id).unwrap();
+                let ord_value = ord_fn.call(&[ret_id], thread, code).unwrap();
                 let ord_value_id = ord_value.get_id();
                 if let FSRValue::Integer(i) = &FSRObject::id_to_obj(ord_value_id).value {
                     return *i;
@@ -392,7 +392,7 @@ pub fn map(
     if let FSRValue::List(l) = &mut obj.value {
         let mut ret_list = Vec::with_capacity(l.vs.len());
         for id in l.get_items() {
-            let ret = map_fn.call(&[id.load(Ordering::Relaxed)], thread, code, map_fn_id)?;
+            let ret = map_fn.call(&[id.load(Ordering::Relaxed)], thread, code)?;
             let ret_id = ret.get_id();
             ret_list.push(AtomicObjId::new(ret_id));
         }
@@ -423,7 +423,7 @@ pub fn filter(
     if let FSRValue::List(l) = &mut obj.value {
         let mut ret_list = Vec::with_capacity(l.vs.len());
         for id in l.get_items() {
-            let ret = filter_fn.call(&[id.load(Ordering::Relaxed)], thread, code, filter_fn_id)?;
+            let ret = filter_fn.call(&[id.load(Ordering::Relaxed)], thread, code)?;
             let ret_id = ret.get_id();
             if ret_id == FSRObject::true_id() {
                 ret_list.push(AtomicObjId::new(id.load(Ordering::Relaxed)));
@@ -474,7 +474,6 @@ pub fn equal(
                         &[obj_id, other_s.vs[i].load(Ordering::Relaxed)],
                         thread,
                         code,
-                        eq_fn_id,
                     )?
                     .get_id();
                 if equal_res != FSRObject::true_id() {

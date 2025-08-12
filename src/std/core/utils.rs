@@ -249,7 +249,7 @@ pub fn fsr_timeit(
     if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[1]).value {
         let start = std::time::Instant::now();
         for _ in 0..*count {
-            match fn_def.call(&[], thread, code, args[0])? {
+            match fn_def.call(&[], thread, code)? {
                 FSRRetValue::GlobalId(id) => {
                     if FSRObject::is_sp_object(id) {
                         continue;
@@ -269,27 +269,10 @@ pub fn fsr_timeit(
     unimplemented!()
 }
 
-pub fn fsr_sleep(
-    args: *const ObjId,
-    len: usize,
-    thread: &mut FSRThreadRuntime,
-    code: ObjId,
-) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
-    if let FSRValue::Integer(i) = &FSRObject::id_to_obj(args[0]).value {
-        //thread.release();
-        thread.safe_point_to_stop();
-        std::thread::sleep(Duration::from_millis(*i as u64));
-        thread.acquire();
-    }
-
-    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
-}
 
 pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
     let export_fn = FSRFn::from_rust_fn_static(fsr_fn_export, "export");
-    let sleep_fn = FSRFn::from_rust_fn_static(fsr_sleep, "sleep");
     let time_it = FSRFn::from_rust_fn_static(fsr_timeit, "timeit");
     let range = FSRFn::from_rust_fn_static(fsr_fn_range, "range");
     let is_class = FSRFn::from_rust_fn_static(fsr_is_class, "is_class");
@@ -299,7 +282,6 @@ pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let mut m = HashMap::new();
     m.insert("assert", assert_fn);
     m.insert("export", export_fn);
-    m.insert("sleep", sleep_fn);
     m.insert("timeit", time_it);
     m.insert("range", range);
     m.insert("is_class", is_class);

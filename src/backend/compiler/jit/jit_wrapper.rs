@@ -36,7 +36,7 @@ pub extern "C" fn call_fn(
     let obj = FSRObject::id_to_obj(fn_id);
     let args = unsafe { std::slice::from_raw_parts(args, len) };
     // println!("call fn: {:?}", obj);
-    let res = obj.call(args, thread, code, fn_id);
+    let res = obj.call(args, thread, code);
     res.unwrap().get_id()
 }
 
@@ -145,7 +145,7 @@ pub extern "C" fn binary_op(
     if let Some(op_fn) = obj_cls!(left).get_offset_attr(op) {
         let op_fn = op_fn.load(std::sync::atomic::Ordering::Relaxed);
         let fn_obj = FSRObject::id_to_obj(op_fn);
-        let ret = fn_obj.call(&args, thread, code, op_fn).unwrap().get_id();
+        let ret = fn_obj.call(&args, thread, code).unwrap().get_id();
         return ret;
     }
 
@@ -278,7 +278,7 @@ pub extern "C" fn get_iter_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> Obj
         Some(s) => {
             let iter_fn = s.load(Ordering::Relaxed);
             let iter_fn_obj = FSRObject::id_to_obj(iter_fn);
-            let ret = iter_fn_obj.call(&[obj], thread, 0, iter_fn).unwrap();
+            let ret = iter_fn_obj.call(&[obj], thread, 0).unwrap();
             ret.get_id()
         }
         None => obj,
@@ -312,7 +312,7 @@ pub extern "C" fn binary_range(left: ObjId, right: ObjId, thread: &mut FSRThread
 
 pub extern "C" fn get_current_fn_id(thread: &mut FSRThreadRuntime) -> ObjId {
     let frame = thread.get_cur_mut_frame();
-    frame.fn_obj
+    frame.fn_id
 }
 
 pub extern "C" fn get_obj_method(father: ObjId, name: *const u8, len: usize) -> ObjId {

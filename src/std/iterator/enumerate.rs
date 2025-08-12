@@ -38,7 +38,7 @@ impl FSRIterator for FSREnumerateIter {
             .load(std::sync::atomic::Ordering::Relaxed);
         let next_method = FSRObject::id_to_obj(next_method_id);
         let ret = next_method
-            .call(&[self.prev_iterator], thread, self.code, next_method_id)
+            .call(&[self.prev_iterator], thread, self.code)
             .unwrap()
             .get_id();
         if ret == FSRObject::none_id() {

@@ -96,7 +96,6 @@ fn join(
         if let Some(handle) = any.value.as_any_mut().downcast_mut::<FSRThreadHandle>() {
             //thread.release();
             let _ = handle.join();
-            thread.acquire();
         } else {
             unimplemented!()
         }

@@ -193,7 +193,7 @@ impl<'a> FSRValue<'a> {
         if let Some(obj_id) = v {
             let obj_id = obj_id.load(Ordering::Relaxed);
             let obj = FSRObject::id_to_obj(obj_id);
-            let ret = obj.call(&[self_id], thread, code, obj_id);
+            let ret = obj.call(&[self_id], thread, code);
             let ret_value = match ret {
                 Ok(o) => o,
                 Err(_) => {
@@ -691,7 +691,7 @@ impl<'a> FSRObject<'a> {
             }
         };
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, thread, code, self_method)?;
+        let v = method_object.call(args, thread, code)?;
         Ok(v)
     }
 
@@ -741,7 +741,7 @@ impl<'a> FSRObject<'a> {
         if let Some(self_method) = self_object.get_cls_offset_attr(offset) {
             let self_method = self_method.load(Ordering::Relaxed);
             let method_object = Self::id_to_obj(self_method);
-            let v = method_object.call(args, thread, code, self_method)?;
+            let v = method_object.call(args, thread, code)?;
             return Ok(v);
         }
 
@@ -756,7 +756,7 @@ impl<'a> FSRObject<'a> {
         };
         let self_method = self_method.load(Ordering::Relaxed);
         let method_object = Self::id_to_obj(self_method);
-        let v = method_object.call(args, thread, code, self_method)?;
+        let v = method_object.call(args, thread, code)?;
         Ok(v)
     }
 
@@ -828,10 +828,9 @@ impl<'a> FSRObject<'a> {
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         code: ObjId,
-        fn_id: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
-            return fn_def.invoke(args, thread, code, fn_id);
+            return fn_def.invoke(args, thread, code, FSRObject::obj_to_id(self));
         }
         panic!("call: Not a function object");
     }

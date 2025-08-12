@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use crate::backend::types::base::{Area, GlobalObj};
 
 use crate::backend::types::class::FSRClass;
+use crate::backend::types::string::FSRInnerString;
 use crate::backend::vm::virtual_machine::get_object_by_global_id;
 use crate::backend::{
     memory::{size_alloc::FSRObjectAllocator, GarbageCollector},
@@ -299,6 +300,15 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         // else {
         //     self.alloc_when_full(value, cls)
         // }
+    }
+
+    pub fn new_string<IntoS>(&mut self, value: IntoS)
+        -> ObjId
+    where
+        IntoS: Into<String>,
+    {
+        let value = FSRValue::String(FSRInnerString::new(value).into());
+        self.new_object(value, get_object_by_global_id(GlobalObj::StringCls))
     }
 
     pub fn collect(&mut self, full: bool) {

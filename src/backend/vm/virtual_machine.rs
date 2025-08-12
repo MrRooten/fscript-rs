@@ -164,28 +164,6 @@ impl<'a> FSRVM<'a> {
         1
     }
 
-    pub fn stop_all_threads(&self) {
-        let len = self.threads.lock().unwrap().len();
-        for i in 0..len {
-            let thread = self.get_thread(i).unwrap();
-            thread.rt_stop();
-        }
-
-        for i in 0..len {
-            let thread = self.get_thread(i).unwrap();
-            thread.rt_wait_stop();
-        }
-        println!("stop all threads done");
-    }
-
-    pub fn continue_all_threads(&self) {
-        let len = self.threads.lock().unwrap().len();
-        for i in 0..len {
-            let thread: &mut FSRThreadRuntime<'a> = self.get_thread(i).unwrap();
-            thread.rt_continue();
-        }
-    }
-
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_false_id(&self) -> ObjId {
         2
