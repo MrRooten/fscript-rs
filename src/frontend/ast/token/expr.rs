@@ -700,6 +700,48 @@ impl FSRExpr {
         Ok(())
     }
 
+    fn _variable_process(
+        source: &[u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext,
+        context: &mut ASTContext,
+    ) -> Result<(), SyntaxError> {
+        macro_rules! cur_str {
+            ($source: expr) => {
+                &$source[ctx.start..ctx.start + ctx.length]
+            };
+        }
+        let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
+        if name.eq("and") || name.eq("or") || name.eq("not") {
+            if name.eq("not") {
+                ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
+                ctx.single_op = Some(SingleOp::Not);
+                ctx.start += ctx.length;
+                ctx.length = 0;
+                ctx.states.pop_state();
+                return Ok(());
+            }
+            Self::end_of_operator(source, ignore_nline, meta, ctx, context)?;
+            return Ok(());
+        }
+        let mut sub_meta = meta.new_offset(ctx.start);
+        let fsr_type = context.get_token_var_type(&name, context);
+        let mut variable = FSRVariable::parse(&name, sub_meta, fsr_type).unwrap();
+        if context.is_variable_defined_in_curr(variable.get_name()) {
+            variable.is_defined = true;
+        } else {
+            context.ref_variable(variable.get_name());
+        }
+        // variable.single_op = ctx.single_op;
+        // ctx.single_op = None;
+        ctx.candidates.push(FSRToken::Variable(variable));
+        ctx.start += ctx.length;
+        ctx.length = 0;
+        ctx.states.pop_state();
+        Ok(())
+    }
+
     #[inline]
     fn variable_process(
         source: &[u8],
@@ -728,34 +770,7 @@ impl FSRExpr {
         }
 
         if ctx.start + ctx.length >= source.len() {
-            let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
-            if name.eq("and") || name.eq("or") || name.eq("not") {
-                if name.eq("not") {
-                    ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
-                    ctx.single_op = Some(SingleOp::Not);
-                    ctx.start += ctx.length;
-                    ctx.length = 0;
-                    ctx.states.pop_state();
-                    return Ok(());
-                }
-                Self::end_of_operator(source, ignore_nline, meta, ctx, context)?;
-                return Ok(());
-            }
-            let mut sub_meta = meta.new_offset(ctx.start);
-            let fsr_type = context.get_token_var_type(&name, context);
-            let mut variable = FSRVariable::parse(&name, sub_meta, fsr_type).unwrap();
-            if context.is_variable_defined_in_curr(variable.get_name()) {
-                variable.is_defined = true;
-            } else {
-                context.ref_variable(variable.get_name());
-            }
-            // variable.single_op = ctx.single_op;
-            // ctx.single_op = None;
-            ctx.candidates.push(FSRToken::Variable(variable));
-            ctx.start += ctx.length;
-            ctx.length = 0;
-            ctx.states.pop_state();
-            return Ok(());
+            return Self::_variable_process(source, ignore_nline, meta, ctx, context);
         }
 
         macro_rules! cur_byte {
@@ -763,8 +778,6 @@ impl FSRExpr {
                 $source[ctx.start + ctx.length]
             };
         }
-
-        
 
         if cur_byte!(source) == b'\'' {
             // Process like f'user: "{name}"'
@@ -796,34 +809,7 @@ impl FSRExpr {
         if ctx.start + ctx.length >= source.len()
             || (cur_byte!(source) != b'(' && cur_byte!(source) != b'[')
         {
-            let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
-            if name.eq("and") || name.eq("or") || name.eq("not") {
-                if name.eq("not") {
-                    ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
-                    ctx.single_op = Some(SingleOp::Not);
-                    ctx.start += ctx.length;
-                    ctx.length = 0;
-                    ctx.states.pop_state();
-                    return Ok(());
-                }
-                Self::end_of_operator(source, ignore_nline, meta, ctx, context)?;
-                return Ok(());
-            }
-            let mut sub_meta = meta.new_offset(ctx.start);
-            let fsr_type = context.get_token_var_type(&name, context);
-            let mut variable = FSRVariable::parse(&name, sub_meta, fsr_type).unwrap();
-            if context.is_variable_defined_in_curr(variable.get_name()) {
-                variable.is_defined = true;
-            } else {
-                context.ref_variable(variable.get_name());
-            }
-            // variable.single_op = ctx.single_op;
-            // ctx.single_op = None;
-            ctx.candidates.push(FSRToken::Variable(variable));
-            ctx.start += ctx.length;
-            ctx.length = 0;
-            ctx.states.pop_state();
-            return Ok(());
+            return Self::_variable_process(source, ignore_nline, meta, ctx, context);
         }
 
         Ok(())

@@ -628,7 +628,7 @@ try {
 
     #[test]
     fn test_format_string() {
-        let s = "f'user: {abc}'";
+        let s = "f'user: {abc}, { 123 + 456 }'";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();

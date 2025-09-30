@@ -154,9 +154,9 @@ pub struct FSRFormatStringInst {
 
 #[derive(Debug, Clone)]
 struct BracedExpr {
-    start: usize,    // '{' 的索引
-    end: usize,      // '}' 的索引（包含）
-    content: String, // 不含最外层花括号的内容
+    start: usize,   
+    end: usize,    
+    content: String, 
 }
 
 impl FSRFormatStringInst {
@@ -173,7 +173,6 @@ impl FSRFormatStringInst {
         let mut i = 0;
         while i < chars.len() {
             if chars[i] == '{' {
-                // 跳过转义 "{{"
                 if i + 1 < chars.len() && chars[i + 1] == '{' {
                     i += 2;
                     continue;
@@ -220,7 +219,6 @@ impl FSRFormatStringInst {
                         '}' if !in_sq && !in_dq => {
                             depth -= 1;
                             if depth == 0 {
-                                // 完整表达式闭合
                                 res.push(BracedExpr {
                                     start,
                                     end: i,
@@ -237,7 +235,6 @@ impl FSRFormatStringInst {
                     i += 1;
                 }
             } else if chars[i] == '}' {
-                // 跳过转义 "}}"
                 if i + 1 < chars.len() && chars[i + 1] == '}' {
                     i += 2;
                 } else {
