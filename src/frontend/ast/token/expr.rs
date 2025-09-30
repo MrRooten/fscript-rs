@@ -416,7 +416,11 @@ impl FSRExpr {
         let s = FSRExpr::bytes_to_unescaped_string(s)
             .map_err(|e| SyntaxError::new(&meta.new_offset(ctx.start), e.to_string()))?;
         let mut sub_meta = meta.new_offset(ctx.start);
-        let constant = FSRConstant::from_str(s.as_bytes(), sub_meta, FSRConstant::convert_str_type(string_name.unwrap_or("")));
+        let constant = FSRConstant::from_str(
+            s.as_bytes(),
+            sub_meta.clone(),
+            FSRConstant::convert_str_type(string_name.unwrap_or(""), &s, sub_meta, context),
+        );
         ctx.candidates.push(FSRToken::Constant(constant));
         ctx.length += 1;
         ctx.start += ctx.length;
@@ -473,7 +477,13 @@ impl FSRExpr {
 
         let s = &source[ctx.start..ctx.start + ctx.length];
         let mut sub_meta = meta.new_offset(ctx.start);
-        let constant = FSRConstant::from_str(s, sub_meta, FSRConstant::convert_str_type(string_name.unwrap_or("")));
+        let const_type = FSRConstant::convert_str_type(
+            string_name.unwrap_or(""),
+            str::from_utf8(s).unwrap(),
+            sub_meta.clone(),
+            context,
+        );
+        let constant = FSRConstant::from_str(s, sub_meta, const_type);
         ctx.candidates.push(FSRToken::Constant(constant));
         ctx.length += 1;
         ctx.start += ctx.length;
@@ -711,17 +721,50 @@ impl FSRExpr {
             ctx.length += 1;
         }
 
+        macro_rules! cur_str {
+            ($source: expr) => {
+                &$source[ctx.start..ctx.start + ctx.length]
+            };
+        }
+
+        if ctx.start + ctx.length >= source.len() {
+            let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
+            if name.eq("and") || name.eq("or") || name.eq("not") {
+                if name.eq("not") {
+                    ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
+                    ctx.single_op = Some(SingleOp::Not);
+                    ctx.start += ctx.length;
+                    ctx.length = 0;
+                    ctx.states.pop_state();
+                    return Ok(());
+                }
+                Self::end_of_operator(source, ignore_nline, meta, ctx, context)?;
+                return Ok(());
+            }
+            let mut sub_meta = meta.new_offset(ctx.start);
+            let fsr_type = context.get_token_var_type(&name, context);
+            let mut variable = FSRVariable::parse(&name, sub_meta, fsr_type).unwrap();
+            if context.is_variable_defined_in_curr(variable.get_name()) {
+                variable.is_defined = true;
+            } else {
+                context.ref_variable(variable.get_name());
+            }
+            // variable.single_op = ctx.single_op;
+            // ctx.single_op = None;
+            ctx.candidates.push(FSRToken::Variable(variable));
+            ctx.start += ctx.length;
+            ctx.length = 0;
+            ctx.states.pop_state();
+            return Ok(());
+        }
+
         macro_rules! cur_byte {
             ($source: expr) => {
                 $source[ctx.start + ctx.length]
             };
         }
 
-        macro_rules! cur_str {
-            ($source: expr) => {
-                &$source[ctx.start..ctx.start + ctx.length]
-            };
-        }
+        
 
         if cur_byte!(source) == b'\'' {
             // Process like f'user: "{name}"'
@@ -732,14 +775,7 @@ impl FSRExpr {
             // pop 'f' variable state
             ctx.states.pop_state();
             ctx.states.push_state(ExprState::SingleString);
-            Self::single_quote_loop(
-                source,
-                ignore_nline,
-                meta,
-                ctx,
-                context,
-                Some(string_name),
-            )?;
+            Self::single_quote_loop(source, ignore_nline, meta, ctx, context, Some(string_name))?;
             return Ok(());
         }
 
@@ -753,14 +789,7 @@ impl FSRExpr {
             // pop 'f' variable state
             ctx.states.pop_state();
             ctx.states.push_state(ExprState::SingleString);
-            Self::double_quote_loop(
-                source,
-                ignore_nline,
-                meta,
-                ctx,
-                context,
-                Some(string_name),
-            )?;
+            Self::double_quote_loop(source, ignore_nline, meta, ctx, context, Some(string_name))?;
             return Ok(());
         }
 
@@ -1114,7 +1143,6 @@ impl FSRExpr {
                 } else {
                     context.ref_variable(call.get_name());
                 }
-
 
                 if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
                     let mut stack_expr = vec![];
