@@ -182,6 +182,18 @@ impl FSRFormatStringInst {
         let mut res = Vec::new();
         let mut i = 0;
         while i < chars.len() {
+            // handle general backslash escape outside expressions:
+            // if we see '\' and there's a next char, skip both so '\{' won't start an expression
+            if chars[i] == '\\' {
+                if i + 1 < chars.len() {
+                    i += 2;
+                    continue;
+                } else {
+                    i += 1;
+                    continue;
+                }
+            }
+
             if chars[i] == '{' {
                 if i + 1 < chars.len() && chars[i + 1] == '{' {
                     i += 2;
@@ -200,15 +212,19 @@ impl FSRFormatStringInst {
                     let c = chars[i];
 
                     if escape {
+                        // previous '\' escapes this char; keep both if you prefer,
+                        // here we keep the backslash (already pushed) and this char:
                         buf.push(c);
                         escape = false;
                         i += 1;
                         continue;
                     }
 
-                    if (in_sq || in_dq) && c == '\\' {
-                        escape = true;
+                    // treat backslash as escape anywhere inside braced expr
+                    if c == '\\' {
+                        // push the backslash itself (so original text preserved)
                         buf.push(c);
+                        escape = true;
                         i += 1;
                         continue;
                     }
@@ -298,7 +314,7 @@ fn test_format() {
 
 #[test]
 fn test_format_parser() {
-    let s = r#""hello {process_inner("s\"df")}, escaped {{ not expr }}, nested {a + 1}" "#;
+    let s = r#""hello {process_inner("s\"df")}, escaped \{ not expr \}, nested {a + 1}" "#;
     let mut parser = FSRFormatStringInst::new(s.to_string());
     let mut context = ASTContext::new_context();
     let meta = FSRPosition::new();

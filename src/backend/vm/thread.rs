@@ -2344,12 +2344,12 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn replace_string(s: &str, args: &[String]) -> String {
-        let chars: Vec<char> = s.chars().collect();
+        let chars = s.as_bytes();
         let mut index_record = Vec::new();
         let mut i = 0;
         while i < chars.len() {
-            if chars[i] == '{' {
-                if i + 1 < chars.len() && chars[i + 1] == '{' {
+            if chars[i] == b'{' {
+                if i + 1 < chars.len() && chars[i + 1] == b'{' {
                     i += 2;
                     continue;
                 }
@@ -2357,7 +2357,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 let start = i;
                 i += 1;
                 let mut depth = 1usize;
-                let mut buf = String::new();
                 let mut in_sq = false;
                 let mut in_dq = false;
                 let mut escape = false;
@@ -2366,48 +2365,44 @@ impl<'a> FSRThreadRuntime<'a> {
                     let c = chars[i];
 
                     if escape {
-                        buf.push(c);
                         escape = false;
                         i += 1;
                         continue;
                     }
 
-                    if (in_sq || in_dq) && c == '\\' {
+                    if (in_sq || in_dq) && c == b'\\' {
                         escape = true;
-                        buf.push(c);
                         i += 1;
                         continue;
                     }
 
                     match c {
-                        '\'' if !in_dq => {
+                        b'\'' if !in_dq => {
                             in_sq = !in_sq;
-                            buf.push(c);
                         }
-                        '"' if !in_sq => {
+                        b'"' if !in_sq => {
                             in_dq = !in_dq;
-                            buf.push(c);
                         }
-                        '{' if !in_sq && !in_dq => {
+                        b'{' if !in_sq && !in_dq => {
                             depth += 1;
-                            buf.push(c);
                         }
-                        '}' if !in_sq && !in_dq => {
+                        b'}' if !in_sq && !in_dq => {
                             depth -= 1;
                             if depth == 0 {
                                 index_record.push(Range { start, end: i + 1 });
                                 break;
                             } else {
-                                buf.push(c);
                             }
                         }
-                        _ => buf.push(c),
+                        _ => {
+                            
+                        },
                     }
 
                     i += 1;
                 }
-            } else if chars[i] == '}' {
-                if i + 1 < chars.len() && chars[i + 1] == '}' {
+            } else if chars[i] == b'}' {
+                if i + 1 < chars.len() && chars[i + 1] == b'}' {
                     i += 2;
                 } else {
                     i += 1;
@@ -2417,17 +2412,17 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        let mut res = String::new();
+        let mut res = vec![];
         let index_gap = Self::gaps_in_range(0..chars.len(), index_record.iter().map(|r| r.start..r.end).collect());
         let mut new_chars = vec![];
         let mut i = 0;
         for gap in index_gap {
             new_chars.extend_from_slice(&chars[gap]);
-            new_chars.extend_from_slice(args[i].chars().collect::<Vec<char>>().as_slice());
+            new_chars.extend_from_slice(args[i].as_bytes());
             i += 1;
         }
         res.extend(new_chars);
-        res
+        String::from_utf8(res).unwrap()
     }
 
     fn format_process(
@@ -2446,6 +2441,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         if format_args_len == 0 {
+            // no format args, just push the string back
             let value = FSRString::new_value(format_str.as_str().to_string());
             let res = self.garbage_collect.new_object(
                 value,
