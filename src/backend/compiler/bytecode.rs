@@ -370,7 +370,7 @@ pub enum ArgType {
     LoadTrue,
     LoadFalse,
     LoadNone,
-    FormatStringLen(String), // length, format string
+    FormatStringLen(u64, String), // length, format string
     None,
 }
 
@@ -1951,7 +1951,7 @@ impl<'a> Bytecode {
 
             result.push(BytecodeArg {
                 operator: BytecodeOperator::FormatString,
-                arg: ArgType::FormatStringLen(format_string.format_str.clone()),
+                arg: ArgType::FormatStringLen(args_len as u64, format_string.format_str.clone()),
                 info: FSRByteInfo::new(&const_map.lines, token.get_meta().clone()),
             });
 

@@ -589,11 +589,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn call_stack(&self) -> Vec<ObjId> {
-        let mut fns = self
-            .call_frames
-            .iter()
-            .map(|x| x.fn_id)
-            .collect::<Vec<_>>();
+        let mut fns = self.call_frames.iter().map(|x| x.fn_id).collect::<Vec<_>>();
         fns.push(self.get_cur_frame().fn_id);
         fns
     }
@@ -1988,10 +1984,9 @@ impl<'a> FSRThreadRuntime<'a> {
                         i
                     };
 
-                    let new_integer = self.garbage_collect.new_object(
-                        FSRValue::Integer(i),
-                        gid(GlobalObj::IntegerCls) as ObjId,
-                    );
+                    let new_integer = self
+                        .garbage_collect
+                        .new_object(FSRValue::Integer(i), gid(GlobalObj::IntegerCls) as ObjId);
                     new_integer
                 }
                 FSROrinStr2::Float(f, single_op) => {
@@ -2004,10 +1999,9 @@ impl<'a> FSRThreadRuntime<'a> {
                         i
                     };
 
-                    let new_float = self.garbage_collect.new_object(
-                        FSRValue::Float(i),
-                        gid(GlobalObj::FloatCls) as ObjId,
-                    );
+                    let new_float = self
+                        .garbage_collect
+                        .new_object(FSRValue::Float(i), gid(GlobalObj::FloatCls) as ObjId);
                     new_float
                 }
                 FSROrinStr2::String(s) => {
@@ -2287,6 +2281,198 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_context().set_code(code);
         //self.get_cur_mut_context().context_call_count -= 1;
         Ok(true)
+    }
+
+    fn gaps_in_range(
+        main: std::ops::Range<usize>,
+        ranges: Vec<std::ops::Range<usize>>,
+    ) -> Vec<std::ops::Range<usize>> {
+        use std::cmp::{max, min};
+
+        if main.start >= main.end {
+            return vec![];
+        }
+
+        // 1) clamp each range to main, drop empty ones
+        let mut clamped: Vec<_> = ranges
+            .into_iter()
+            .map(|r| {
+                let s = max(r.start, main.start);
+                let e = min(r.end, main.end);
+                s..e
+            })
+            .filter(|r| r.start < r.end)
+            .collect();
+
+        if clamped.is_empty() {
+            return vec![main];
+        }
+
+        // 2) sort by start
+        clamped.sort_by_key(|r| r.start);
+
+        // 3) merge overlaps
+        let mut merged: Vec<std::ops::Range<usize>> = Vec::with_capacity(clamped.len());
+        let mut cur = clamped[0].clone();
+        for r in clamped.into_iter().skip(1) {
+            if r.start <= cur.end {
+                // overlap or touch
+                cur.end = std::cmp::max(cur.end, r.end);
+            } else {
+                merged.push(cur);
+                cur = r;
+            }
+        }
+        merged.push(cur);
+
+        // 4) collect gaps between main.start .. merged.. .. main.end
+        let mut gaps = Vec::new();
+        let mut cursor = main.start;
+        for m in merged {
+            if m.start > cursor {
+                gaps.push(cursor..m.start);
+            }
+            cursor = std::cmp::max(cursor, m.end);
+            if cursor >= main.end {
+                break;
+            }
+        }
+        if cursor < main.end {
+            gaps.push(cursor..main.end);
+        }
+        gaps
+    }
+
+    pub fn replace_string(s: &str, args: &[String]) -> String {
+        let chars: Vec<char> = s.chars().collect();
+        let mut index_record = Vec::new();
+        let mut i = 0;
+        while i < chars.len() {
+            if chars[i] == '{' {
+                if i + 1 < chars.len() && chars[i + 1] == '{' {
+                    i += 2;
+                    continue;
+                }
+
+                let start = i;
+                i += 1;
+                let mut depth = 1usize;
+                let mut buf = String::new();
+                let mut in_sq = false;
+                let mut in_dq = false;
+                let mut escape = false;
+
+                while i < chars.len() {
+                    let c = chars[i];
+
+                    if escape {
+                        buf.push(c);
+                        escape = false;
+                        i += 1;
+                        continue;
+                    }
+
+                    if (in_sq || in_dq) && c == '\\' {
+                        escape = true;
+                        buf.push(c);
+                        i += 1;
+                        continue;
+                    }
+
+                    match c {
+                        '\'' if !in_dq => {
+                            in_sq = !in_sq;
+                            buf.push(c);
+                        }
+                        '"' if !in_sq => {
+                            in_dq = !in_dq;
+                            buf.push(c);
+                        }
+                        '{' if !in_sq && !in_dq => {
+                            depth += 1;
+                            buf.push(c);
+                        }
+                        '}' if !in_sq && !in_dq => {
+                            depth -= 1;
+                            if depth == 0 {
+                                index_record.push(Range { start, end: i + 1 });
+                                break;
+                            } else {
+                                buf.push(c);
+                            }
+                        }
+                        _ => buf.push(c),
+                    }
+
+                    i += 1;
+                }
+            } else if chars[i] == '}' {
+                if i + 1 < chars.len() && chars[i + 1] == '}' {
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            } else {
+                i += 1;
+            }
+        }
+
+        let mut res = String::new();
+        let index_gap = Self::gaps_in_range(0..chars.len(), index_record.iter().map(|r| r.start..r.end).collect());
+        let mut new_chars = vec![];
+        let mut i = 0;
+        for gap in index_gap {
+            new_chars.extend_from_slice(&chars[gap]);
+            new_chars.extend_from_slice(args[i].chars().collect::<Vec<char>>().as_slice());
+            i += 1;
+        }
+        res.extend(new_chars);
+        res
+    }
+
+    fn format_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let format_args_len;
+        let format_str = if let ArgType::FormatStringLen(args_len, s) = bytecode.get_arg() {
+            format_args_len = *args_len;
+            s
+        } else {
+            return Err(FSRError::new(
+                "not a format string",
+                FSRErrCode::NotValidArgs,
+            ));
+        };
+
+        let mut arg_strings = vec![];
+
+        for _ in 0..format_args_len {
+            let arg_id = pop_exp!(self).ok_or_else(|| {
+                FSRError::new(
+                    "Failed to pop format argument from stack in format_process",
+                    FSRErrCode::EmptyExpStack,
+                )
+            })?;
+
+            let obj = FSRObject::id_to_obj(arg_id);
+            let res = obj.to_string(self, self.get_context().code);
+            if let FSRValue::String(s) = &res {
+                arg_strings.push(s.as_str().to_string());
+            }
+        }
+
+        let mut result = Self::replace_string(format_str.as_str(), &arg_strings);
+
+        let value = FSRString::new_value(result);
+        let res = self.garbage_collect.new_object(
+            value,
+            crate::backend::types::base::GlobalObj::StringCls.get_id(),
+        );
+
+        push_exp!(self, res);
+
+        Ok(false)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -2574,8 +2760,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .cloned()
             .unwrap();
         let obj_value = FSRObject::id_to_obj(obj);
-        let res = if obj_value.cls
-            == FSRObject::id_to_obj(gid(GlobalObj::InnerIterator)).as_class()
+        let res = if obj_value.cls == FSRObject::id_to_obj(gid(GlobalObj::InnerIterator)).as_class()
         {
             // next_obj(&[obj], self, self.get_context().code)?
             let args = [obj];
@@ -2762,6 +2947,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::TryException => Self::try_exception_process(self, bytecode),
             BytecodeOperator::Yield => Self::yield_process(self, bytecode),
             BytecodeOperator::Await => Self::await_process(self, bytecode),
+            BytecodeOperator::FormatString => Self::format_process(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3408,6 +3594,25 @@ mod test {
         gc_info()
         gc_collect()
         gc_info()
+        "#;
+        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
+        let obj_id = FSRVM::leak_object(obj);
+        let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
+        let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+        obj.as_mut_module().init_fn_map(v);
+        // let v = v.remove("__main__").unwrap();
+        // let base_module = FSRVM::leak_object(Box::new(v));
+        let mut runtime = FSRThreadRuntime::new_runtime();
+        runtime.start(obj_id).unwrap();
+    }
+
+    #[test]
+    fn test_format() {
+        FSRVM::single();
+        let source_code = r#"
+        a = "abc"
+        c = f"hello {1 + 1}"
+        println(c)
         "#;
         let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
