@@ -50,6 +50,12 @@ pub enum FSRConstType {
     RegexString,
 }
 
+impl FSRConstType {
+    pub fn is_format_string(&self) -> bool {
+        matches!(self, FSRConstType::FormatString(_))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FSRConstant {
     const_str: FSROrinStr,
@@ -61,6 +67,10 @@ pub struct FSRConstant {
 }
 
 impl FSRConstant {
+    pub fn get_const_type(&self) -> &FSRConstType {
+        &self.const_type
+    }
+
     pub fn get_const_str(&self) -> &FSROrinStr {
         &self.const_str
     }

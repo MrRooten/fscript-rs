@@ -1,6 +1,5 @@
 use std::{
-    collections::HashMap,
-    sync::atomic::{AtomicU64, Ordering},
+    collections::HashMap, result, sync::atomic::{AtomicU64, Ordering}
 };
 
 use crate::{
@@ -19,7 +18,7 @@ use crate::{
         block::FSRBlock,
         call::FSRCall,
         class::FSRClassFrontEnd,
-        constant::{FSRConstant, FSRConstantType, FSROrinStr, FSROrinStr2},
+        constant::{FSRConstType, FSRConstant, FSRConstantType, FSROrinStr, FSROrinStr2},
         expr::{FSRExpr, SingleOp},
         for_statement::FSRFor,
         function_def::FSRFnDef,
@@ -62,7 +61,11 @@ macro_rules! ensure_const_id {
             } else {
                 *$var_map.last().unwrap().const_map.values().max().unwrap() + 1
             };
-            $var_map.last_mut().unwrap().const_map.insert(key.clone(), r);
+            $var_map
+                .last_mut()
+                .unwrap()
+                .const_map
+                .insert(key.clone(), r);
         }
         *$var_map.last().unwrap().const_map.get(&key).unwrap()
     }};
@@ -240,6 +243,7 @@ pub enum BytecodeOperator {
     TryException = 51,
     Await = 52, // await expression
     Yield = 53, // yield expression
+    FormatString = 54,
     Load = 254,
 }
 
@@ -366,6 +370,7 @@ pub enum ArgType {
     LoadTrue,
     LoadFalse,
     LoadNone,
+    FormatStringLen(String), // length, format string
     None,
 }
 
@@ -1573,7 +1578,6 @@ impl<'a> Bytecode {
             info: FSRByteInfo::new(&const_map.lines, for_def.get_meta().clone()),
         });
 
-
         result.push(load_next);
         result.append(&mut block_items);
         let end = vec![BytecodeArg {
@@ -1929,8 +1933,33 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
+        if let FSRConstType::FormatString(format_string) = token.get_const_type() {
+            let mut result = vec![];
+            let args_len = format_string.arg_expr.len();
+            for token in format_string.arg_expr.iter().rev() {
+                let mut v =
+                    Bytecode::load_token_with_map(&token.expr, var_map, const_map, false, false);
+                if v.is_empty() {
+                    continue;
+                }
+                if v.len() > 1 {
+                    panic!("Format string argument should be a single expression");
+                }
+
+                result.append(&mut v[0]);
+            }
+
+            result.push(BytecodeArg {
+                operator: BytecodeOperator::FormatString,
+                arg: ArgType::FormatStringLen(format_string.format_str.clone()),
+                info: FSRByteInfo::new(&const_map.lines, token.get_meta().clone()),
+            });
+
+            return result
+        }
+
         let c = token.get_const_str();
-        
+
         let id = ensure_const_id!(var_map, c);
 
         let mut result_list = vec![BytecodeArg {
@@ -2073,7 +2102,11 @@ impl<'a> Bytecode {
                 FSROrinStr2::Integer(i, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::ConstInteger(*const_var.1, Self::process_integer(i.as_str()), *v),
+                        arg: ArgType::ConstInteger(
+                            *const_var.1,
+                            Self::process_integer(i.as_str()),
+                            *v,
+                        ),
                         info: FSRByteInfo::new(&bytecontext.lines, FSRPosition::new()),
                     });
                 }
@@ -2170,7 +2203,6 @@ impl<'a> Bytecode {
             false
         };
 
-
         let class_var_map = VarMap::new(class_def.get_name());
         var_map.push(class_var_map);
         const_map.cur_fn_name.push(name.to_string());
@@ -2238,7 +2270,11 @@ impl<'a> Bytecode {
                 FSROrinStr2::Integer(i, v) => {
                     const_loader.push(BytecodeArg {
                         operator: BytecodeOperator::LoadConst,
-                        arg: ArgType::ConstInteger(*const_var.1, Self::process_integer(i.as_str()), *v),
+                        arg: ArgType::ConstInteger(
+                            *const_var.1,
+                            Self::process_integer(i.as_str()),
+                            *v,
+                        ),
                         info: FSRByteInfo::new(&const_table.lines, FSRPosition::new()),
                     });
                 }
@@ -2660,6 +2696,16 @@ abc()
         let expr = "
         a.try
         ";
+
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
+        println!("{:#?}", v);
+    }
+
+    #[test]
+    fn test_format_string() {
+        let expr = r#"f"Hello, {name}""#;
 
         let meta = FSRPosition::new();
         let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
