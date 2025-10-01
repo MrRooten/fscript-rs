@@ -2445,6 +2445,17 @@ impl<'a> FSRThreadRuntime<'a> {
             ));
         };
 
+        if format_args_len == 0 {
+            let value = FSRString::new_value(format_str.as_str().to_string());
+            let res = self.garbage_collect.new_object(
+                value,
+                crate::backend::types::base::GlobalObj::StringCls.get_id(),
+            );
+
+            push_exp!(self, res);
+            return Ok(false);
+        }
+
         let mut arg_strings = vec![];
 
         for _ in 0..format_args_len {

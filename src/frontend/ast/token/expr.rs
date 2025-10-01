@@ -366,6 +366,91 @@ impl FSRExpr {
         Ok(out)
     }
 
+    pub fn quoted_len(s: &[u8]) -> Option<usize> {
+        let bytes = s;
+        let n = bytes.len();
+
+        // helper: count consecutive backslashes immediately before position `pos`
+        fn backslash_count_before(bytes: &[u8], pos: usize) -> usize {
+            let mut cnt = 0usize;
+            let mut i = pos;
+            while i > 0 {
+                if bytes[i - 1] == b'\\' {
+                    cnt += 1;
+                    i -= 1;
+                } else {
+                    break;
+                }
+            }
+            cnt
+        }
+
+        // find first unescaped double quote
+        let mut start_byte_idx: Option<usize> = None;
+        for i in 0..n {
+            if bytes[i] == b'"' {
+                let bs = backslash_count_before(bytes, i);
+                if bs % 2 == 0 {
+                    start_byte_idx = Some(i + 1); // content starts after this quote
+                    break;
+                }
+            }
+        }
+        let start = match start_byte_idx {
+            Some(v) => v,
+            None => return None,
+        };
+
+        // scan for matching end quote, tracking brace depth (only inside quotes)
+        let mut brace_depth: isize = 0;
+        let mut i = start;
+        while i < n {
+            match bytes[i] {
+                b'\\' => {
+                    // skip escaped byte (if any) — an escaped byte cannot start a quote/bracket
+                    // But still we must advance by 2 if possible.
+                    i += 1; // move to escaped char
+                    if i < n {
+                        i += 1;
+                    } // skip it
+                }
+                b'{' => {
+                    // if not escaped, increase depth
+                    let bs = backslash_count_before(bytes, i);
+                    if bs % 2 == 0 {
+                        brace_depth += 1;
+                    }
+                    i += 1;
+                }
+                b'}' => {
+                    let bs = backslash_count_before(bytes, i);
+                    if bs % 2 == 0 {
+                        if brace_depth > 0 {
+                            brace_depth -= 1;
+                        }
+                    }
+                    i += 1;
+                }
+                b'"' => {
+                    let bs = backslash_count_before(bytes, i);
+                    if bs % 2 == 0 && brace_depth == 0 {
+                        // found closing top-level quote
+                        let content = &s[start..i]; // safe: start and i are byte indices at char boundaries because they came from original bytes
+                        return Some(content.len());
+                    } else {
+                        i += 1;
+                    }
+                }
+                _ => {
+                    i += 1;
+                }
+            }
+        }
+
+        // no closing quote found
+        None
+    }
+
     #[inline]
     fn double_quote_loop(
         source: &[u8],
@@ -382,34 +467,46 @@ impl FSRExpr {
                 format!("{:?} can not follow string", s_op),
             ));
         }
-        ctx.start += 1;
 
-        loop {
-            if ctx.start + ctx.length >= source.len() {
-                let mut sub_meta = meta.new_offset(ctx.start);
-                let err = SyntaxError::new_with_type(
-                    &sub_meta,
-                    "Not Close for Double Quote",
-                    SyntaxErrType::QuoteNotClose,
-                );
-                return Err(err);
-            }
-            let c = source[ctx.start + ctx.length] as char;
-            if ctx.states.eq_peek(&ExprState::EscapeChar) {
-                ctx.states.pop_state();
+        let is_f_string = if let Some(name) = string_name {
+            name.eq("f")
+        } else {
+            false
+        };
+
+        if is_f_string {
+           ctx.length = Self::quoted_len(&source[ctx.start..]).unwrap();
+           ctx.start += 1;
+        } else {
+            ctx.start += 1;
+
+            loop {
+                if ctx.start + ctx.length >= source.len() {
+                    let mut sub_meta = meta.new_offset(ctx.start);
+                    let err = SyntaxError::new_with_type(
+                        &sub_meta,
+                        "Not Close for Double Quote",
+                        SyntaxErrType::QuoteNotClose,
+                    );
+                    return Err(err);
+                }
+                let c = source[ctx.start + ctx.length] as char;
+                if ctx.states.eq_peek(&ExprState::EscapeChar) {
+                    ctx.states.pop_state();
+                    ctx.length += 1;
+                    continue;
+                }
+
+                if c == '\"' {
+                    break;
+                }
+
+                if c == '\\' {
+                    ctx.states.push_state(ExprState::EscapeChar);
+                }
+
                 ctx.length += 1;
-                continue;
             }
-
-            if c == '\"' {
-                break;
-            }
-
-            if c == '\\' {
-                ctx.states.push_state(ExprState::EscapeChar);
-            }
-
-            ctx.length += 1;
         }
 
         let s = &source[ctx.start..ctx.start + ctx.length];
