@@ -1,4 +1,4 @@
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, utils::error::FSRError};
+use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, to_rs_list, utils::error::FSRError};
 
 use super::{base::{GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
@@ -18,7 +18,7 @@ pub fn not_equal(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args[0] == FSRObject::none_id() {
         return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
     }
@@ -38,7 +38,7 @@ pub fn equal(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args[1] == FSRObject::none_id() {
         return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
     }

@@ -4,7 +4,7 @@ use crate::{
     backend::{
         compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::base::FSRObject,
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, utils::error::FSRError
+    }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, to_rs_list, utils::error::FSRError
 };
 
 use super::{
@@ -57,7 +57,7 @@ fn iter_obj(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_id = args[0];
     if let FSRValue::Range(it) = &FSRObject::id_to_obj(self_id).value {
         let iterator = FSRInnerIterator {
@@ -91,7 +91,7 @@ fn filter(
 ) -> Result<FSRRetValue, FSRError> {
     
     let iterator = iter_obj(args, len, thread, code)?.get_id();
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let filter_iterator = FSRFilterIter {
         filter: args[1],
         prev_iterator: iterator,
@@ -117,7 +117,7 @@ fn map(
 ) -> Result<FSRRetValue, FSRError> {
     
     let iterator = iter_obj(args, len, thread, code)?.get_id();
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let map_iterator = FSRMapIter {
         callback: args[1],
         prev_iterator: iterator,
@@ -142,7 +142,7 @@ fn as_list(
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let iterator = iter_obj(args, len, thread, code)?.get_id();
-    //let args = unsafe { std::slice::from_raw_parts(args, len) };
+    //let args = to_rs_list!(args, len);
     crate::backend::types::iterator::as_list((&[iterator]).as_ptr(), 1, thread, code)
 }
 
@@ -153,7 +153,7 @@ fn enumerate(
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let iterator = iter_obj(args, len, thread, code)?.get_id();
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let enumerate_iterator = FSREnumerateIter {
         prev_iterator: iterator,
         index: 0,
@@ -176,7 +176,7 @@ fn contains(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "contains requires exactly 2 arguments",

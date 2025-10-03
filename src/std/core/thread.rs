@@ -4,11 +4,10 @@ use crate::{
     backend::{
         memory::GarbageCollector,
         types::{
-            any::FSRThreadHandle, base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId}, fn_def::FSRFn
+            any::FSRThreadHandle, base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, fn_def::FSRFn
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 
 pub fn fsr_get_cur_thread_id(
@@ -17,7 +16,7 @@ pub fn fsr_get_cur_thread_id(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let id = thread.get_thread_id();
     let obj = thread.garbage_collect.new_object(
         FSRValue::Integer(id as i64),
@@ -32,7 +31,7 @@ pub fn fsr_new_thread(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let fn_id = args[0];
     let th_thread_args = args[1..].iter().map(|x| Arc::new(*x)).collect::<Vec<_>>();
     

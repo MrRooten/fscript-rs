@@ -5,7 +5,7 @@ use crate::{
             base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, class::FSRClass, ext::hashmap::FSRHashMap, fn_def::FSRFn, integer::FSRInteger, list::FSRList, module::FSRModule, string::FSRString
         },
         vm::thread::FSRThreadRuntime,
-    }, register_fn, utils::error::FSRError
+    }, register_fn, to_rs_list, utils::error::FSRError
 };
 
 pub struct FSROs {}
@@ -72,7 +72,7 @@ pub fn fsr_fn_get_environ(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if len == 1 {
         let key = args[0];
         let key_str = if let FSRValue::String(s) = &FSRObject::id_to_obj(key).value {
@@ -114,7 +114,7 @@ pub fn fsr_fn_command(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if len > 0 {
         let command = args[0];
         let args = &args[1..];
@@ -150,7 +150,7 @@ pub fn fsr_fn_get_args(
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     // Get the command line arguments passed to the script
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let args_vec = std::env::args().skip(1).collect::<Vec<String>>();
     let mut fsr_args = Vec::new();
     for arg in args_vec {

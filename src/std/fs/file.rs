@@ -8,8 +8,7 @@ use crate::{
             any::{ExtensionTrait, FSRExtension}, base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, bytes::FSRInnerBytes, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    },
-    utils::error::{FSRErrCode, FSRError},
+    }, to_rs_list, utils::error::{FSRErrCode, FSRError}
 };
 
 #[derive(PartialEq, Debug)]
@@ -123,7 +122,7 @@ pub fn fsr_fn_open_file(
             FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let file_cls = args[0];
     let file_path = args[1];
     let mode = if let Some(s) = args.get(2) {
@@ -163,7 +162,7 @@ pub fn fsr_fn_read_all(
             FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let file_obj_id = args[0];
     let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
 
@@ -213,7 +212,7 @@ pub fn fsr_fn_is_file(
             FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let file_path = args[0];
     let file_path_obj = FSRObject::id_to_obj(file_path);
     if let FSRValue::String(s) = &file_path_obj.value {
@@ -242,7 +241,7 @@ pub fn fsr_fn_is_dir(
             FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let dir_path = args[0];
     let dir_path_obj = FSRObject::id_to_obj(dir_path);
     if let FSRValue::String(s) = &dir_path_obj.value {
@@ -272,7 +271,7 @@ pub fn fsr_fn_read(
             FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let file_obj_id = args[0];
     let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
     let offset = args[1];
@@ -341,7 +340,7 @@ pub fn fsr_fn_file_lines(
             FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let file_obj_id = args[0];
     let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
 

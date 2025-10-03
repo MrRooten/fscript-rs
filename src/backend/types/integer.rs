@@ -12,10 +12,9 @@ use crate::{
         types::float::FSRFloat,
         vm::{
             thread::{CallFrame, FSRThreadRuntime},
-            virtual_machine::{gid, FSRVM},
+            virtual_machine::{FSRVM, gid},
         },
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 
 use super::{
@@ -33,7 +32,7 @@ pub fn add(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -57,7 +56,7 @@ pub fn sub(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -81,7 +80,7 @@ fn mul(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -112,7 +111,7 @@ fn div(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -144,7 +143,7 @@ pub fn reminder(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -169,7 +168,7 @@ fn left_shift(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -194,7 +193,7 @@ fn right_shift(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -218,7 +217,7 @@ pub fn greater(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -242,7 +241,7 @@ pub fn less(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -272,7 +271,7 @@ pub fn greater_equal(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -296,7 +295,7 @@ pub fn less_equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
 
@@ -324,7 +323,7 @@ pub fn equal(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     match (&self_object.value, &other_object.value) {
@@ -355,7 +354,7 @@ pub fn not_equal(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
 
@@ -384,7 +383,7 @@ pub fn sorted_value(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
 
     if let FSRValue::Integer(self_int) = self_object.value {
@@ -405,7 +404,7 @@ fn hash_integer(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(

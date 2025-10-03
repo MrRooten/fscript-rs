@@ -3,11 +3,10 @@ use std::{borrow::Cow, collections::HashMap};
 use crate::{
     backend::{
         memory::GarbageCollector, types::{
-            base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
+            base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             fn_def::FSRFn, string::{FSRInnerString, FSRString},
         }, vm::{thread::FSRThreadRuntime, virtual_machine::gid}
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 
 
@@ -17,7 +16,7 @@ pub fn fsr_fn_print(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let value = FSRObject::id_to_obj(args[0]);
     let rest = args[1..].to_vec();
     let obj = value.to_string(thread, code);
@@ -45,7 +44,7 @@ pub fn fsr_fn_println(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let value = FSRObject::id_to_obj(args[0]);
     let rest = args[1..].to_vec();
     let obj = value.to_string(thread, code);
@@ -73,7 +72,7 @@ pub fn fsr_fn_dump(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let value = FSRObject::id_to_obj(args[0]);
     println!("{:#?}", value);
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
@@ -96,7 +95,7 @@ pub fn fsr_fn_str(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     
     let value = FSRObject::id_to_obj(args[0]);
     let s = value.to_string(thread, code);
@@ -113,7 +112,7 @@ pub fn fsr_fn_throw_error(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     panic!("deprecated function `throw_error`");
     // if args.is_empty() || args[0] == 0 {
     //     thread.exception = FSRObject::none_id();
@@ -130,7 +129,7 @@ pub fn fsr_fn_get_error(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let ret = thread.get_cur_mut_frame().handling_exception;
     Ok(FSRRetValue::GlobalId(ret))
 }

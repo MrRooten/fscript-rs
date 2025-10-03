@@ -1,4 +1,4 @@
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, utils::error::{FSRErrCode, FSRError}};
+use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, to_rs_list, utils::error::{FSRErrCode, FSRError}};
 
 use super::{base::{GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
@@ -19,7 +19,7 @@ pub fn equal(
             FSRErrCode::NotValidArgs,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args[0] == args[1] {
         Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
     } else {

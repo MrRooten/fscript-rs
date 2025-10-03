@@ -14,8 +14,7 @@ use crate::{
             string::FSRString,
         },
         vm::thread::FSRThreadRuntime,
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 use std::fmt::Debug;
 
@@ -55,7 +54,7 @@ pub fn fsr_fn_sub_path(
         panic!("Invalid arguments for sub_paths");
     }
 
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let path_id = args[0];
     let path_obj = FSRObject::id_to_obj(path_id);
 

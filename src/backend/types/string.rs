@@ -13,8 +13,7 @@ use crate::{
         memory::GarbageCollector,
         types::{base::FSRValue, bytes::FSRInnerBytes},
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 
 use super::{
@@ -141,7 +140,7 @@ fn string_iter(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_id = args[0];
     if let FSRValue::String(s) = &FSRObject::id_to_obj(self_id).value {
         let iterator = FSRStringIterator {
@@ -166,7 +165,7 @@ fn string_len(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
 
     if let FSRValue::String(self_s) = &self_object.value {
@@ -185,7 +184,7 @@ fn string_as_bytes(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
 
     if let FSRValue::String(self_s) = &self_object.value {
@@ -206,7 +205,7 @@ pub fn add(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -243,7 +242,7 @@ pub fn equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -268,7 +267,7 @@ fn neq(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -293,7 +292,7 @@ fn get_sub_char(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let index = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -359,7 +358,7 @@ fn hash_string(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
@@ -383,7 +382,7 @@ fn split(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let sep_object = FSRObject::id_to_obj(args[1]);
 
@@ -415,7 +414,7 @@ fn find(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let sub_object = FSRObject::id_to_obj(args[1]);
 
@@ -439,7 +438,7 @@ fn rfind(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let sub_object = FSRObject::id_to_obj(args[1]);
 
@@ -463,7 +462,7 @@ fn trim(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     if let FSRValue::String(self_str) = &self_object.value {
         let trimmed = self_str.chars.trim();
@@ -482,7 +481,7 @@ fn uppercase(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     if let FSRValue::String(self_str) = &self_object.value {
         let uppercased = self_str.chars.to_uppercase();
@@ -501,7 +500,7 @@ fn lowercase(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     if let FSRValue::String(self_str) = &self_object.value {
         let lowercased = self_str.chars.to_lowercase();
@@ -520,7 +519,7 @@ fn starts_with(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let prefix_object = FSRObject::id_to_obj(args[1]);
 
@@ -547,7 +546,7 @@ pub fn fsr_fn_strip(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     if let FSRValue::String(self_str) = &self_object.value {
         let stripped = self_str.chars.trim();
@@ -577,7 +576,7 @@ pub fn fsr_fn_format_string(
         ));
     }
 
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let format_str_id = args[0];
     let format_args = &args[1..len];
 

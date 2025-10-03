@@ -7,8 +7,7 @@ use crate::{
             fn_def::FSRFn,
         },
         vm::thread::{CallFrame, FSCodeContext, FSRThreadRuntime},
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 use std::{fmt::Debug, future};
 
@@ -70,7 +69,7 @@ pub fn poll_future(
             crate::utils::error::FSRErrCode::RuntimeError,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("not a valid object");
     let res = if let FSRValue::Future(future) = &mut self_object.value {
         if future.state == FSRFutureState::Completed {

@@ -10,8 +10,7 @@ use crate::{
             string::FSRString,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    },
-    utils::error::{FSRErrCode, FSRError},
+    }, to_rs_list, utils::error::{FSRErrCode, FSRError}
 };
 
 pub fn fsr_fn_assert(
@@ -20,7 +19,7 @@ pub fn fsr_fn_assert(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let value = FSRObject::id_to_obj(args[0]);
     if args.len() == 2 && value.is_false() {
         let message = args[1];
@@ -42,7 +41,7 @@ pub fn fsr_fn_export(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let name = match &FSRObject::id_to_obj(args[0]).value {
         FSRValue::String(cow) => cow,
         _ => {
@@ -67,7 +66,7 @@ pub fn fsr_fn_range(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -97,7 +96,7 @@ pub fn fsr_fn_type(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -185,7 +184,7 @@ pub fn fsr_fn_id(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -203,7 +202,7 @@ fn fsr_is_class(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -223,7 +222,7 @@ fn fsr_get_class(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
@@ -239,7 +238,7 @@ pub fn fsr_timeit(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }

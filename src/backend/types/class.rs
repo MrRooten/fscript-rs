@@ -5,7 +5,7 @@ use std::{
 
 use ahash::AHashMap;
 
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::base::{FSRRetValue, GlobalObj}, vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM}}, utils::error::FSRError};
+use crate::{backend::{compiler::bytecode::BinaryOffset, types::base::{FSRRetValue, GlobalObj}, vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM}}, to_rs_list, utils::error::FSRError};
 
 use super::{
     base::{AtomicObjId, FSRObject, FSRValue, ObjId},
@@ -77,7 +77,7 @@ pub fn map_err(
             crate::utils::error::FSRErrCode::NotValidArgs
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let may_err_object = FSRObject::id_to_obj(args[0]);
     let fn_callback = FSRObject::id_to_obj(args[1]);
     if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
@@ -99,7 +99,7 @@ pub fn is_err(
             crate::utils::error::FSRErrCode::NotValidArgs
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let may_err_object = FSRObject::id_to_obj(args[0]);
     if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
         return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
@@ -120,7 +120,7 @@ pub fn then(
             crate::utils::error::FSRErrCode::NotValidArgs
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let may_err_object = FSRObject::id_to_obj(args[0]);
     let fn_callback = FSRObject::id_to_obj(args[1]);
     if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
@@ -143,7 +143,7 @@ pub fn is_none(
             crate::utils::error::FSRErrCode::NotValidArgs
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args[0] == FSRObject::none_id() {
         return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
     }
@@ -163,7 +163,7 @@ pub fn unwrap(
             crate::utils::error::FSRErrCode::NotValidArgs
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let may_err_object = FSRObject::id_to_obj(args[0]);
     if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
         panic!("unwrap called on an error object: {:?}", may_err_object);
@@ -184,7 +184,7 @@ pub fn expect(
             crate::utils::error::FSRErrCode::NotValidArgs
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let message_object = FSRObject::id_to_obj(args[1]);
     if let FSRValue::String(message) = &message_object.value {
         panic!("expect called with message: {}", message);
@@ -205,7 +205,7 @@ pub fn class_default_equal(
             crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args[0] == args[1] {
         Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
     } else {
@@ -225,7 +225,7 @@ pub fn class_default_not_equal(
             crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args[0] != args[1] {
         Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
     } else {

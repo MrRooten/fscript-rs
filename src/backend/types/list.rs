@@ -14,8 +14,7 @@ use crate::{
             iterator::FSRInnerIterator,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    },
-    utils::error::{FSRErrCode, FSRError},
+    }, to_rs_list, utils::error::{FSRErrCode, FSRError}
 };
 
 use super::{
@@ -68,7 +67,7 @@ fn list_len(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
 
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -93,7 +92,7 @@ fn list_string(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let mut s = FSRInnerString::new("");
     s.push('[');
     let obj_id = args[0];
@@ -126,7 +125,7 @@ fn iter(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_id = args[0];
     if let FSRValue::List(s) = &FSRObject::id_to_obj(self_id).value {
         let iterator = FSRListIterator {
@@ -152,7 +151,7 @@ pub fn get_item(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_id = args[0];
     let index_id = args[1];
     let obj = FSRObject::id_to_obj(self_id);
@@ -188,7 +187,7 @@ pub fn set_item(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 3 {
         return Err(FSRError::new(
             "set_item args error",
@@ -226,7 +225,7 @@ pub fn sort(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new("sort args error", FSRErrCode::RuntimeError));
     }
@@ -259,7 +258,7 @@ pub fn sort_by(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "sort_by args error",
@@ -296,7 +295,7 @@ pub fn reverse(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let obj_id = args[0];
     let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
     if let FSRValue::List(l) = &mut obj.value {
@@ -316,7 +315,7 @@ pub fn sort_key(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "sort_by args error",
@@ -359,7 +358,7 @@ pub fn push(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new("push args error", FSRErrCode::RuntimeError));
     }
@@ -380,7 +379,7 @@ pub fn map(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new("map args error", FSRErrCode::RuntimeError));
     }
@@ -411,7 +410,7 @@ pub fn filter(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new("filter args error", FSRErrCode::RuntimeError));
     }
@@ -444,7 +443,7 @@ pub fn equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "list equal args error",

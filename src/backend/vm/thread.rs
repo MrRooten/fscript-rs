@@ -382,7 +382,6 @@ impl FSCodeContext {
 
     pub fn set_code(&mut self, code: ObjId) {
         self.code = code;
-        // self.code_inst = Some(FSRObject::id_to_obj(code).as_code());
     }
 
     pub fn get_code(&self) -> ObjId {
@@ -2290,7 +2289,6 @@ impl<'a> FSRThreadRuntime<'a> {
             return vec![];
         }
 
-        // 1) clamp each range to main, drop empty ones
         let mut clamped: Vec<_> = ranges
             .into_iter()
             .map(|r| {
@@ -2305,10 +2303,8 @@ impl<'a> FSRThreadRuntime<'a> {
             return vec![main];
         }
 
-        // 2) sort by start
         clamped.sort_by_key(|r| r.start);
 
-        // 3) merge overlaps
         let mut merged: Vec<std::ops::Range<usize>> = Vec::with_capacity(clamped.len());
         let mut cur = clamped[0].clone();
         for r in clamped.into_iter().skip(1) {
@@ -2322,7 +2318,6 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         merged.push(cur);
 
-        // 4) collect gaps between main.start .. merged.. .. main.end
         let mut gaps = Vec::new();
         let mut cursor = main.start;
         for m in merged {

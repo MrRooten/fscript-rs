@@ -22,8 +22,7 @@ use crate::{
             list::FSRList, string::FSRInnerString,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 
 const MAX_SEGMENT_SIZE: usize = 409600;
@@ -279,7 +278,7 @@ pub fn fsr_fn_hashset_iter(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashset = FSRObject::id_to_obj(args[0]);
     if let FSRValue::Extension(any) = &hashset.value {
         if let Some(hashset) = any.value.as_any().downcast_ref::<FSRHashSet>() {
@@ -318,7 +317,7 @@ pub fn fsr_fn_hashset_new(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashset = FSRHashSet::new_hashset();
     let object = thread
         .garbage_collect
@@ -337,7 +336,7 @@ pub fn fsr_fn_hashset_insert(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "not valid args",
@@ -370,7 +369,7 @@ pub fn fsr_fn_hashset_get(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashset = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
@@ -396,7 +395,7 @@ pub fn fsr_fn_hashset_get_reference(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashset_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
     let key = args[1];
     let mut flag = false;
@@ -418,7 +417,7 @@ pub fn fsr_fn_hashset_contains(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashset = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
@@ -442,7 +441,7 @@ pub fn fsr_fn_hashset_remove(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashset = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
     let key = args[1];
 
@@ -464,7 +463,7 @@ fn hashset_string(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let mut s = FSRInnerString::new("HashSet");
     s.push('(');
     let obj_id = args[0];

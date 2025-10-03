@@ -1,8 +1,7 @@
 use std::{any::Any, fmt::Debug};
 
 use crate::{
-    backend::{types::base::FSRObject, vm::thread::FSRThreadRuntime},
-    utils::error::FSRError,
+    backend::{types::base::FSRObject, vm::thread::FSRThreadRuntime}, to_rs_list, utils::error::FSRError
 };
 
 use super::{
@@ -89,7 +88,7 @@ fn join(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
 
     if let FSRValue::Extension(any) = &mut self_object.value {

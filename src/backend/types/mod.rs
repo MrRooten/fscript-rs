@@ -18,3 +18,10 @@ pub mod utils;
 pub mod none;
 pub mod bytes;
 pub mod asynclib;
+
+#[macro_export]
+macro_rules! to_rs_list {
+    ($list_ptr:expr, $len:expr) => {{
+        unsafe { std::slice::from_raw_parts($list_ptr, $len) }
+    }};
+}

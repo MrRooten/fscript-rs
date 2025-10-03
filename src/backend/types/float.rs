@@ -1,6 +1,5 @@
 use crate::{
-    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::{thread::FSRThreadRuntime, virtual_machine::gid}},
-    utils::error::FSRError,
+    backend::{compiler::bytecode::BinaryOffset, memory::GarbageCollector, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, to_rs_list, utils::error::FSRError
 };
 
 use super::{
@@ -19,7 +18,7 @@ pub fn add(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let _ = thread;
     let _ = code;
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -46,7 +45,7 @@ pub fn sub(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let _ = code;
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -73,7 +72,7 @@ pub fn mul(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let _ = code;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -99,7 +98,7 @@ fn div(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let _ = code;
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -128,7 +127,7 @@ pub fn greater(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let _ = thread;
     let _ = code;
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -154,7 +153,7 @@ pub fn less(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let _ = code;
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -180,7 +179,7 @@ fn greater_equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let _ = code;
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -206,7 +205,7 @@ fn less_equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -230,7 +229,7 @@ pub fn equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -254,7 +253,7 @@ fn not_equal(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();

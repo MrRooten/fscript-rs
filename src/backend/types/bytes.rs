@@ -9,8 +9,7 @@ use crate::{
             fn_def::FSRFn, string::FSRInnerString,
         },
         vm::thread::FSRThreadRuntime,
-    },
-    utils::error::{FSRErrCode, FSRError},
+    }, to_rs_list, utils::error::{FSRErrCode, FSRError}
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -56,7 +55,7 @@ fn get_sub_bytes(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let index = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -115,7 +114,7 @@ pub fn get_len(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new(
             "get_len requires exactly 1 argument",
@@ -146,7 +145,7 @@ pub fn set_item(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 3 {
         return Err(FSRError::new(
             "set_item args error",
@@ -217,7 +216,7 @@ pub fn as_hex(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new(
             "as_hex requires exactly 1 argument",

@@ -22,8 +22,7 @@ use crate::{
             list::FSRList, string::FSRInnerString,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 
 const MAX_SEGMENT_SIZE: usize = 409600;
@@ -283,7 +282,7 @@ pub fn fsr_fn_hashmap_iter(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);
     if let FSRValue::Extension(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
@@ -322,7 +321,7 @@ pub fn fsr_fn_hashmap_new(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashmap = FSRHashMap::new_hashmap();
     let object = thread
         .garbage_collect
@@ -341,7 +340,7 @@ pub fn fsr_fn_hashmap_insert(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 3 {
         return Err(FSRError::new(
             "not valid args",
@@ -380,7 +379,7 @@ pub fn fsr_fn_hashmap_get(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
@@ -406,7 +405,7 @@ fn hashmap_string(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let mut s = FSRInnerString::new("HashMap");
     s.push('(');
     let obj_id = args[0];
@@ -470,7 +469,7 @@ pub fn fsr_fn_hashmap_get_reference(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashmap_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
     let mut flag = false;
@@ -492,7 +491,7 @@ pub fn fsr_fn_hashmap_contains(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);
     let key = args[1];
 
@@ -516,7 +515,7 @@ pub fn fsr_fn_hashmap_remove(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
 
@@ -538,7 +537,7 @@ pub fn fsr_fn_hashmap_len(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);
     
     if let FSRValue::Extension(any) = &hashmap.value {

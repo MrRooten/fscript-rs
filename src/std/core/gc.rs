@@ -4,12 +4,11 @@ use crate::{
     backend::{
         memory::GarbageCollector,
         types::{
-            base::{GlobalObj, FSRObject, FSRRetValue, ObjId},
+            base::{FSRObject, FSRRetValue, GlobalObj, ObjId},
             fn_def::FSRFn, list::FSRList,
         },
         vm::thread::FSRThreadRuntime,
-    },
-    utils::error::FSRError,
+    }, to_rs_list, utils::error::FSRError
 };
 
 
@@ -19,7 +18,7 @@ pub fn fn_gc_info(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     // thread.garbage_collect.init_size();
     println!("{:#?}", thread.garbage_collect.tracker);
     println!(
@@ -37,7 +36,7 @@ pub fn fn_gc_collect(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     thread.garbage_collect.clear_marks();
     thread.set_ref_objects_mark(true, &[]);
     thread.collect_gc(true);
@@ -50,7 +49,7 @@ pub fn fn_minjor_gc_collect(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     thread.garbage_collect.clear_marks();
     thread.set_ref_objects_mark(false, &[]);
     thread.collect_gc(false);
@@ -63,7 +62,7 @@ pub fn fn_gc_shrink(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     thread.garbage_collect.shrink();
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }

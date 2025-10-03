@@ -1,4 +1,4 @@
-use crate::{backend::{types::base::{FSRObject, FSRValue}, vm::thread::FSRThreadRuntime}, utils::error::FSRError};
+use crate::{backend::{types::base::{FSRObject, FSRValue}, vm::thread::FSRThreadRuntime}, to_rs_list, utils::error::FSRError};
 
 use super::{base::{FSRRetValue, ObjId}, class::FSRClass, fn_def::FSRFn};
 
@@ -13,7 +13,7 @@ fn kind(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
@@ -37,7 +37,7 @@ fn message(
     thread: &mut FSRThreadRuntime,
     code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let message_object = FSRObject::id_to_obj(args[0]);
     let kind_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();

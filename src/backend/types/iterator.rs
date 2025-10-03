@@ -6,7 +6,7 @@ use crate::{
         memory::GarbageCollector,
         types::{asynclib::future::poll_future, list::FSRList},
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, utils::error::{FSRErrCode, FSRError}
+    }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, to_rs_list, utils::error::{FSRErrCode, FSRError}
 };
 
 use super::{
@@ -43,7 +43,7 @@ pub fn next_obj(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
     let mut result = None;
     if let FSRValue::Iterator(it) = &mut self_obj.value {
@@ -86,7 +86,7 @@ pub fn map(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "msg: map function requires 2 arguments",
@@ -117,7 +117,7 @@ pub fn filter(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "msg: filter function requires 2 arguments",
@@ -148,7 +148,7 @@ pub fn enumerate(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new(
             "msg: enumerate function requires 1 argument",
@@ -178,7 +178,7 @@ pub fn any(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "msg: any function requires 1 argument",
@@ -214,7 +214,7 @@ pub fn all(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 2 {
         return Err(FSRError::new(
             "msg: all function requires 1 argument",
@@ -250,7 +250,7 @@ pub fn as_list(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new(
             "msg: as_list function requires 1 argument",
@@ -281,7 +281,7 @@ pub fn count(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     if args.len() != 1 {
         return Err(FSRError::new(
             "msg: count function requires 1 argument",

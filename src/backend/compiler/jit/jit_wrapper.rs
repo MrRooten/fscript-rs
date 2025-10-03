@@ -1,16 +1,16 @@
 use std::{ops::Range, sync::atomic::Ordering};
 
-use crate::backend::{
+use crate::{backend::{
     compiler::bytecode::{BinaryOffset, CompareOperator},
     memory::GarbageCollector,
     types::{
-        base::{GlobalObj, FSRObject, FSRValue, ObjId}, ext, iterator::next_obj, list::FSRList, range::FSRRange, string::FSRString
+        base::{FSRObject, FSRValue, GlobalObj, ObjId}, ext, iterator::next_obj, list::FSRList, range::FSRRange, string::FSRString
     },
     vm::{
         thread::{CallFrame, FSRThreadRuntime, GcState},
         virtual_machine::gid,
     },
-};
+}, to_rs_list};
 
 macro_rules! obj_cls {
     ($a:expr) => {
@@ -34,7 +34,7 @@ pub extern "C" fn call_fn(
     code: ObjId,
 ) -> ObjId {
     let obj = FSRObject::id_to_obj(fn_id);
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     // println!("call fn: {:?}", obj);
     let res = obj.call(args, thread, code);
     res.unwrap().get_id()
@@ -45,7 +45,7 @@ pub extern "C" fn save_to_exp(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) {
-    let args = unsafe { std::slice::from_raw_parts(args, len) };
+    let args = to_rs_list!(args, len);
     let frame = thread.get_cur_mut_frame();
     frame.clear_exp();
     frame.extend_exp(args);
