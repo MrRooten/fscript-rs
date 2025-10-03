@@ -2274,15 +2274,12 @@ impl<'a> FSRThreadRuntime<'a> {
         cur.ret_val = Some(awaitable_value);
 
         let code = cur.code;
-        //self.get_cur_mut_frame().ip = (ip_0, ip_1);
-        // self.get_cur_mut_context().code = code;
-        // self.get_cur_mut_context().code_inst =
-        //     Some(FSRObject::id_to_obj(code).as_code());
         self.get_cur_mut_context().set_code(code);
-        //self.get_cur_mut_context().context_call_count -= 1;
+
         Ok(true)
     }
 
+    // find gaps in main range
     fn gaps_in_range(
         main: std::ops::Range<usize>,
         ranges: Vec<std::ops::Range<usize>>,
@@ -2345,7 +2342,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     pub fn replace_string(s: &str, args: &[String]) -> String {
         let chars = s.as_bytes();
-        let mut index_record = Vec::new();
+        let mut index_record = Vec::with_capacity(args.len());
         let mut i = 0;
         while i < chars.len() {
             if chars[i] == b'{' {
@@ -2412,8 +2409,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        let mut res = vec![];
-        let index_gap = Self::gaps_in_range(0..chars.len(), index_record.iter().map(|r| r.start..r.end).collect());
+        //let mut res = vec![];
+        let index_gap = Self::gaps_in_range(0..chars.len(), index_record);
         let mut new_chars = vec![];
         let mut i = 0;
         for gap in index_gap {
@@ -2421,8 +2418,8 @@ impl<'a> FSRThreadRuntime<'a> {
             new_chars.extend_from_slice(args[i].as_bytes());
             i += 1;
         }
-        res.extend(new_chars);
-        String::from_utf8(res).unwrap()
+        //res.extend(new_chars);
+        String::from_utf8(new_chars).unwrap()
     }
 
     fn format_process(
