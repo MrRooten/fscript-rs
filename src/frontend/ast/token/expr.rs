@@ -416,7 +416,7 @@ impl FSRExpr {
         let s = FSRExpr::bytes_to_unescaped_string(s)
             .map_err(|e| SyntaxError::new(&meta.new_offset(ctx.start), e.to_string()))?;
         let mut sub_meta = meta.new_offset(ctx.start);
-        let constant = FSRConstant::from_str(s.as_bytes(), sub_meta);
+        let constant = FSRConstant::from_str(s.as_bytes(), sub_meta, FSRConstant::convert_str_type(string_name.unwrap_or("")));
         ctx.candidates.push(FSRToken::Constant(constant));
         ctx.length += 1;
         ctx.start += ctx.length;
@@ -473,7 +473,7 @@ impl FSRExpr {
 
         let s = &source[ctx.start..ctx.start + ctx.length];
         let mut sub_meta = meta.new_offset(ctx.start);
-        let constant = FSRConstant::from_str(s, sub_meta);
+        let constant = FSRConstant::from_str(s, sub_meta, FSRConstant::convert_str_type(string_name.unwrap_or("")));
         ctx.candidates.push(FSRToken::Constant(constant));
         ctx.length += 1;
         ctx.start += ctx.length;
