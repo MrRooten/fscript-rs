@@ -9,7 +9,7 @@ use crate::{
             range::FSRRange,
             string::FSRString,
         },
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     },
     utils::error::{FSRErrCode, FSRError},
 };
@@ -83,7 +83,7 @@ pub fn fsr_fn_range(
 
             return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRValue::Range(Box::new(range)),
-                get_object_by_global_id(GlobalObj::RangeCls) as ObjId,
+                gid(GlobalObj::RangeCls) as ObjId,
             )));
         }
     }
@@ -107,73 +107,73 @@ pub fn fsr_fn_type(
     match &obj.value {
         FSRValue::Integer(i) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Integer"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::Float(_) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Float"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::String(fsrinner_string) => {
             Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRString::new_value("String"),
-                get_object_by_global_id(GlobalObj::StringCls),
+                gid(GlobalObj::StringCls),
             )))
         }
         FSRValue::Class(fsrclass) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Class"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::ClassInst(fsrclass_inst) => {
             let name = fsrclass_inst.get_cls_name();
             Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRString::new_value(name),
-                get_object_by_global_id(GlobalObj::StringCls),
+                gid(GlobalObj::StringCls),
             )))
         }
         FSRValue::Function(fsrfn) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Fn"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::Bool(_) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Bool"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::List(fsrlist) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("List"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::Iterator(fsrinner_iterator) => {
             Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRString::new_value("Iterator"),
-                get_object_by_global_id(GlobalObj::StringCls),
+                gid(GlobalObj::StringCls),
             )))
         }
         FSRValue::Code(fsrcode) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Code"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::Range(fsrrange) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Range"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::Extension(any_type) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Any"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::Module(fsrmodule) => {
             Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRString::new_value("Module"),
-                get_object_by_global_id(GlobalObj::StringCls),
+                gid(GlobalObj::StringCls),
             )))
         }
         FSRValue::None => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("None"),
-            get_object_by_global_id(GlobalObj::StringCls),
+            gid(GlobalObj::StringCls),
         ))),
         FSRValue::Bytes(fsrinner_bytes) => {
             Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
                 FSRString::new_value("Bytes"),
-                get_object_by_global_id(GlobalObj::StringCls),
+                gid(GlobalObj::StringCls),
             )))
         }
         _ => Err(FSRError::new("unknown type", FSRErrCode::NotValidArgs)),
@@ -193,7 +193,7 @@ pub fn fsr_fn_id(
 
     let integer = thread.garbage_collect.new_object(
         FSRValue::Integer(args[0] as i64),
-        get_object_by_global_id(GlobalObj::IntegerCls),
+        gid(GlobalObj::IntegerCls),
     );
     Ok(FSRRetValue::GlobalId(integer))
 }

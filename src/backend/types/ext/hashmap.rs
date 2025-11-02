@@ -21,7 +21,7 @@ use crate::{
             iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences},
             list::FSRList, string::FSRInnerString,
         },
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     },
     utils::error::FSRError,
 };
@@ -269,7 +269,7 @@ impl FSRIterator for FSRHashMapIterator<'_> {
             let list = FSRList::new_value(vs);
             let ret = thread
                 .garbage_collect
-                .new_object(list, get_object_by_global_id(GlobalObj::ListCls) as ObjId);
+                .new_object(list, gid(GlobalObj::ListCls) as ObjId);
             Ok(Some(ret))
         } else {
             Ok(None)
@@ -305,7 +305,7 @@ pub fn fsr_fn_hashmap_iter(
                     obj: args[0],
                     iterator: Some(Box::new(iter_obj)),
                 })),
-                get_object_by_global_id(GlobalObj::InnerIterator),
+                gid(GlobalObj::InnerIterator),
             );
             Ok(FSRRetValue::GlobalId(object))
         } else {
@@ -326,7 +326,7 @@ pub fn fsr_fn_hashmap_new(
     let hashmap = FSRHashMap::new_hashmap();
     let object = thread
         .garbage_collect
-        .new_object(hashmap.to_any_type(), get_object_by_global_id(GlobalObj::HashMapCls));
+        .new_object(hashmap.to_any_type(), gid(GlobalObj::HashMapCls));
     Ok(FSRRetValue::GlobalId(object))
 }
 
@@ -459,7 +459,7 @@ fn hashmap_string(
     s.push(')');
     let obj_id = thread.garbage_collect.new_object(
         FSRValue::String(Arc::new(s)),
-        get_object_by_global_id(GlobalObj::StringCls),
+        gid(GlobalObj::StringCls),
     );
     Ok(FSRRetValue::GlobalId(obj_id))
 }
@@ -546,7 +546,7 @@ pub fn fsr_fn_hashmap_len(
             let len = hashmap.len();
             let obj_id = thread.garbage_collect.new_object(
                 FSRValue::Integer(len as i64),
-                get_object_by_global_id(GlobalObj::IntegerCls),
+                gid(GlobalObj::IntegerCls),
             );
             return Ok(FSRRetValue::GlobalId(obj_id));
         } else {

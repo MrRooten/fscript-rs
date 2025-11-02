@@ -12,3 +12,9 @@ class Thread {
         return __get_cur_thread_id()
     }
 }
+
+class Mutex {
+    fn __new__(self) {
+        return self
+    }
+}

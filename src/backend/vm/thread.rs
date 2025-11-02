@@ -44,7 +44,7 @@ use crate::{
 use super::{
     free_list::FrameFreeList,
     // quick_op::Ops,
-    virtual_machine::{get_object_by_global_id, FSRVM, VM},
+    virtual_machine::{gid, FSRVM, VM},
 };
 
 macro_rules! obj_cls {
@@ -1347,7 +1347,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let id = self.garbage_collect.new_object(
             FSRValue::Range(Box::new(range)),
-            get_object_by_global_id(GlobalObj::RangeCls) as ObjId,
+            gid(GlobalObj::RangeCls) as ObjId,
         );
 
         push_exp!(self, id);
@@ -1990,7 +1990,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                     let new_integer = self.garbage_collect.new_object(
                         FSRValue::Integer(i),
-                        get_object_by_global_id(GlobalObj::IntegerCls) as ObjId,
+                        gid(GlobalObj::IntegerCls) as ObjId,
                     );
                     new_integer
                 }
@@ -2006,7 +2006,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
                     let new_float = self.garbage_collect.new_object(
                         FSRValue::Float(i),
-                        get_object_by_global_id(GlobalObj::FloatCls) as ObjId,
+                        gid(GlobalObj::FloatCls) as ObjId,
                     );
                     new_float
                 }
@@ -2066,7 +2066,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let fn_id = self
             .garbage_collect
-            .new_object(fn_obj, get_object_by_global_id(GlobalObj::FnCls));
+            .new_object(fn_obj, gid(GlobalObj::FnCls));
         //let fn_id = FSRVM::leak_object(fn_obj);
         let state = &mut self.cur_frame;
         if let Some(cur_cls) = &mut state.cur_cls {
@@ -2537,7 +2537,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_frame();
         let mut cls_obj = FSRObject::new();
         // cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
-        cls_obj.set_cls(get_object_by_global_id(GlobalObj::ClassCls));
+        cls_obj.set_cls(gid(GlobalObj::ClassCls));
 
         let mut obj = state.cur_cls.take().unwrap();
         let name = obj.get_name().to_string();
@@ -2575,7 +2575,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap();
         let obj_value = FSRObject::id_to_obj(obj);
         let res = if obj_value.cls
-            == FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::InnerIterator)).as_class()
+            == FSRObject::id_to_obj(gid(GlobalObj::InnerIterator)).as_class()
         {
             // next_obj(&[obj], self, self.get_context().code)?
             let args = [obj];
@@ -3107,7 +3107,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let base_fn = FSRFn::new_empty();
-        let base_fn_id = FSRObject::new_inst(base_fn, get_object_by_global_id(GlobalObj::FnCls));
+        let base_fn_id = FSRObject::new_inst(base_fn, gid(GlobalObj::FnCls));
         let base_fn_id = FSRVM::leak_object(Box::new(base_fn_id));
 
         let const_map = Self::get_const_map(self, main_code.unwrap().as_code())?;

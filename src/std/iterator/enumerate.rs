@@ -10,7 +10,7 @@ use crate::{
             fn_def::FSRFn,
             iterator::{FSRIterator, FSRIteratorReferences}, list::FSRList,
         },
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     },
     utils::error::FSRError,
 };
@@ -47,12 +47,12 @@ impl FSRIterator for FSREnumerateIter {
 
         let integer = thread.garbage_collect.new_object(
             FSRValue::Integer(self.index),
-            get_object_by_global_id(crate::backend::types::base::GlobalObj::IntegerCls),
+            gid(crate::backend::types::base::GlobalObj::IntegerCls),
         );
         let ret = vec![integer, ret];
         self.index += 1;
         let ret_value = thread.garbage_collect.new_object(FSRList::new_value(ret), 
-            get_object_by_global_id(crate::backend::types::base::GlobalObj::ListCls),
+            gid(crate::backend::types::base::GlobalObj::ListCls),
         );
 
         Ok(Some(ret_value))

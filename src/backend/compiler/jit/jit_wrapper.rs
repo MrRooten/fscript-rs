@@ -8,7 +8,7 @@ use crate::backend::{
     },
     vm::{
         thread::{CallFrame, FSRThreadRuntime, GcState},
-        virtual_machine::get_object_by_global_id,
+        virtual_machine::gid,
     },
 };
 
@@ -238,7 +238,7 @@ pub unsafe extern "C" fn binary_dot_getter(
 pub extern "C" fn load_integer(value: i64, thread: &mut FSRThreadRuntime) -> ObjId {
     let obj = thread.garbage_collect.new_object(
         FSRValue::Integer(value),
-        get_object_by_global_id(GlobalObj::IntegerCls),
+        gid(GlobalObj::IntegerCls),
     );
     obj
 }
@@ -253,14 +253,14 @@ pub extern "C" fn load_string(
     let value = FSRString::new_value(value_str);
     let obj = thread
         .garbage_collect
-        .new_object(value, get_object_by_global_id(GlobalObj::StringCls));
+        .new_object(value, gid(GlobalObj::StringCls));
     obj
 }
 
 pub extern "C" fn load_float(value: f64, thread: &mut FSRThreadRuntime) -> ObjId {
     let obj = thread.garbage_collect.new_object(
         FSRValue::Float(value),
-        get_object_by_global_id(GlobalObj::FloatCls),
+        gid(GlobalObj::FloatCls),
     );
     obj
 }
@@ -299,7 +299,7 @@ pub extern "C" fn binary_range(left: ObjId, right: ObjId, thread: &mut FSRThread
 
             let id = thread.garbage_collect.new_object(
                 FSRValue::Range(Box::new(range)),
-                get_object_by_global_id(GlobalObj::RangeCls) as ObjId,
+                gid(GlobalObj::RangeCls) as ObjId,
             );
 
             
@@ -336,7 +336,7 @@ pub extern "C" fn load_list(
     let list = FSRList::new_value(list.to_vec());
     let obj = thread.garbage_collect.new_object(
         list,
-        get_object_by_global_id(GlobalObj::ListCls),
+        gid(GlobalObj::ListCls),
     );
     obj
 }

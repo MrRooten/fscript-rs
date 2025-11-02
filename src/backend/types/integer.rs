@@ -12,7 +12,7 @@ use crate::{
         types::float::FSRFloat,
         vm::{
             thread::{CallFrame, FSRThreadRuntime},
-            virtual_machine::{get_object_by_global_id, FSRVM},
+            virtual_machine::{gid, FSRVM},
         },
     },
     utils::error::FSRError,
@@ -91,7 +91,7 @@ fn mul(
         if let FSRValue::Integer(other_int) = other_object.value {
             let v = thread
                 .garbage_collect
-                .new_object(FSRValue::Integer(self_int * other_int), get_object_by_global_id(GlobalObj::IntegerCls));
+                .new_object(FSRValue::Integer(self_int * other_int), gid(GlobalObj::IntegerCls));
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -122,7 +122,7 @@ fn div(
         if let FSRValue::Integer(other_int) = other_object.value {
             let obj = thread.garbage_collect.new_object(
                 FSRValue::Float(self_int as f64 / other_int as f64),
-                get_object_by_global_id(GlobalObj::FloatCls) as ObjId,
+                gid(GlobalObj::FloatCls) as ObjId,
             );
             return Ok(FSRRetValue::GlobalId(obj));
         }
@@ -179,7 +179,7 @@ fn left_shift(
         if let FSRValue::Integer(other_int) = other_object.value {
             let v = thread
                 .garbage_collect
-                .new_object(FSRValue::Integer(self_int << other_int), get_object_by_global_id(GlobalObj::IntegerCls));
+                .new_object(FSRValue::Integer(self_int << other_int), gid(GlobalObj::IntegerCls));
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -204,7 +204,7 @@ fn right_shift(
         if let FSRValue::Integer(other_int) = other_object.value {
             let v = thread
                 .garbage_collect
-                .new_object(FSRValue::Integer(self_int >> other_int), get_object_by_global_id(GlobalObj::IntegerCls));
+                .new_object(FSRValue::Integer(self_int >> other_int), gid(GlobalObj::IntegerCls));
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -416,7 +416,7 @@ fn hash_integer(
         // let hash = hasher.finish();
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(*self_int),
-            get_object_by_global_id(GlobalObj::IntegerCls),
+            gid(GlobalObj::IntegerCls),
         )));
     }
 
@@ -467,7 +467,7 @@ impl<'a> FSRInteger {
 
     pub fn new_inst(i: i64) -> FSRObject<'a> {
         let mut object = FSRObject::new();
-        object.set_cls(get_object_by_global_id(GlobalObj::IntegerCls));
+        object.set_cls(gid(GlobalObj::IntegerCls));
         object.set_value(FSRValue::Integer(i));
         object
     }

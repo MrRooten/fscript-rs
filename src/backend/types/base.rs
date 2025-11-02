@@ -12,7 +12,7 @@ use crate::{
         types::{any::ExtensionTrait, asynclib::future::FSRFuture, bytes::FSRInnerBytes, fn_def::FSRnE},
         vm::{
             thread::FSRThreadRuntime,
-            virtual_machine::{get_object_by_global_id, FSRVM, OBJECTS},
+            virtual_machine::{gid, FSRVM, OBJECTS},
         },
     },
     utils::error::{FSRErrCode, FSRError},
@@ -88,7 +88,7 @@ pub enum GlobalObj {
 
 impl GlobalObj {
     pub fn get_id(&self) -> ObjId {
-        get_object_by_global_id(*self)
+        gid(*self)
     }
 }
 
@@ -487,7 +487,7 @@ impl<'a> FSRObject<'a> {
     pub fn new() -> FSRObject<'a> {
         FSRObject {
             value: FSRValue::None,
-            cls: FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::NoneCls)).as_class(),
+            cls: FSRObject::id_to_obj(gid(GlobalObj::NoneCls)).as_class(),
             // garbage_id: 0,
             // garbage_collector_id: 0,
             free: false,

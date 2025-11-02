@@ -65,7 +65,7 @@ impl Default for FSRVM<'_> {
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
-pub extern "C" fn get_object_by_global_id(id: GlobalObj) -> ObjId {
+pub extern "C" fn gid(id: GlobalObj) -> ObjId {
     unsafe {
         let obj = OBJECTS.get(id as usize).unwrap();
         if let Some(obj) = obj {
@@ -81,17 +81,17 @@ pub extern "C" fn get_object_by_global_id(id: GlobalObj) -> ObjId {
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub extern "C" fn get_true() -> ObjId {
-    get_object_by_global_id(GlobalObj::True)
+    gid(GlobalObj::True)
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub extern "C" fn get_false() -> ObjId {
-    get_object_by_global_id(GlobalObj::False)
+    gid(GlobalObj::False)
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub extern "C" fn get_none() -> ObjId {
-    get_object_by_global_id(GlobalObj::NoneObj)
+    gid(GlobalObj::NoneObj)
 }
 
 pub static mut GLOBAL_CLASS: Option<FSRClass> = None;
@@ -325,7 +325,7 @@ impl<'a> FSRVM<'a> {
                         let obj_id = FSRObject::obj_to_id(object);
                         if let FSRValue::Class(c) = &mut object.value {
                             object.cls =
-                                FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::ClassCls))
+                                FSRObject::id_to_obj(gid(GlobalObj::ClassCls))
                                     .as_class();
                             c.init_method();
                             c.set_object_id(obj_id);
@@ -333,13 +333,13 @@ impl<'a> FSRVM<'a> {
 
                         if let FSRValue::Bool(_) = object.value {
                             object.cls =
-                                FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::BoolCls))
+                                FSRObject::id_to_obj(gid(GlobalObj::BoolCls))
                                     .as_class();
                         }
 
                         if let FSRValue::None = object.value {
                             object.cls =
-                                FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::NoneCls))
+                                FSRObject::id_to_obj(gid(GlobalObj::NoneCls))
                                     .as_class();
                         }
                     }
@@ -367,15 +367,15 @@ impl<'a> FSRVM<'a> {
         self.global.insert("none".to_string(), FSRObject::none_id());
         self.global.insert(
             "Exception".to_string(),
-            get_object_by_global_id(GlobalObj::Exception) as ObjId,
+            gid(GlobalObj::Exception) as ObjId,
         );
         self.global.insert(
             "HashMap".to_string(),
-            get_object_by_global_id(GlobalObj::HashMapCls) as ObjId,
+            gid(GlobalObj::HashMapCls) as ObjId,
         );
         self.global.insert(
             "HashSet".to_string(),
-            get_object_by_global_id(GlobalObj::HashSetCls) as ObjId,
+            gid(GlobalObj::HashSetCls) as ObjId,
         );
     }
 

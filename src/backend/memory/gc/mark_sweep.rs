@@ -6,7 +6,7 @@ use crate::backend::types::base::{Area, GlobalObj};
 
 use crate::backend::types::class::FSRClass;
 use crate::backend::types::string::FSRInnerString;
-use crate::backend::vm::virtual_machine::get_object_by_global_id;
+use crate::backend::vm::virtual_machine::gid;
 use crate::backend::{
     memory::{size_alloc::FSRObjectAllocator, GarbageCollector},
     types::base::{FSRObject, FSRValue, ObjId},
@@ -170,7 +170,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         self.objects.extend((0..extend_size).map(|_| {
             let mut obj = Box::new(FSRObject::new_inst(
                 FSRValue::None,
-                get_object_by_global_id(GlobalObj::NoneCls),
+                gid(GlobalObj::NoneCls),
             ));
             obj.free = true;
             Some(obj)
@@ -308,7 +308,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         IntoS: Into<String>,
     {
         let value = FSRValue::String(FSRInnerString::new(value).into());
-        self.new_object(value, get_object_by_global_id(GlobalObj::StringCls))
+        self.new_object(value, gid(GlobalObj::StringCls))
     }
 
     pub fn collect(&mut self, full: bool) {

@@ -5,7 +5,7 @@ use crate::{
         compiler::bytecode::BinaryOffset,
         memory::GarbageCollector,
         types::{asynclib::future::poll_future, list::FSRList},
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, utils::error::{FSRErrCode, FSRError}
 };
 
@@ -105,7 +105,7 @@ pub fn map(
             obj: args[0],
             iterator: Some(Box::new(map_iterator)),
         })),
-        get_object_by_global_id(GlobalObj::InnerIterator),
+        gid(GlobalObj::InnerIterator),
     );
 
     Ok(FSRRetValue::GlobalId(object))
@@ -136,7 +136,7 @@ pub fn filter(
             obj: args[0],
             iterator: Some(Box::new(filter_iterator)),
         })),
-        get_object_by_global_id(GlobalObj::InnerIterator),
+        gid(GlobalObj::InnerIterator),
     );
 
     Ok(FSRRetValue::GlobalId(object))
@@ -166,7 +166,7 @@ pub fn enumerate(
             obj: args[0],
             iterator: Some(Box::new(enumerate_iterator)),
         })),
-        get_object_by_global_id(GlobalObj::InnerIterator),
+        gid(GlobalObj::InnerIterator),
     );
 
     Ok(FSRRetValue::GlobalId(object))
@@ -268,7 +268,7 @@ pub fn as_list(
             let list = FSRList::new_value(list);
             let ret_obj = thread
                 .garbage_collect
-                .new_object(list, get_object_by_global_id(GlobalObj::ListCls));
+                .new_object(list, gid(GlobalObj::ListCls));
             return Ok(FSRRetValue::GlobalId(ret_obj));
         }
     }
@@ -298,7 +298,7 @@ pub fn count(
 
             let count_obj = thread.garbage_collect.new_object(
                 FSRValue::Integer(count),
-                get_object_by_global_id(GlobalObj::IntegerCls),
+                gid(GlobalObj::IntegerCls),
             );
             return Ok(FSRRetValue::GlobalId(count_obj));
         }

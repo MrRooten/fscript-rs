@@ -13,7 +13,7 @@ use crate::{
             base::{FSRObject, FSRValue},
             iterator::FSRInnerIterator,
         },
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     },
     utils::error::{FSRErrCode, FSRError},
 };
@@ -80,7 +80,7 @@ fn list_len(
         // ));
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(self_s.get_items().len() as i64),
-            get_object_by_global_id(GlobalObj::IntegerCls),
+            gid(GlobalObj::IntegerCls),
         )));
     }
 
@@ -115,7 +115,7 @@ fn list_string(
     s.push(']');
     let obj_id = thread.garbage_collect.new_object(
         FSRValue::String(Arc::new(s)),
-        get_object_by_global_id(GlobalObj::StringCls),
+        gid(GlobalObj::StringCls),
     );
     Ok(FSRRetValue::GlobalId(obj_id))
 }
@@ -139,7 +139,7 @@ fn iter(
                 obj: self_id,
                 iterator: Some(Box::new(iterator)),
             })),
-            get_object_by_global_id(GlobalObj::InnerIterator),
+            gid(GlobalObj::InnerIterator),
         );
         return Ok(FSRRetValue::GlobalId(inner_obj));
     }
@@ -174,7 +174,7 @@ pub fn get_item(
                 .collect::<Vec<_>>();
             let range = thread.garbage_collect.new_object(
                 FSRList::new_value_ref(sub),
-                get_object_by_global_id(GlobalObj::ListCls) as ObjId,
+                gid(GlobalObj::ListCls) as ObjId,
             );
             return Ok(FSRRetValue::GlobalId(range));
         }
@@ -399,7 +399,7 @@ pub fn map(
 
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRList::new_value_ref(ret_list),
-            get_object_by_global_id(GlobalObj::ListCls) as ObjId,
+            gid(GlobalObj::ListCls) as ObjId,
         )));
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
@@ -432,7 +432,7 @@ pub fn filter(
 
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRList::new_value_ref(ret_list),
-            get_object_by_global_id(GlobalObj::ListCls) as ObjId,
+            gid(GlobalObj::ListCls) as ObjId,
         )));
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))

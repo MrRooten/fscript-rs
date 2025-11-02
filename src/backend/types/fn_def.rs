@@ -15,7 +15,7 @@ use crate::{
         compiler::bytecode::Bytecode,
         vm::{
             thread::{FSRThreadRuntime, IndexMap},
-            virtual_machine::get_object_by_global_id,
+            virtual_machine::gid,
         },
     },
     utils::error::FSRError,
@@ -207,7 +207,7 @@ impl<'a> FSRFn<'a> {
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
-            cls: FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::FnCls)).as_class(),
+            cls: FSRObject::id_to_obj(gid(GlobalObj::FnCls)).as_class(),
             free: false,
             mark: AtomicBool::new(false),
             area: Area::Global,

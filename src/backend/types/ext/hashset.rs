@@ -21,7 +21,7 @@ use crate::{
             iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences},
             list::FSRList, string::FSRInnerString,
         },
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     },
     utils::error::FSRError,
 };
@@ -301,7 +301,7 @@ pub fn fsr_fn_hashset_iter(
                     obj: args[0],
                     iterator: Some(Box::new(iter_obj)),
                 })),
-                get_object_by_global_id(GlobalObj::InnerIterator),
+                gid(GlobalObj::InnerIterator),
             );
             Ok(FSRRetValue::GlobalId(object))
         } else {
@@ -322,7 +322,7 @@ pub fn fsr_fn_hashset_new(
     let hashset = FSRHashSet::new_hashset();
     let object = thread
         .garbage_collect
-        .new_object(hashset.to_any_type(), get_object_by_global_id(GlobalObj::HashSetCls));
+        .new_object(hashset.to_any_type(), gid(GlobalObj::HashSetCls));
     Ok(FSRRetValue::GlobalId(object))
 }
 
@@ -509,7 +509,7 @@ fn hashset_string(
     s.push(')');
     let obj_id = thread.garbage_collect.new_object(
         FSRValue::String(Arc::new(s)),
-        get_object_by_global_id(GlobalObj::StringCls),
+        gid(GlobalObj::StringCls),
     );
     Ok(FSRRetValue::GlobalId(obj_id))
 }

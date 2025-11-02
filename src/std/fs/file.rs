@@ -7,7 +7,7 @@ use crate::{
         types::{
             any::{ExtensionTrait, FSRExtension}, base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, bytes::FSRInnerBytes, class::FSRClass, fn_def::FSRFn, iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences}, string::FSRString
         },
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     },
     utils::error::{FSRErrCode, FSRError},
 };
@@ -179,7 +179,7 @@ pub fn fsr_fn_read_all(
                 let ret = FSRValue::Bytes(Box::new(FSRInnerBytes::new(content)));
                 let ret = thread
                     .garbage_collect
-                    .new_object(ret, get_object_by_global_id(GlobalObj::BytesCls));
+                    .new_object(ret, gid(GlobalObj::BytesCls));
                 return Ok(FSRRetValue::GlobalId(ret));
             }
             let mut content = String::new();
@@ -190,7 +190,7 @@ pub fn fsr_fn_read_all(
             let ret = FSRString::new_value(content);
             let ret = thread
                 .garbage_collect
-                .new_object(ret, get_object_by_global_id(GlobalObj::StringCls));
+                .new_object(ret, gid(GlobalObj::StringCls));
             return Ok(FSRRetValue::GlobalId(ret));
         }
     }
@@ -309,7 +309,7 @@ pub fn fsr_fn_read(
                 let ret = FSRValue::Bytes(Box::new(FSRInnerBytes::new(buffer)));
                 let ret = thread
                     .garbage_collect
-                    .new_object(ret, get_object_by_global_id(GlobalObj::BytesCls));
+                    .new_object(ret, gid(GlobalObj::BytesCls));
                 return Ok(FSRRetValue::GlobalId(ret));
             } else {
                 let ret = String::from_utf8(buffer)
@@ -317,7 +317,7 @@ pub fn fsr_fn_read(
                 let ret = FSRString::new_value(ret);
                 let ret = thread
                     .garbage_collect
-                    .new_object(ret, get_object_by_global_id(GlobalObj::StringCls));
+                    .new_object(ret, gid(GlobalObj::StringCls));
                 return Ok(FSRRetValue::GlobalId(ret));
             }
         }
@@ -365,7 +365,7 @@ pub fn fsr_fn_file_lines(
 
             let iter_obj_id = thread
                 .garbage_collect
-                .new_object(value, get_object_by_global_id(GlobalObj::InnerIterator));
+                .new_object(value, gid(GlobalObj::InnerIterator));
             return Ok(FSRRetValue::GlobalId(iter_obj_id));
         }
     }
@@ -398,7 +398,7 @@ impl FSRIterator for FSRFileLineIterator {
                 let line_obj = FSRString::new_value(line);
                 let line_obj_id = thread
                     .garbage_collect
-                    .new_object(line_obj, get_object_by_global_id(GlobalObj::StringCls));
+                    .new_object(line_obj, gid(GlobalObj::StringCls));
                 Ok(Some(line_obj_id))
             }
             Some(Err(e)) => Err(FSRError::new(

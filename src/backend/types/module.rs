@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug, ptr::addr_of, sync::atomic::AtomicUs
 
 use ahash::AHashMap;
 
-use crate::backend::vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id};
+use crate::backend::vm::{thread::FSRThreadRuntime, virtual_machine::gid};
 
 use super::{base::{AtomicObjId, GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
@@ -45,7 +45,7 @@ impl<'a> FSRModule<'a> {
         };
         let mut object = FSRObject::new();
         object.value = FSRValue::Module(Box::new(module));
-        object.cls = FSRObject::id_to_obj(get_object_by_global_id(GlobalObj::ModuleCls)).as_class();
+        object.cls = FSRObject::id_to_obj(gid(GlobalObj::ModuleCls)).as_class();
         object
     }
 

@@ -7,7 +7,7 @@ use crate::{
             fn_def::FSRFn,
             module::FSRModule,
         },
-        vm::{thread::FSRThreadRuntime, virtual_machine::get_object_by_global_id},
+        vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     },
     register_class, register_fn,
     std::fs::{dir::FSRDir, file::{fsr_fn_is_dir, fsr_fn_is_file, FSRInnerFile}},
