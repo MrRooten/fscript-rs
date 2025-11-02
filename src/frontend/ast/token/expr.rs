@@ -1061,7 +1061,7 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && c == '\"' {
-                Self::double_quote_loop(source, ignore_nline, meta, ctx, context)?;
+                Self::double_quote_loop(source, ignore_nline, meta, ctx, context, None)?;
                 continue;
             }
 
