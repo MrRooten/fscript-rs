@@ -602,6 +602,7 @@ pub fn fsr_fn_format_string(
     let mut result = String::new();
     let mut arg_iter = arg_strings.iter();
     let mut chars = format_str.chars().peekable();
+    // Process the format string
     while let Some(c) = chars.next() {
         if c == '{' {
             if chars.peek() == Some(&'{') {

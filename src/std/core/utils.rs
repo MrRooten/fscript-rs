@@ -103,7 +103,6 @@ pub fn fsr_fn_type(
     }
 
     let obj = FSRObject::id_to_obj(args[0]);
-
     match &obj.value {
         FSRValue::Integer(i) => Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRString::new_value("Integer"),

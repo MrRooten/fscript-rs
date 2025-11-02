@@ -373,6 +373,7 @@ impl FSRExpr {
         meta: &FSRPosition,
         ctx: &mut StmtContext,
         context: &mut ASTContext,
+        string_name: Option<&str>,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
             let mut sub_meta = meta.new_offset(0);
@@ -430,6 +431,7 @@ impl FSRExpr {
         meta: &FSRPosition,
         ctx: &mut StmtContext,
         context: &mut ASTContext,
+        string_name: Option<&str>,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
             let mut sub_meta = meta.new_offset(ctx.start);
@@ -438,6 +440,7 @@ impl FSRExpr {
                 format!("{:?} can not follow string", s_op),
             ));
         }
+
         ctx.start += 1;
 
         loop {
@@ -718,6 +721,47 @@ impl FSRExpr {
             ($source: expr) => {
                 &$source[ctx.start..ctx.start + ctx.length]
             };
+        }
+
+        if cur_byte!(source) == b'\'' {
+            // Process like f'user: "{name}"'
+            let string_name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            ctx.start += ctx.length;
+            ctx.length = 0;
+            // process situations like f'user: "{name}"' or f"user: '{name}'"
+            // pop 'f' variable state
+            ctx.states.pop_state();
+            ctx.states.push_state(ExprState::SingleString);
+            Self::single_quote_loop(
+                source,
+                ignore_nline,
+                meta,
+                ctx,
+                context,
+                Some(string_name),
+            )?;
+            return Ok(());
+        }
+
+        if cur_byte!(source) == b'\"' {
+            // Process like f"user: '{name}'"
+            // Process like f'user: "{name}"'
+            let string_name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            ctx.start += ctx.length;
+            ctx.length = 0;
+            // process situations like f'user: "{name}"' or f"user: '{name}'"
+            // pop 'f' variable state
+            ctx.states.pop_state();
+            ctx.states.push_state(ExprState::SingleString);
+            Self::double_quote_loop(
+                source,
+                ignore_nline,
+                meta,
+                ctx,
+                context,
+                Some(string_name),
+            )?;
+            return Ok(());
         }
 
         if ctx.start + ctx.length >= source.len()
@@ -1012,7 +1056,7 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && c == '\'' {
-                Self::single_quote_loop(source, ignore_nline, meta, ctx, context)?;
+                Self::single_quote_loop(source, ignore_nline, meta, ctx, context, None)?;
                 continue;
             }
 
