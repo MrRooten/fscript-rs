@@ -1,5 +1,8 @@
 use std::{
-    collections::HashMap, result, sync::atomic::{AtomicU64, Ordering}
+    cell::Cell,
+    collections::HashMap,
+    result,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use crate::{
@@ -377,6 +380,7 @@ pub enum ArgType {
 #[derive(Debug, Clone)]
 pub struct FSRByteInfo {
     pos: FSRPos,
+    dbg_flag: Cell<bool>,
 }
 
 impl FSRByteInfo {
@@ -397,6 +401,7 @@ impl FSRByteInfo {
                     line: 0,
                     column: meta.get_offset(),
                 },
+                dbg_flag: Cell::new(false),
             };
         }
 
@@ -410,6 +415,7 @@ impl FSRByteInfo {
                     line: 0,
                     column: offset,
                 },
+                dbg_flag: Cell::new(false),
             };
         }
 
@@ -423,12 +429,14 @@ impl FSRByteInfo {
             column: offset - lines[left],
         };
 
-        Self { pos }
+        Self {
+            pos,
+            dbg_flag: Cell::new(false),
+        }
     }
 }
 
 #[derive(Debug, Clone)]
-#[allow(unused)]
 pub struct BytecodeArg {
     operator: BytecodeOperator,
     arg: ArgType,
@@ -444,6 +452,18 @@ impl BytecodeArg {
     #[inline]
     pub fn get_arg(&self) -> &ArgType {
         &self.arg
+    }
+
+    pub fn is_dbg(&self) -> bool {
+        self.info.dbg_flag.get()
+    }
+
+    pub fn set_dbg(&self) {
+        self.info.dbg_flag.set(true);
+    }
+
+    pub fn unset_dbg(&self) {
+        self.info.dbg_flag.set(false);
     }
 }
 
@@ -1955,7 +1975,7 @@ impl<'a> Bytecode {
                 info: FSRByteInfo::new(&const_map.lines, token.get_meta().clone()),
             });
 
-            return result
+            return result;
         }
 
         let c = token.get_const_str();

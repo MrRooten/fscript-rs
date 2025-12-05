@@ -36,6 +36,7 @@ use crate::{
             range::FSRRange,
             string::FSRString,
         },
+        vm::debugger::debug::FSRDebugger,
     },
     frontend::ast::token::{constant::FSROrinStr2, expr::SingleOp},
     utils::error::{FSRErrCode, FSRError},
@@ -507,6 +508,8 @@ impl ThreadShared {
     }
 }
 
+static mut DEBUGGER: Option<FSRDebugger> = None;
+
 #[allow(clippy::vec_box)]
 pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_id: usize,
@@ -526,6 +529,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) thread_context: FSCodeContext,
     pub(crate) gc_context: GcContext,
     pub(crate) thread_shared: ThreadShared,
+    dbg_flag: bool,
     #[cfg(feature = "count_bytecode")]
     pub(crate) bytecode_counter: Vec<usize>,
 }
@@ -576,7 +580,12 @@ impl<'a> FSRThreadRuntime<'a> {
             #[cfg(feature = "count_bytecode")]
             bytecode_counter: vec![0; 256],
             thread_shared: ThreadShared::new(),
+            dbg_flag: false,
         }
+    }
+
+    pub fn set_dbg_flag(&mut self, flag: bool) {
+        self.dbg_flag = flag;
     }
 
     pub fn clear_marks(&mut self) {
@@ -2386,9 +2395,7 @@ impl<'a> FSRThreadRuntime<'a> {
                             } else {
                             }
                         }
-                        _ => {
-                            
-                        },
+                        _ => {}
                     }
 
                     i += 1;
@@ -3136,7 +3143,22 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn set_exp_stack_ret(&mut self) {
+    fn debugger_process(&mut self) {
+        unsafe {
+            if DEBUGGER.is_none() {
+                DEBUGGER = Some(FSRDebugger::new());
+            }
+
+            DEBUGGER.as_mut().unwrap().take_control(self);
+        }
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    fn pre_expr(&mut self) {
+        if self.dbg_flag {
+            self.debugger_process();
+        }
+        
         if self.get_cur_mut_frame().ret_val.is_some() {
             let v = self.get_cur_mut_frame().ret_val.take().unwrap();
             push_exp!(self, v);
@@ -3200,7 +3222,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
         let mut v;
-        self.set_exp_stack_ret();
+        self.pre_expr();
         while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
             self.get_cur_mut_frame().ip.1 += 1;
             // let arg = &expr[context.ip.1];
