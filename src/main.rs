@@ -22,6 +22,12 @@ fn main() {
         just_bc = true; 
     }
 
+    let mut debugger = false;
+
+    if vs.iter().any(|x| x.eq("-dbg")) {
+        debugger = true;
+    }
+
     
     let vm = FSRVM::single();
     let file = &vs[1];
@@ -50,7 +56,7 @@ fn main() {
     let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
     let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
     obj.as_mut_module().init_fn_map(v);
-    thread.start(obj_id).unwrap();
+    thread.start(obj_id, debugger).unwrap();
 
     let end = Instant::now();
     println!("{:?}", end - start);

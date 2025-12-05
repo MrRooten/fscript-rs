@@ -3143,22 +3143,24 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn debugger_process(&mut self) {
+    fn debugger_process(&mut self, expr: &[BytecodeArg]) {
         unsafe {
             if DEBUGGER.is_none() {
                 DEBUGGER = Some(FSRDebugger::new());
             }
-
-            DEBUGGER.as_mut().unwrap().take_control(self);
+            if !expr.is_empty() && expr[0].is_dbg() {
+                DEBUGGER.as_mut().unwrap().take_control(self);
+            }
+            
         }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn pre_expr(&mut self) {
+    fn pre_expr(&mut self, expr: &[BytecodeArg]) {
         if self.dbg_flag {
-            self.debugger_process();
+            self.debugger_process(expr);
         }
-        
+
         if self.get_cur_mut_frame().ret_val.is_some() {
             let v = self.get_cur_mut_frame().ret_val.take().unwrap();
             push_exp!(self, v);
@@ -3222,7 +3224,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
         let mut v;
-        self.pre_expr();
+        self.pre_expr(expr);
         while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
             self.get_cur_mut_frame().ip.1 += 1;
             // let arg = &expr[context.ip.1];
@@ -3294,7 +3296,8 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(code_id)
     }
 
-    pub fn start(&mut self, module: ObjId) -> Result<(), FSRError> {
+    pub fn start(&mut self, module: ObjId, start_dbg: bool) -> Result<(), FSRError> {
+        self.dbg_flag = start_dbg;
         let code_id = FSRObject::obj_to_id(
             FSRObject::id_to_obj(module)
                 .as_module()
@@ -3328,6 +3331,20 @@ impl<'a> FSRThreadRuntime<'a> {
         self.get_cur_mut_context()
             .set_code(FSRObject::obj_to_id(main_code.unwrap()));
         let mut code = FSRObject::id_to_obj(code_id).as_code();
+
+        // Debug stop at entry
+        if start_dbg {
+            let mut start = 0;
+            while let Some(code) = code.get_expr(start) {
+                if code.is_empty() {
+                    start += 1;
+                    continue;
+                }
+
+                code[0].set_dbg();
+                break;
+            }
+        }
         //self.get_cur_mut_frame().fn_obj = code_id;
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
@@ -3457,7 +3474,7 @@ mod test {
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
 
         // println!("{:?}", FSRObject::id_to_obj(v.get_object("abc").unwrap()));
     }
@@ -3480,7 +3497,7 @@ mod test {
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     // #[test]
@@ -3557,7 +3574,7 @@ mod test {
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     #[test]
@@ -3579,7 +3596,7 @@ mod test {
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     #[test]
@@ -3601,7 +3618,7 @@ mod test {
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     #[test]
@@ -3624,7 +3641,7 @@ mod test {
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     #[test]
@@ -3643,6 +3660,6 @@ mod test {
         // let v = v.remove("__main__").unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 }

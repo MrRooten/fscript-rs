@@ -200,7 +200,7 @@ pub mod tests {
             let start = Instant::now();
             //runtime.start(&v, &mut vm).unwrap();
 
-            runtime.start(obj_id).unwrap();
+            runtime.start(obj_id, false).unwrap();
             let end = Instant::now();
             println!("{:?}", end - start);
         }
@@ -257,7 +257,7 @@ pub mod tests {
         let mut runtime = FSRThreadRuntime::new_runtime();
         //runtime.start(&v, &mut vm).unwrap();
 
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     #[test]
@@ -277,7 +277,7 @@ pub mod tests {
 
         //runtime.start(&v, &mut vm).unwrap();
 
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     #[test]
@@ -297,7 +297,7 @@ pub mod tests {
 
         //runtime.start(&v, &mut vm).unwrap();
 
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     #[test]
@@ -502,7 +502,7 @@ pub mod tests {
 
         //runtime.start(&v, &mut vm).unwrap();
 
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 
     #[test]
@@ -532,6 +532,6 @@ pub mod tests {
 
         //runtime.start(&v, &mut vm).unwrap();
 
-        runtime.start(obj_id).unwrap();
+        runtime.start(obj_id, false).unwrap();
     }
 }
