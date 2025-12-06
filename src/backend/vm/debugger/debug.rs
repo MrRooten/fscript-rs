@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::{Write, stdin, stdout}};
 
-use crate::backend::vm::{debugger::{CommandAction, bc_action::BcAction, bt_action::BtAction, cont_action::ContAction}, thread::FSRThreadRuntime};
+use crate::backend::vm::{debugger::{CommandAction, ba_action::BaAction, bc_action::BcAction, bt_action::BtAction, cont_action::ContAction}, thread::FSRThreadRuntime};
 
 pub enum FSRFlag {
     Debugger,
@@ -18,6 +18,7 @@ impl FSRDebugger {
         commands.insert("continue".to_string(), Box::new(ContAction {}));
         commands.insert("bc".to_string(), Box::new(BcAction {}));
         commands.insert("bt".to_string(), Box::new(BtAction {}));
+        commands.insert("ba".to_string(), Box::new(BaAction {}));
         Self {
             commands
         }
@@ -33,6 +34,9 @@ impl FSRDebugger {
                 .read_line(&mut command)
                 .expect("Did not enter a correct string");
             let command = command.trim();
+            let args = command.split(" ").filter(|x| !x.is_empty()).collect::<Vec<_>>();
+            let command = args[0];
+            let args = &args[1..];
             if command.eq("quit") || command.eq("exit") {
                 break;
             }
@@ -45,7 +49,7 @@ impl FSRDebugger {
                 }
             };
 
-            action.action(thread_rt);
+            action.action(thread_rt, args);
         }
     }
 }

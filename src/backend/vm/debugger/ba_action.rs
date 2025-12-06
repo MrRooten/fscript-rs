@@ -1,10 +1,9 @@
 
-
 use crate::backend::{types::base::FSRObject, vm::debugger::CommandAction};
 
-pub struct BcAction {}
+pub struct BaAction {}
 
-impl CommandAction for BcAction {
+impl CommandAction for BaAction {
     fn action(
         &self,
         thread_rt: &mut crate::backend::vm::thread::FSRThreadRuntime,
@@ -12,11 +11,14 @@ impl CommandAction for BcAction {
     ) -> Result<(), crate::utils::error::FSRError> {
         let code = thread_rt.get_cur_frame().code;
         let code = FSRObject::id_to_obj(code).as_code();
-        println!("{:#?}", code.get_bytecode().bytecode);
+        let line = args[0];
+        let line: usize = line.parse().unwrap();
+        let expr = code.get_expr(line as usize).unwrap();
+        expr[0].set_dbg();
         Ok(())
     }
     
     fn get_name(&self) -> &'static str {
-        "bc"
+        "ba"
     }
 }

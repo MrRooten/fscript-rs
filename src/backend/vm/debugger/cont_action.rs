@@ -6,6 +6,7 @@ impl CommandAction for ContAction {
     fn action(
         &self,
         thread_rt: &mut crate::backend::vm::thread::FSRThreadRuntime,
+        args: &[&str]
     ) -> Result<(), crate::utils::error::FSRError> {
         todo!()
     }

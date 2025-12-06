@@ -1,11 +1,7 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    collections::HashSet,
-    ops::Range,
-    path::PathBuf,
-    str::FromStr,
-    sync::{atomic::Ordering, Arc, Condvar, Mutex},
+    collections::HashSet, fmt::format, ops::Range, path::PathBuf, str::FromStr, sync::{Arc, Condvar, Mutex, atomic::Ordering}
 };
 
 use smallvec::SmallVec;
@@ -264,7 +260,9 @@ pub struct CallFrame {
 
 impl CallFrame {
     pub fn as_printable_str(&self) -> String {
-        self.code.to_string()
+        let code_obj = FSRObject::id_to_obj(self.code).as_code();
+        let module_id = FSRObject::id_to_obj(code_obj.module).as_module();
+        format!("{} -> {}",module_id.get_name(), code_obj.get_name())
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]

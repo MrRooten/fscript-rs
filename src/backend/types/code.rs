@@ -42,6 +42,10 @@ impl Debug for FSRCode {
 }
 
 impl FSRCode {
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
     pub fn get_class() -> FSRClass {
         FSRClass::new("FSRCode")
     }

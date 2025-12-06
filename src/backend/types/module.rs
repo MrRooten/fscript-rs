@@ -32,6 +32,10 @@ impl Debug for FSRModule<'_> {
 }
 
 impl<'a> FSRModule<'a> {
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
     pub fn as_string(&self) -> String {
         format!("Module: {}", self.name)
     }
