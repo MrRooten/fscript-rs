@@ -263,6 +263,10 @@ pub struct CallFrame {
 }
 
 impl CallFrame {
+    pub fn as_printable_str(&self) -> String {
+        self.code.to_string()
+    }
+
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear(&mut self) {
         self.local_var.clear();
@@ -2098,7 +2102,6 @@ impl<'a> FSRThreadRuntime<'a> {
             module.register_object(name, fn_id);
         }
 
-        // is this function is a closure function
         if *store_to_cell && !is_base_fn!(define_fn_obj) {
             let define_fn_obj = self.get_cur_frame().fn_id;
             let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj)
@@ -3130,37 +3133,23 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        // #[cfg(feature = "predict_op")]
-        // if let Some(s) = self.get_cur_frame().next_arg {
-        //     if s.get_operator() == &BytecodeOperator::CompareTest {
-        //         self.get_cur_mut_frame().ip.1 += 1;
-        //         let v = Self::compare_test(self, s);
-        //         return v
-        //     }
-        // }
-
         Ok(false)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn debugger_process(&mut self, expr: &[BytecodeArg]) {
+    fn debugger_process(&mut self, expr: &BytecodeArg) {
         unsafe {
             if DEBUGGER.is_none() {
                 DEBUGGER = Some(FSRDebugger::new());
             }
-            if !expr.is_empty() && expr[0].is_dbg() {
+            if expr.is_dbg() {
                 DEBUGGER.as_mut().unwrap().take_control(self);
             }
-            
         }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn pre_expr(&mut self, expr: &[BytecodeArg]) {
-        if self.dbg_flag {
-            self.debugger_process(expr);
-        }
-
         if self.get_cur_mut_frame().ret_val.is_some() {
             let v = self.get_cur_mut_frame().ret_val.take().unwrap();
             push_exp!(self, v);
@@ -3226,6 +3215,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut v;
         self.pre_expr(expr);
         while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
+            if self.dbg_flag {
+                self.debugger_process(arg);
+            }
             self.get_cur_mut_frame().ip.1 += 1;
             // let arg = &expr[context.ip.1];
             #[cfg(feature = "bytecode_trace")]

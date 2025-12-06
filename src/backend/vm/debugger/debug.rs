@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::{Write, stdin, stdout}};
 
-use crate::backend::vm::{debugger::{CommandAction, bc_action::BcAction, cont_action::ContAction}, thread::FSRThreadRuntime};
+use crate::backend::vm::{debugger::{CommandAction, bc_action::BcAction, bt_action::BtAction, cont_action::ContAction}, thread::FSRThreadRuntime};
 
 pub enum FSRFlag {
     Debugger,
@@ -17,6 +17,7 @@ impl FSRDebugger {
         let mut commands: HashMap<String, Box<dyn CommandAction>> = HashMap::new();
         commands.insert("continue".to_string(), Box::new(ContAction {}));
         commands.insert("bc".to_string(), Box::new(BcAction {}));
+        commands.insert("bt".to_string(), Box::new(BtAction {}));
         Self {
             commands
         }
@@ -32,7 +33,7 @@ impl FSRDebugger {
                 .read_line(&mut command)
                 .expect("Did not enter a correct string");
             let command = command.trim();
-            if command.eq("quit") {
+            if command.eq("quit") || command.eq("exit") {
                 break;
             }
 
