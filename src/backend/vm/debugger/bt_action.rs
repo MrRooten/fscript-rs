@@ -18,11 +18,9 @@ impl CommandAction for BtAction {
             println!("{}: {}, offset: {:?}", idx, frame.as_printable_str(), pos);
         }
 
-        // current frame as 0
         let cur = thread_rt.get_cur_frame();
         print_frame(0, cur);
 
-        // remaining call frames (reversed) start from 1
         for (i, frame) in thread_rt.call_frames.iter().rev().enumerate() {
             print_frame(i + 1, frame);
         }

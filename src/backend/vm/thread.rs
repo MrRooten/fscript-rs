@@ -3176,13 +3176,13 @@ impl<'a> FSRThreadRuntime<'a> {
         if self.get_cur_frame().catch_ends.is_empty() {
             return false;
         }
-        if let Some(id) = top_exp!(self) {
-            let obj = FSRObject::id_to_obj(id);
+        if let Some(exception_obj) = top_exp!(self) {
+            let obj = FSRObject::id_to_obj(exception_obj);
             if !obj.is_error() {
                 return false;
             }
 
-            self.get_cur_mut_frame().handling_exception = id;
+            self.get_cur_mut_frame().handling_exception = exception_obj;
             // self.exception = FSRObject::none_id();
             // self.exception_flag = false;
             self.get_cur_mut_frame().ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
@@ -3296,7 +3296,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
-            // code = FSRObject::id_to_obj(self.get_context().code).as_code();
         }
 
         self.pop_frame();
