@@ -1,5 +1,5 @@
 
-use crate::backend::{types::base::FSRObject, vm::debugger::CommandAction};
+use crate::backend::{compiler::bytecode::FSRDbgFlag, types::base::FSRObject, vm::debugger::CommandAction};
 
 pub struct BaAction {}
 
@@ -14,7 +14,7 @@ impl CommandAction for BaAction {
         let line = args[0];
         let line: usize = line.parse().unwrap();
         let expr = code.get_expr(line as usize).unwrap();
-        expr[0].set_dbg();
+        expr[0].set_dbg(FSRDbgFlag::Keep);
         Ok(())
     }
     

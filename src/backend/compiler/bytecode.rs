@@ -377,10 +377,17 @@ pub enum ArgType {
     None,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum FSRDbgFlag {
+    None,
+    Keep,
+    Once
+}
+
 #[derive(Debug, Clone)]
 pub struct FSRByteInfo {
     pos: FSRPos,
-    dbg_flag: Cell<bool>,
+    dbg_flag: Cell<FSRDbgFlag>,
 }
 
 impl FSRByteInfo {
@@ -401,7 +408,7 @@ impl FSRByteInfo {
                     line: 0,
                     column: meta.get_offset(),
                 },
-                dbg_flag: Cell::new(false),
+                dbg_flag: Cell::new(FSRDbgFlag::None),
             };
         }
 
@@ -415,7 +422,7 @@ impl FSRByteInfo {
                     line: 0,
                     column: offset,
                 },
-                dbg_flag: Cell::new(false),
+                dbg_flag: Cell::new(FSRDbgFlag::None),
             };
         }
 
@@ -431,7 +438,7 @@ impl FSRByteInfo {
 
         Self {
             pos,
-            dbg_flag: Cell::new(false),
+            dbg_flag: Cell::new(FSRDbgFlag::None),
         }
     }
 }
@@ -455,15 +462,23 @@ impl BytecodeArg {
     }
 
     pub fn is_dbg(&self) -> bool {
-        self.info.dbg_flag.get()
+        match self.info.dbg_flag.get() {
+            FSRDbgFlag::None => false,
+            FSRDbgFlag::Keep => true,
+            FSRDbgFlag::Once => true,
+        }
     }
 
-    pub fn set_dbg(&self) {
-        self.info.dbg_flag.set(true);
+    pub fn set_dbg(&self, dbg_flag: FSRDbgFlag) {
+        self.info.dbg_flag.set(dbg_flag);
     }
 
-    pub fn unset_dbg(&self) {
-        self.info.dbg_flag.set(false);
+    pub fn is_dbg_once(&self) -> bool {
+        match self.info.dbg_flag.get() {
+            FSRDbgFlag::None => false,
+            FSRDbgFlag::Keep => true,
+            FSRDbgFlag::Once => false,
+        }
     }
 }
 

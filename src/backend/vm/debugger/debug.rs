@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::{Write, stdin, stdout}};
+use std::{collections::HashMap, io::{Write, stdin, stdout}, process::exit};
 
 use crate::backend::vm::{debugger::{CommandAction, ba_action::BaAction, bc_action::BcAction, bt_action::BtAction, cont_action::ContAction}, thread::FSRThreadRuntime};
 
@@ -37,8 +37,12 @@ impl FSRDebugger {
             let args = command.split(" ").filter(|x| !x.is_empty()).collect::<Vec<_>>();
             let command = args[0];
             let args = &args[1..];
-            if command.eq("quit") || command.eq("exit") {
+            if command.eq("cont") {
                 break;
+            }
+
+            if command.eq("exit") {
+                exit(0);
             }
 
             let action = match self.commands.get(command) {

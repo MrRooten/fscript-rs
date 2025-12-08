@@ -10,16 +10,15 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
+                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag,
             },
             jit::cranelift::CraneLiftJitBackend,
         },
         memory::{
-            gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator,
-            GarbageCollector,
+            GarbageCollector, gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator
         },
         types::{
-            asynclib::future::{poll_future, FSRFuture, FSRFutureState},
+            asynclib::future::{FSRFuture, FSRFutureState, poll_future},
             base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
@@ -3071,10 +3070,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 push_exp!(self, id);
             }
             ArgType::Const(index) => {
-                // let code = FSRObject::id_to_obj(self.get_context().code)
-                //     .as_code()
-                //     .module;
-                // let module = FSRObject::id_to_obj(code).as_module();
                 let obj = self
                     .get_cur_frame()
                     .get_const(index)
@@ -3142,6 +3137,12 @@ impl<'a> FSRThreadRuntime<'a> {
             }
             if expr.is_dbg() {
                 DEBUGGER.as_mut().unwrap().take_control(self);
+            }
+
+            if expr.is_dbg_once() {
+                // Clear the dbg once flag
+                // Process like debugger next line only breakpoint once
+                expr.set_dbg(FSRDbgFlag::None);
             }
         }
     }
@@ -3286,6 +3287,19 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(code_id)
     }
 
+    fn startup_debug(&mut self, code: &FSRCode) {
+        let mut start = 0;
+            while let Some(code) = code.get_expr(start) {
+                if code.is_empty() {
+                    start += 1;
+                    continue;
+                }
+
+                code[0].set_dbg(FSRDbgFlag::Keep);
+                break;
+            }
+    }
+
     pub fn start(&mut self, module: ObjId, start_dbg: bool) -> Result<(), FSRError> {
         self.dbg_flag = start_dbg;
         let code_id = FSRObject::obj_to_id(
@@ -3324,21 +3338,11 @@ impl<'a> FSRThreadRuntime<'a> {
 
         // Debug stop at entry
         if start_dbg {
-            let mut start = 0;
-            while let Some(code) = code.get_expr(start) {
-                if code.is_empty() {
-                    start += 1;
-                    continue;
-                }
-
-                code[0].set_dbg();
-                break;
-            }
+            self.startup_debug(code);
         }
-        //self.get_cur_mut_frame().fn_obj = code_id;
+
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
-            // code = self.get_context().code_inst.unwrap();
         }
 
         println!("count: {}", self.counter);
