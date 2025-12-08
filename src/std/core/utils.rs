@@ -267,6 +267,15 @@ pub fn fsr_timeit(
     unimplemented!()
 }
 
+pub fn fsr_breakpoint(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+    code: ObjId,
+) -> Result<FSRRetValue, FSRError> {
+    FSRThreadRuntime::trigger_debug(thread);
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
+}
 
 pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
@@ -277,6 +286,7 @@ pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let type_fn = FSRFn::from_rust_fn_static(fsr_fn_type, "type");
     let id_fn = FSRFn::from_rust_fn_static(fsr_fn_id, "id");
     let get_class = FSRFn::from_rust_fn_static(fsr_get_class, "get_class");
+    let breakpoint_fn = FSRFn::from_rust_fn_static(fsr_breakpoint, "breakpoint");
     let mut m = HashMap::new();
     m.insert("assert", assert_fn);
     m.insert("export", export_fn);
@@ -286,5 +296,6 @@ pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     m.insert("type", type_fn);
     m.insert("id", id_fn);
     m.insert("get_class", get_class);
+    m.insert("breakpoint", breakpoint_fn);
     m
 }

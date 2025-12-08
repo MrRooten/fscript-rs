@@ -106,6 +106,18 @@ pub struct FSRPos {
     pub column: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct FSRPosHuman {
+    pub line: usize,
+    pub column: usize,
+}
+
+impl FSRPos {
+    pub fn as_human(&self) -> FSRPosHuman {
+        FSRPosHuman { line: self.line + 1, column: self.column + 1 }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub enum BinaryOffset {
@@ -451,6 +463,10 @@ pub struct BytecodeArg {
 }
 
 impl BytecodeArg {
+    pub fn get_pos(&self) -> FSRPos {
+        self.info.pos.clone()
+    }
+
     #[inline]
     pub fn get_operator(&self) -> &BytecodeOperator {
         &self.operator

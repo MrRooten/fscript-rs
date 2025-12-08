@@ -6,12 +6,27 @@ impl CommandAction for BtAction {
     fn action(
         &self,
         thread_rt: &mut crate::backend::vm::thread::FSRThreadRuntime,
-        args: &[&str]
+        args: &[&str],
     ) -> Result<(), crate::utils::error::FSRError> {
-        println!("0: {}, offset: {:?}", thread_rt.get_cur_frame().as_printable_str(), thread_rt.get_cur_frame().ip);
-        for frame in thread_rt.call_frames.iter().rev().enumerate() {
-            println!("{}: {}, offset: {:?}", frame.0 + 1, frame.1.as_printable_str(), frame.1.ip);
+        fn print_frame(idx: usize, frame: &crate::backend::vm::thread::CallFrame) {
+            let code = FSRObject::id_to_obj(frame.code).as_code();
+            let pos = code
+                .get_expr(frame.ip.0)
+                .and_then(|v| v.get(frame.ip.1.saturating_sub(1)))
+                .map(|expr| expr.get_pos().as_human())
+                .unwrap();
+            println!("{}: {}, offset: {:?}", idx, frame.as_printable_str(), pos);
         }
+
+        // current frame as 0
+        let cur = thread_rt.get_cur_frame();
+        print_frame(0, cur);
+
+        // remaining call frames (reversed) start from 1
+        for (i, frame) in thread_rt.call_frames.iter().rev().enumerate() {
+            print_frame(i + 1, frame);
+        }
+
         Ok(())
     }
 

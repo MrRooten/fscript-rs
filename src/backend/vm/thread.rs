@@ -1,7 +1,12 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    collections::HashSet, fmt::format, ops::Range, path::PathBuf, str::FromStr, sync::{Arc, Condvar, Mutex, atomic::Ordering}
+    collections::HashSet,
+    fmt::format,
+    ops::Range,
+    path::PathBuf,
+    str::FromStr,
+    sync::{atomic::Ordering, Arc, Condvar, Mutex},
 };
 
 use smallvec::SmallVec;
@@ -10,15 +15,17 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag,
+                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
+                FSRDbgFlag,
             },
             jit::cranelift::CraneLiftJitBackend,
         },
         memory::{
-            GarbageCollector, gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator
+            gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator,
+            GarbageCollector,
         },
         types::{
-            asynclib::future::{FSRFuture, FSRFutureState, poll_future},
+            asynclib::future::{poll_future, FSRFuture, FSRFutureState},
             base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
@@ -261,7 +268,7 @@ impl CallFrame {
     pub fn as_printable_str(&self) -> String {
         let code_obj = FSRObject::id_to_obj(self.code).as_code();
         let module_id = FSRObject::id_to_obj(code_obj.module).as_module();
-        format!("{} -> {}",module_id.get_name(), code_obj.get_name())
+        format!("{} -> {}", module_id.get_name(), code_obj.get_name())
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -3128,6 +3135,15 @@ impl<'a> FSRThreadRuntime<'a> {
 
         Ok(false)
     }
+    /// Trigger debug no matter what
+    pub fn trigger_debug(&mut self) {
+        unsafe {
+            if DEBUGGER.is_none() {
+                DEBUGGER = Some(FSRDebugger::new());
+            }
+            DEBUGGER.as_mut().unwrap().take_control(self);
+        }
+    }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn debugger_process(&mut self, expr: &BytecodeArg) {
@@ -3179,11 +3195,21 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr_wrapper(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
-        // if self.counter - self.last_aquire_counter > 200 {
-        //     self.rt_yield();
-        // }
-
         self.run_expr(expr)
+    }
+
+    fn collect_action(&mut self) {
+        let st = std::time::Instant::now();
+        if self.gc_context.gc_state == GcState::Stop {
+            self.clear_marks();
+        }
+        self.set_ref_objects_mark(false, &[]);
+        if self.gc_context.worklist.is_empty() {
+            self.collect_gc(false);
+            self.gc_context.gc_state = GcState::Stop;
+        }
+
+        self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -3195,30 +3221,22 @@ impl<'a> FSRThreadRuntime<'a> {
         clear_middle_exp!(self);
 
         if self.garbage_collect.will_collect() {
-            let st = std::time::Instant::now();
-            if self.gc_context.gc_state == GcState::Stop {
-                self.clear_marks();
-            }
-            self.set_ref_objects_mark(false, &[]);
-            if self.gc_context.worklist.is_empty() {
-                self.collect_gc(false);
-                self.gc_context.gc_state = GcState::Stop;
-            }
-
-            self.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
+            self.collect_action();
         }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
-        let mut v;
+        let mut in_advance_exit;
         self.pre_expr(expr);
         while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
+            self.get_cur_mut_frame().ip.1 += 1;
+            // Under the ip.1 += 1
+            // make sure ip value as same as eval context
             if self.dbg_flag {
                 self.debugger_process(arg);
             }
-            self.get_cur_mut_frame().ip.1 += 1;
-            // let arg = &expr[context.ip.1];
+
             #[cfg(feature = "bytecode_trace")]
             {
                 let t = format!("{:?} => {:?}", self.get_cur_frame().ip, arg);
@@ -3230,7 +3248,7 @@ impl<'a> FSRThreadRuntime<'a> {
             {
                 self.bytecode_counter[*arg.get_operator() as usize] += 1;
             }
-            v = self.process(arg)?;
+            in_advance_exit = self.process(arg)?;
 
             if Self::exception_process(self) {
                 clear_exp!(self);
@@ -3238,7 +3256,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(true);
             }
 
-            if v {
+            if in_advance_exit {
                 if self.get_cur_frame().ret_val.is_some() {
                     // Will keep frame exp stack
                     return Ok(true);
@@ -3289,15 +3307,15 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn startup_debug(&mut self, code: &FSRCode) {
         let mut start = 0;
-            while let Some(code) = code.get_expr(start) {
-                if code.is_empty() {
-                    start += 1;
-                    continue;
-                }
-
-                code[0].set_dbg(FSRDbgFlag::Keep);
-                break;
+        while let Some(code) = code.get_expr(start) {
+            if code.is_empty() {
+                start += 1;
+                continue;
             }
+
+            code[0].set_dbg(FSRDbgFlag::Keep);
+            break;
+        }
     }
 
     pub fn start(&mut self, module: ObjId, start_dbg: bool) -> Result<(), FSRError> {

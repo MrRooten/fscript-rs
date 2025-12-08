@@ -42,7 +42,7 @@ impl FSRDebugger {
             }
 
             if command.eq("exit") {
-                exit(0);
+                exit(0)
             }
 
             let action = match self.commands.get(command) {
