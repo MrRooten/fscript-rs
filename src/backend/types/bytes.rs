@@ -26,7 +26,7 @@ impl FSRInnerBytes {
         &self.bytes
     }
 
-    pub fn len(&self) -> usize {
+    pub fn bs_len(&self) -> usize {
         self.bytes.len()
     }
 
@@ -45,7 +45,7 @@ impl FSRInnerBytes {
         cls.insert_attr("as_hex", as_hex);
         let get_len = FSRFn::from_rust_fn_static(get_len, "bytes_get_len");
         cls.insert_attr("len", get_len);
-        return cls;
+        cls
     }
 }
 
@@ -64,7 +64,7 @@ fn get_sub_bytes(
     if let FSRValue::Bytes(self_bytes) = &self_object.value {
         if let FSRValue::Integer(index) = &index.value {
             let index = *index as usize;
-            if index < self_bytes.len() {
+            if index < self_bytes.bs_len() {
                 let obj_id = thread.garbage_collect.new_object(
                     FSRValue::Integer(self_bytes.bytes[index] as i64),
                     GlobalObj::IntegerCls.get_id(),
@@ -80,7 +80,7 @@ fn get_sub_bytes(
             let start = r.range.start as usize;
             let end = r.range.end as usize;
 
-            if start >= self_bytes.len() || end > self_bytes.len() || start > end {
+            if start >= self_bytes.bs_len() || end > self_bytes.bs_len() || start > end {
                 return Err(FSRError::new(
                     "range out of bounds for bytes",
                     crate::utils::error::FSRErrCode::IndexOutOfRange,
@@ -168,7 +168,7 @@ pub fn set_item(
                         FSRErrCode::OutOfRange,
                     ));
                 }
-                if l.bytes.len() == 0 {
+                if l.bytes.is_empty() {
                     return Err(FSRError::new("bytes is empty", FSRErrCode::NotValidArgs));
                 }
                 if *index < 0 {
@@ -189,24 +189,24 @@ pub fn set_item(
                 let mut bytes = l.bytes.clone();
                 bytes[index] = target;
 
-                return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
+                Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
             } else {
-                return Err(FSRError::new(
+                Err(FSRError::new(
                     "target is not an integer",
                     FSRErrCode::NotValidArgs,
-                ));
+                ))
             }
         } else {
-            return Err(FSRError::new(
+            Err(FSRError::new(
                 "index is not an integer",
                 FSRErrCode::NotValidArgs,
-            ));
+            ))
         }
     } else {
-        return Err(FSRError::new(
+        Err(FSRError::new(
             "left value is not a bytes",
             FSRErrCode::NotValidArgs,
-        ));
+        ))
     }
 }
 

@@ -34,7 +34,7 @@ impl FSRImport {
         let module_start = sub.find(' ').unwrap();
         let mod_name = sub[module_start..len].trim();
 
-        context.add_variable(mod_name.split('.').last().unwrap(), None);
+        context.add_variable(mod_name.split('.').next_back().unwrap(), None);
         Ok((
             Self {
                 module_name: mod_name.split('.').map(|s| s.to_string()).collect(),

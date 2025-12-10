@@ -143,7 +143,7 @@ impl FSRBlock {
                 length = 0;
 
                 let mut sub_meta = meta.new_offset(start);
-                let l = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+                let l = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
                 length += l;
                 let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
                 let mut sub_block_meta = meta.new_offset(start);

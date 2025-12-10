@@ -547,7 +547,7 @@ pub fn fsr_fn_hashmap_len(
                 FSRValue::Integer(len as i64),
                 gid(GlobalObj::IntegerCls),
             );
-            return Ok(FSRRetValue::GlobalId(obj_id));
+            Ok(FSRRetValue::GlobalId(obj_id))
         } else {
             unimplemented!()
         }

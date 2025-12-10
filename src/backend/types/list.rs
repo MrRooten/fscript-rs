@@ -486,7 +486,7 @@ pub fn equal(
 }
 
 impl FSRList {
-    pub fn get_class<'a>() -> FSRClass {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("List");
         let len_m = FSRFn::from_rust_fn_static(list_len, "list_len");
         cls.insert_attr("len", len_m);

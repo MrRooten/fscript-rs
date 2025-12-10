@@ -20,7 +20,7 @@ impl FSRTell {
         let mut res = vec![];
         loop {
             if start + len >= source.len() {
-                start = start + len;
+                start += len;
                 return Err(SyntaxError::new_with_type(
                     &position,
                     "attribute must follow more token",
@@ -35,7 +35,7 @@ impl FSRTell {
             }
 
             if start + len >= source.len() {
-                start = start + len;
+                start += len;
                 return Err(SyntaxError::new_with_type(
                     &position,
                     "attribute must follow more token",
@@ -43,14 +43,14 @@ impl FSRTell {
                 ));
             }
 
-            start = start + len;
+            start += len;
             len = 0;
             while start + len < source.len() && source[start + len] != b'\n' {
                 len += 1; 
             }
 
             if start + len >= source.len() {
-                start = start + len;
+                start += len;
                 return Err(SyntaxError::new_with_type(
                     &position,
                     "attribute must follow more token",
@@ -67,7 +67,7 @@ impl FSRTell {
 
             res.push(may_attr.to_string());
 
-            start = start + len;
+            start += len;
             len = 0;
         }
 

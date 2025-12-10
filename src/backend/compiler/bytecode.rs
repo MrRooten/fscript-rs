@@ -79,7 +79,7 @@ pub struct StackVecMap {
 }
 
 impl StackVecMap {
-    pub fn new() -> Self {
+    pub fn new_vec_map() -> Self {
         Self { map: vec![] }
     }
 

@@ -74,7 +74,7 @@ impl FSRElse {
                 else_ifs.push(e);
             } else if source[start] as char == '{' {
                 let sub_meta = meta.new_offset(start);
-                let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+                let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
                 let sub_meta = meta.new_offset(start);
                 let block = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
                 let len = block.get_len();

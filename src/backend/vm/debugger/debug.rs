@@ -13,7 +13,7 @@ pub struct FSRDebugger {
 impl FSRDebugger {
     pub fn cont_prog(&mut self, thread_rt: &mut FSRThreadRuntime) {}
 
-    pub fn new() -> Self {
+    pub fn new_debugger() -> Self {
         let mut commands: HashMap<String, Box<dyn CommandAction>> = HashMap::new();
         commands.insert("continue".to_string(), Box::new(ContAction {}));
         commands.insert("bc".to_string(), Box::new(BcAction {}));

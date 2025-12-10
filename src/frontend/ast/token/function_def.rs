@@ -186,7 +186,7 @@ impl FSRFnDef {
 
         let mut sub_meta = meta.new_offset(args_len);
         let fn_block_len =
-            ASTParser::read_valid_bracket(&source[args_len..], sub_meta.clone(), &context)?;
+            ASTParser::read_valid_bracket(&source[args_len..], sub_meta.clone(), context)?;
         let fn_block = FSRBlock::parse(
             &source[args_len..args_len + fn_block_len],
             sub_meta,
@@ -371,7 +371,7 @@ impl FSRFnDef {
         let fn_block_len = ASTParser::read_valid_bracket(
             &source[fn_block_start..],
             meta.new_offset(fn_block_start),
-            &context,
+            context,
         )?;
         let block_meta = meta.new_offset(fn_block_start);
         for arg in fn_call.get_args_mut() {

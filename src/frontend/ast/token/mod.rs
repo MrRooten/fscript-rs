@@ -78,14 +78,11 @@ impl ASTContext {
     }
 
     pub fn set_variable_token(&self, name: &str, token: Option<FSRToken>) {
-        self.variable_define
+        if let Some(x) = self.variable_define
             .last()
             .unwrap()
             .borrow_mut()
-            .get_mut(name)
-            .map(|x| {
-                x.set_token(token);
-            });
+            .get_mut(name) { x.set_token(token); }
     }
 
     pub fn get_token(&self, name: &str) -> Option<FSRToken> {
@@ -129,9 +126,7 @@ impl ASTContext {
     pub fn ref_variable(&self, name: &str) {
         for scope in self.variable_define.iter().rev() {
             if scope.borrow().contains_key(name) {
-                scope.borrow_mut().get_mut(name).map(|x| {
-                    x.is_defined = true;
-                });
+                if let Some(x) = scope.borrow_mut().get_mut(name) { x.is_defined = true; }
                 return;
             }
         }
@@ -167,9 +162,7 @@ impl ASTContext {
         for scope in self.variable_define.iter_mut().rev() {
             if scope.borrow().contains_key(name) {
                 // scope.borrow_mut().insert(name.to_string(), ASTVariableState::new(true));
-                scope.borrow_mut().get_mut(name).map(|x| {
-                    x.is_defined = true;
-                });
+                if let Some(x) = scope.borrow_mut().get_mut(name) { x.is_defined = true; }
                 return Some(());
             }
         }

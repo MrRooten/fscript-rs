@@ -13,7 +13,7 @@ impl CommandAction for BaAction {
         let code = FSRObject::id_to_obj(code).as_code();
         let line = args[0];
         let line: usize = line.parse().unwrap();
-        let expr = code.get_expr(line as usize).unwrap();
+        let expr = code.get_expr(line).unwrap();
         expr[0].set_dbg(FSRDbgFlag::Keep);
         Ok(())
     }

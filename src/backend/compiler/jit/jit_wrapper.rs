@@ -84,8 +84,8 @@ pub extern "C" fn get_obj_by_name(
 ) -> ObjId {
     let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
     let name_str = std::str::from_utf8(name_slice).unwrap();
-    let obj = FSRThreadRuntime::get_chain_by_name(thread, name_str).unwrap();
-    obj
+    
+    FSRThreadRuntime::get_chain_by_name(thread, name_str).unwrap()
 }
 
 pub extern "C" fn check_gc(thread: &mut FSRThreadRuntime) -> bool {
@@ -166,7 +166,7 @@ pub extern "C" fn get_attr_obj(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
-    let name_slice = unsafe { std::slice::from_raw_parts(name, len as usize) };
+    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
     let name_str = std::str::from_utf8(name_slice).unwrap();
     let obj = FSRObject::id_to_obj(obj);
     let attr = obj.get_attr(name_str);
@@ -251,10 +251,10 @@ pub extern "C" fn load_string(
     let value_slice = unsafe { std::slice::from_raw_parts(value, len) };
     let value_str = std::str::from_utf8(value_slice).unwrap();
     let value = FSRString::new_value(value_str);
-    let obj = thread
+    
+    thread
         .garbage_collect
-        .new_object(value, gid(GlobalObj::StringCls));
-    obj
+        .new_object(value, gid(GlobalObj::StringCls))
 }
 
 pub extern "C" fn load_float(value: f64, thread: &mut FSRThreadRuntime) -> ObjId {
@@ -268,8 +268,8 @@ pub extern "C" fn load_float(value: f64, thread: &mut FSRThreadRuntime) -> ObjId
 pub extern "C" fn c_next_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
     // let obj = FSRObject::id_to_obj(obj);
     let args = [obj];
-    let obj = next_obj(args.as_ptr(), 1, thread, 0).unwrap().get_id();
-    obj
+    
+    next_obj(args.as_ptr(), 1, thread, 0).unwrap().get_id()
 }
 
 pub extern "C" fn get_iter_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
@@ -334,9 +334,9 @@ pub extern "C" fn load_list(
 ) -> ObjId {
     let list = unsafe { std::slice::from_raw_parts(list_obj, len) };
     let list = FSRList::new_value(list.to_vec());
-    let obj = thread.garbage_collect.new_object(
+    
+    thread.garbage_collect.new_object(
         list,
         gid(GlobalObj::ListCls),
-    );
-    obj
+    )
 }

@@ -638,7 +638,7 @@ pub fn fsr_fn_format_string(
 }
 
 impl FSRString {
-    pub fn get_class<'a>() -> FSRClass {
+    pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("String");
         let len_m = FSRFn::from_rust_fn_static(string_len, "string_len");
         cls.insert_attr("len", len_m);

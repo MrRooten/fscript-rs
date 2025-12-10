@@ -54,7 +54,7 @@ impl FSRCatch {
         }
 
         let mut sub_meta = meta.new_offset(start);
-        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let mut sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
@@ -118,11 +118,11 @@ impl FSRTryBlock {
             let err = SyntaxError::new(&sub_meta, "not a valid try delemiter");
             return Err(err);
         }
-        let len = ASTParser::read_valid_bracket_until_big(&source[start..], sub_meta, &context)?;
+        let len = ASTParser::read_valid_bracket_until_big(&source[start..], sub_meta, context)?;
 
         let mut start = start + len;
         let mut sub_meta = meta.new_offset(start);
-        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let mut sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 

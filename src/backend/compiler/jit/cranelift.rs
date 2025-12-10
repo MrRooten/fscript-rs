@@ -2084,11 +2084,11 @@ impl CraneLiftJitBackend {
             defined_variables: HashMap::new(),
             constans: HashMap::new(),
         };
-        let mut i = 0;
+
 
         trans.malloc_args(&mut context);
         trans.malloc_call_args(&mut context);
-        for expr in &code.bytecode {
+        for (i, expr) in code.bytecode.iter().enumerate() {
             if i % 20 == 0 || context.ins_check_gc {
                 trans.load_check_gc(&mut context);
                 context.ins_check_gc = false;
@@ -2097,7 +2097,7 @@ impl CraneLiftJitBackend {
             trans.compile_expr(expr, &mut context);
             context.exp.clear();
             context.middle_value.clear();
-            i += 1;
+
         }
 
         trans.builder.finalize();

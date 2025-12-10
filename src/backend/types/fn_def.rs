@@ -69,13 +69,24 @@ pub struct FSRFn<'a> {
     /// Store cells for closure variables
     /// The key is the variable name, and the value is the object id
     pub(crate) store_cells: AHashMap<&'a str, AtomicObjId>,
-    pub(crate) const_map: Arc<IndexMap>
+    pub(crate) const_map: Arc<IndexMap>,
 }
 
 impl Debug for FSRFn<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "<fn {:?}>", self.as_str())
     }
+}
+
+pub struct FnDesc {
+    pub(crate) u: (usize, usize),
+    pub(crate) args: Vec<String>,
+    //bytecode: &'a Bytecode,
+    pub(crate) code_obj: ObjId,
+    pub(crate) fn_id: ObjId, // Which father fn define this son fn
+    pub(crate) jit_code: Option<*const u8>,
+    pub(crate) is_async: bool,
+    pub(crate) const_map: Arc<IndexMap>,
 }
 
 impl<'a> FSRFn<'a> {
@@ -98,7 +109,8 @@ impl<'a> FSRFn<'a> {
     }
 
     pub fn get_references(&self) -> Vec<ObjId> {
-        let mut v1: Vec<usize> = self.store_cells
+        let mut v1: Vec<usize> = self
+            .store_cells
             .values()
             .map(|s| s.load(Ordering::Relaxed))
             .collect();
@@ -161,27 +173,20 @@ impl<'a> FSRFn<'a> {
 
     pub fn from_fsr_fn(
         fn_name: &str,
-        u: (usize, usize),
-        _: Vec<String>,
-        //bytecode: &'a Bytecode,
-        code_obj: ObjId,
-        fn_id: ObjId, // Which father fn define this son fn
-        jit_code: Option<*const u8>,
-        is_async: bool,
-        const_map: Arc<IndexMap>,
+        fn_desc: FnDesc
     ) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
-            fn_ip: u,
-            jit_code: jit_code.map(|x| x as usize),
-            is_async,
+            fn_ip: fn_desc.u,
+            jit_code: fn_desc.jit_code.map(|x| x as usize),
+            is_async: fn_desc.is_async,
         };
 
-        let c = if fn_id != 0 {
-            let obj = FSRObject::id_to_obj(fn_id);
+        let c = if fn_desc.fn_id != 0 {
+            let obj = FSRObject::id_to_obj(fn_desc.fn_id);
             let father_fn = obj.as_fn();
             let mut closure = father_fn.closure_fn.clone();
-            closure.push(fn_id);
+            closure.push(fn_desc.fn_id);
             closure
         } else {
             vec![]
@@ -189,10 +194,10 @@ impl<'a> FSRFn<'a> {
 
         let v = Self {
             fn_def: FSRnE::FSRFn(fn_obj),
-            code: code_obj,
+            code: fn_desc.code_obj,
             closure_fn: c,
             store_cells: AHashMap::new(),
-            const_map,
+            const_map: fn_desc.const_map,
         };
         FSRValue::Function(Box::new(v))
     }
@@ -232,6 +237,34 @@ impl<'a> FSRFn<'a> {
         FSRClass::new_without_method("Fn")
     }
 
+    fn call_jit(
+        f: &FSRFnInner,
+        thread: &mut FSRThreadRuntime<'a>,
+        fn_id: ObjId,
+        args: &[ObjId],
+        code: ObjId,
+    ) -> ObjId {
+        let jit_code = *f.jit_code.as_ref().unwrap();
+        let jit_code = jit_code as *const u8;
+        let frame = thread
+            .frame_free_list
+            .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+        thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
+        for arg in args.iter() {
+            thread.get_cur_mut_frame().args.push(*arg);
+        }
+        let call_fn = unsafe {
+            std::mem::transmute::<
+                _,
+                extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, *const ObjId, i32) -> ObjId,
+            >(jit_code)
+        };
+        let res = call_fn(thread, code, args.as_ptr(), args.len() as i32);
+        let v = thread.pop_frame();
+        thread.frame_free_list.free(v);
+        res
+    }
+
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn invoke(
         &'a self,
@@ -247,29 +280,7 @@ impl<'a> FSRFn<'a> {
             return v;
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             if f.jit_code.is_some() {
-                let jit_code = *f.jit_code.as_ref().unwrap();
-                let jit_code = jit_code as *const u8;
-                let frame = thread
-                    .frame_free_list
-                    .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-                thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
-                for arg in args.iter() {
-                    thread.get_cur_mut_frame().args.push(*arg);
-                }
-                let call_fn = unsafe {
-                    std::mem::transmute::<
-                        _,
-                        extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, *const ObjId, i32) -> ObjId,
-                    >(jit_code)
-                };
-                let res = call_fn(
-                    thread,
-                    code,
-                    args.as_ptr(),
-                    args.len() as i32,
-                );
-                let v = thread.pop_frame();
-                thread.frame_free_list.free(v);
+                let res = Self::call_jit(f, thread, fn_id, args, code);
                 return Ok(FSRRetValue::GlobalId(res));
             }
 

@@ -119,7 +119,7 @@ impl FSRIf {
 
         let mut start = 2 + len;
         let mut sub_meta = meta.new_offset(start);
-        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let mut sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 
@@ -154,7 +154,7 @@ impl FSRIf {
             return Err(err);
         }
         let sub_meta = meta.new_offset(2);
-        let len = ASTParser::read_valid_bracket_until_big(&source[2..], sub_meta, &context)?;
+        let len = ASTParser::read_valid_bracket_until_big(&source[2..], sub_meta, context)?;
 
         let test = &source[2..2 + len];
         let mut sub_meta = meta.new_offset(2);
@@ -162,7 +162,7 @@ impl FSRIf {
 
         let mut start = 2 + len;
         let mut sub_meta = meta.new_offset(start);
-        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let mut sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
 

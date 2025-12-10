@@ -137,6 +137,7 @@ impl FSRToken {
         matches!(self, FSRToken::EmptyExpr(_))
     }
 
+    #[allow(clippy::match_single_binding)]
     pub fn is_check_exception(&self) -> bool {
         match self {
             _ => false,
@@ -151,6 +152,8 @@ impl FSRToken {
         Err(SyntaxError::new(value.get_meta(), "Empty stack expression"))
     }
 
+    
+    #[allow(clippy::single_match)]
     pub fn flatten_comma(&self) -> Vec<FSRToken> {
         let mut v = vec![];
         match self {

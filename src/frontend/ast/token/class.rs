@@ -66,7 +66,7 @@ impl FSRClassFrontEnd {
             unimplemented!()
         }
         let sub_meta = meta.new_offset(start);
-        let len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let sub_meta = meta.new_offset(start);
         let block = FSRBlock::parse(&source[start..start + len], sub_meta, context)?;
         context.add_variable(name, None);

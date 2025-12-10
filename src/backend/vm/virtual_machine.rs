@@ -8,11 +8,30 @@ use ahash::AHashMap;
 
 use crate::{
     backend::types::{
-        any::FSRThreadHandle, asynclib::future::FSRFuture, base::{Area, FSRObject, FSRValue, GlobalObj, ObjId, FALSE_ID, NONE_ID, TRUE_ID}, bool::FSRBool, bytes::FSRInnerBytes, class::FSRClass, code::FSRCode, error::FSRException, ext::{hashmap::FSRHashMap, hashset::FSRHashSet}, float::FSRFloat, fn_def::FSRFn, integer::FSRInteger, iterator::FSRInnerIterator, list::FSRList, module::{FSRModule, NewModuleFn}, none::FSRNone, range::FSRRange, string::FSRString
+        any::FSRThreadHandle,
+        asynclib::future::FSRFuture,
+        base::{Area, FSRObject, FSRValue, GlobalObj, ObjId, FALSE_ID, NONE_ID, TRUE_ID},
+        bool::FSRBool,
+        bytes::FSRInnerBytes,
+        class::FSRClass,
+        code::FSRCode,
+        error::FSRException,
+        ext::{hashmap::FSRHashMap, hashset::FSRHashSet},
+        float::FSRFloat,
+        fn_def::FSRFn,
+        integer::FSRInteger,
+        iterator::FSRInnerIterator,
+        list::FSRList,
+        module::{FSRModule, NewModuleFn},
+        none::FSRNone,
+        range::FSRRange,
+        string::FSRString,
     },
     std::{
         core::{gc::init_gc, io::init_io, thread::init_thread, utils::init_utils},
-        fs::{file::FSRInnerFile, FSRFileSystem}, os::FSROs, string::FSRStringModule,
+        fs::{file::FSRInnerFile, FSRFileSystem},
+        os::FSROs,
+        string::FSRStringModule,
     },
 };
 
@@ -23,7 +42,7 @@ pub struct ModuleManager {
 }
 
 impl ModuleManager {
-    pub fn new() -> Self {
+    pub fn new_manager() -> Self {
         Self {
             modules: Mutex::new(AHashMap::new()),
         }
@@ -114,7 +133,7 @@ impl<'a> FSRVM<'a> {
             global_modules: AHashMap::new(),
             threads: Mutex::new(vec![]),
             core_module,
-            module_manager: ModuleManager::new(),
+            module_manager: ModuleManager::new_manager(),
         };
         v.init();
         v
@@ -307,7 +326,8 @@ impl<'a> FSRVM<'a> {
                     )))),
                 );
 
-                OBJECTS.insert(GlobalObj::HashSetCls as usize, 
+                OBJECTS.insert(
+                    GlobalObj::HashSetCls as usize,
                     Some(Self::new_stataic_object(FSRValue::Class(Box::new(
                         FSRHashSet::get_class(),
                     )))),
@@ -320,28 +340,20 @@ impl<'a> FSRVM<'a> {
                     )))),
                 );
 
-                for object in OBJECTS.iter_mut() {
-                    if let Some(object) = object {
-                        let obj_id = FSRObject::obj_to_id(object);
-                        if let FSRValue::Class(c) = &mut object.value {
-                            object.cls =
-                                FSRObject::id_to_obj(gid(GlobalObj::ClassCls))
-                                    .as_class();
-                            c.init_method();
-                            c.set_object_id(obj_id);
-                        }
+                for object in OBJECTS.iter_mut().flatten() {
+                    let obj_id = FSRObject::obj_to_id(object);
+                    if let FSRValue::Class(c) = &mut object.value {
+                        object.cls = FSRObject::id_to_obj(gid(GlobalObj::ClassCls)).as_class();
+                        c.init_method();
+                        c.set_object_id(obj_id);
+                    }
 
-                        if let FSRValue::Bool(_) = object.value {
-                            object.cls =
-                                FSRObject::id_to_obj(gid(GlobalObj::BoolCls))
-                                    .as_class();
-                        }
+                    if let FSRValue::Bool(_) = object.value {
+                        object.cls = FSRObject::id_to_obj(gid(GlobalObj::BoolCls)).as_class();
+                    }
 
-                        if let FSRValue::None = object.value {
-                            object.cls =
-                                FSRObject::id_to_obj(gid(GlobalObj::NoneCls))
-                                    .as_class();
-                        }
+                    if let FSRValue::None = object.value {
+                        object.cls = FSRObject::id_to_obj(gid(GlobalObj::NoneCls)).as_class();
                     }
                 }
 
@@ -365,18 +377,12 @@ impl<'a> FSRVM<'a> {
         self.global
             .insert("false".to_owned(), FSRObject::false_id());
         self.global.insert("none".to_string(), FSRObject::none_id());
-        self.global.insert(
-            "Exception".to_string(),
-            gid(GlobalObj::Exception) as ObjId,
-        );
-        self.global.insert(
-            "HashMap".to_string(),
-            gid(GlobalObj::HashMapCls) as ObjId,
-        );
-        self.global.insert(
-            "HashSet".to_string(),
-            gid(GlobalObj::HashSetCls) as ObjId,
-        );
+        self.global
+            .insert("Exception".to_string(), gid(GlobalObj::Exception) as ObjId);
+        self.global
+            .insert("HashMap".to_string(), gid(GlobalObj::HashMapCls) as ObjId);
+        self.global
+            .insert("HashSet".to_string(), gid(GlobalObj::HashSetCls) as ObjId);
     }
 
     pub fn init(&mut self) {

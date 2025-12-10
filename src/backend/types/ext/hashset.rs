@@ -677,7 +677,7 @@ impl FSRHashSet {
             res
         };
 
-        res.push((AtomicObjId::new(key)));
+        res.push(AtomicObjId::new(key));
 
         Ok(())
     }
@@ -689,7 +689,7 @@ impl FSRHashSet {
         for save_item in res.iter() {
             let save_key = save_item.load(std::sync::atomic::Ordering::Relaxed);
             if save_key == key {
-                return Some(&save_item);
+                return Some(save_item);
             }
 
             let eq_fn_id = FSRObject::id_to_obj(save_key)
@@ -703,7 +703,7 @@ impl FSRHashSet {
                 .get_id();
 
             if is_same == FSRObject::true_id() {
-                return Some(&save_item);
+                return Some(save_item);
             }
         }
         None

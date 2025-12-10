@@ -21,17 +21,16 @@ use crate::{
             jit::cranelift::CraneLiftJitBackend,
         },
         memory::{
-            gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator,
-            GarbageCollector,
+            GarbageCollector, gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator
         },
         types::{
-            asynclib::future::{poll_future, FSRFuture, FSRFutureState},
+            asynclib::future::{FSRFuture, FSRFutureState, poll_future},
             base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
             code::FSRCode,
             float::FSRFloat,
-            fn_def::{FSRFn, FSRFnInner, FSRnE},
+            fn_def::{FSRFn, FSRFnInner, FSRnE, FnDesc},
             integer::FSRInteger,
             list::FSRList,
             module::FSRModule,
@@ -505,7 +504,7 @@ pub struct ThreadShared {
 }
 
 impl ThreadShared {
-    pub fn new() -> Self {
+    pub fn new_share() -> Self {
         Self {
             objects: Vec::new(),
         }
@@ -587,7 +586,7 @@ impl<'a> FSRThreadRuntime<'a> {
             gc_context: GcContext::new_context(),
             #[cfg(feature = "count_bytecode")]
             bytecode_counter: vec![0; 256],
-            thread_shared: ThreadShared::new(),
+            thread_shared: ThreadShared::new_share(),
             dbg_flag: false,
         }
     }
@@ -853,9 +852,9 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn pop_stack(&mut self) -> Box<CallFrame> {
-        let v = self.pop_frame();
+        
         //self.frame_free_list.free(v);
-        v
+        self.pop_frame()
     }
 
     pub fn new_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
@@ -943,7 +942,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let father_obj = FSRObject::id_to_mut_obj(father).unwrap();
         father_obj.set_attr(name, assign_value);
 
-        return Ok(false);
+        Ok(false)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -1365,7 +1364,7 @@ impl<'a> FSRThreadRuntime<'a> {
         push_exp!(self, id);
         push_middle!(self, rhs_id);
         push_middle!(self, lhs_id);
-        return Ok(false);
+        Ok(false)
     }
 
     #[inline]
@@ -1518,6 +1517,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
+    #[allow(clippy::missing_transmute_annotations)]
     fn jit_call(
         &mut self,
         fn_id: ObjId,
@@ -1550,7 +1550,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = self.pop_frame();
         self.frame_free_list.free(v);
         push_exp!(self, res);
-        return Ok(false);
+        Ok(false)
     }
 
     fn async_call(
@@ -1851,10 +1851,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     // save will fix
     fn for_block_ref(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
-        let obj_id = {
-            let obj_id = top_exp!(self).unwrap();
-            obj_id
-        };
+        let obj_id = top_exp!(self).unwrap();
 
         self.get_cur_mut_frame()
             .flow_tracker
@@ -2021,11 +2018,11 @@ impl<'a> FSRThreadRuntime<'a> {
                     new_float
                 }
                 FSROrinStr2::String(s) => {
-                    let new_string = self
-                        .garbage_collect
-                        .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id());
+                    
 
-                    new_string
+                    self
+                        .garbage_collect
+                        .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id())
                 }
             };
 
@@ -2065,13 +2062,15 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_code_id = FSRObject::obj_to_id(fn_code);
         let fn_obj = FSRFn::from_fsr_fn(
             name,
-            (0, 0),
-            args.clone(),
-            fn_code_id,
-            self.get_cur_frame().fn_id,
-            code,
-            fn_code_inner.get_bytecode().is_async,
-            Arc::new(const_map),
+            FnDesc {
+                u: (0, 0),
+                args: args.clone(),
+                code_obj: fn_code_id,
+                fn_id: self.get_cur_frame().fn_id,
+                jit_code: code,
+                is_async: fn_code_inner.get_bytecode().is_async,
+                const_map:Arc::new(const_map),
+            }
         );
 
         let fn_id = self
@@ -2122,7 +2121,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let ip_0 = self.get_cur_frame().ip.0;
         self.get_cur_mut_frame().ip = (ip_0 + 1, 0);
-        return Ok(true);
+        Ok(true)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -2220,7 +2219,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         // push_middle!(self, v);
         let frame = self.pop_stack();
-        if let Some(s) = frame.future.clone() {
+        if let Some(s) = frame.future {
             let future_obj = FSRObject::id_to_mut_obj(s)
                 .expect("not a future object")
                 .as_mut_future();
@@ -2399,7 +2398,6 @@ impl<'a> FSRThreadRuntime<'a> {
                             if depth == 0 {
                                 index_record.push(Range { start, end: i + 1 });
                                 break;
-                            } else {
                             }
                         }
                         _ => {}
@@ -2421,11 +2419,9 @@ impl<'a> FSRThreadRuntime<'a> {
         //let mut res = vec![];
         let index_gap = Self::gaps_in_range(0..chars.len(), index_record);
         let mut new_chars = vec![];
-        let mut i = 0;
-        for gap in index_gap {
+        for (i, gap) in index_gap.into_iter().enumerate() {
             new_chars.extend_from_slice(&chars[gap]);
             new_chars.extend_from_slice(args[i].as_bytes());
-            i += 1;
         }
         //res.extend(new_chars);
         String::from_utf8(new_chars).unwrap()
@@ -2646,7 +2642,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_frame();
         state.cur_cls = Some(Box::new(new_cls));
 
-        return Ok(false);
+        Ok(false)
     }
 
     fn read_code_from_module(module_name: &Vec<String>) -> Result<String, FSRError> {
@@ -2673,8 +2669,8 @@ impl<'a> FSRThreadRuntime<'a> {
             if let Some(module_fn) = self.get_vm().core_module.get(module_name[0].as_str()) {
                 let module = module_fn(self);
                 let module = FSRObject::new_inst(module, GlobalObj::ModuleCls.get_id());
-                let module_id = FSRVM::leak_object(Box::new(module));
-                module_id
+                
+                FSRVM::leak_object(Box::new(module))
             } else {
                 let code = Self::read_code_from_module(module_name)?;
                 let mut module = FSRModule::new_object(&module_name.join("."));
@@ -2713,7 +2709,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRErrCode::NotValidArgs,
             ));
         };
-        let module_id = if let Some(s) = self.get_vm().module_manager.get_module(&module_name) {
+        let module_id = if let Some(s) = self.get_vm().module_manager.get_module(module_name) {
             s
         } else {
             Self::get_module_id(self, module_name)?
@@ -2724,7 +2720,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let module = as_mut_module!(context);
         module.register_object(module_name.last().unwrap(), module_id);
-        return Ok(false);
+        Ok(false)
     }
 
     fn end_class_def(self: &mut FSRThreadRuntime<'a>, bc: &BytecodeArg) -> Result<bool, FSRError> {
@@ -3017,7 +3013,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = module
             .get_object(&var.1)
             .map(|s| s.load(Ordering::Relaxed))
-            .or_else(|| vm.get_global_obj_by_name(&var.1).map(|s| *s))
+            .or_else(|| vm.get_global_obj_by_name(&var.1).copied())
             .unwrap_or_else(|| {
                 panic!("not found var: {}", var.1);
             });
@@ -3055,7 +3051,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = module
             .get_object(name)
             .map(|s| s.load(Ordering::Relaxed))
-            .or_else(|| vm.get_global_obj_by_name(name).map(|s| *s))
+            .or_else(|| vm.get_global_obj_by_name(name).copied())
             .unwrap_or_else(|| {
                 panic!("not found var: {}", name);
             });
@@ -3089,16 +3085,15 @@ impl<'a> FSRThreadRuntime<'a> {
                 let fn_id = self.get_cur_frame().fn_id;
                 let var = if is_base_fn!(fn_id) {
                     let state = self.get_cur_frame();
-                    let id = Self::get_chain_by_name(self, &v.1).unwrap();
-                    id
+                    
+                    Self::get_chain_by_name(self, &v.1).unwrap()
                 } else {
                     let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
                     let var = match fn_obj.get_closure_var(&v.1) {
                         Some(s) => s,
                         None => {
                             let state = self.get_cur_frame();
-                            let id = Self::get_chain_by_name(self, &v.1).unwrap();
-                            id
+                            Self::get_chain_by_name(self, &v.1).unwrap()
                         }
                     };
                     var
@@ -3139,7 +3134,7 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn trigger_debug(&mut self) {
         unsafe {
             if DEBUGGER.is_none() {
-                DEBUGGER = Some(FSRDebugger::new());
+                DEBUGGER = Some(FSRDebugger::new_debugger());
             }
             DEBUGGER.as_mut().unwrap().take_control(self);
         }
@@ -3149,7 +3144,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn debugger_process(&mut self, expr: &BytecodeArg) {
         unsafe {
             if DEBUGGER.is_none() {
-                DEBUGGER = Some(FSRDebugger::new());
+                DEBUGGER = Some(FSRDebugger::new_debugger());
             }
             if expr.is_dbg() {
                 DEBUGGER.as_mut().unwrap().take_control(self);
@@ -3303,7 +3298,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         Ok(code_id)
     }
-
+    /// Set startup code debug flag, let it can stop at entry in debugger
     fn startup_debug(&mut self, code: &FSRCode) {
         let mut start = 0;
         while let Some(code) = code.get_expr(start) {
@@ -3374,7 +3369,7 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         fn_def: &'a FSRFnInner,
         args: &[ObjId],
-        code: ObjId,
+        code: ObjId
     ) -> Result<ObjId, FSRError> {
         let mut context = self.thread_allocator.new_code_context(code);
         // context.code = code;

@@ -154,7 +154,7 @@ impl FSRValue<'_> {
             FSRValue::Extension(_) => std::mem::size_of::<FSRExtension>(),
             FSRValue::None => std::mem::size_of::<()>(),
             FSRValue::Bytes(fsrinner_bytes) => {
-                std::mem::size_of::<FSRInnerBytes>() + fsrinner_bytes.len()
+                std::mem::size_of::<FSRInnerBytes>() + fsrinner_bytes.bs_len()
             }
             FSRValue::Future(fsrfuture) => std::mem::size_of::<FSRFuture>(),
         }
@@ -248,13 +248,9 @@ impl<'a> FSRValue<'a> {
                 Some(Arc::new(FSRInnerString::new(fsrmodule.as_string())))
             }
             FSRValue::Extension(_) => {
-                if FSRObject::id_to_obj(self_id)
+                FSRObject::id_to_obj(self_id)
                     .cls
-                    .get_attr("__str__")
-                    .is_none()
-                {
-                    return None;
-                }
+                    .get_attr("__str__")?;
                 let res = FSRObject::invoke_method("__str__", &[self_id], thread, code).unwrap();
                 match &res {
                     FSRRetValue::GlobalId(id) => {
@@ -286,8 +282,8 @@ impl<'a> FSRValue<'a> {
         s
     }
 
-    pub fn as_any<T: 'static>(&self) -> Result<&T, FSRError>
-    where T: ExtensionTrait {
+    pub fn as_any<T>(&self) -> Result<&T, FSRError>
+    where T: ExtensionTrait + 'static {
         match self {
             FSRValue::Extension(any) => {
                 Ok(any.value.as_any().downcast_ref::<T>().unwrap())
@@ -299,8 +295,8 @@ impl<'a> FSRValue<'a> {
         }
     }
 
-    pub fn as_mut_any<T: 'static>(&mut self) -> Result<&mut T, FSRError>
-    where T: ExtensionTrait {
+    pub fn as_mut_any<T>(&mut self) -> Result<&mut T, FSRError>
+    where T: ExtensionTrait + 'static {
         match self {
             FSRValue::Extension(any) => {
                 Ok(any.value.as_any_mut().downcast_mut::<T>().unwrap())
@@ -864,7 +860,7 @@ impl<'a> FSRObject<'a> {
         }
         // let v = FSRObject::id_to_obj(self.cls);
         // if let FSRValue::Class(_) = &v.value {
-        FSRString::new_value(&format!(
+        FSRString::new_value(format!(
             "<`{}` Class Object at {:?}>",
             self.cls.get_name(),
             self as *const Self

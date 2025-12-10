@@ -143,7 +143,7 @@ fn as_list(
 ) -> Result<FSRRetValue, FSRError> {
     let iterator = iter_obj(args, len, thread, code)?.get_id();
     //let args = to_rs_list!(args, len);
-    crate::backend::types::iterator::as_list((&[iterator]).as_ptr(), 1, thread, code)
+    crate::backend::types::iterator::as_list([iterator].as_ptr(), 1, thread, code)
 }
 
 fn enumerate(
@@ -193,12 +193,12 @@ fn contains(
             if contains {
                 return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
             }
-            return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+            Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
         } else {
-            return Err(FSRError::new(
+            Err(FSRError::new(
                 "right value is not an integer",
                 crate::utils::error::FSRErrCode::NotValidArgs,
-            ));
+            ))
         }
     } else {
         Err(FSRError::new(

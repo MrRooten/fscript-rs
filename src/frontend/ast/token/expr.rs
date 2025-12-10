@@ -396,10 +396,7 @@ impl FSRExpr {
                 }
             }
         }
-        let start = match start_byte_idx {
-            Some(v) => v,
-            None => return None,
-        };
+        let start = start_byte_idx?;
 
         // scan for matching end quote, tracking brace depth (only inside quotes)
         let mut brace_depth: isize = 0;
@@ -424,10 +421,8 @@ impl FSRExpr {
                 }
                 b'}' => {
                     let bs = backslash_count_before(bytes, i);
-                    if bs % 2 == 0 {
-                        if brace_depth > 0 {
-                            brace_depth -= 1;
-                        }
+                    if bs % 2 == 0 && brace_depth > 0 {
+                        brace_depth -= 1;
                     }
                     i += 1;
                 }
@@ -475,8 +470,8 @@ impl FSRExpr {
         };
 
         if is_f_string {
-           ctx.length = Self::quoted_len(&source[ctx.start..]).unwrap();
-           ctx.start += 1;
+            ctx.length = Self::quoted_len(&source[ctx.start..]).unwrap();
+            ctx.start += 1;
         } else {
             ctx.start += 1;
 
@@ -737,9 +732,9 @@ impl FSRExpr {
             ctx.length = 0;
             let sub_meta = meta.new_offset(ctx.start);
             let mut sub_expr = FSRExpr::parse(_ps, true, sub_meta, context)?.0;
-            ctx.single_op.map(|x| {
+            if let Some(x) = ctx.single_op {
                 sub_expr.set_single_op(x);
-            });
+            }
 
             ctx.single_op = None;
             ctx.start += 1;
@@ -1001,11 +996,10 @@ impl FSRExpr {
                 }
             }
 
-            // 判断合法数字字符
             let valid = match base {
-                16 => c.is_digit(16),
+                16 => c.is_ascii_hexdigit(),
                 10 => c.is_ascii_digit(),
-                8 => c >= '0' && c <= '7',
+                8 => ('0'..='7').contains(&c),
                 2 => c == '0' || c == '1',
                 _ => false,
             };
@@ -1092,21 +1086,22 @@ impl FSRExpr {
                 ctx.last_loop = true;
             }
 
-            if ctx.states.eq_peek(&ExprState::WaitToken) && c == '|' {
-                if !ctx.operators.is_empty() || ctx.candidates.is_empty() {
-                    let fn_def = FSRFnDef::parse_lambda(
-                        &source[ctx.start..],
-                        meta.new_offset(ctx.start),
-                        &format!("___lambda_zXjiTkDs_{}", unsafe { LAMBDA_NUMBER }),
-                        context,
-                    )?;
-                    unsafe {
-                        LAMBDA_NUMBER += 1;
-                    }
-                    ctx.start += fn_def.get_len();
-                    ctx.candidates.push(FSRToken::FunctionDef(Rc::new(fn_def)));
-                    continue;
+            if ctx.states.eq_peek(&ExprState::WaitToken)
+                && c == '|'
+                && (!ctx.operators.is_empty() || ctx.candidates.is_empty())
+            {
+                let fn_def = FSRFnDef::parse_lambda(
+                    &source[ctx.start..],
+                    meta.new_offset(ctx.start),
+                    &format!("___lambda_zXjiTkDs_{}", unsafe { LAMBDA_NUMBER }),
+                    context,
+                )?;
+                unsafe {
+                    LAMBDA_NUMBER += 1;
                 }
+                ctx.start += fn_def.get_len();
+                ctx.candidates.push(FSRToken::FunctionDef(Rc::new(fn_def)));
+                continue;
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && Self::is_op_one_char(c) {
@@ -1184,11 +1179,8 @@ impl FSRExpr {
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c == '[' {
                 let mut sub_meta = meta.new_offset(ctx.start);
-                let len = ASTParser::read_valid_bracket(
-                    &source[ctx.start..],
-                    sub_meta.clone(),
-                    &context,
-                )?;
+                let len =
+                    ASTParser::read_valid_bracket(&source[ctx.start..], sub_meta.clone(), context)?;
                 assert!(len >= 2);
 
                 let list =
@@ -1209,7 +1201,7 @@ impl FSRExpr {
                 let len = ASTParser::read_valid_bracket(
                     &source[ctx.start + ctx.length..],
                     sub_meta,
-                    &context,
+                    context,
                 )?;
                 ctx.length += len;
                 let mut sub_meta = meta.new_offset(ctx.start);
@@ -1264,7 +1256,7 @@ impl FSRExpr {
                 let len = ASTParser::read_valid_bracket(
                     &source[ctx.start + ctx.length..],
                     sub_meta,
-                    &context,
+                    context,
                 )?;
                 ctx.length += len;
                 let mut sub_meta = meta.new_offset(ctx.start);

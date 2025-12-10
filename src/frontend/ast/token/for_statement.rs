@@ -254,7 +254,7 @@ impl FSRFor {
         let expr = FSRExpr::parse(expr, false, sub_meta, context)?.0;
         start += len;
         let sub_meta = meta.new_offset(start);
-        let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
+        let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let mut sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
         start += body.get_len();
@@ -264,7 +264,7 @@ impl FSRFor {
             expr: Box::new(expr),
             body: Box::new(body),
             len: start,
-            meta: meta,
+            meta,
         })
     }
 }

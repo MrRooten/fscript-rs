@@ -84,7 +84,7 @@ pub fn map_err(
         return fn_callback.call(&[args[0]], thread, code);
     }
 
-    return Ok(FSRRetValue::GlobalId(args[0]));
+    Ok(FSRRetValue::GlobalId(args[0]))
 }
 
 pub fn is_err(
@@ -105,7 +105,7 @@ pub fn is_err(
         return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
     }
 
-    return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
 pub fn then(
@@ -128,7 +128,7 @@ pub fn then(
         return Ok(FSRRetValue::GlobalId(args[0]));
     }
 
-    return fn_callback.call(&[args[0]], thread, code);
+    fn_callback.call(&[args[0]], thread, code)
 }
 
 pub fn is_none(
@@ -148,7 +148,7 @@ pub fn is_none(
         return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
     }
 
-    return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
+    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
 }
 
 pub fn unwrap(
@@ -169,7 +169,7 @@ pub fn unwrap(
         panic!("unwrap called on an error object: {:?}", may_err_object);
     }
 
-    return Ok(FSRRetValue::GlobalId(args[0]));
+    Ok(FSRRetValue::GlobalId(args[0]))
 }
 
 pub fn expect(
@@ -190,7 +190,7 @@ pub fn expect(
         panic!("expect called with message: {}", message);
     }
 
-    return Ok(FSRRetValue::GlobalId(args[0]));
+    Ok(FSRRetValue::GlobalId(args[0]))
 }
 
 pub fn class_default_equal(
@@ -235,15 +235,13 @@ pub fn class_default_not_equal(
 
 impl FSRClass {
     pub fn new(name: &str) -> FSRClass {
-        let mut cls = FSRClass {
+        FSRClass {
             object_id: None,
             name: Arc::new(name.to_string()),
             attrs: AHashMap::new(),
             offset_attrs: vec![],
             offset_rust_fn: [None; 30],
-        };
-
-        cls
+        }
     }
 
     pub fn init_method(&mut self) {
@@ -262,25 +260,23 @@ impl FSRClass {
     }
 
     pub fn new_without_method(name: &str) -> FSRClass {
-        let mut cls = FSRClass {
+        FSRClass {
             name: Arc::new(name.to_string()),
             attrs: AHashMap::new(),
             offset_attrs: vec![],
             offset_rust_fn: [None; 30],
             object_id: None,
-        };
-
-        cls
+        }
     }
 
-    pub fn insert_attr<'a>(&mut self, name: &str, object: FSRObject<'a>) {
+    pub fn insert_attr(&mut self, name: &str, object: FSRObject<'_>) {
         let obj_id = FSRVM::register_object(object);
         self.attrs.insert(name.to_string(), AtomicUsize::new(obj_id));
     }
 
     /// Inserts an attribute with a given offset.
     /// Can be overridden by the class.
-    pub fn insert_offset_attr<'a>(&mut self, offset: BinaryOffset, object: FSRObject<'a>) {
+    pub fn insert_offset_attr(&mut self, offset: BinaryOffset, object: FSRObject<'_>) {
         if self.offset_attrs.len() <= offset as usize {
             self.offset_attrs.resize_with(offset as usize + 1, || None);
         }

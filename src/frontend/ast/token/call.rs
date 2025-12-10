@@ -85,7 +85,7 @@ impl FSRCall {
         let end_blasket = ASTParser::read_valid_bracket(
             &source[start - 1..],
             meta.new_offset(start - 1),
-            &context,
+            context,
         )
         .unwrap();
 

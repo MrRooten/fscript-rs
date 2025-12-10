@@ -25,8 +25,6 @@ use super::{
 pub struct FSRCode {
     name: String,
     bytecode: Bytecode,
-    //object_map: AHashMap<String, AtomicObjId>,
-    //const_table: Vec<Option<ObjId>>,
     pub(crate) module: ObjId,
 }
 
