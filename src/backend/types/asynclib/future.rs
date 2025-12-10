@@ -82,13 +82,13 @@ pub fn poll_future(
         }
         frame.future = Some(args[0]);
         thread.push_frame(frame, fn_obj.const_map.clone());
-        let res = thread.poll_fn(future.fn_obj);
-        res
+        
+        thread.poll_fn(future.fn_obj)
     } else {
         panic!("poll_future called on a non-future object");
     };
 
-    return res.map(|x| FSRRetValue::GlobalId(x));
+    res.map(FSRRetValue::GlobalId)
 }
 
 pub fn next_obj(
