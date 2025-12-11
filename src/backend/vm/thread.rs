@@ -21,10 +21,11 @@ use crate::{
             jit::cranelift::CraneLiftJitBackend,
         },
         memory::{
-            GarbageCollector, gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator
+            gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator,
+            GarbageCollector,
         },
         types::{
-            asynclib::future::{FSRFuture, FSRFutureState, poll_future},
+            asynclib::future::{poll_future, FSRFuture, FSRFutureState},
             base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
@@ -725,7 +726,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let work_list = &mut self.gc_context.worklist;
         let mut is_add = false;
         let refs = obj.get_references(full, work_list, &mut is_add);
-
+        // Only if all references object are Marjor, then not set write barrier
         for ref_id in refs {
             let obj = FSRObject::id_to_obj(ref_id);
             if obj.area == Area::Minjor {
@@ -852,7 +853,6 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn pop_stack(&mut self) -> Box<CallFrame> {
-        
         //self.frame_free_list.free(v);
         self.pop_frame()
     }
@@ -2017,13 +2017,9 @@ impl<'a> FSRThreadRuntime<'a> {
                         .new_object(FSRValue::Float(i), gid(GlobalObj::FloatCls) as ObjId);
                     new_float
                 }
-                FSROrinStr2::String(s) => {
-                    
-
-                    self
-                        .garbage_collect
-                        .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id())
-                }
+                FSROrinStr2::String(s) => self
+                    .garbage_collect
+                    .new_object(FSRString::new_value(s), GlobalObj::StringCls.get_id()),
             };
 
             res_map.insert(const_id, const_value);
@@ -2069,16 +2065,14 @@ impl<'a> FSRThreadRuntime<'a> {
                 fn_id: self.get_cur_frame().fn_id,
                 jit_code: code,
                 is_async: fn_code_inner.get_bytecode().is_async,
-                const_map:Arc::new(const_map),
-            }
+                const_map: Arc::new(const_map),
+            },
         );
 
-        let fn_id = self
-            .garbage_collect
-            .new_object(fn_obj, gid(GlobalObj::FnCls));
-        //let fn_id = FSRVM::leak_object(fn_obj);
         let state = &mut self.cur_frame;
         if let Some(cur_cls) = &mut state.cur_cls {
+            let fn_obj = FSRObject::new_inst(fn_obj, gid(GlobalObj::FnCls));
+            let fn_id = FSRVM::leak_object(Box::new(fn_obj));
             let offset = BinaryOffset::from_alias_name(name.as_str());
             if let Some(offset) = offset {
                 cur_cls.insert_offset_attr_obj_id(offset, fn_id);
@@ -2089,7 +2083,9 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
             return Ok(true);
         }
-
+        let fn_id = self
+            .garbage_collect
+            .new_object(fn_obj, gid(GlobalObj::FnCls));
         state.insert_var(*name_id, fn_id);
         let define_fn_obj = self.get_cur_frame().fn_id;
 
@@ -2669,7 +2665,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if let Some(module_fn) = self.get_vm().core_module.get(module_name[0].as_str()) {
                 let module = module_fn(self);
                 let module = FSRObject::new_inst(module, GlobalObj::ModuleCls.get_id());
-                
+
                 FSRVM::leak_object(Box::new(module))
             } else {
                 let code = Self::read_code_from_module(module_name)?;
@@ -2738,6 +2734,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let name = obj.get_name().to_string();
         cls_obj.set_value(FSRValue::Class(obj));
         let obj_id = FSRVM::register_object(cls_obj);
+        FSRObject::id_to_mut_obj(obj_id)
+            .unwrap()
+            .set_write_barrier(true);
 
         if let FSRValue::Class(c) = &mut FSRObject::id_to_mut_obj(obj_id).unwrap().value {
             c.set_object_id(obj_id);
@@ -3085,7 +3084,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 let fn_id = self.get_cur_frame().fn_id;
                 let var = if is_base_fn!(fn_id) {
                     let state = self.get_cur_frame();
-                    
+
                     Self::get_chain_by_name(self, &v.1).unwrap()
                 } else {
                     let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
@@ -3235,8 +3234,9 @@ impl<'a> FSRThreadRuntime<'a> {
             #[cfg(feature = "bytecode_trace")]
             {
                 let t = format!("{:?} => {:?}", self.get_cur_frame().ip, arg);
-                println!("{:?}", self.get_cur_frame().exp);
+                
                 println!("{}", t);
+println!("before: {:?}", self.get_cur_frame().exp);
             }
             self.counter += 1;
             #[cfg(feature = "count_bytecode")]
@@ -3244,7 +3244,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.bytecode_counter[*arg.get_operator() as usize] += 1;
             }
             in_advance_exit = self.process(arg)?;
-
+            #[cfg(feature = "bytecode_trace")]
+            {
+                println!("after: {:?}", self.get_cur_frame().exp);
+            }
             if Self::exception_process(self) {
                 clear_exp!(self);
                 clear_middle_exp!(self);
@@ -3369,7 +3372,7 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         fn_def: &'a FSRFnInner,
         args: &[ObjId],
-        code: ObjId
+        code: ObjId,
     ) -> Result<ObjId, FSRError> {
         let mut context = self.thread_allocator.new_code_context(code);
         // context.code = code;

@@ -1,11 +1,32 @@
-@async
-fn abc() {
-    for i in 0..300 {
-        breakpoint()
-        i.yield
+class Test {
+    fn abc(self) -> Integer {
+        println("----------------------------")
+        a = 1
+	    return a
+    }
+
+    fn __add__(self, other: Test) -> Integer {
+        return 1
     }
 }
 
-for i in abc() {
-    println(i)
+t: Teset = Test()
+t.abc()
+t.index = 1
+
+fn abc() {
+    a = 1
+    return a
 }
+
+c = Test::abc
+
+while t.index < 300000 {
+    println(t.abc())
+    t.index = t.index + 1
+    println("+++++++++++++++++++++++++++++")
+}
+
+println(t.index)
+
+gc_info()

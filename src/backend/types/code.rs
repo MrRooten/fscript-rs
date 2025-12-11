@@ -63,8 +63,6 @@ impl FSRCode {
             let code = Self {
                 name: code.0.to_string(),
                 bytecode: code.1,
-                //object_map: AHashMap::new(),
-                //const_table: vec![],
                 module,
 
             };
