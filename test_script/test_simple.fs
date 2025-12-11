@@ -1,6 +1,5 @@
 class Test {
     fn abc(self) -> Integer {
-        println("----------------------------")
         a = 1
 	    return a
     }
@@ -14,17 +13,8 @@ t: Teset = Test()
 t.abc()
 t.index = 1
 
-fn abc() {
-    a = 1
-    return a
-}
-
-c = Test::abc
-
 while t.index < 300000 {
-    println(t.abc())
-    t.index = t.index + 1
-    println("+++++++++++++++++++++++++++++")
+    t.index = t.index + t.abc()
 }
 
 println(t.index)

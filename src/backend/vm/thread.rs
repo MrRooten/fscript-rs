@@ -2070,9 +2070,11 @@ impl<'a> FSRThreadRuntime<'a> {
         );
 
         let state = &mut self.cur_frame;
+        let fn_id = self
+            .garbage_collect
+            .new_object(fn_obj, gid(GlobalObj::FnCls));
         if let Some(cur_cls) = &mut state.cur_cls {
-            let fn_obj = FSRObject::new_inst(fn_obj, gid(GlobalObj::FnCls));
-            let fn_id = FSRVM::leak_object(Box::new(fn_obj));
+            
             let offset = BinaryOffset::from_alias_name(name.as_str());
             if let Some(offset) = offset {
                 cur_cls.insert_offset_attr_obj_id(offset, fn_id);
@@ -2083,9 +2085,7 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
             return Ok(true);
         }
-        let fn_id = self
-            .garbage_collect
-            .new_object(fn_obj, gid(GlobalObj::FnCls));
+
         state.insert_var(*name_id, fn_id);
         let define_fn_obj = self.get_cur_frame().fn_id;
 
@@ -2725,15 +2725,15 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         let id = var.0;
-        let state = self.get_cur_mut_frame();
         let mut cls_obj = FSRObject::new();
         // cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
         cls_obj.set_cls(gid(GlobalObj::ClassCls));
 
-        let mut obj = state.cur_cls.take().unwrap();
+        let mut obj = self.get_cur_mut_frame().cur_cls.take().unwrap();
         let name = obj.get_name().to_string();
-        cls_obj.set_value(FSRValue::Class(obj));
-        let obj_id = FSRVM::register_object(cls_obj);
+        // cls_obj.set_value(FSRValue::Class(obj));
+        // let obj_id = FSRVM::register_object(cls_obj);
+        let obj_id = self.garbage_collect.new_object(FSRValue::Class(obj), gid(GlobalObj::ClassCls));
         FSRObject::id_to_mut_obj(obj_id)
             .unwrap()
             .set_write_barrier(true);
@@ -2741,7 +2741,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let FSRValue::Class(c) = &mut FSRObject::id_to_mut_obj(obj_id).unwrap().value {
             c.set_object_id(obj_id);
         }
-
+        let state = self.get_cur_mut_frame();
         state.insert_var(id, obj_id);
         let module = FSRObject::id_to_mut_obj(
             FSRObject::id_to_obj(self.get_context().code)
@@ -3234,9 +3234,9 @@ impl<'a> FSRThreadRuntime<'a> {
             #[cfg(feature = "bytecode_trace")]
             {
                 let t = format!("{:?} => {:?}", self.get_cur_frame().ip, arg);
-                
+
                 println!("{}", t);
-println!("before: {:?}", self.get_cur_frame().exp);
+                println!("before: {:?}", self.get_cur_frame().exp);
             }
             self.counter += 1;
             #[cfg(feature = "count_bytecode")]
