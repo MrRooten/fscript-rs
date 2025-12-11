@@ -3038,15 +3038,6 @@ impl<'a> FSRThreadRuntime<'a> {
         )
         .as_module();
         let vm = thread.get_vm();
-        // let v = match module.get_object(name) {
-        //     Some(s) => s.load(Ordering::Relaxed),
-        //     None => match vm.get_global_obj_by_name(name) {
-        //         Some(s) => *s,
-        //         None => {
-        //             unimplemented!("not found var: {}", name);
-        //         }
-        //     },
-        // };
         let v = module
             .get_object(name)
             .map(|s| s.load(Ordering::Relaxed))

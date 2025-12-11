@@ -2,6 +2,10 @@ use std::{collections::HashMap, io::{Write, stdin, stdout}, process::exit};
 
 use crate::backend::vm::{debugger::{CommandAction, ba_action::BaAction, bc_action::BcAction, bt_action::BtAction, cont_action::ContAction}, thread::FSRThreadRuntime};
 
+pub struct FSRDebugContext {
+    
+}
+
 pub enum FSRFlag {
     Debugger,
 }
@@ -15,7 +19,6 @@ impl FSRDebugger {
 
     pub fn new_debugger() -> Self {
         let mut commands: HashMap<String, Box<dyn CommandAction>> = HashMap::new();
-        commands.insert("continue".to_string(), Box::new(ContAction {}));
         commands.insert("bc".to_string(), Box::new(BcAction {}));
         commands.insert("bt".to_string(), Box::new(BtAction {}));
         commands.insert("ba".to_string(), Box::new(BaAction {}));
