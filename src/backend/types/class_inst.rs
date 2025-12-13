@@ -50,7 +50,7 @@ impl<'a> FSRClassInst<'a> {
         }
     }
 
-    pub fn list_attrs(&self) -> Keys<&'a str, AtomicObjId> {
+    pub fn list_attrs(&self) -> Keys<'_, &'a str, AtomicObjId> {
         self.attrs.keys()
     }
 

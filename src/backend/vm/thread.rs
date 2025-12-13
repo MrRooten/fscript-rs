@@ -176,7 +176,7 @@ impl IndexMap {
         Self { vs: vec![] }
     }
 
-    pub fn iter(&self) -> IndexIterator {
+    pub fn iter(&self) -> IndexIterator<'_> {
         IndexIterator { vs: self.vs.iter() }
     }
 

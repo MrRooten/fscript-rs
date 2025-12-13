@@ -43,7 +43,7 @@ pub struct FSRFnInner<'a> {
 }
 
 impl FSRFnInner<'_> {
-    pub fn get_name(&self) -> &Cow<str> {
+    pub fn get_name(&self) -> &Cow<'_, str> {
         &self.name
     }
 
@@ -132,7 +132,7 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    pub fn get_name(&self) -> &Cow<str> {
+    pub fn get_name(&self) -> &Cow<'_, str> {
         if let FSRnE::FSRFn(f) = &self.fn_def {
             return f.get_name();
         } else if let FSRnE::RustFn(f) = &self.fn_def {
@@ -145,7 +145,7 @@ impl<'a> FSRFn<'a> {
         matches!(&self.fn_def, FSRnE::FSRFn(_))
     }
 
-    pub fn get_def(&self) -> &FSRnE {
+    pub fn get_def(&self) -> &FSRnE<'_> {
         &self.fn_def
     }
 

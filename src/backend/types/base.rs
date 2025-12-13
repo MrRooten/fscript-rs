@@ -620,7 +620,7 @@ impl<'a> FSRObject<'a> {
         false
     }
 
-    pub fn as_fn(&self) -> &FSRFn {
+    pub fn as_fn(&self) -> &FSRFn<'_> {
         if let FSRValue::Function(f) = &self.value {
             return f;
         }
@@ -810,7 +810,7 @@ impl<'a> FSRObject<'a> {
         None
     }
 
-    pub fn list_attrs(&self) -> Keys<&'a str, AtomicObjId> {
+    pub fn list_attrs(&self) -> Keys<'_, &str, AtomicObjId> {
         if let FSRValue::ClassInst(inst) = &self.value {
             return inst.list_attrs();
         }
@@ -895,7 +895,7 @@ impl<'a> FSRObject<'a> {
         false
     }
 
-    pub fn get_fsr_offset(&self) -> (&Cow<str>, (usize, usize)) {
+    pub fn get_fsr_offset(&self) -> (&Cow<'_, str>, (usize, usize)) {
         if let FSRValue::Function(fn_def) = &self.value {
             if let FSRnE::FSRFn(f) = &fn_def.get_def() {
                 return (f.get_name(), f.get_ip());
