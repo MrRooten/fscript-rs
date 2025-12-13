@@ -406,13 +406,10 @@ fn hash_integer(
     }
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
+
 
     if let FSRValue::Integer(self_int) = &self_object.value {
-        // let mut hasher = AHasher::default();
-        // self_int.hash(&mut hasher);
-        // let hash = hasher.finish();
+
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(*self_int),
             gid(GlobalObj::IntegerCls),

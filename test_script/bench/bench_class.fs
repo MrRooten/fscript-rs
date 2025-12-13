@@ -15,7 +15,7 @@ t.index = 1
 b = 1
 while t.index < 3000000 {
     t.index = t.index + t.abc()
-    t.ddc = 123 + 1
+    t.ddc = 124
     c = t + 1
 }
 

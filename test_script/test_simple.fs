@@ -11,12 +11,6 @@ class Test {
 
 t: Teset = Test()
 t.abc()
-t.index = 1
-
-while t.index < 300000 {
-    t.index = t.index + t.abc()
+for i in 0..3000000 {
+    t.abc()
 }
-
-println(t.index)
-
-gc_info()

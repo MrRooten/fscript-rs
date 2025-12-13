@@ -98,19 +98,21 @@ pub(crate) static mut FALSE_ID: ObjId = 0;
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_true() -> ObjId {
-    // get_object_by_global_id(FSRGlobalObjId::True)
+   
+    /// SAFETY: This will be use after vm initialize
     unsafe { TRUE_ID }
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_false() -> ObjId {
-    // get_object_by_global_id(FSRGlobalObjId::False)
+
+    /// SAFETY: This will be use after vm initialize
     unsafe { FALSE_ID }
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_none() -> ObjId {
-    // get_object_by_global_id(FSRGlobalObjId::None)
+    /// SAFETY: This will be use after vm initialize
     unsafe { NONE_ID }
 }
 

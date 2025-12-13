@@ -67,6 +67,9 @@ fn list_len(
     thread: &mut FSRThreadRuntime,
     code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 1 {
+        return Err(FSRError::new("List::len must has 1 arguments", FSRErrCode::NotValidArgs));
+    }
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
 
