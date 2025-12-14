@@ -3421,7 +3421,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     pub fn call_fn(
         &mut self,
-        fn_def: &'a FSRFnInner,
+        fn_def: &FSRFnInner,
         args: &[ObjId],
         code: ObjId,
     ) -> Result<ObjId, FSRError> {

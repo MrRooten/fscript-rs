@@ -56,7 +56,7 @@ impl FSRFuture {
         Box::new(add_list.into_iter())
     }
 }
-
+#[inline]
 pub fn poll_future(
     args: *const ObjId,
     len: usize,
@@ -80,6 +80,7 @@ pub fn poll_future(
         for arg in args.iter().rev() {
             frame.args.push(*arg);
         }
+
         frame.future = Some(args[0]);
         thread.push_frame(frame, fn_obj.const_map.clone());
         let res = thread.poll_fn(future.fn_obj);

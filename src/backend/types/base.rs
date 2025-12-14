@@ -728,6 +728,7 @@ impl<'a> FSRObject<'a> {
     //     Ok(v)
     // }
 
+    //#[cfg_attr(feature = "more_inline", inline(always))]
     #[inline]
     pub fn invoke_offset_method(
         offset: BinaryOffset,
