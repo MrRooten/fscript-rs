@@ -41,10 +41,5 @@ impl<'a> FSRObjectAllocator<'a> {
     }
 
 
-    pub fn new_code_context(
-        &mut self,
-        code: ObjId,
-    ) -> FSCodeContext {
-        FSCodeContext::new_context(code)
-    }
+    
 }

@@ -13,10 +13,8 @@ t: Teset = Test()
 t.abc()
 t.index = 1
 b = 1
-while t.index < 3000000 {
-    t.index = t.index + t.abc()
-    t.ddc = 124
-    c = t + 1
+for i in 0..3000000 {
+    t.abc()
 }
 
 println(t.index)

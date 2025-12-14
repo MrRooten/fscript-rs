@@ -13,9 +13,7 @@ t = Test()
 t.abc()
 t.index = 1
 b = 1
-while t.index < 3000000:
-    t.index = t.index + t.abc()
-    t.ddc = 123 + 1
-    c = t + 1
+for i in range(3000000):
+    t.abc()
 
     

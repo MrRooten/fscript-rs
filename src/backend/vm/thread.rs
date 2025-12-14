@@ -3373,7 +3373,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 .get_fn("__main__")
                 .unwrap(),
         );
-        let context = self.thread_allocator.new_code_context(code_id);
+        let context = FSCodeContext::new_context(code_id);
         self.push_context(context);
         let mut main_code = None;
         for code in FSRObject::id_to_obj(module).as_module().iter_fn() {
@@ -3424,7 +3424,7 @@ impl<'a> FSRThreadRuntime<'a> {
         args: &[ObjId],
         code: ObjId,
     ) -> Result<ObjId, FSRError> {
-        let mut context = self.thread_allocator.new_code_context(code);
+        let mut context = FSCodeContext::new_context(code);
         // context.code = code;
         // context.code_inst = Some(FSRObject::id_to_obj(code).as_code());
         context.set_code(code);
@@ -3433,8 +3433,8 @@ impl<'a> FSRThreadRuntime<'a> {
         {
             clear_exp!(self);
 
-            for arg in args.iter().rev().cloned() {
-                self.get_cur_mut_frame().args.push(arg);
+            for arg in args.iter().rev() {
+                self.get_cur_mut_frame().args.push(*arg);
             }
             let offset = fn_def.get_ip();
             self.get_cur_mut_frame().ip = (offset.0, 0);
@@ -3465,7 +3465,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap()
             .as_mut_future()
             .set_running();
-        let mut context = self.thread_allocator.new_code_context(code);
+        let mut context = FSCodeContext::new_context(code);
         // context.code = code;
         // context.code_inst = Some(FSRObject::id_to_obj(code).as_code());
         context.set_code(code);
