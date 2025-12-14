@@ -2069,12 +2069,11 @@ impl<'a> FSRThreadRuntime<'a> {
             },
         );
 
-        let state = &mut self.cur_frame;
+        let frame = &mut self.cur_frame;
         let fn_id = self
             .garbage_collect
             .new_object(fn_obj, gid(GlobalObj::FnCls));
-        if let Some(cur_cls) = &mut state.cur_cls {
-            
+        if let Some(cur_cls) = &mut frame.cur_cls {
             let offset = BinaryOffset::from_alias_name(name.as_str());
             if let Some(offset) = offset {
                 cur_cls.insert_offset_attr_obj_id(offset, fn_id);
@@ -2086,7 +2085,7 @@ impl<'a> FSRThreadRuntime<'a> {
             return Ok(true);
         }
 
-        state.insert_var(*name_id, fn_id);
+        frame.insert_var(*name_id, fn_id);
         let define_fn_obj = self.get_cur_frame().fn_id;
 
         // if function define in base function, register to module
@@ -2733,7 +2732,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let name = obj.get_name().to_string();
         // cls_obj.set_value(FSRValue::Class(obj));
         // let obj_id = FSRVM::register_object(cls_obj);
-        let obj_id = self.garbage_collect.new_object(FSRValue::Class(obj), gid(GlobalObj::ClassCls));
+        let obj_id = self
+            .garbage_collect
+            .new_object(FSRValue::Class(obj), gid(GlobalObj::ClassCls));
         FSRObject::id_to_mut_obj(obj_id)
             .unwrap()
             .set_write_barrier(true);
