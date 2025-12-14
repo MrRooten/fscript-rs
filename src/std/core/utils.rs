@@ -51,8 +51,9 @@ pub fn fsr_fn_export(
 
     let obj = args[1];
 
-    let s = code;
-    let module = FSRObject::id_to_mut_obj(FSRObject::id_to_obj(code).as_code().module)
+    let s = thread.get_context().code;
+    let code = FSRObject::id_to_obj(s).as_code();
+    let module = FSRObject::id_to_mut_obj(code.module)
         .unwrap()
         .as_mut_module();
     module.register_object(name.as_str(), obj);
@@ -247,7 +248,7 @@ pub fn fsr_timeit(
     if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[1]).value {
         let start = std::time::Instant::now();
         for _ in 0..*count {
-            match fn_def.call(&[], thread, code)? {
+            match fn_def.call(&[], thread)? {
                 FSRRetValue::GlobalId(id) => {
                     if FSRObject::is_sp_object(id) {
                         continue;

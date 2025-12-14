@@ -37,7 +37,7 @@ impl FSRIterator for FSRMapIter {
             .load(std::sync::atomic::Ordering::Relaxed);
         let next_method = FSRObject::id_to_obj(next_method_id);
         let ret = next_method
-            .call(&[self.prev_iterator], thread, self.code)
+            .call(&[self.prev_iterator], thread)
             .unwrap()
             .get_id();
         if ret == FSRObject::none_id() {
@@ -46,7 +46,7 @@ impl FSRIterator for FSRMapIter {
 
         let callback = FSRObject::id_to_obj(self.callback);
         let map_ret = callback
-            .call(&[ret], thread, self.code)
+            .call(&[ret], thread)
             .unwrap()
             .get_id();
 

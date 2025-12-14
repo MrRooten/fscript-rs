@@ -61,7 +61,7 @@ pub fn poll_future(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
+    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len != 1 {
         return Err(FSRError::new(

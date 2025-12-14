@@ -51,7 +51,7 @@ pub fn fsr_new_thread(
         let thread_id = vm.add_thread(runtime);
         let th = vm.get_thread(thread_id).unwrap();
         let fn_obj = FSRObject::id_to_obj(fn_id);
-        let _ = fn_obj.call(&args, th, code);
+        let _ = fn_obj.call(&args, th);
     });
     let handle = FSRThreadHandle::new(th);
     

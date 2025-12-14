@@ -44,7 +44,7 @@ impl FSRIterator for FSRFilterIter {
             .load(std::sync::atomic::Ordering::Relaxed);
         let next_method = FSRObject::id_to_obj(next_method_id);
         let mut ret = next_method
-            .call(&[self.prev_iterator], thread, 0)?
+            .call(&[self.prev_iterator], thread)?
             .get_id();
         if ret == FSRObject::none_id() {
             return Ok(None);
@@ -55,21 +55,21 @@ impl FSRIterator for FSRFilterIter {
         // to check if it passes the filter
         let filter = FSRObject::id_to_obj(self.filter);
         let mut filter_ret = filter
-            .call(&[ret], thread, self.code)?
+            .call(&[ret], thread)?
             .get_id();
 
         // keep calling the next method until we find a value that passes the filter 
         // or we reach the end of the iterator
         while filter_ret != FSRObject::true_id() {
             ret = next_method
-                .call(&[self.prev_iterator], thread, self.code)?
+                .call(&[self.prev_iterator], thread)?
                 .get_id();
             if ret == FSRObject::none_id() {
                 return Ok(None);
             }
 
             filter_ret = filter
-                .call(&[ret], thread, self.code)?
+                .call(&[ret], thread)?
                 .get_id();
         }
         if filter_ret == FSRObject::none_id() {

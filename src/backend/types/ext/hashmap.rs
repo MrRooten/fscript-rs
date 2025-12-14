@@ -675,7 +675,7 @@ impl FSRHashMap {
             .unwrap()
             .load(std::sync::atomic::Ordering::Relaxed);
         let hash_fn = FSRObject::id_to_obj(hash_fn_id);
-        let hash = hash_fn.call(&[key], thread, 0)?;
+        let hash = hash_fn.call(&[key], thread)?;
         let hash_id = FSRObject::id_to_obj(hash.get_id());
         let hash = if let FSRValue::Integer(i) = &hash_id.value {
             *i as u64
@@ -715,7 +715,7 @@ impl FSRHashMap {
                     .load(std::sync::atomic::Ordering::Relaxed);
                 let eq_fn = FSRObject::id_to_obj(eq_fn_id);
                 let is_same = eq_fn
-                    .call(&[save_key, value], thread, 0)?
+                    .call(&[save_key, value], thread)?
                     .get_id();
 
                 if is_same == FSRObject::true_id() {
@@ -763,7 +763,7 @@ impl FSRHashMap {
                     .load(std::sync::atomic::Ordering::Relaxed);
                 let eq_fn = FSRObject::id_to_obj(eq_fn_id);
                 let is_same = eq_fn
-                    .call(&[save_key, value], thread, 0)?
+                    .call(&[save_key, value], thread)?
                     .get_id();
 
                 if is_same == FSRObject::true_id() {
@@ -797,7 +797,7 @@ impl FSRHashMap {
                 .load(std::sync::atomic::Ordering::Relaxed);
             let eq_fn = FSRObject::id_to_obj(eq_fn_id);
             let is_same = eq_fn
-                .call(&[save_key, key], thread, 0)
+                .call(&[save_key, key], thread)
                 .unwrap()
                 .get_id();
 
@@ -816,7 +816,7 @@ impl FSRHashMap {
             .load(std::sync::atomic::Ordering::Relaxed);
 
         let hash_fn = FSRObject::id_to_obj(hash_fn_id);
-        let hash = hash_fn.call(&[key], thread, 0).unwrap();
+        let hash = hash_fn.call(&[key], thread).unwrap();
         let hash_id = FSRObject::id_to_obj(hash.get_id());
         let hash = if let FSRValue::Integer(i) = &hash_id.value {
             *i as u64
@@ -851,7 +851,7 @@ impl FSRHashMap {
                 .load(std::sync::atomic::Ordering::Relaxed);
             let eq_fn = FSRObject::id_to_obj(eq_fn_id);
             let is_same = eq_fn
-                .call(&[save_key, key], thread, 0)
+                .call(&[save_key, key], thread)
                 .unwrap()
                 .get_id();
             if is_same == FSRObject::true_id() {

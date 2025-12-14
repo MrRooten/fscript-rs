@@ -894,7 +894,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn getter_assign_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &'a BytecodeArg,
+        _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let len = len_exp!(self);
         let index_obj = top_exp!(self).unwrap();
@@ -912,7 +912,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let _res = set_item_fn.call(
             &[container_obj, index_obj, value_obj],
             self,
-            self.get_context().code,
         );
 
         // pop 3 values from stack, pop after set item fn, because set item may trigger gc
@@ -926,7 +925,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn attr_assign_process(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &'a BytecodeArg,
+        bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let ArgType::Attr(attr_id, name) = bytecode.get_arg() else {
             return Err(FSRError::new(
@@ -1279,7 +1278,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn binary_get_cls_attr_process(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &'a BytecodeArg,
+        bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let attr_id = if let ArgType::Attr(attr_id, name) = bytecode.get_arg() {
             (attr_id, name)
@@ -1425,7 +1424,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .map(|x| x.load(Ordering::Relaxed))
             .unwrap();
         let self_new_fn = FSRObject::id_to_obj(self_new);
-        let new_obj = self_new_fn.call(args, self, self.get_context().code)?;
+        let new_obj = self_new_fn.call(args, self)?;
 
         push_exp!(self, new_obj.get_id());
 
@@ -1441,7 +1440,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         args.push(obj_id);
         args.reverse();
-        let v = fn_obj.call(args, self, self.get_context().code)?;
+        let v = fn_obj.call(args, self)?;
 
         let id = v.get_id();
         push_exp!(self, id);
@@ -1575,6 +1574,54 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         fn_id: ObjId,
         args: &mut SmallVec<[ObjId; 4]>,
+    ) -> Result<bool, FSRError> {
+        let fn_obj = FSRObject::id_to_obj(fn_id);
+        //let call_method = false;
+        if fn_obj.is_fsr_function() {
+            if let FSRnE::FSRFn(f) = &fn_obj.as_fn().fn_def {
+                if f.jit_code.is_some() {
+                    return self.jit_call(fn_id, args, f);
+                }
+
+                if f.is_async {
+                    return self.async_call(fn_id, args);
+                }
+            } else {
+                return Err(FSRError::new(
+                    format!("fn 0x{:x} is not a function object", fn_id),
+                    FSRErrCode::NotValidArgs,
+                ));
+            }
+            let res = fn_obj.call(args, self)?;
+            push_exp!(self, res.get_id());
+
+            return Ok(false);
+        } else if fn_obj.is_fsr_cls() {
+            let v = Self::process_fsr_cls(self, fn_id, args)?;
+            if v {
+                return Ok(v);
+            }
+        } else {
+            args.reverse();
+            let v = match fn_obj.call(args, self) {
+                Ok(o) => o,
+                Err(e) => {
+                    panic!("error: in call_process_ret: {}", e);
+                }
+            };
+
+            let id = v.get_id();
+            push_exp!(self, id);
+        }
+
+        Ok(false)
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    fn call_method_ret(
+        &mut self,
+        fn_id: ObjId,
+        args: &mut SmallVec<[ObjId; 4]>,
         object_id: &Option<ObjId>,
         call_method: bool,
     ) -> Result<bool, FSRError> {
@@ -1595,7 +1642,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     FSRErrCode::NotValidArgs,
                 ));
             }
-            let res = fn_obj.call(args, self, self.get_context().code)?;
+            let res = fn_obj.call(args, self)?;
             push_exp!(self, res.get_id());
 
             return Ok(false);
@@ -1611,7 +1658,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         } else {
             args.reverse();
-            let v = match fn_obj.call(args, self, self.get_context().code) {
+            let v = match fn_obj.call(args, self) {
                 Ok(o) => o,
                 Err(e) => {
                     panic!("error: in call_process_ret: {}", e);
@@ -1628,7 +1675,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn call_process(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &'a BytecodeArg,
+        bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let mut var: Option<&(usize, u64, String, bool)> = None;
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
@@ -1645,13 +1692,14 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let fn_id = self.get_call_fn_id(&var, false)?;
 
-        self.call_process_ret(fn_id, &mut args, &None, false)
+        //self.call_process_ret(fn_id, &mut args, &None, false)
+        self.call_process_ret(fn_id, &mut args)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn call_method_process(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &'a BytecodeArg,
+        bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let mut var: Option<&(usize, u64, String, bool)> = None;
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
@@ -1678,7 +1726,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let mut object_id: Option<ObjId> = Some(father);
 
-        self.call_process_ret(method, &mut args, &object_id, true)
+        self.call_method_ret(method, &mut args, &object_id, true)
     }
 
     fn try_process(
@@ -1874,7 +1922,7 @@ impl<'a> FSRThreadRuntime<'a> {
             Some(s) => {
                 let iter_fn = s.load(Ordering::Relaxed);
                 let iter_fn_obj = FSRObject::id_to_obj(iter_fn);
-                let ret = iter_fn_obj.call(&[iter_id], self, 0)?;
+                let ret = iter_fn_obj.call(&[iter_id], self)?;
                 ret.get_id()
             }
             None => iter_id,
@@ -2031,7 +2079,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn define_fn(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &'a BytecodeArg,
+        bytecode: &BytecodeArg,
         //bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
         let ArgType::DefineFnArgs(name_id, name, fn_identify_name, args, store_to_cell) =
@@ -2617,7 +2665,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn class_def(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &'a BytecodeArg,
+        bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let ArgType::Local((id, name, store_to_cell)) = bytecode.get_arg() else {
             return Err(FSRError::new(
@@ -2901,7 +2949,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn process(&mut self, bytecode: &'a BytecodeArg) -> Result<bool, FSRError> {
+    fn process(&mut self, bytecode: &BytecodeArg) -> Result<bool, FSRError> {
         let op = bytecode.get_operator();
 
         let v = match op {
@@ -3062,7 +3110,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn load_var(&mut self, arg: &'a BytecodeArg) -> Result<bool, FSRError> {
+    fn load_var(&mut self, arg: &BytecodeArg) -> Result<bool, FSRError> {
         //let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
             ArgType::Local(var) => {

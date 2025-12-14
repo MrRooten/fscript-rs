@@ -270,21 +270,21 @@ impl<'a> FSRFn<'a> {
         &'a self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        code: ObjId,
+        //code: ObjId,
         fn_id: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             let len = args.len();
             let args = args.as_ptr();
-            let v = f.1(args, len, thread, code);
+            let v = f.1(args, len, thread, self.code);
             return v;
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             if f.jit_code.is_some() {
-                let res = Self::call_jit(f, thread, fn_id, args, code);
+                let res = Self::call_jit(f, thread, fn_id, args, self.code);
                 return Ok(FSRRetValue::GlobalId(res));
             }
 
-            let frame = thread.frame_free_list.new_frame(code, fn_id);
+            let frame = thread.frame_free_list.new_frame(self.code, fn_id);
             thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
             let v = FSRThreadRuntime::call_fn(thread, f, args, self.code)?;
             return Ok(FSRRetValue::GlobalId(v));

@@ -81,7 +81,7 @@ pub fn map_err(
     let may_err_object = FSRObject::id_to_obj(args[0]);
     let fn_callback = FSRObject::id_to_obj(args[1]);
     if may_err_object.cls == FSRObject::id_to_obj(GlobalObj::Exception.get_id()).as_class() {
-        return fn_callback.call(&[args[0]], thread, code);
+        return fn_callback.call(&[args[0]], thread);
     }
 
     Ok(FSRRetValue::GlobalId(args[0]))
@@ -128,7 +128,7 @@ pub fn then(
         return Ok(FSRRetValue::GlobalId(args[0]));
     }
 
-    fn_callback.call(&[args[0]], thread, code)
+    fn_callback.call(&[args[0]], thread)
 }
 
 pub fn is_none(

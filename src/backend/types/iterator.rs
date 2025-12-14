@@ -56,7 +56,7 @@ pub fn next_obj(
             if let Some(obj_id) = v {
                 let obj_id = obj_id.load(Ordering::Relaxed);
                 let obj = FSRObject::id_to_obj(obj_id);
-                let ret = obj.call(&[it.obj], thread, code);
+                let ret = obj.call(&[it.obj], thread);
                 result = Some(ret?);
             }
         } else if let FSRValue::Future(future) = &from_obj.value {
@@ -192,7 +192,7 @@ pub fn any(
         if let Some(it) = it.iterator.as_mut() {
             let mut result = false;
             while let Ok(Some(obj)) = it.next(thread) {
-                let res = any_fn.call(&[obj], thread, code)?;
+                let res = any_fn.call(&[obj], thread)?;
                 if res.get_id() == FSRObject::true_id() {
                     result = true;
                     break;
@@ -228,7 +228,7 @@ pub fn all(
         if let Some(it) = it.iterator.as_mut() {
             let mut result = true;
             while let Some(obj) = it.next(thread)? {
-                let res = all_fn.call(&[obj], thread, code)?;
+                let res = all_fn.call(&[obj], thread)?;
                 if res.get_id() == FSRObject::false_id() {
                     result = false;
                     break;
