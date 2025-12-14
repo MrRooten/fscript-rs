@@ -16,11 +16,9 @@ pub fn add(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let _ = thread;
-    let _ = code;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -43,10 +41,8 @@ pub fn sub(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    let _ = code;
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -70,10 +66,8 @@ pub fn mul(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    let _ = code;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -96,10 +90,8 @@ fn div(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    let _ = code;
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -125,11 +117,9 @@ pub fn greater(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let _ = thread;
-    let _ = code;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
@@ -151,10 +141,8 @@ pub fn less(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    let _ = code;
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -177,10 +165,8 @@ fn greater_equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    let _ = code;
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
@@ -203,7 +189,6 @@ fn less_equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -227,7 +212,6 @@ pub fn equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -251,7 +235,6 @@ fn not_equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);

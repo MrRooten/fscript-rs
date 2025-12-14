@@ -11,7 +11,6 @@ fn kind(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -35,7 +34,6 @@ fn message(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let message_object = FSRObject::id_to_obj(args[0]);

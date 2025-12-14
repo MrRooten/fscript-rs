@@ -86,7 +86,6 @@ fn join(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");

@@ -138,7 +138,6 @@ fn string_iter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_id = args[0];
@@ -163,7 +162,6 @@ fn string_len(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -182,7 +180,6 @@ fn string_as_bytes(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -203,7 +200,6 @@ pub fn add(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -240,7 +236,6 @@ pub fn equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -265,7 +260,6 @@ fn neq(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -290,7 +284,6 @@ fn get_sub_char(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -356,7 +349,6 @@ fn hash_string(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -380,7 +372,6 @@ fn split(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -412,7 +403,6 @@ fn find(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -436,7 +426,6 @@ fn rfind(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -460,7 +449,6 @@ fn trim(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -479,7 +467,6 @@ fn uppercase(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -498,7 +485,6 @@ fn lowercase(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -517,7 +503,6 @@ fn starts_with(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -544,7 +529,6 @@ pub fn fsr_fn_strip(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -567,7 +551,6 @@ pub fn fsr_fn_format_string(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(
@@ -592,7 +575,7 @@ pub fn fsr_fn_format_string(
     let mut arg_strings = Vec::new();
     for &arg_id in format_args {
         let obj = FSRObject::id_to_obj(arg_id);
-        let res = obj.to_string(thread, code);
+        let res = obj.to_string(thread);
         if let FSRValue::String(s) = &res {
             arg_strings.push(s.as_str().to_string());
         }

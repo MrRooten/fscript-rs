@@ -276,7 +276,6 @@ pub fn fsr_fn_hashset_iter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashset = FSRObject::id_to_obj(args[0]);
@@ -315,7 +314,6 @@ pub fn fsr_fn_hashset_new(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashset = FSRHashSet::new_hashset();
@@ -334,7 +332,6 @@ pub fn fsr_fn_hashset_insert(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -367,7 +364,6 @@ pub fn fsr_fn_hashset_get(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashset = FSRObject::id_to_obj(args[0]);
@@ -393,7 +389,6 @@ pub fn fsr_fn_hashset_get_reference(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashset_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
@@ -415,7 +410,6 @@ pub fn fsr_fn_hashset_contains(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashset = FSRObject::id_to_obj(args[0]);
@@ -439,7 +433,6 @@ pub fn fsr_fn_hashset_remove(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashset = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
@@ -461,7 +454,6 @@ fn hashset_string(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let mut s = FSRInnerString::new("HashSet");
@@ -481,7 +473,7 @@ fn hashset_string(
                 for item in bucket.iter() {
                     let item_id = item.load(Ordering::Relaxed);
                     let item_obj = FSRObject::id_to_obj(item_id);
-                    let s_value = item_obj.to_string(thread, code);
+                    let s_value = item_obj.to_string(thread);
                     if let FSRValue::String(v) = &s_value {
                         vs.push(format!("{}", v));
                     } else {

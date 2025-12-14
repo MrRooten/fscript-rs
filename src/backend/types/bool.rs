@@ -11,7 +11,6 @@ pub fn equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len != 2 {
         return Err(FSRError::new(

@@ -114,7 +114,6 @@ pub fn fsr_fn_open_file(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 2 {
         return Err(FSRError::new(
@@ -154,7 +153,6 @@ pub fn fsr_fn_read_all(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(
@@ -204,7 +202,6 @@ pub fn fsr_fn_is_file(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(
@@ -233,7 +230,6 @@ pub fn fsr_fn_is_dir(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(
@@ -263,7 +259,6 @@ pub fn fsr_fn_read(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 3 {
         return Err(FSRError::new(
@@ -332,7 +327,6 @@ pub fn fsr_fn_file_lines(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(

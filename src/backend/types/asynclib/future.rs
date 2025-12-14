@@ -61,7 +61,6 @@ pub fn poll_future(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len != 1 {
         return Err(FSRError::new(
@@ -96,9 +95,8 @@ pub fn next_obj(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
-    poll_future(args, len, thread, code)
+    poll_future(args, len, thread)
 }
 
 impl FSRFuture {

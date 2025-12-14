@@ -23,7 +23,6 @@ use crate::{
 pub struct FSRFilterIter {
     pub(crate) filter: ObjId,
     pub(crate) prev_iterator: ObjId,
-    pub(crate) code: ObjId,
 }
 
 impl FSRIteratorReferences for FSRFilterIter {

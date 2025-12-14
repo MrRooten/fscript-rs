@@ -280,7 +280,6 @@ pub fn fsr_fn_hashmap_iter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);
@@ -319,7 +318,6 @@ pub fn fsr_fn_hashmap_new(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashmap = FSRHashMap::new_hashmap();
@@ -338,7 +336,6 @@ pub fn fsr_fn_hashmap_insert(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 3 {
@@ -377,7 +374,6 @@ pub fn fsr_fn_hashmap_get(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);
@@ -403,7 +399,6 @@ fn hashmap_string(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let mut s = FSRInnerString::new("HashMap");
@@ -423,8 +418,8 @@ fn hashmap_string(
                 for (key, value) in bucket.iter() {
                     let key_obj = FSRObject::id_to_obj(key.load(Ordering::Relaxed));
                     let value_obj = FSRObject::id_to_obj(value.load(Ordering::Relaxed));
-                    let key_str = key_obj.to_string(thread, code);
-                    let value_str = value_obj.to_string(thread, code);
+                    let key_str = key_obj.to_string(thread);
+                    let value_str = value_obj.to_string(thread);
                     if let FSRValue::String(k) = &key_str {
                         if let FSRValue::String(v) = &value_str {
                             vs.push(format!("{} => {}", k, v));
@@ -467,7 +462,6 @@ pub fn fsr_fn_hashmap_get_reference(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashmap_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
@@ -489,7 +483,6 @@ pub fn fsr_fn_hashmap_contains(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);
@@ -513,7 +506,6 @@ pub fn fsr_fn_hashmap_remove(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
@@ -535,7 +527,6 @@ pub fn fsr_fn_hashmap_len(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);

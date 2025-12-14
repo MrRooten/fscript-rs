@@ -55,7 +55,6 @@ fn iter_obj(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_id = args[0];
@@ -87,15 +86,13 @@ fn filter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     
-    let iterator = iter_obj(args, len, thread, code)?.get_id();
+    let iterator = iter_obj(args, len, thread)?.get_id();
     let args = to_rs_list!(args, len);
     let filter_iterator = FSRFilterIter {
         filter: args[1],
         prev_iterator: iterator,
-        code,
     };
     let filter_iterator_id = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -113,15 +110,13 @@ fn map(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     
-    let iterator = iter_obj(args, len, thread, code)?.get_id();
+    let iterator = iter_obj(args, len, thread)?.get_id();
     let args = to_rs_list!(args, len);
     let map_iterator = FSRMapIter {
         callback: args[1],
         prev_iterator: iterator,
-        code,
     };
     let map_iterator_id = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -139,25 +134,22 @@ fn as_list(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let iterator = iter_obj(args, len, thread, code)?.get_id();
+    let iterator = iter_obj(args, len, thread)?.get_id();
     //let args = to_rs_list!(args, len);
-    crate::backend::types::iterator::as_list([iterator].as_ptr(), 1, thread, code)
+    crate::backend::types::iterator::as_list([iterator].as_ptr(), 1, thread)
 }
 
 fn enumerate(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
-    let iterator = iter_obj(args, len, thread, code)?.get_id();
+    let iterator = iter_obj(args, len, thread)?.get_id();
     let args = to_rs_list!(args, len);
     let enumerate_iterator = FSREnumerateIter {
         prev_iterator: iterator,
         index: 0,
-        code,
     };
     let enumerate_iterator_id = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -174,7 +166,6 @@ fn contains(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {

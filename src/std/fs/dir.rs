@@ -48,7 +48,6 @@ pub fn fsr_fn_sub_path(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         panic!("Invalid arguments for sub_paths");

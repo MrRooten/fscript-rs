@@ -65,7 +65,6 @@ fn list_len(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     if len != 1 {
         return Err(FSRError::new("List::len must has 1 arguments", FSRErrCode::NotValidArgs));
@@ -93,7 +92,6 @@ fn list_string(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let mut s = FSRInnerString::new("");
@@ -104,7 +102,7 @@ fn list_string(
         let size = l.get_items().len();
         for (count, id) in l.get_items().iter().enumerate() {
             let obj = FSRObject::id_to_obj(id.load(Ordering::Relaxed));
-            let s_value = obj.to_string(thread, code);
+            let s_value = obj.to_string(thread);
             if let FSRValue::String(_s) = &s_value {
                 s.push_inner_str(_s);
                 if count < size - 1 {
@@ -126,7 +124,6 @@ fn iter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_id = args[0];
@@ -152,7 +149,6 @@ pub fn get_item(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_id = args[0];
@@ -188,7 +184,6 @@ pub fn set_item(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 3 {
@@ -226,7 +221,6 @@ pub fn sort(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 1 {
@@ -259,7 +253,6 @@ pub fn sort_by(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -296,7 +289,6 @@ pub fn reverse(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let obj_id = args[0];
@@ -316,7 +308,6 @@ pub fn sort_key(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -359,7 +350,6 @@ pub fn push(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -380,7 +370,6 @@ pub fn map(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -411,7 +400,6 @@ pub fn filter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -444,7 +432,6 @@ pub fn equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {

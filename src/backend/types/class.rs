@@ -69,7 +69,6 @@ pub fn map_err(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len < 2 {
         return Err(FSRError::new(
@@ -91,7 +90,6 @@ pub fn is_err(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(
@@ -112,7 +110,6 @@ pub fn then(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len < 2 {
         return Err(FSRError::new(
@@ -135,7 +132,6 @@ pub fn is_none(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(
@@ -155,7 +151,6 @@ pub fn unwrap(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(
@@ -176,7 +171,6 @@ pub fn expect(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len < 1 {
         return Err(FSRError::new(
@@ -197,7 +191,6 @@ pub fn class_default_equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len != 2 {
         return Err(FSRError::new(
@@ -217,7 +210,6 @@ pub fn class_default_not_equal(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     if len != 2 {
         return Err(FSRError::new(

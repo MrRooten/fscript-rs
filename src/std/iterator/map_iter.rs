@@ -19,7 +19,6 @@ use crate::{
 pub struct FSRMapIter {
     pub(crate) callback: ObjId,
     pub(crate) prev_iterator: ObjId,
-    pub(crate) code: ObjId,
 }
 
 impl FSRIteratorReferences for FSRMapIter {

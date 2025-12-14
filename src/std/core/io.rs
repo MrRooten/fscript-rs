@@ -14,15 +14,14 @@ pub fn fsr_fn_print(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let value = FSRObject::id_to_obj(args[0]);
     let rest = args[1..].to_vec();
-    let obj = value.to_string(thread, code);
+    let obj = value.to_string(thread);
     let res_obj = rest.iter().map(|x| {
         let obj = FSRObject::id_to_obj(*x);
-        obj.to_string(thread, code)
+        obj.to_string(thread)
     }).collect::<Vec<_>>();
     let mut ret = FSRInnerString::new("");
 
@@ -42,15 +41,14 @@ pub fn fsr_fn_println(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let value = FSRObject::id_to_obj(args[0]);
     let rest = args[1..].to_vec();
-    let obj = value.to_string(thread, code);
+    let obj = value.to_string(thread);
     let res_obj = rest.iter().map(|x| {
         let obj = FSRObject::id_to_obj(*x);
-        obj.to_string(thread, code)
+        obj.to_string(thread)
     }).collect::<Vec<_>>();
     let mut ret = FSRInnerString::new("");
 
@@ -70,7 +68,6 @@ pub fn fsr_fn_dump(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let value = FSRObject::id_to_obj(args[0]);
@@ -93,12 +90,11 @@ pub fn fsr_fn_str(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     
     let value = FSRObject::id_to_obj(args[0]);
-    let s = value.to_string(thread, code);
+    let s = value.to_string(thread);
     let obj_id = thread.garbage_collect.new_object(
         s,
         gid(GlobalObj::StringCls),
@@ -110,7 +106,6 @@ pub fn fsr_fn_throw_error(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     panic!("deprecated function `throw_error`");
@@ -127,7 +122,6 @@ pub fn fsr_fn_get_error(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let ret = thread.get_cur_mut_frame().handling_exception;

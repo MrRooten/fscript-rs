@@ -17,7 +17,6 @@ pub fn fsr_fn_assert(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let value = FSRObject::id_to_obj(args[0]);
@@ -39,7 +38,6 @@ pub fn fsr_fn_export(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let name = match &FSRObject::id_to_obj(args[0]).value {
@@ -65,7 +63,6 @@ pub fn fsr_fn_range(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -95,7 +92,6 @@ pub fn fsr_fn_type(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 1 {
@@ -183,7 +179,6 @@ pub fn fsr_fn_id(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 1 {
@@ -201,7 +196,6 @@ fn fsr_is_class(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -221,7 +215,6 @@ fn fsr_get_class(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 1 {
@@ -237,7 +230,6 @@ pub fn fsr_timeit(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -272,7 +264,6 @@ pub fn fsr_breakpoint(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     FSRThreadRuntime::trigger_debug(thread);
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))

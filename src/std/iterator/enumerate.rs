@@ -20,7 +20,6 @@ pub struct FSREnumerateIter {
     //pub(crate) callback: ObjId,
     pub(crate) prev_iterator: ObjId,
     pub(crate) index: i64,
-    pub(crate) code: ObjId,
 }
 
 impl FSRIteratorReferences for FSREnumerateIter {

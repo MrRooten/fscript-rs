@@ -14,7 +14,6 @@ pub fn fsr_get_cur_thread_id(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let id = thread.get_thread_id();
@@ -29,7 +28,6 @@ pub fn fsr_new_thread(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let fn_id = args[0];

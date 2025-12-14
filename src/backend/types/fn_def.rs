@@ -30,7 +30,7 @@ pub type FSRRustFn = for<'a> fn(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime<'a>,
-    code: ObjId,
+    //code: ObjId,
 ) -> Result<FSRRetValue, FSRError>;
 
 #[derive(Debug, Clone)]
@@ -276,7 +276,7 @@ impl<'a> FSRFn<'a> {
         if let FSRnE::RustFn(f) = &self.fn_def {
             let len = args.len();
             let args = args.as_ptr();
-            let v = f.1(args, len, thread, self.code);
+            let v = f.1(args, len, thread);
             return v;
         } else if let FSRnE::FSRFn(f) = &self.fn_def {
             if f.jit_code.is_some() {

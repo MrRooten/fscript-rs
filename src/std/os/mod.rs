@@ -14,7 +14,6 @@ pub fn fsr_fn_cpu_arch(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let arch = std::env::consts::ARCH;
     let value = FSRString::new_value(arch);
@@ -28,7 +27,6 @@ pub fn fsr_fn_platform(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let os = std::env::consts::OS;
     let value = FSRString::new_value(os);
@@ -42,7 +40,6 @@ pub fn fsr_fn_os_version(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let value = FSRString::new_value("unknown");
     let res = thread
@@ -55,7 +52,6 @@ pub fn fsr_fn_get_pid(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let pid = std::process::id();
 
@@ -70,7 +66,6 @@ pub fn fsr_fn_get_environ(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if len == 1 {
@@ -112,7 +107,6 @@ pub fn fsr_fn_command(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if len > 0 {
@@ -147,7 +141,6 @@ pub fn fsr_fn_get_args(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     // Get the command line arguments passed to the script
     let args = to_rs_list!(args, len);

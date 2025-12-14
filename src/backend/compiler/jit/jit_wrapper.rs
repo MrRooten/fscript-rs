@@ -139,7 +139,7 @@ pub extern "C" fn binary_op(
     let args = [left, right];
     let len = args.len();
     if let Some(rust_fn) = obj_cls!(left).get_rust_fn(op) {
-        return rust_fn(args.as_ptr(), len, thread, code).unwrap().get_id();
+        return rust_fn(args.as_ptr(), len, thread).unwrap().get_id();
     }
 
     if let Some(op_fn) = obj_cls!(left).get_offset_attr(op) {
@@ -208,7 +208,7 @@ pub extern "C" fn getter(
 
     if let Some(rust_fn) = obj_cls!(container).get_rust_fn(BinaryOffset::GetItem) {
         let list = [container, index_obj];
-        return rust_fn(list.as_ptr(), 2, thread, 0).unwrap().get_id();
+        return rust_fn(list.as_ptr(), 2, thread).unwrap().get_id();
     }
 
     unimplemented!()
@@ -269,7 +269,7 @@ pub extern "C" fn c_next_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId
     // let obj = FSRObject::id_to_obj(obj);
     let args = [obj];
     
-    next_obj(args.as_ptr(), 1, thread, 0).unwrap().get_id()
+    next_obj(args.as_ptr(), 1, thread).unwrap().get_id()
 }
 
 pub extern "C" fn get_iter_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {

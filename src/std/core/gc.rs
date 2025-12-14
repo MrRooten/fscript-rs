@@ -16,7 +16,6 @@ pub fn fn_gc_info(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     // thread.garbage_collect.init_size();
@@ -34,7 +33,6 @@ pub fn fn_gc_collect(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     thread.garbage_collect.clear_marks();
@@ -47,7 +45,6 @@ pub fn fn_minjor_gc_collect(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     thread.garbage_collect.clear_marks();
@@ -60,7 +57,6 @@ pub fn fn_gc_shrink(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     thread.garbage_collect.shrink();

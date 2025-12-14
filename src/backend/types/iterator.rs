@@ -41,7 +41,6 @@ pub fn next_obj(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
@@ -60,7 +59,7 @@ pub fn next_obj(
                 result = Some(ret?);
             }
         } else if let FSRValue::Future(future) = &from_obj.value {
-            let res = poll_future(args.as_ptr(), len, thread, code);
+            let res = poll_future(args.as_ptr(), len, thread);
             return res
         } else {
             let iter = it.iterator.as_mut().unwrap();
@@ -84,7 +83,6 @@ pub fn map(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -98,7 +96,6 @@ pub fn map(
     let map_iterator = FSRMapIter {
         callback: map_fn_id,
         prev_iterator: args[0],
-        code,
     };
     let object = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -115,7 +112,6 @@ pub fn filter(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -129,7 +125,6 @@ pub fn filter(
     let filter_iterator = FSRFilterIter {
         filter: filter_fn_id,
         prev_iterator: args[0],
-        code,
     };
     let object = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -146,7 +141,6 @@ pub fn enumerate(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 1 {
@@ -159,7 +153,6 @@ pub fn enumerate(
     let enumerate_iterator = FSREnumerateIter {
         prev_iterator: args[0],
         index: 0,
-        code,
     };
     let object = thread.garbage_collect.new_object(
         FSRValue::Iterator(Box::new(FSRInnerIterator {
@@ -176,7 +169,6 @@ pub fn any(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -212,7 +204,6 @@ pub fn all(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
@@ -248,7 +239,6 @@ pub fn as_list(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 1 {
@@ -279,7 +269,6 @@ pub fn count(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
-    code: ObjId,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 1 {
