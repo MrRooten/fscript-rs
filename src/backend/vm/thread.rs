@@ -1537,8 +1537,8 @@ impl<'a> FSRThreadRuntime<'a> {
             .frame_free_list
             .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
         self.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
-        for arg in args.iter() {
-            self.get_cur_mut_frame().args.push(*arg);
+        for arg in args.iter().cloned() {
+            self.get_cur_mut_frame().args.push(arg);
         }
         let call_fn = unsafe {
             std::mem::transmute::<
@@ -1589,14 +1589,16 @@ impl<'a> FSRThreadRuntime<'a> {
                 if f.is_async {
                     return self.async_call(fn_id, args);
                 }
-
-                let res = fn_obj.call(args, self, self.get_context().code)?;
-                push_exp!(self, res.get_id());
-
-                return Ok(false);
+            } else {
+                return Err(FSRError::new(
+                    format!("fn 0x{:x} is not a function object", fn_id),
+                    FSRErrCode::NotValidArgs,
+                ));
             }
-            // self.process_fsr_fn(fn_id, fn_obj, args)?;
-            return Ok(true);
+            let res = fn_obj.call(args, self, self.get_context().code)?;
+            push_exp!(self, res.get_id());
+
+            return Ok(false);
         } else if fn_obj.is_fsr_cls() {
             let v = Self::process_fsr_cls(self, fn_id, args)?;
             if v {
@@ -3384,8 +3386,8 @@ impl<'a> FSRThreadRuntime<'a> {
         {
             clear_exp!(self);
 
-            for arg in args.iter().rev() {
-                self.get_cur_mut_frame().args.push(*arg);
+            for arg in args.iter().rev().cloned() {
+                self.get_cur_mut_frame().args.push(arg);
             }
             let offset = fn_def.get_ip();
             self.get_cur_mut_frame().ip = (offset.0, 0);
