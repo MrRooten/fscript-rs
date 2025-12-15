@@ -86,3 +86,15 @@ println("sort class")
 println(a1)
 assert(a1[0].value == 1)
 assert(a1[4].value == 5)
+
+class Test {
+    fn __new__(self, a, b, c) {
+        println(f"a: {a}, b: {b}, c: {c}")
+        assert(a == 1)
+        assert(b == 2)
+        assert(c == 3)
+        return self
+    }
+}
+
+a = Test(1, 2, 3)

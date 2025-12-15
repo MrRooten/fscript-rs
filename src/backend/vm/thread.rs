@@ -21,10 +21,11 @@ use crate::{
             jit::{cranelift::CraneLiftJitBackend, jit_wrapper::get_cur_frame},
         },
         memory::{
-            GarbageCollector, gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator
+            gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator,
+            GarbageCollector,
         },
         types::{
-            asynclib::future::{FSRFuture, FSRFutureState, poll_future},
+            asynclib::future::{poll_future, FSRFuture, FSRFutureState},
             base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
@@ -908,10 +909,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .load(Ordering::Relaxed);
 
         let set_item_fn = FSRObject::id_to_obj(set_item);
-        let _res = set_item_fn.call(
-            &[container_obj, index_obj, value_obj],
-            self,
-        );
+        let _res = set_item_fn.call(&[container_obj, index_obj, value_obj], self);
 
         // pop 3 values from stack, pop after set item fn, because set item may trigger gc
         pop_exp!(self);
@@ -1577,6 +1575,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_obj = FSRObject::id_to_obj(fn_id);
         //let call_method = false;
         if fn_obj.is_fsr_function() {
+            args.reverse();
             if let FSRnE::FSRFn(f) = &fn_obj.as_fn().fn_def {
                 if f.jit_code.is_some() {
                     return self.jit_call(fn_id, args, f);
@@ -1622,36 +1621,12 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_id: ObjId,
         args: &mut SmallVec<[ObjId; 4]>,
         object_id: &Option<ObjId>,
-        call_method: bool,
+        //call_method: bool,
     ) -> Result<bool, FSRError> {
         let fn_obj = FSRObject::id_to_obj(fn_id);
         //let call_method = false;
-        if fn_obj.is_fsr_function() && !call_method {
-            if let FSRnE::FSRFn(f) = &fn_obj.as_fn().fn_def {
-                if f.jit_code.is_some() {
-                    return self.jit_call(fn_id, args, f);
-                }
-
-                if f.is_async {
-                    return self.async_call(fn_id, args);
-                }
-            } else {
-                return Err(FSRError::new(
-                    format!("fn 0x{:x} is not a function object", fn_id),
-                    FSRErrCode::NotValidArgs,
-                ));
-            }
-            let res = fn_obj.call(args, self)?;
-            push_exp!(self, res.get_id());
-
-            return Ok(false);
-        } else if fn_obj.is_fsr_cls() {
-            let v = Self::process_fsr_cls(self, fn_id, args)?;
-            if v {
-                return Ok(v);
-            }
-        } else if object_id.is_some() && call_method {
-            let v = Self::process_fn_is_attr(self, object_id.unwrap(), fn_obj, args)?;
+        if let Some(object_id) = object_id {
+            let v = Self::process_fn_is_attr(self, *object_id, fn_obj, args)?;
             if v {
                 return Ok(v);
             }
@@ -1692,6 +1667,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_id = self.get_call_fn_id(&var, false)?;
 
         //self.call_process_ret(fn_id, &mut args, &None, false)
+
         self.call_process_ret(fn_id, &mut args)
     }
 
@@ -1725,7 +1701,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let mut object_id: Option<ObjId> = Some(father);
 
-        self.call_method_ret(method, &mut args, &object_id, true)
+        self.call_method_ret(method, &mut args, &object_id)
     }
 
     fn try_process(
@@ -1814,12 +1790,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().ip = (tmp + n.0 as usize + 1_usize, 0);
                 self.get_cur_mut_frame().flow_tracker.false_last_if_test();
                 return Ok(true);
-            } else {
-                return Err(FSRError::new(
-                    "else if test process not have next",
-                    FSRErrCode::NotValidArgs,
-                ));
             }
+            return Err(FSRError::new(
+                "else if test process not have next",
+                FSRErrCode::NotValidArgs,
+            ));
         }
         self.get_cur_mut_frame().flow_tracker.true_last_if_test();
         Ok(false)
@@ -1855,12 +1830,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 let cur_ip = self.get_cur_frame().ip.0;
                 self.get_cur_mut_frame().ip = (cur_ip + n.0 as usize + 1_usize, 0);
                 return Ok(true);
-            } else {
-                return Err(FSRError::new(
-                    "else if match not have next",
-                    FSRErrCode::NotValidArgs,
-                ));
             }
+            return Err(FSRError::new(
+                "else if match not have next",
+                FSRErrCode::NotValidArgs,
+            ));
         }
         self.get_cur_mut_frame().flow_tracker.false_last_if_test();
         Ok(false)
@@ -2337,60 +2311,60 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
-    // find gaps in main range
     fn gaps_in_range(
         main: std::ops::Range<usize>,
-        ranges: Vec<std::ops::Range<usize>>,
+        mut ranges: Vec<std::ops::Range<usize>>,
     ) -> Vec<std::ops::Range<usize>> {
-        use std::cmp::{max, min};
-
-        if main.start >= main.end {
-            return vec![];
-        }
-
-        let mut clamped: Vec<_> = ranges
+        ranges = ranges
             .into_iter()
-            .map(|r| {
-                let s = max(r.start, main.start);
-                let e = min(r.end, main.end);
-                s..e
+            .filter_map(|r| {
+                let start = r.start.max(main.start);
+                let end = r.end.min(main.end);
+                if start <= end {
+                    Some(start..end)
+                } else {
+                    None
+                }
             })
-            .filter(|r| r.start < r.end)
             .collect();
 
-        if clamped.is_empty() {
-            return vec![main];
-        }
+        ranges.sort_by_key(|r| r.start);
 
-        clamped.sort_by_key(|r| r.start);
+        let mut merged = Vec::new();
+        let mut cur: Option<std::ops::Range<usize>> = None;
 
-        let mut merged: Vec<std::ops::Range<usize>> = Vec::with_capacity(clamped.len());
-        let mut cur = clamped[0].clone();
-        for r in clamped.into_iter().skip(1) {
-            if r.start <= cur.end {
-                // overlap or touch
-                cur.end = std::cmp::max(cur.end, r.end);
-            } else {
-                merged.push(cur);
-                cur = r;
+        for r in ranges {
+            match cur {
+                Some(ref mut c) if r.start <= c.end => {
+                    c.end = c.end.max(r.end);
+                }
+                Some(c) => {
+                    merged.push(c);
+                    cur = Some(r);
+                }
+                None => cur = Some(r),
             }
         }
-        merged.push(cur);
+        if let Some(c) = cur {
+            merged.push(c);
+        }
 
         let mut gaps = Vec::new();
-        let mut cursor = main.start;
-        for m in merged {
-            if m.start > cursor {
-                gaps.push(cursor..m.start);
-            }
-            cursor = std::cmp::max(cursor, m.end);
-            if cursor >= main.end {
-                break;
+
+        let first_start = merged.first().map(|r| r.start).unwrap_or(main.end);
+        gaps.push(main.start..first_start);
+
+        for w in merged.windows(2) {
+            let a = &w[0];
+            let b = &w[1];
+            if a.end < b.start {
+                gaps.push(a.end..b.start);
             }
         }
-        if cursor < main.end {
-            gaps.push(cursor..main.end);
-        }
+
+        let last_end = merged.last().map(|r| r.end).unwrap_or(main.start);
+        gaps.push(last_end..main.end);
+
         gaps
     }
 
@@ -2463,10 +2437,12 @@ impl<'a> FSRThreadRuntime<'a> {
         //let mut res = vec![];
         let index_gap = Self::gaps_in_range(0..chars.len(), index_record);
         let mut new_chars = vec![];
+        let empty_chars = String::new();
         for (i, gap) in index_gap.into_iter().enumerate() {
             new_chars.extend_from_slice(&chars[gap]);
-            new_chars.extend_from_slice(args[i].as_bytes());
+            new_chars.extend_from_slice(args.get(i).unwrap_or(&empty_chars).as_bytes());
         }
+
         //res.extend(new_chars);
         String::from_utf8(new_chars).unwrap()
     }
@@ -2823,11 +2799,7 @@ impl<'a> FSRThreadRuntime<'a> {
             // next_obj(&[obj], self, self.get_context().code)?
             let args = [obj];
             let len = args.len();
-            crate::backend::types::iterator::next_obj(
-                args.as_ptr(),
-                len,
-                self,
-            )?
+            crate::backend::types::iterator::next_obj(args.as_ptr(), len, self)?
         } else {
             FSRObject::invoke_offset_method(
                 BinaryOffset::NextObject,
