@@ -18,14 +18,13 @@ use crate::{
                 ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
                 FSRDbgFlag,
             },
-            jit::cranelift::CraneLiftJitBackend,
+            jit::{cranelift::CraneLiftJitBackend, jit_wrapper::get_cur_frame},
         },
         memory::{
-            gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator,
-            GarbageCollector,
+            GarbageCollector, gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator
         },
         types::{
-            asynclib::future::{poll_future, FSRFuture, FSRFutureState},
+            asynclib::future::{FSRFuture, FSRFutureState, poll_future},
             base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
@@ -3271,7 +3270,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
-        let mut in_advance_exit;
+        let mut pre_exit;
         self.pre_expr(expr);
         while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
             self.get_cur_mut_frame().ip.1 += 1;
@@ -3289,11 +3288,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 println!("before: {:?}", self.get_cur_frame().exp);
             }
             self.counter += 1;
-            #[cfg(feature = "count_bytecode")]
-            {
-                self.bytecode_counter[*arg.get_operator() as usize] += 1;
-            }
-            in_advance_exit = self.process(arg)?;
+            pre_exit = self.process(arg)?;
             #[cfg(feature = "bytecode_trace")]
             {
                 println!("after: {:?}", self.get_cur_frame().exp);
@@ -3304,7 +3299,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Ok(true);
             }
 
-            if in_advance_exit {
+            if pre_exit {
                 if self.get_cur_frame().ret_val.is_some() {
                     // Will keep frame exp stack
                     return Ok(true);

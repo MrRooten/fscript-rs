@@ -14,8 +14,6 @@ fn kind(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
     
     if let FSRValue::ClassInst(exception) = &self_object.value {
         let obj = match exception.get_attr("__kind__") {
@@ -38,8 +36,6 @@ fn message(
     let args = to_rs_list!(args, len);
     let message_object = FSRObject::id_to_obj(args[0]);
     let kind_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
     
     if let FSRValue::ClassInst(exception) = &message_object.value {
         let obj = match exception.get_attr("__msg__") {

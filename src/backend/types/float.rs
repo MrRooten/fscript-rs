@@ -46,8 +46,6 @@ pub fn sub(
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
@@ -70,8 +68,6 @@ pub fn mul(
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
@@ -95,8 +91,6 @@ fn div(
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
@@ -122,8 +116,6 @@ pub fn greater(
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
@@ -146,8 +138,6 @@ pub fn less(
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
@@ -167,11 +157,8 @@ fn greater_equal(
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
 
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
@@ -193,9 +180,7 @@ fn less_equal(
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
-
+    
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
             if self_int <= other_int {

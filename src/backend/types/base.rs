@@ -1,15 +1,21 @@
 use std::{
-    any::Any, borrow::Cow, collections::hash_map::Keys, fmt::Debug, sync::{
+    any::Any,
+    borrow::Cow,
+    collections::hash_map::Keys,
+    fmt::Debug,
+    sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
-    }
+    },
 };
 
 use crate::{
     backend::{
         compiler::bytecode::BinaryOffset,
         memory::size_alloc::FSRObjectAllocator,
-        types::{any::ExtensionTrait, asynclib::future::FSRFuture, bytes::FSRInnerBytes, fn_def::FSRnE},
+        types::{
+            any::ExtensionTrait, asynclib::future::FSRFuture, bytes::FSRInnerBytes, fn_def::FSRnE,
+        },
         vm::{
             thread::FSRThreadRuntime,
             virtual_machine::{gid, FSRVM, OBJECTS},
@@ -98,22 +104,26 @@ pub(crate) static mut FALSE_ID: ObjId = 0;
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_true() -> ObjId {
-   
     /// SAFETY: This will be use after vm initialize
-    unsafe { TRUE_ID }
+    unsafe {
+        TRUE_ID
+    }
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_false() -> ObjId {
-
     /// SAFETY: This will be use after vm initialize
-    unsafe { FALSE_ID }
+    unsafe {
+        FALSE_ID
+    }
 }
 
 #[cfg_attr(feature = "more_inline", inline(always))]
 pub fn get_none() -> ObjId {
     /// SAFETY: This will be use after vm initialize
-    unsafe { NONE_ID }
+    unsafe {
+        NONE_ID
+    }
 }
 
 #[derive(Debug)]
@@ -248,9 +258,7 @@ impl<'a> FSRValue<'a> {
                 Some(Arc::new(FSRInnerString::new(fsrmodule.as_string())))
             }
             FSRValue::Extension(_) => {
-                FSRObject::id_to_obj(self_id)
-                    .cls
-                    .get_attr("__str__")?;
+                FSRObject::id_to_obj(self_id).cls.get_attr("__str__")?;
                 let res = FSRObject::invoke_method("__str__", &[self_id], thread).unwrap();
                 match &res {
                     FSRRetValue::GlobalId(id) => {
@@ -283,28 +291,22 @@ impl<'a> FSRValue<'a> {
     }
 
     pub fn as_any<T>(&self) -> Result<&T, FSRError>
-    where T: ExtensionTrait + 'static {
+    where
+        T: ExtensionTrait + 'static,
+    {
         match self {
-            FSRValue::Extension(any) => {
-                Ok(any.value.as_any().downcast_ref::<T>().unwrap())
-            },
-            _ => Err(FSRError::new(
-                "Value is not Any",
-                FSRErrCode::NotValidArgs,
-            )),
+            FSRValue::Extension(any) => Ok(any.value.as_any().downcast_ref::<T>().unwrap()),
+            _ => Err(FSRError::new("Value is not Any", FSRErrCode::NotValidArgs)),
         }
     }
 
     pub fn as_mut_any<T>(&mut self) -> Result<&mut T, FSRError>
-    where T: ExtensionTrait + 'static {
+    where
+        T: ExtensionTrait + 'static,
+    {
         match self {
-            FSRValue::Extension(any) => {
-                Ok(any.value.as_any_mut().downcast_mut::<T>().unwrap())
-            },
-            _ => Err(FSRError::new(
-                "Value is not Any",
-                FSRErrCode::NotValidArgs,
-            )),
+            FSRValue::Extension(any) => Ok(any.value.as_any_mut().downcast_mut::<T>().unwrap()),
+            _ => Err(FSRError::new("Value is not Any", FSRErrCode::NotValidArgs)),
         }
     }
 }
@@ -644,7 +646,7 @@ impl<'a> FSRObject<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub extern "C" fn id_to_obj(id: ObjId) -> &'a FSRObject<'a> {
         //if id >= 1000 {
-            unsafe { &*(id as *const FSRObject) }
+        unsafe { &*(id as *const FSRObject) }
         // } else {
         //     panic!("Invalid object ID: {}", id);
         // }
@@ -820,10 +822,9 @@ impl<'a> FSRObject<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn call(
-        &'a self,
+        &self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        //code: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
             return fn_def.invoke(args, thread, FSRObject::obj_to_id(self));
@@ -852,9 +853,7 @@ impl<'a> FSRObject<'a> {
     }
 
     pub fn to_string(&'a self, thread: &mut FSRThreadRuntime<'a>) -> FSRValue<'a> {
-        let s = self
-            .value
-            .to_string(FSRObject::obj_to_id(self), thread);
+        let s = self.value.to_string(FSRObject::obj_to_id(self), thread);
         if let Some(s) = s {
             return FSRString::new_inst_with_inner(s);
         }

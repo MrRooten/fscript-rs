@@ -237,7 +237,7 @@ impl<'a> FSRFn<'a> {
         FSRClass::new_without_method("Fn")
     }
 
-    fn call_jit(
+    pub fn call_jit(
         f: &FSRFnInner,
         thread: &mut FSRThreadRuntime<'a>,
         fn_id: ObjId,
@@ -267,10 +267,9 @@ impl<'a> FSRFn<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn invoke(
-        &'a self,
+        &self,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        //code: ObjId,
         fn_id: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRnE::RustFn(f) = &self.fn_def {
