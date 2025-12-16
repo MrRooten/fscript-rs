@@ -12,7 +12,7 @@ if [ "$#" -ne 1 ]; then
     done | sort -u
     exit 1
 fi
-cargo build --release
+. ./build.sh
 
 FS_FILE=./test_script/bench/"$1".fs
 PYTHON_FILE=./test_script/bench/"$1".py

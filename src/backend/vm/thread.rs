@@ -3385,11 +3385,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    pub fn call_fn(
-        &mut self,
-        fn_def: &FSRFnInner,
-        code: ObjId,
-    ) -> Result<ObjId, FSRError> {
+    pub fn call_fn(&mut self, fn_def: &FSRFnInner, code: ObjId) -> Result<ObjId, FSRError> {
         let mut context = FSCodeContext::new_context(code);
         context.set_code(code);
         self.push_context(context);
