@@ -285,7 +285,8 @@ impl<'a> FSRFn<'a> {
 
             let frame = thread.frame_free_list.new_frame(self.code, fn_id);
             thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
-            let v = FSRThreadRuntime::call_fn(thread, f, args, self.code)?;
+            thread.get_cur_mut_frame().args.extend(args.iter().rev().cloned());
+            let v = FSRThreadRuntime::call_fn(thread, f, self.code)?;
             return Ok(FSRRetValue::GlobalId(v));
         }
         unimplemented!()

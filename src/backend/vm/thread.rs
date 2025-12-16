@@ -3348,7 +3348,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 main_code = Some(code.1);
                 continue;
             }
-            //let obj = FSRObject::obj_to_id(code.1);
+            //let obj = FSRObject::obj_to_id(code1);
             //self.run_with_context(FSRObject::obj_to_id(code.1), &mut context)?;
         }
 
@@ -3388,21 +3388,14 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn call_fn(
         &mut self,
         fn_def: &FSRFnInner,
-        args: &[ObjId],
         code: ObjId,
     ) -> Result<ObjId, FSRError> {
         let mut context = FSCodeContext::new_context(code);
-        // context.code = code;
-        // context.code_inst = Some(FSRObject::id_to_obj(code).as_code());
         context.set_code(code);
         self.push_context(context);
-        //self.rt_lock();
         {
             clear_exp!(self);
 
-            for arg in args.iter().rev() {
-                self.get_cur_mut_frame().args.push(*arg);
-            }
             let offset = fn_def.get_ip();
             self.get_cur_mut_frame().ip = (offset.0, 0);
         }
@@ -3416,12 +3409,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let context = self.pop_context();
         let cur = self.get_cur_mut_frame();
-        if cur.ret_val.is_none() {
-            return Ok(FSRObject::none_id());
-        }
-        let ret_val = cur.ret_val.take().unwrap();
 
-        Ok(ret_val)
+        Ok(cur.ret_val.take().unwrap_or(FSRObject::none_id()))
     }
 
     /// Caller call this function will push the frame by Caller

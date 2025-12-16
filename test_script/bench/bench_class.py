@@ -1,7 +1,6 @@
 class Test:
     def abc(self):
-        a = 1
-        return a
+        pass
     
     def __add__(self, other):
         return 1
@@ -14,6 +13,6 @@ t.abc()
 t.index = 1
 b = 1
 for i in range(3000000):
-    t.abc()
+    c = t.abc()
 
     
