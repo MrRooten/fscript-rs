@@ -171,10 +171,7 @@ impl<'a> FSRFn<'a> {
         FSRValue::Function(Box::new(v))
     }
 
-    pub fn from_fsr_fn(
-        fn_name: &str,
-        fn_desc: FnDesc
-    ) -> FSRValue<'a> {
+    pub fn from_fsr_fn(fn_name: &str, fn_desc: FnDesc) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
             name: Cow::Owned(fn_name.to_string()),
             fn_ip: fn_desc.u,
@@ -272,23 +269,23 @@ impl<'a> FSRFn<'a> {
         thread: &mut FSRThreadRuntime<'a>,
         fn_id: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
-        if let FSRnE::RustFn(f) = &self.fn_def {
-            let len = args.len();
-            let args = args.as_ptr();
-            let v = f.1(args, len, thread);
-            return v;
-        } else if let FSRnE::FSRFn(f) = &self.fn_def {
-            if f.jit_code.is_some() {
-                let res = Self::call_jit(f, thread, fn_id, args, self.code);
-                return Ok(FSRRetValue::GlobalId(res));
+        match &self.fn_def {
+            FSRnE::RustFn(f) => {
+                let len = args.len();
+                let args = args.as_ptr();
+                let v = f.1(args, len, thread);
+                return v;
             }
-
-            let frame = thread.frame_free_list.new_frame(self.code, fn_id);
-            thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
-            thread.get_cur_mut_frame().args.extend(args.iter().rev().cloned());
-            let v = FSRThreadRuntime::call_fn(thread, f, self.code)?;
-            return Ok(FSRRetValue::GlobalId(v));
+            FSRnE::FSRFn(f) => {
+                let frame = thread.frame_free_list.new_frame(self.code, fn_id);
+                thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
+                thread
+                    .get_cur_mut_frame()
+                    .args
+                    .extend(args.iter().rev().cloned());
+                let v = FSRThreadRuntime::call_fn(thread, f, self.code)?;
+                return Ok(FSRRetValue::GlobalId(v));
+            }
         }
-        unimplemented!()
     }
 }

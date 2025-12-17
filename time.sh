@@ -31,11 +31,11 @@ echo "FS:   $FS_FILE"
 echo "Python: $PYTHON_FILE"
 echo
 
-hyperfine \
-    --warmup 3 \
-    "./target/release/fscript-rs $FS_FILE" \
-    "python3 $PYTHON_FILE"
+# hyperfine \
+#     --warmup 3 \
+#     "./target/release/fscript-rs $FS_FILE" \
+#     "python3 $PYTHON_FILE"
 # #!/usr/bin/sh
 
-#diff  time -v no new file
-
+#diff  time -v no new file with color
+diff --color=always <( { perf stat ./target/release/fscript-rs "$FS_FILE"; } 2>&1 ) <( { perf stat python3 "$PYTHON_FILE"; } 2>&1 )

@@ -76,7 +76,6 @@ obj count: 4
 class Abc {
     fn __new__(self) {
         self.abc = 123
-        return self
     }
 
     fn __str__(self) {

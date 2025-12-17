@@ -1,7 +1,6 @@
 class Thread {
     fn __new__(self, f, args: List) {
         self.handle = __new_thread(f, args)
-        return self
     }
 
     fn join(self) {
@@ -15,6 +14,5 @@ class Thread {
 
 class Mutex {
     fn __new__(self) {
-        return self
     }
 }

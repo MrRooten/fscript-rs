@@ -2489,7 +2489,6 @@ a.abc(0)
         class Ddc {
             fn __new__(self, ddc) {
                 self.ddc = 123 + 1
-                return self
             }
         }
         ";

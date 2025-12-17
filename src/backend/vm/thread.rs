@@ -1423,7 +1423,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let self_new_fn = FSRObject::id_to_obj(self_new);
         let new_obj = self_new_fn.call(args, self)?;
 
-        push_exp!(self, new_obj.get_id());
+        push_exp!(self, self_id);
 
         Ok(false)
     }
@@ -1584,6 +1584,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 if f.is_async {
                     return self.async_call(fn_id, args);
                 }
+
             } else {
                 return Err(FSRError::new(
                     format!("fn 0x{:x} is not a function object", fn_id),
@@ -1596,9 +1597,6 @@ impl<'a> FSRThreadRuntime<'a> {
             return Ok(false);
         } else if fn_obj.is_fsr_cls() {
             let v = Self::process_fsr_cls(self, fn_id, args)?;
-            if v {
-                return Ok(v);
-            }
         } else {
             args.reverse();
             let v = match fn_obj.call(args, self) {

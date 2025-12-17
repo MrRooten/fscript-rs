@@ -16,7 +16,6 @@ class ArgOption {
         short_name = full_to_short(self.name)
         self.short_name = short_name
         self.help_message = "not setting helper message "
-        return self
     }
 
     fn __str__(self) {
@@ -42,7 +41,6 @@ class ArgParser {
     fn __new__(self, args) {
         self.args = args
         self.options = []
-        return self
     }
 
     fn get_args(self) {
