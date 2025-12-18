@@ -375,28 +375,9 @@ impl CallFrame {
     }
 }
 
-/// Context for bytecode, if fs code call from rust fn will create new context
-pub struct FSCodeContext {
-    // tracing call stack, is call stack is empty means end of this call except start of this call
-    // pub(crate) context_call_count: u32,
-    pub(crate) code: ObjId,
-}
 
-impl FSCodeContext {
-    pub fn new_context(code: ObjId) -> Self {
-        FSCodeContext { code }
-    }
 
-    pub fn clear(&mut self) {}
 
-    pub fn set_code(&mut self, code: ObjId) {
-        self.code = code;
-    }
-
-    pub fn get_code(&self) -> ObjId {
-        self.code
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct FlowTracker {
@@ -533,8 +514,7 @@ pub struct FSRThreadRuntime<'a> {
     // pub(crate) op_quick: Box<Ops>,
     pub(crate) counter: usize,
     pub(crate) last_aquire_counter: usize,
-    pub(crate) thread_context_stack: Vec<FSCodeContext>,
-    pub(crate) thread_context: FSCodeContext,
+
     pub(crate) gc_context: GcContext,
     pub(crate) thread_shared: ThreadShared,
     dbg_flag: bool,
@@ -582,8 +562,7 @@ impl<'a> FSRThreadRuntime<'a> {
             // op_quick: Box::new(Ops::new_init()),
             counter: 0,
             last_aquire_counter: 0,
-            thread_context_stack: Vec::with_capacity(8),
-            thread_context: FSCodeContext::new_context(0),
+
             gc_context: GcContext::new_context(),
             #[cfg(feature = "count_bytecode")]
             bytecode_counter: vec![0; 256],
@@ -630,28 +609,6 @@ impl<'a> FSRThreadRuntime<'a> {
         std::mem::replace(&mut self.cur_frame, v)
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_cur_mut_context(&mut self) -> &mut FSCodeContext {
-        &mut self.thread_context
-    }
-
-    pub fn push_context(&mut self, context: FSCodeContext) {
-        let out = std::mem::replace(&mut self.thread_context, context);
-        self.thread_context_stack.push(out);
-    }
-
-    pub fn pop_context(&mut self) -> FSCodeContext {
-        if let Some(s) = self.thread_context_stack.pop() {
-            let out = std::mem::replace(&mut self.thread_context, s);
-            return out;
-        }
-        panic!("pop empty context");
-    }
-
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_context(&self) -> &FSCodeContext {
-        &self.thread_context
-    }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_cur_frame(&self) -> &CallFrame {
@@ -790,7 +747,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         BinaryOffset::Equal,
                         &[left, right],
                         thread,
-                        thread.get_context().code,
+                        thread.get_cur_frame().code,
                     )?
                 }
             }
@@ -802,7 +759,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         BinaryOffset::Greater,
                         &[left, right],
                         thread,
-                        thread.get_context().code,
+                        thread.get_cur_frame().code,
                     )?
                 }
             }
@@ -814,7 +771,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         BinaryOffset::Less,
                         &[left, right],
                         thread,
-                        thread.get_context().code,
+                        thread.get_cur_frame().code,
                     )?
                 }
             }
@@ -822,20 +779,20 @@ impl<'a> FSRThreadRuntime<'a> {
                 BinaryOffset::GreatEqual,
                 &[left, right],
                 thread,
-                thread.get_context().code,
+                thread.get_cur_frame().code,
             )?,
             CompareOperator::LessEqual => FSRObject::invoke_offset_method(
                 BinaryOffset::LessEqual,
                 &[left, right],
                 thread,
-                thread.get_context().code,
+                thread.get_cur_frame().code,
             )?,
 
             CompareOperator::NotEqual => FSRObject::invoke_offset_method(
                 BinaryOffset::NotEqual,
                 &[left, right],
                 thread,
-                thread.get_context().code,
+                thread.get_cur_frame().code,
             )?,
             _ => {
                 return Err(FSRError::new(
@@ -877,7 +834,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::GetItem,
             &[container, index],
             self,
-            self.get_context().code,
+            self.get_cur_frame().code,
         )?;
 
         match res {
@@ -1022,7 +979,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Add,
             &[left, right],
             self,
-            self.get_context().code,
+            self.get_cur_frame().code,
         )?;
 
         match res {
@@ -1066,7 +1023,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Sub,
             &[left, right],
             self,
-            self.get_context().code,
+            self.get_cur_frame().code,
         )?;
 
         match res {
@@ -1110,7 +1067,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Mul,
             &[left_id, right_id],
             self,
-            self.get_context().code,
+            self.get_cur_frame().code,
         )?;
 
         match res {
@@ -1153,7 +1110,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Div,
             &[left_id, right_id],
             self,
-            self.get_context().code,
+            self.get_cur_frame().code,
         )?;
         match res {
             FSRRetValue::GlobalId(res_id) => {
@@ -1210,7 +1167,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Reminder,
             &[left_id, right_id],
             self,
-            self.get_context().code,
+            self.get_cur_frame().code,
         )?;
         match res {
             FSRRetValue::GlobalId(res_id) => {
@@ -1454,7 +1411,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
         let module = FSRObject::id_to_obj(
-            FSRObject::id_to_obj(self.get_context().code)
+            FSRObject::id_to_obj(self.get_cur_frame().code)
                 .as_code()
                 .module,
         )
@@ -1489,7 +1446,6 @@ impl<'a> FSRThreadRuntime<'a> {
         for arg in args.iter() {
             self.get_cur_mut_frame().args.push(*arg);
         }
-        self.get_cur_mut_context().set_code(f.code);
 
         self.get_cur_mut_frame().ip = (0, 0);
         Ok(())
@@ -1542,7 +1498,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
             >(jit_code)
         };
-        let res = call_fn(self, self.get_context().code, args, args.len() as i32);
+        let res = call_fn(self, self.get_cur_frame().code, args, args.len() as i32);
         let v = self.pop_frame();
         self.frame_free_list.free(v);
         push_exp!(self, res);
@@ -2062,7 +2018,7 @@ impl<'a> FSRThreadRuntime<'a> {
             ));
         };
 
-        let module_id = FSRObject::id_to_obj(self.get_context().code)
+        let module_id = FSRObject::id_to_obj(self.get_cur_frame().code)
             .as_code()
             .module;
         let module = FSRObject::id_to_obj(module_id).as_module();
@@ -2112,7 +2068,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // if function define in base function, register to module
         if is_base_fn!(define_fn_obj) {
             let module = FSRObject::id_to_mut_obj(
-                FSRObject::id_to_obj(self.get_context().code)
+                FSRObject::id_to_obj(self.get_cur_frame().code)
                     .as_code()
                     .module,
             )
@@ -2212,7 +2168,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Equal,
             &[left, right],
             self,
-            self.get_context().code,
+            self.get_cur_frame().code,
         )?
         .get_id()
             == FSRObject::true_id();
@@ -2248,12 +2204,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let code = cur.code;
 
-        // self.get_cur_mut_context().code = code;
-        // self.get_cur_mut_context().code_inst =
-        //     Some(FSRObject::id_to_obj(code).as_code());
-        self.get_cur_mut_context().set_code(code);
-        //self.get_cur_mut_context().context_call_count -= 1;
-        // self.garbage_collect.add_root(v);
         Ok(true)
     }
 
@@ -2276,11 +2226,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(v);
         let code = cur.code;
-        // self.get_cur_mut_context().code = code;
-        // self.get_cur_mut_context().code_inst =
-        //     Some(FSRObject::id_to_obj(code).as_code());
-        self.get_cur_mut_context().set_code(code);
-        //self.get_cur_mut_context().context_call_count -= 1;
+
         Ok(true)
     }
 
@@ -2304,7 +2250,6 @@ impl<'a> FSRThreadRuntime<'a> {
         cur.ret_val = Some(awaitable_value);
 
         let code = cur.code;
-        self.get_cur_mut_context().set_code(code);
 
         Ok(true)
     }
@@ -2524,10 +2469,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let code = cur.code;
         cur.ret_val = Some(FSRObject::none_id());
 
-        // self.get_cur_mut_context().code = code;
-        // self.get_cur_mut_context().code_inst = Some(FSRObject::id_to_obj(code).as_code());
-        self.get_cur_mut_context().set_code(code);
-        //self.get_cur_mut_context().context_call_count -= 1;
         Ok(true)
     }
 
@@ -2768,7 +2709,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_frame();
         state.insert_var(id, obj_id);
         let module = FSRObject::id_to_mut_obj(
-            FSRObject::id_to_obj(self.get_context().code)
+            FSRObject::id_to_obj(self.get_cur_frame().code)
                 .as_code()
                 .module,
         )
@@ -2794,7 +2735,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let obj_value = FSRObject::id_to_obj(obj);
         let res = if obj_value.cls == FSRObject::id_to_obj(gid(GlobalObj::InnerIterator)).as_class()
         {
-            // next_obj(&[obj], self, self.get_context().code)?
+            // next_obj(&[obj], self, self.get_cur_frame().code)?
             let args = [obj];
             let len = args.len();
             crate::backend::types::iterator::next_obj(args.as_ptr(), len, self)?
@@ -2803,7 +2744,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 BinaryOffset::NextObject,
                 &[obj],
                 self,
-                self.get_context().code,
+                self.get_cur_frame().code,
             )?
         };
 
@@ -2951,7 +2892,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Empty => Self::empty_process(self, bytecode),
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, bytecode),
             BytecodeOperator::Import => {
-                Self::process_import(self, bytecode, self.get_context().code)
+                Self::process_import(self, bytecode, self.get_cur_frame().code)
             }
             BytecodeOperator::BinaryDiv => Self::binary_div_process(self, bytecode),
             BytecodeOperator::NotOperator => Self::not_process(self),
@@ -3051,7 +2992,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         // let module = FSRObject::id_to_obj(state.code).as_code();
         let module = FSRObject::id_to_obj(
-            FSRObject::id_to_obj(thread.get_context().code)
+            FSRObject::id_to_obj(thread.get_cur_frame().code)
                 .as_code()
                 .module,
         )
@@ -3294,13 +3235,8 @@ impl<'a> FSRThreadRuntime<'a> {
             .get_fn("__main__")
             .unwrap();
         let code_id = FSRObject::obj_to_id(code);
-        let context = FSCodeContext {
-            code: code_id,
-            //context_call_count: 1,
-            // code_inst: Some(FSRObject::id_to_obj(code_id).as_code()),
-        };
 
-        self.push_context(context);
+
 
         let frame = self.frame_free_list.new_frame(code_id, 0);
         let const_map = Self::get_const_map(self, code.as_code())?;
@@ -3312,7 +3248,6 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         self.pop_frame();
-        self.pop_context();
 
         Ok(code_id)
     }
@@ -3338,16 +3273,13 @@ impl<'a> FSRThreadRuntime<'a> {
                 .get_fn("__main__")
                 .unwrap(),
         );
-        let context = FSCodeContext::new_context(code_id);
-        self.push_context(context);
+
         let mut main_code = None;
         for code in FSRObject::id_to_obj(module).as_module().iter_fn() {
             if code.0 == "__main__" {
                 main_code = Some(code.1);
                 continue;
             }
-            //let obj = FSRObject::obj_to_id(code1);
-            //self.run_with_context(FSRObject::obj_to_id(code.1), &mut context)?;
         }
 
         let base_fn = FSRFn::new_empty();
@@ -3359,11 +3291,6 @@ impl<'a> FSRThreadRuntime<'a> {
         self.cur_frame.code = code_id;
         self.cur_frame.fn_id = base_fn_id;
         self.cur_frame.const_map = Arc::new(const_map);
-        // self.get_cur_mut_context().code = FSRObject::obj_to_id(main_code.unwrap());
-        // self.get_cur_mut_context().code_inst =
-        //     Some(FSRObject::id_to_obj(self.get_context().code).as_code());
-        self.get_cur_mut_context()
-            .set_code(FSRObject::obj_to_id(main_code.unwrap()));
         let mut code = FSRObject::id_to_obj(code_id).as_code();
 
         // Debug stop at entry
@@ -3384,16 +3311,14 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn call_fn(&mut self, fn_def: &FSRFnInner, code: ObjId) -> Result<ObjId, FSRError> {
-        let mut context = FSCodeContext::new_context(code);
-        context.set_code(code);
-        self.push_context(context);
+
         {
             clear_exp!(self);
 
             let offset = fn_def.get_ip();
             self.get_cur_mut_frame().ip = (offset.0, 0);
         }
-        let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
+        let mut code = FSRObject::id_to_obj(self.get_cur_frame().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
             if v {
@@ -3401,7 +3326,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        let context = self.pop_context();
         let cur = self.get_cur_mut_frame();
 
         Ok(cur.ret_val.take().unwrap_or(FSRObject::none_id()))
@@ -3415,12 +3339,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap()
             .as_mut_future()
             .set_running();
-        let mut context = FSCodeContext::new_context(code);
-        // context.code = code;
-        // context.code_inst = Some(FSRObject::id_to_obj(code).as_code());
-        context.set_code(code);
-        self.push_context(context);
-        let mut code = FSRObject::id_to_obj(self.get_context().code).as_code();
+        let mut code = FSRObject::id_to_obj(self.get_cur_frame().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
             if v {
@@ -3428,7 +3347,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        let context = self.pop_context();
         let cur = self.get_cur_mut_frame();
         if cur.ret_val.is_none() {
             return Ok(FSRObject::none_id());

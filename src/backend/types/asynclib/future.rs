@@ -6,7 +6,7 @@ use crate::{
             class::FSRClass,
             fn_def::FSRFn,
         },
-        vm::thread::{CallFrame, FSCodeContext, FSRThreadRuntime},
+        vm::thread::{CallFrame, FSRThreadRuntime},
     }, to_rs_list, utils::error::FSRError
 };
 use std::{fmt::Debug, future};

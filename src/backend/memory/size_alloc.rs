@@ -2,14 +2,12 @@
 use crate::backend::{
     types::base::{AtomicObjId, FSRObject, FSRValue, ObjId}
     ,
-    vm::thread::{FSCodeContext},
 };
 
 
 #[allow(clippy::vec_box)]
 pub struct FSRObjectAllocator<'a> {
     object_bins: Vec<Box<FSRObject<'a>>>,
-    code_context_bins: Vec<Box<FSCodeContext>>,
 }
 
 #[allow(clippy::new_without_default)]
@@ -17,7 +15,6 @@ impl<'a> FSRObjectAllocator<'a> {
     pub fn new() -> Self {
         Self {
             object_bins: vec![],
-            code_context_bins: vec![],
         }
     }
 

@@ -31,7 +31,7 @@ more_inline = []
 [profile.release]
 overflow-checks = false
 debug = true
-lto = "fat"
+lto = "thin"
 codegen-units = 1
 opt-level = 3
 strip = false

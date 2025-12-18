@@ -6,6 +6,6 @@ fn fib(n) {
     }
 }
 
-for i in 0..18000000 {
+for i in 0..3000000 {
     fib(2)
 }

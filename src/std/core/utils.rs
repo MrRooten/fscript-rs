@@ -49,7 +49,7 @@ pub fn fsr_fn_export(
 
     let obj = args[1];
 
-    let s = thread.get_context().code;
+    let s = thread.get_cur_frame().code;
     let code = FSRObject::id_to_obj(s).as_code();
     let module = FSRObject::id_to_mut_obj(code.module)
         .unwrap()
