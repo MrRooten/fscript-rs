@@ -3247,6 +3247,7 @@ impl<'a> FSRThreadRuntime<'a> {
             self.run_expr_wrapper(expr)?;
         }
 
+        // __main__ code no return
         self.pop_frame();
 
         Ok(code_id)
