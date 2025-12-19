@@ -19,7 +19,7 @@ def fib(n)
 end
 
 def abc
-    result = fib(35)
+    result = fib(29)
     puts result
     gc_info
 end
