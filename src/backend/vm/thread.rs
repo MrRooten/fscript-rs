@@ -1328,12 +1328,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<(), FSRError> {
         let mut i = 0;
         while i < args_num {
-            let a_id = thread.get_cur_mut_frame().pop_exp().ok_or_else(|| {
-                FSRError::new(
-                    "error in call process, not enough args",
-                    FSRErrCode::EmptyExpStack,
-                )
-            })?;
+            let a_id = thread.get_cur_mut_frame().pop_exp().unwrap();
             thread.get_cur_mut_frame().middle_value.push(a_id);
             args.push(a_id);
             i += 1;
@@ -2109,21 +2104,11 @@ impl<'a> FSRThreadRuntime<'a> {
             ));
         };
 
-        let right_id = pop_exp!(self).ok_or_else(|| {
-            FSRError::new(
-                "Failed to pop right operand from stack in compare_test",
-                FSRErrCode::EmptyExpStack,
-            )
-        })?;
-        let left_id = pop_exp!(self).ok_or_else(|| {
-            FSRError::new(
-                "Failed to pop left operand from stack in compare_test",
-                FSRErrCode::EmptyExpStack,
-            )
-        })?;
+        let right_id = pop_exp!(self).unwrap();
+        let left_id = pop_exp!(self).unwrap();
 
-        push_middle!(self, right_id);
-        push_middle!(self, left_id);
+        // push_middle!(self, right_id);
+        // push_middle!(self, left_id);
 
         let v = Self::compare(left_id, right_id, *op, self)?;
 
@@ -2792,10 +2777,6 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let first = pop_exp!(self).unwrap();
         if first == FSRObject::none_id() || first == FSRObject::false_id() {
-            // if let ArgType::AddOffset(offset) = bc.get_arg() {
-            //     self.get_cur_mut_frame().ip.1 += *offset;
-            //     push_exp!(self, FSRObject::false_id());
-            // }
             let ArgType::AddOffset(offset) = bc.get_arg() else {
                 return Err(FSRError::new("not a add offset", FSRErrCode::NotValidArgs));
             };
@@ -2813,10 +2794,6 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let first = pop_exp!(self).unwrap();
         if first != FSRObject::none_id() && first != FSRObject::false_id() {
-            // if let ArgType::AddOffset(offset) = bc.get_arg() {
-            //     self.get_cur_mut_frame().ip.1 += *offset;
-            //     push_exp!(self, FSRObject::true_id());
-            // }
             let ArgType::AddOffset(offset) = bc.get_arg() else {
                 return Err(FSRError::new("not a add offset", FSRErrCode::NotValidArgs));
             };
@@ -2843,7 +2820,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if let Some(x) = pop_exp!(self) {}
 
-        push_middle!(self, v1_id);
+        //push_middle!(self, v1_id);
 
         if target {
             push_exp!(self, FSRObject::true_id());
@@ -3356,8 +3333,6 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         let ret_val = cur.ret_val.take();
 
-        // let context = self.pop_context();
-        // self.thread_allocator.free_code_context(context);
         match ret_val {
             Some(s) => Ok(s),
             None => Ok(0),

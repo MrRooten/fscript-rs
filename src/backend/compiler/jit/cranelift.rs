@@ -647,27 +647,7 @@ impl JitBuilder<'_> {
     }
 
     fn load_make_middle_v_list_save(&mut self, context: &mut OperatorContext) -> Value {
-        // let mut malloc_sig = self.module.make_signature();
-        // malloc_sig
-        //     .params
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // size
-        // malloc_sig
-        //     .returns
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
-        // let malloc_id = self
-        //     .module
-        //     .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
-        //     .unwrap();
-        // let malloc_func_ref = self
-        //     .module
-        //     .declare_func_in_func(malloc_id, self.builder.func);
 
-        // let size = self
-        //     .builder
-        //     .ins()
-        //     .iconst(self.module.target_config().pointer_type(), context.middle_value.len() as i64);
-        // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
-        // let malloc_ret = self.builder.inst_results(malloc_call)[0];
         let mut malloc_ret = self
             .builder
             .use_var(*self.variables.get("#args_ptr").unwrap());
