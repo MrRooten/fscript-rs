@@ -128,6 +128,8 @@ macro_rules! is_base_fn {
     };
 }
 
+const ITER_METHOD: &str = "__iter__";
+const MAIN_FN: &str = "__main__";
 #[derive(Debug)]
 pub struct IndexMap {
     vs: Vec<Option<AtomicObjId>>,
@@ -1839,7 +1841,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let iter_id = pop_exp!(self).unwrap();
 
         let iter_obj = FSRObject::id_to_obj(iter_id);
-        let read_iter_id = match iter_obj.get_attr("__iter__") {
+        let read_iter_id = match iter_obj.get_attr(ITER_METHOD) {
             Some(s) => {
                 let iter_fn = s.load(Ordering::Relaxed);
                 let iter_fn_obj = FSRObject::id_to_obj(iter_fn);
@@ -3207,7 +3209,7 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn load(&mut self, main_fn: ObjId) -> Result<ObjId, FSRError> {
         let code = FSRObject::id_to_obj(main_fn)
             .as_module()
-            .get_fn("__main__")
+            .get_fn(MAIN_FN)
             .unwrap();
         let code_id = FSRObject::obj_to_id(code);
 
@@ -3246,13 +3248,13 @@ impl<'a> FSRThreadRuntime<'a> {
         let code_id = FSRObject::obj_to_id(
             FSRObject::id_to_obj(module)
                 .as_module()
-                .get_fn("__main__")
+                .get_fn(MAIN_FN)
                 .unwrap(),
         );
 
         let mut main_code = None;
         for code in FSRObject::id_to_obj(module).as_module().iter_fn() {
-            if code.0 == "__main__" {
+            if code.0 == MAIN_FN {
                 main_code = Some(code.1);
                 continue;
             }
@@ -3376,7 +3378,7 @@ mod test {
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
+        // let v = v.remove(MAIN_FN).unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
         runtime.start(obj_id, false).unwrap();
@@ -3399,7 +3401,7 @@ mod test {
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
 
-        // let v = v.remove("__main__").unwrap();
+        // let v = v.remove(MAIN_FN).unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
         runtime.start(obj_id, false).unwrap();
@@ -3422,7 +3424,7 @@ mod test {
     //     println(t)
     //     "#;
     //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
+    //     let v = v.remove(MAIN_FN).unwrap();
     //     let base_module = FSRVM::leak_object(Box::new(v));
     //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
     //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
@@ -3436,7 +3438,7 @@ mod test {
     //     println(a)
     //     "#;
     //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
+    //     let v = v.remove(MAIN_FN).unwrap();
     //     let base_module = FSRVM::leak_object(Box::new(v));
     //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
     //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
@@ -3454,7 +3456,7 @@ mod test {
     //     Test::abc()
     //     "#;
     //     let mut v = FSRCode::from_code("main", source_code).unwrap();
-    //     let v = v.remove("__main__").unwrap();
+    //     let v = v.remove(MAIN_FN).unwrap();
     //     let base_module = FSRVM::leak_object(Box::new(v));
     //     let mut vm = Arc::new(Mutex::new(FSRVM::new()));
     //     let mut runtime = FSRThreadRuntime::new(base_module, vm);
@@ -3476,7 +3478,7 @@ mod test {
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
+        // let v = v.remove(MAIN_FN).unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
         runtime.start(obj_id, false).unwrap();
@@ -3498,7 +3500,7 @@ mod test {
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
+        // let v = v.remove(MAIN_FN).unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
         runtime.start(obj_id, false).unwrap();
@@ -3520,7 +3522,7 @@ mod test {
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
+        // let v = v.remove(MAIN_FN).unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
         runtime.start(obj_id, false).unwrap();
@@ -3543,7 +3545,7 @@ mod test {
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
+        // let v = v.remove(MAIN_FN).unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
         runtime.start(obj_id, false).unwrap();
@@ -3562,7 +3564,7 @@ mod test {
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
         obj.as_mut_module().init_fn_map(v);
-        // let v = v.remove("__main__").unwrap();
+        // let v = v.remove(MAIN_FN).unwrap();
         // let base_module = FSRVM::leak_object(Box::new(v));
         let mut runtime = FSRThreadRuntime::new_runtime();
         runtime.start(obj_id, false).unwrap();
