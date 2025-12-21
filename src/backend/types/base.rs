@@ -733,7 +733,7 @@ impl<'a> FSRObject<'a> {
         offset: BinaryOffset,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
-        code: ObjId,
+        //code: ObjId,
     ) -> Result<FSRRetValue, FSRError> {
         let self_object = Self::id_to_obj(args[0]);
         if let Some(self_method) = self_object.get_cls_offset_attr(offset) {

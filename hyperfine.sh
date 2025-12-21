@@ -27,14 +27,17 @@ if [ ! -f "$PYTHON_FILE" ]; then
     exit 1
 fi
 
+PYTHON_BIN="${PYTHON:-python3}"
+
 echo "FS:   $FS_FILE"
 echo "Python: $PYTHON_FILE"
+echo "Python Bin: $PYTHON_BIN"
 echo
 
 hyperfine \
     --warmup 3 \
     "./target/release/fscript-rs $FS_FILE" \
-    "python3 $PYTHON_FILE"
+    "$PYTHON_BIN $PYTHON_FILE"
 # #!/usr/bin/sh
 
 #diff  time -v no new file

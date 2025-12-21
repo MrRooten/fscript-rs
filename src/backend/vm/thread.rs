@@ -377,10 +377,6 @@ impl CallFrame {
     }
 }
 
-
-
-
-
 #[derive(Debug, Default)]
 pub struct FlowTracker {
     pub last_if_test: Vec<bool>,
@@ -611,7 +607,6 @@ impl<'a> FSRThreadRuntime<'a> {
         std::mem::replace(&mut self.cur_frame, v)
     }
 
-
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_cur_frame(&self) -> &CallFrame {
         &self.cur_frame
@@ -749,7 +744,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         BinaryOffset::Equal,
                         &[left, right],
                         thread,
-                        thread.get_cur_frame().code,
+                        //thread.get_cur_frame().code,
                     )?
                 }
             }
@@ -761,7 +756,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         BinaryOffset::Greater,
                         &[left, right],
                         thread,
-                        thread.get_cur_frame().code,
+                        //thread.get_cur_frame().code,
                     )?
                 }
             }
@@ -773,7 +768,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         BinaryOffset::Less,
                         &[left, right],
                         thread,
-                        thread.get_cur_frame().code,
+                        //thread.get_cur_frame().code,
                     )?
                 }
             }
@@ -781,20 +776,20 @@ impl<'a> FSRThreadRuntime<'a> {
                 BinaryOffset::GreatEqual,
                 &[left, right],
                 thread,
-                thread.get_cur_frame().code,
+                //thread.get_cur_frame().code,
             )?,
             CompareOperator::LessEqual => FSRObject::invoke_offset_method(
                 BinaryOffset::LessEqual,
                 &[left, right],
                 thread,
-                thread.get_cur_frame().code,
+                //thread.get_cur_frame().code,
             )?,
 
             CompareOperator::NotEqual => FSRObject::invoke_offset_method(
                 BinaryOffset::NotEqual,
                 &[left, right],
                 thread,
-                thread.get_cur_frame().code,
+                //thread.get_cur_frame().code,
             )?,
             _ => {
                 return Err(FSRError::new(
@@ -836,7 +831,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::GetItem,
             &[container, index],
             self,
-            self.get_cur_frame().code,
+            //self.get_cur_frame().code,
         )?;
 
         match res {
@@ -868,7 +863,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .load(Ordering::Relaxed);
 
         let set_item_fn = FSRObject::id_to_obj(set_item);
-        let _res = set_item_fn.call(&[container_obj, index_obj, value_obj], self);
+        let _res = set_item_fn.call(&[container_obj, index_obj, value_obj], self)?;
 
         // pop 3 values from stack, pop after set item fn, because set item may trigger gc
         pop_exp!(self);
@@ -961,8 +956,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
-        push_middle!(self, left);
-        push_middle!(self, right);
+        // push_middle!(self, left);
+        // push_middle!(self, right);
         let args = [left, right];
         let len = args.len();
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Add) {
@@ -981,7 +976,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Add,
             &[left, right],
             self,
-            self.get_cur_frame().code,
+            //self.get_cur_frame().code,
         )?;
 
         match res {
@@ -1018,14 +1013,14 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        push_middle!(self, right);
-        push_middle!(self, left);
+        // push_middle!(self, right);
+        // push_middle!(self, left);
 
         let res = FSRObject::invoke_offset_method(
             BinaryOffset::Sub,
             &[left, right],
             self,
-            self.get_cur_frame().code,
+            //self.get_cur_frame().code,
         )?;
 
         match res {
@@ -1069,7 +1064,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Mul,
             &[left_id, right_id],
             self,
-            self.get_cur_frame().code,
+            //self.get_cur_frame().code,
         )?;
 
         match res {
@@ -1112,7 +1107,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Div,
             &[left_id, right_id],
             self,
-            self.get_cur_frame().code,
+            //self.get_cur_frame().code,
         )?;
         match res {
             FSRRetValue::GlobalId(res_id) => {
@@ -1148,8 +1143,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        push_middle!(self, right_id);
-        push_middle!(self, left_id);
+        // push_middle!(self, right_id);
+        // push_middle!(self, left_id);
 
         let args = [left_id, right_id];
         let len = args.len();
@@ -1169,7 +1164,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Reminder,
             &[left_id, right_id],
             self,
-            self.get_cur_frame().code,
+            //self.get_cur_frame().code,
         )?;
         match res {
             FSRRetValue::GlobalId(res_id) => {
@@ -1536,7 +1531,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 if f.is_async {
                     return self.async_call(fn_id, args);
                 }
-
             } else {
                 return Err(FSRError::new(
                     format!("fn 0x{:x} is not a function object", fn_id),
@@ -2154,7 +2148,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BinaryOffset::Equal,
             &[left, right],
             self,
-            self.get_cur_frame().code,
+            //self.get_cur_frame().code,
         )?
         .get_id()
             == FSRObject::true_id();
@@ -2683,8 +2677,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let mut obj = self.get_cur_mut_frame().cur_cls.take().unwrap();
         let name = obj.get_name().to_string();
-        // cls_obj.set_value(FSRValue::Class(obj));
-        // let obj_id = FSRVM::register_object(cls_obj);
+
         let obj_id = self
             .garbage_collect
             .new_object(FSRValue::Class(obj), gid(GlobalObj::ClassCls));
@@ -2733,7 +2726,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 BinaryOffset::NextObject,
                 &[obj],
                 self,
-                self.get_cur_frame().code,
+                //self.get_cur_frame().code,
             )?
         };
 
@@ -2790,6 +2783,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     // process logic or operator in bytecode
+    //#[cfg_attr(feature = "more_inline", inline(always))]
     fn process_logic_or(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
@@ -3213,8 +3207,6 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap();
         let code_id = FSRObject::obj_to_id(code);
 
-
-
         let frame = self.frame_free_list.new_frame(code_id, 0);
         let const_map = Self::get_const_map(self, code.as_code())?;
         self.push_frame(frame, Arc::new(const_map));
@@ -3267,7 +3259,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let const_map = Self::get_const_map(self, main_code.unwrap().as_code())?;
 
         self.cur_frame.code = code_id;
-        self.cur_frame.fn_id = base_fn_id;  
+        self.cur_frame.fn_id = base_fn_id;
         self.cur_frame.const_map = Arc::new(const_map);
         let mut code = FSRObject::id_to_obj(code_id).as_code();
 
@@ -3289,7 +3281,6 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     pub fn call_fn(&mut self, fn_def: &FSRFnInner, code: ObjId) -> Result<ObjId, FSRError> {
-
         {
             clear_exp!(self);
 
