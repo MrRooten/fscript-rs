@@ -32,6 +32,7 @@ pub struct FSRFuture {
     pub(crate) fn_obj: ObjId,
     pub(crate) frame: Option<Box<CallFrame>>,
     pub(crate) delegate_to: Option<ObjId>, // Used to save delegate object
+    pub(crate) send_value: Option<ObjId>,
     result: Option<ObjId>,
 }
 
@@ -39,8 +40,9 @@ impl Debug for FSRFuture {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "FSRFuture {{ state: {:?}, fn_obj: {} }}",
-            self.state, self.fn_obj
+            "FSRFuture {{ state: {:?}, \nfn_obj: {}, \nsend_value: {:?}, \n delegate: {:?} }}",
+            self.state, self.fn_obj, FSRObject::id_to_obj(self.send_value.unwrap_or(FSRObject::none_id())),
+            self.delegate_to
         )
     }
 }
@@ -151,6 +153,31 @@ pub fn next_obj(
     poll_future(args, len, thread)
 }
 
+pub fn send_value(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "sorted_value requires exactly 1 argument",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
+    let args = to_rs_list!(args, len);
+    let self_object = FSRObject::id_to_mut_obj(args[0]).expect("not a valid object");
+    if let FSRValue::Future(future) = &mut self_object.value {
+        //println!("future_inner: {:#?}", future);
+        if let Some(delegate) = future.delegate_to {
+            return send_value([delegate, args[1]].as_ptr(), 2, thread)
+        }
+
+        future.send_value = Some(args[1]);
+    }
+
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
+}
+
 impl FSRFuture {
     pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Future");
@@ -161,6 +188,8 @@ impl FSRFuture {
             crate::backend::compiler::bytecode::BinaryOffset::NextObject,
             next_obj,
         );
+        let send = FSRFn::from_rust_fn_static(send_value, "future_send");
+        cls.insert_attr("send", send);
         cls
     }
 
@@ -171,6 +200,7 @@ impl FSRFuture {
             frame: Some(frame),
             result: None,
             delegate_to: None,
+            send_value: None,
         };
 
         FSRValue::Future(Box::new(v))

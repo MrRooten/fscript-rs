@@ -263,6 +263,7 @@ pub enum BytecodeOperator {
     Yield = 53, // yield expression
     FormatString = 54,
     Delegate = 55,
+    LoadYield = 56,
     Load = 254,
 }
 
@@ -1178,31 +1179,37 @@ impl<'a> Bytecode {
     fn special_variable_trigger(
         var: &FSRVariable,
         context: &mut BytecodeContext,
-    ) -> Option<BytecodeArg> {
+    ) -> Option<Vec<BytecodeArg>> {
         if var.get_name().eq("try") {
-            return Some(BytecodeArg {
+            return Some(vec![BytecodeArg {
                 operator: BytecodeOperator::TryException,
                 arg: Box::new(ArgType::None),
                 info: FSRByteInfo::new(&context.lines, var.get_meta().clone()),
-            });
+            }]);
         } else if var.get_name().eq("await") {
-            return Some(BytecodeArg {
+            return Some(vec![BytecodeArg {
                 operator: BytecodeOperator::Await,
                 arg: Box::new(ArgType::None),
                 info: FSRByteInfo::new(&context.lines, var.get_meta().clone()),
-            });
+            }]);
         } else if var.get_name().eq("yield") {
-            return Some(BytecodeArg {
+            return Some(vec![BytecodeArg {
                 operator: BytecodeOperator::Yield,
                 arg: Box::new(ArgType::None),
                 info: FSRByteInfo::new(&context.lines, var.get_meta().clone()),
-            });
+            },
+            BytecodeArg {
+                operator: BytecodeOperator::LoadYield,
+                arg: Box::new(ArgType::None),
+                info: FSRByteInfo::new(&context.lines, var.get_meta().clone()),
+            }
+            ]);
         } else if var.get_name().eq("delegate") {
-            return Some(BytecodeArg {
+            return Some(vec![BytecodeArg {
                 operator: BytecodeOperator::Delegate,
                 arg: Box::new(ArgType::None),
                 info: FSRByteInfo::new(&context.lines, var.get_meta().clone()),
-            });
+            }]);
         }
         None
     }
@@ -1256,7 +1263,7 @@ impl<'a> Bytecode {
             if expr.get_op().eq(".") {
                 let v = Self::special_variable_trigger(v, const_map);
                 if let Some(op_arg) = v {
-                    second.push(op_arg);
+                    second.extend(op_arg);
                     op_code.append(&mut second);
                     return (op_code);
                 }

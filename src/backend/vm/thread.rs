@@ -2210,6 +2210,19 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    fn load_yield(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let future_obj = self.get_cur_frame().future.unwrap();
+        let future_mut = FSRObject::id_to_mut_obj(future_obj)
+            .expect("not a future object")
+            .as_mut_future();
+        let send_value = future_mut.send_value.take();
+        push_exp!(self, send_value.unwrap_or(FSRObject::none_id()));
+        Ok(false)
+    }
+
     fn delegate_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -2916,6 +2929,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Await => Self::await_process(self, bytecode),
             BytecodeOperator::FormatString => Self::format_process(self, bytecode),
             BytecodeOperator::Delegate => Self::delegate_process(self, bytecode),
+            BytecodeOperator::LoadYield => Self::load_yield(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
