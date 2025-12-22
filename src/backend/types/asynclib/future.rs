@@ -7,7 +7,9 @@ use crate::{
             fn_def::FSRFn,
         },
         vm::thread::{CallFrame, FSRThreadRuntime},
-    }, to_rs_list, utils::error::FSRError
+    },
+    to_rs_list,
+    utils::error::FSRError,
 };
 use std::{fmt::Debug, future};
 
@@ -16,6 +18,7 @@ pub enum FSRFutureState {
     Running,
     Suspended,
     Completed,
+    Start,
 }
 
 // struct FutureStatus<'a> {
@@ -28,6 +31,7 @@ pub struct FSRFuture {
     pub(crate) state: FSRFutureState,
     pub(crate) fn_obj: ObjId,
     pub(crate) frame: Option<Box<CallFrame>>,
+    pub(crate) delegate_to: Option<ObjId>, // Used to save delegate object
     result: Option<ObjId>,
 }
 
@@ -56,6 +60,26 @@ impl FSRFuture {
         Box::new(add_list.into_iter())
     }
 }
+
+fn cont_future(
+    future: &mut FSRFuture,
+    args: &[ObjId],
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let fn_obj = FSRObject::id_to_obj(future.fn_obj).as_fn();
+    let mut frame = future.frame.take().expect("future frame is None");
+    if future.state == FSRFutureState::Start {
+        for arg in args.iter().rev() {
+            frame.args.push(*arg);
+        }
+    }
+
+    frame.future = Some(args[0]);
+    thread.push_frame(frame, fn_obj.const_map.clone());
+    let res = thread.poll_fn(future.fn_obj);
+    return res.map(|x| FSRRetValue::GlobalId(x));
+}
+
 #[inline]
 pub fn poll_future(
     args: *const ObjId,
@@ -70,25 +94,53 @@ pub fn poll_future(
     }
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_mut_obj(args[0]).expect("not a valid object");
-    let res = if let FSRValue::Future(future) = &mut self_object.value {
+    if let FSRValue::Future(future) = &mut self_object.value {
         if future.state == FSRFutureState::Completed {
             return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
         }
-        let fn_obj = FSRObject::id_to_obj(future.fn_obj).as_fn();
-        let mut frame = future.frame.take().expect("future frame is None");
-        for arg in args.iter().rev() {
-            frame.args.push(*arg);
+
+        if let Some(delegate) = future.delegate_to {
+            let res = poll_future([delegate].as_ptr(), 1, thread)?;
+
+            if res.get_id() == FSRObject::none_id() {
+                // let fn_obj = FSRObject::id_to_obj(future.fn_obj).as_fn();
+                // let mut frame = future.frame.take().expect("future frame is None");
+                // if future.state == FSRFutureState::Start {
+                //     for arg in args.iter().rev() {
+                //         frame.args.push(*arg);
+                //     }
+                // }
+
+                // frame.future = Some(args[0]);
+                // thread.push_frame(frame, fn_obj.const_map.clone());
+                // let res = thread.poll_fn(future.fn_obj);
+                // return res.map(|x| FSRRetValue::GlobalId(x));
+                return cont_future(future, args, thread);
+            }
+            // if let FSRValue::Future(delegate_value) = &mut FSRObject::id_to_mut_obj(delegate).value {
+            //     delegate_value.
+            // }
+            return Ok(res);
         }
 
-        frame.future = Some(args[0]);
-        thread.push_frame(frame, fn_obj.const_map.clone());
-        let res = thread.poll_fn(future.fn_obj);
-        res
+        return cont_future(future, args, thread);
+
+        // let fn_obj = FSRObject::id_to_obj(future.fn_obj).as_fn();
+        // let mut frame = future.frame.take().expect("future frame is None");
+
+        // if future.state == FSRFutureState::Start {
+        //     for arg in args.iter().rev() {
+        //         frame.args.push(*arg);
+        //     }
+        // }
+
+        // frame.future = Some(args[0]);
+        // thread.push_frame(frame, fn_obj.const_map.clone());
+        // let res = thread.poll_fn(future.fn_obj);
+        // res
     } else {
         panic!("poll_future called on a non-future object");
     };
-
-    return res.map(|x| FSRRetValue::GlobalId(x));
 }
 
 pub fn next_obj(
@@ -114,10 +166,11 @@ impl FSRFuture {
 
     pub fn new_value<'a>(fn_obj: ObjId, frame: Box<CallFrame>) -> FSRValue<'a> {
         let v = FSRFuture {
-            state: FSRFutureState::Suspended,
+            state: FSRFutureState::Start,
             fn_obj,
             frame: Some(frame),
             result: None,
+            delegate_to: None,
         };
 
         FSRValue::Future(Box::new(v))

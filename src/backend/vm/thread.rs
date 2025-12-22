@@ -2210,6 +2210,30 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    fn delegate_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let future_obj = self.get_cur_frame().future.unwrap();
+        let delegate_value = pop_exp!(self).unwrap_or(FSRObject::none_id());
+
+        let mut frame = self.pop_stack();
+        frame.ip = (frame.ip.0, frame.ip.1);
+        let future_mut = FSRObject::id_to_mut_obj(future_obj)
+            .expect("not a future object")
+            .as_mut_future();
+        future_mut.frame = Some(frame);
+        future_mut.set_suspend();
+        future_mut.delegate_to = Some(delegate_value);
+        let res = poll_future([delegate_value].as_ptr(), 1, self)?.get_id();
+        //push_middle!(self, v);
+        let cur = self.get_cur_mut_frame();
+        cur.ret_val = Some(res);
+        let code = cur.code;
+
+        Ok(true)
+    }
+
     fn await_process(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -2891,6 +2915,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Yield => Self::yield_process(self, bytecode),
             BytecodeOperator::Await => Self::await_process(self, bytecode),
             BytecodeOperator::FormatString => Self::format_process(self, bytecode),
+            BytecodeOperator::Delegate => Self::delegate_process(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3164,7 +3189,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
             #[cfg(feature = "bytecode_trace")]
             {
-                let t = format!("{:?} => {:?}", self.get_cur_frame().ip, arg);
+                let fn_name = if is_base_fn!(self.get_cur_frame().fn_id) {
+                    "__main__"
+                } else {
+                    &FSRObject::id_to_obj(self.get_cur_frame().fn_id).as_fn().get_name()
+                };
+                let t = format!("{} -> {:?} => {:?}",fn_name, self.get_cur_frame().ip, arg);
 
                 println!("{}", t);
                 println!("before: {:?}", self.get_cur_frame().exp);

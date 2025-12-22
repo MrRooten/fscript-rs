@@ -262,6 +262,7 @@ pub enum BytecodeOperator {
     Await = 52, // await expression
     Yield = 53, // yield expression
     FormatString = 54,
+    Delegate = 55,
     Load = 254,
 }
 
@@ -1196,6 +1197,12 @@ impl<'a> Bytecode {
                 arg: Box::new(ArgType::None),
                 info: FSRByteInfo::new(&context.lines, var.get_meta().clone()),
             });
+        } else if var.get_name().eq("delegate") {
+            return Some(BytecodeArg {
+                operator: BytecodeOperator::Delegate,
+                arg: Box::new(ArgType::None),
+                info: FSRByteInfo::new(&context.lines, var.get_meta().clone()),
+            });
         }
         None
     }
@@ -1508,7 +1515,10 @@ impl<'a> Bytecode {
             0,
             vec![BytecodeArg {
                 operator: BytecodeOperator::Try,
-                arg: Box::new(ArgType::TryCatch(catch_start as u64 + 1, vs.len() as u64 + 2)),
+                arg: Box::new(ArgType::TryCatch(
+                    catch_start as u64 + 1,
+                    vs.len() as u64 + 2,
+                )),
                 info: FSRByteInfo::new(&const_map.lines, try_def.get_meta().clone()),
             }],
         );
@@ -1541,7 +1551,10 @@ impl<'a> Bytecode {
         }
         test_list.push(BytecodeArg {
             operator: BytecodeOperator::IfTest,
-            arg: Box::new(ArgType::IfTestNext((block_items.len() as u64, count_elses as u64))),
+            arg: Box::new(ArgType::IfTestNext((
+                block_items.len() as u64,
+                count_elses as u64,
+            ))),
             info: FSRByteInfo::new(&const_map.lines, if_def.get_meta().clone()),
         });
         vs.push(test_list);

@@ -27,6 +27,7 @@ impl FrameFreeList {
             frame.clear();
             frame.code = code;
             frame.fn_id = fn_obj;
+            frame.ip = (0, 0);
             return frame;
         }
 
