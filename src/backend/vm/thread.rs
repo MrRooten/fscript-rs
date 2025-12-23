@@ -1,8 +1,6 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    collections::HashSet,
-    fmt::format,
     ops::Range,
     path::PathBuf,
     str::FromStr,
@@ -15,24 +13,18 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
-                FSRDbgFlag,
+                ArgType, BinaryOffset, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag,
             },
-            jit::{cranelift::CraneLiftJitBackend, jit_wrapper::get_cur_frame},
+            jit::cranelift::CraneLiftJitBackend,
         },
-        memory::{
-            gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator,
-            GarbageCollector,
-        },
+        memory::{gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator},
         types::{
-            asynclib::future::{poll_future, FSRFuture, FSRFutureState},
-            base::{self, Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
+            asynclib::future::{poll_future, FSRFuture},
+            base::{Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
             code::FSRCode,
-            float::FSRFloat,
             fn_def::{FSRFn, FSRFnInner, FSRnE, FnDesc},
-            integer::FSRInteger,
             list::FSRList,
             module::FSRModule,
             range::FSRRange,
@@ -202,49 +194,49 @@ impl<'a> Iterator for IndexIterator<'a> {
     }
 }
 
-struct AttrMap<'a> {
-    attr_map: Vec<Vec<Option<&'a AtomicObjId>>>,
-}
+// struct AttrMap<'a> {
+//     attr_map: Vec<Vec<Option<&'a AtomicObjId>>>,
+// }
 
-impl<'a> AttrMap<'a> {
-    pub fn new() -> Self {
-        Self {
-            attr_map: vec![vec![None; 4]; 4],
-        }
-    }
+// impl<'a> AttrMap<'a> {
+//     pub fn new() -> Self {
+//         Self {
+//             attr_map: vec![vec![None; 4]; 4],
+//         }
+//     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn insert(&mut self, i: usize, j: usize, v: Option<&'a AtomicObjId>) {
-        if i >= self.attr_map.len() {
-            let new_capacity = (i + 1) + (4 - (i + 1) % 4);
-            self.attr_map.resize(new_capacity, vec![None; 4]);
-        }
-        if j >= self.attr_map[i].len() {
-            let new_capacity = (j + 1) + (4 - (j + 1) % 4);
-            self.attr_map[i].resize(new_capacity, None);
-        }
-        self.attr_map[i][j] = v;
-    }
+//     #[cfg_attr(feature = "more_inline", inline(always))]
+//     pub fn insert(&mut self, i: usize, j: usize, v: Option<&'a AtomicObjId>) {
+//         if i >= self.attr_map.len() {
+//             let new_capacity = (i + 1) + (4 - (i + 1) % 4);
+//             self.attr_map.resize(new_capacity, vec![None; 4]);
+//         }
+//         if j >= self.attr_map[i].len() {
+//             let new_capacity = (j + 1) + (4 - (j + 1) % 4);
+//             self.attr_map[i].resize(new_capacity, None);
+//         }
+//         self.attr_map[i][j] = v;
+//     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn clear(&mut self) {
-        self.attr_map.clear();
-    }
+//     #[cfg_attr(feature = "more_inline", inline(always))]
+//     pub fn clear(&mut self) {
+//         self.attr_map.clear();
+//     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn clear_var(&mut self, i: usize) {
-        if i < self.attr_map.len() {
-            self.attr_map[i].clear();
-        }
-    }
+//     #[cfg_attr(feature = "more_inline", inline(always))]
+//     pub fn clear_var(&mut self, i: usize) {
+//         if i < self.attr_map.len() {
+//             self.attr_map[i].clear();
+//         }
+//     }
 
-    pub fn get_attr(&self, i: usize, j: usize) -> Option<&'a AtomicObjId> {
-        if i < self.attr_map.len() && j < self.attr_map[i].len() {
-            return self.attr_map[i][j];
-        }
-        None
-    }
-}
+//     pub fn get_attr(&self, i: usize, j: usize) -> Option<&'a AtomicObjId> {
+//         if i < self.attr_map.len() && j < self.attr_map[i].len() {
+//             return self.attr_map[i][j];
+//         }
+//         None
+//     }
+// }
 
 pub struct CallFrame {
     pub(crate) local_var: IndexMap,
@@ -504,15 +496,14 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) cur_frame: Box<CallFrame>,
     pub(crate) call_frames: Vec<Box<CallFrame>>,
     pub(crate) frame_free_list: FrameFreeList,
-    pub(crate) thread_allocator: FSRObjectAllocator<'a>,
+    //pub(crate) thread_allocator: FSRObjectAllocator<'a>,
 
     // pub(crate) exception: ObjId,
     // pub(crate) exception_flag: bool,
     pub(crate) garbage_collect: MarkSweepGarbageCollector<'a>,
     // pub(crate) op_quick: Box<Ops>,
     pub(crate) counter: usize,
-    pub(crate) last_aquire_counter: usize,
-
+    //pub(crate) last_aquire_counter: usize,
     pub(crate) gc_context: GcContext,
     pub(crate) thread_shared: ThreadShared,
     dbg_flag: bool,
@@ -551,7 +542,7 @@ impl<'a> FSRThreadRuntime<'a> {
             cur_frame: frame,
             call_frames: vec![],
             frame_free_list: FrameFreeList::new_list(),
-            thread_allocator: FSRObjectAllocator::new(),
+            //thread_allocator: FSRObjectAllocator::new(),
             //flow_tracker: FlowTracker::new(),
             // exception: FSRObject::none_id(),
             // exception_flag: false,
@@ -559,8 +550,7 @@ impl<'a> FSRThreadRuntime<'a> {
             thread_id: 0,
             // op_quick: Box::new(Ops::new_init()),
             counter: 0,
-            last_aquire_counter: 0,
-
+            //last_aquire_counter: 0,
             gc_context: GcContext::new_context(),
             #[cfg(feature = "count_bytecode")]
             bytecode_counter: vec![0; 256],
@@ -823,8 +813,8 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let container = pop_exp!(self).unwrap();
 
-        let index_obj_v = FSRObject::id_to_obj(index);
-        let list_obj_v = FSRObject::id_to_obj(container);
+        // let index_obj_v = FSRObject::id_to_obj(index);
+        // let list_obj_v = FSRObject::id_to_obj(container);
         push_middle!(self, container);
         push_middle!(self, index);
         let res = FSRObject::invoke_offset_method(
@@ -855,7 +845,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let container_obj = peek_exp!(self, len - 2).unwrap();
         let value_obj = peek_exp!(self, len - 3).unwrap();
 
-        let containter_obj_v = FSRObject::id_to_obj(container_obj);
+        //let containter_obj_v = FSRObject::id_to_obj(container_obj);
 
         let set_item = FSRObject::id_to_obj(container_obj)
             .get_cls_offset_attr(BinaryOffset::SetItem)
@@ -1620,7 +1610,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let mut var: Option<&(usize, u64, String, bool)> = None;
+        //let mut var: Option<&(usize, u64, String, bool)> = None;
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
         let father;
         let method = if let ArgType::CallArgsNumberWithAttr(pack) = bytecode.get_arg() {
@@ -1643,7 +1633,7 @@ impl<'a> FSRThreadRuntime<'a> {
             panic!("not support ArgType: {:?}", bytecode.get_arg());
         };
 
-        let mut object_id: Option<ObjId> = Some(father);
+        let object_id: Option<ObjId> = Some(father);
 
         self.call_method_ret(method, &mut args, &object_id)
     }
@@ -1677,7 +1667,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn catch_end(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        //_bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let state = self.get_cur_mut_frame();
         //state.catch_ends.pop().unwrap();
@@ -2109,9 +2099,11 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = Self::compare(left_id, right_id, *op, self)?;
 
         if v {
-            self.get_cur_mut_frame().push_exp(FSRObject::true_id())
+            // self.get_cur_mut_frame().push_exp(FSRObject::true_id())
+            push_exp!(self, FSRObject::true_id())
         } else {
-            self.get_cur_mut_frame().push_exp(FSRObject::false_id())
+            // self.get_cur_mut_frame().push_exp(FSRObject::false_id())
+            push_exp!(self, FSRObject::false_id())
         }
 
         Ok(false)
@@ -2120,7 +2112,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[inline(always)]
     pub fn compare_equal_process(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
+        //bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let right = pop_exp!(self).unwrap();
         let left = *self.get_cur_mut_frame().last_exp().unwrap();
@@ -2136,9 +2128,9 @@ impl<'a> FSRThreadRuntime<'a> {
             let res = rust_fn(args.as_ptr(), len, self)?;
 
             if res.get_id() == FSRObject::true_id() {
-                self.get_cur_mut_frame().push_exp(FSRObject::true_id())
+                push_exp!(self, FSRObject::true_id())
             } else {
-                self.get_cur_mut_frame().push_exp(FSRObject::false_id())
+                push_exp!(self, FSRObject::false_id())
             }
 
             return Ok(false);
@@ -2155,9 +2147,11 @@ impl<'a> FSRThreadRuntime<'a> {
         //};
 
         if v {
-            self.get_cur_mut_frame().push_exp(FSRObject::true_id())
+            //self.get_cur_mut_frame().push_exp(FSRObject::true_id())
+            push_exp!(self, FSRObject::true_id())
         } else {
-            self.get_cur_mut_frame().push_exp(FSRObject::false_id())
+            //self.get_cur_mut_frame().push_exp(FSRObject::false_id())
+            push_exp!(self, FSRObject::false_id())
         }
 
         Ok(false)
@@ -2165,7 +2159,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn ret_value(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        //_bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let v = pop_exp!(self).unwrap_or(FSRObject::none_id());
 
@@ -2182,14 +2176,14 @@ impl<'a> FSRThreadRuntime<'a> {
         let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(v);
 
-        let code = cur.code;
+        //let code = cur.code;
 
         Ok(true)
     }
 
     fn yield_process(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
+        //bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let future_obj = self.get_cur_frame().future.unwrap();
         let v = pop_exp!(self).unwrap_or(FSRObject::none_id());
@@ -2212,7 +2206,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn load_yield(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
+        //bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let future_obj = self.get_cur_frame().future.unwrap();
         let future_mut = FSRObject::id_to_mut_obj(future_obj)
@@ -2225,7 +2219,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn delegate_process(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
+        //bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let future_obj = self.get_cur_frame().future.unwrap();
         let delegate_value = pop_exp!(self).unwrap_or(FSRObject::none_id());
@@ -2242,14 +2236,14 @@ impl<'a> FSRThreadRuntime<'a> {
         //push_middle!(self, v);
         let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(res);
-        let code = cur.code;
+        //let code = cur.code;
 
         Ok(true)
     }
 
     fn await_process(
         self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
+        //bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let future_obj = self.get_cur_frame().future.unwrap();
         let awaitable_value = top_exp!(self).unwrap_or(FSRObject::none_id());
@@ -2467,25 +2461,22 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn try_exception_process(
-        self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
-    ) -> Result<bool, FSRError> {
+    fn try_exception_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let cur = self.get_cur_frame();
         let val = *cur.last_exp().unwrap();
         let obj = FSRObject::id_to_obj(val);
         if obj.is_error() {
             // if obj is error just return error to caller
-            return Self::ret_value(self, bytecode);
+            return Self::ret_value(self);
         }
         // do nothing if not error
         Ok(false)
     }
 
-    fn end_fn(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<bool, FSRError> {
+    fn end_fn(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         self.pop_stack();
         let cur = self.get_cur_mut_frame();
-        let code = cur.code;
+        //let code = cur.code;
         cur.ret_val = Some(FSRObject::none_id());
 
         Ok(true)
@@ -2882,9 +2873,9 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::IfTest => Self::if_test_process(self, bytecode),
             BytecodeOperator::WhileTest => Self::while_test_process(self, bytecode),
             BytecodeOperator::DefineFn => Self::define_fn(self, bytecode),
-            BytecodeOperator::EndFn => Self::end_fn(self, bytecode),
+            BytecodeOperator::EndFn => Self::end_fn(self),
             BytecodeOperator::CompareTest => Self::compare_test(self, bytecode),
-            BytecodeOperator::ReturnValue => Self::ret_value(self, bytecode),
+            BytecodeOperator::ReturnValue => Self::ret_value(self),
             BytecodeOperator::WhileBlockEnd => Self::while_block_end(self, bytecode),
             BytecodeOperator::AssignArgs => Self::assign_args(self, bytecode),
             BytecodeOperator::ClassDef => Self::class_def(self, bytecode),
@@ -2914,7 +2905,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Getter => Self::getter_process(self, bytecode),
             BytecodeOperator::Try => Self::try_process(self, bytecode),
             BytecodeOperator::EndTry => Self::try_end(self),
-            BytecodeOperator::EndCatch => Self::catch_end(self, bytecode),
+            BytecodeOperator::EndCatch => Self::catch_end(self),
             BytecodeOperator::BinaryRange => Self::binary_range_process(self),
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
             BytecodeOperator::LoadConst => Self::empty_process(self, bytecode),
@@ -2922,14 +2913,14 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
             BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
-            BytecodeOperator::CompareEqual => Self::compare_equal_process(self, bytecode),
+            BytecodeOperator::CompareEqual => Self::compare_equal_process(self),
             BytecodeOperator::Load => Self::load_var(self, bytecode),
-            BytecodeOperator::TryException => Self::try_exception_process(self, bytecode),
-            BytecodeOperator::Yield => Self::yield_process(self, bytecode),
-            BytecodeOperator::Await => Self::await_process(self, bytecode),
+            BytecodeOperator::TryException => Self::try_exception_process(self),
+            BytecodeOperator::Yield => Self::yield_process(self),
+            BytecodeOperator::Await => Self::await_process(self),
             BytecodeOperator::FormatString => Self::format_process(self, bytecode),
-            BytecodeOperator::Delegate => Self::delegate_process(self, bytecode),
-            BytecodeOperator::LoadYield => Self::load_yield(self, bytecode),
+            BytecodeOperator::Delegate => Self::delegate_process(self),
+            BytecodeOperator::LoadYield => Self::load_yield(self),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3155,10 +3146,10 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr_wrapper(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
-        if expr.is_empty() {
-            self.get_cur_mut_frame().ip.0 += 1;
-            return Ok(false);
-        }
+        // if expr.is_empty() {
+        //     self.get_cur_mut_frame().ip.0 += 1;
+        //     return Ok(false);
+        // }
         self.run_expr(expr)
     }
 
@@ -3206,9 +3197,11 @@ impl<'a> FSRThreadRuntime<'a> {
                 let fn_name = if is_base_fn!(self.get_cur_frame().fn_id) {
                     "__main__"
                 } else {
-                    &FSRObject::id_to_obj(self.get_cur_frame().fn_id).as_fn().get_name()
+                    &FSRObject::id_to_obj(self.get_cur_frame().fn_id)
+                        .as_fn()
+                        .get_name()
                 };
-                let t = format!("{} -> {:?} => {:?}",fn_name, self.get_cur_frame().ip, arg);
+                let t = format!("{} -> {:?} => {:?}", fn_name, self.get_cur_frame().ip, arg);
 
                 println!("{}", t);
                 println!("before: {:?}", self.get_cur_frame().exp);
@@ -3408,7 +3401,7 @@ mod test {
 
         export('abc', abc)
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
+        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -3430,7 +3423,7 @@ mod test {
         dump(i + b)
         "#;
 
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
+        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -3552,7 +3545,7 @@ mod test {
 
         a()
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
+        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -3575,7 +3568,7 @@ mod test {
         gc_collect()
         gc_info()
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
+        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
@@ -3594,7 +3587,7 @@ mod test {
         c = f"hello {1 + 1}"
         println(c)
         "#;
-        let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
+        let obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
         let obj_id = FSRVM::leak_object(obj);
         let v = FSRCode::from_code("main", source_code, obj_id).unwrap();
         let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();

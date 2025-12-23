@@ -329,6 +329,11 @@ impl FSRExpr {
         false
     }
 
+    pub fn is_op(op: &[u8]) -> bool {
+        let op = std::str::from_utf8(op).unwrap();
+        ASTParser::get_static_op(op).is_some()
+    }
+
     /// Convert a byte slice to a string, handling escape sequences.
     fn bytes_to_unescaped_string(input: &[u8]) -> Result<String, std::str::Utf8Error> {
         let s = std::str::from_utf8(input)?;
@@ -591,8 +596,42 @@ impl FSRExpr {
         ctx: &mut StmtContext,
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
-        let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-        let op = ASTParser::get_static_op(op);
+        let mut op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+        let orig_length = ctx.length;
+        let orig_op = op;
+
+        // Check for the longest matching operator
+        while ctx.length > 0 {
+            op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            if let Some(s) = ASTParser::get_static_op(op) {
+                op = s;
+                break;
+            };
+
+            ctx.length -= 1;
+        }
+
+        if ctx.length == 0 {
+            let mut sub_meta = meta.new_offset(ctx.start);
+            return Err(SyntaxError::new(
+                &sub_meta,
+                format!("{:?}: Invalid operator {}", sub_meta, orig_op),
+            ));
+        }
+
+        // Check for single operator
+        if orig_length - ctx.length > 0 {
+            let single_op =
+                str::from_utf8(&source[ctx.start + ctx.length..ctx.start + orig_length]).unwrap();
+            if !Self::is_single_op(single_op) {
+                let mut sub_meta = meta.new_offset(ctx.start + ctx.length);
+                return Err(SyntaxError::new(
+                    &sub_meta,
+                    format!("{}: Invalid operator '{}'", sub_meta, single_op),
+                ));
+            }
+        }
+
         if ctx.start + ctx.length >= source.len() {
             let mut sub_meta = meta.new_offset(ctx.start);
             return Err(SyntaxError::new(
@@ -627,61 +666,8 @@ impl FSRExpr {
                 ctx.candidates[0].set_single_op(ctx.single_op.unwrap());
                 ctx.single_op = None;
             }
-            ctx.operators.push((op, ctx.start));
-            ctx.states.pop_state();
-            ctx.start += ctx.length;
-            ctx.length = 0;
-        }
-        Ok(())
-    }
-
-    #[inline]
-    fn process_operator(
-        source: &[u8],
-        ignore_nline: bool,
-        meta: &FSRPosition,
-        ctx: &mut StmtContext,
-        context: &mut ASTContext,
-    ) -> Result<(), SyntaxError> {
-        let op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-        let op = ASTParser::get_static_op(op);
-        if ctx.start + ctx.length >= source.len() {
-            let mut sub_meta = meta.new_offset(ctx.start);
-            return Err(SyntaxError::new(
-                &sub_meta,
-                format!("{} must follow a expr or variable", op),
-            ));
-        }
-
-        if op.eq("-") && (source[ctx.start + ctx.length] as char).is_ascii_digit() {
-            ctx.single_op = Some(SingleOp::Minus);
-            ctx.states.pop_state();
-            ctx.start += ctx.length;
-            ctx.length = 0;
-            return Ok(());
-        }
-
-        if Self::is_single_op(op) && !op.eq("-") {
-            if ctx.single_op.is_some() && ctx.single_op.unwrap().eq(&SingleOp::Not) {
-                ctx.single_op = None;
-            } else {
-                ctx.single_op = Some(SingleOp::Not);
-            }
-
-            ctx.states.pop_state();
-            ctx.start += ctx.length;
-            ctx.length = 0;
-        } else {
-            if ctx.single_op.is_some()
-                && Node::get_single_op_level(ctx.single_op.as_ref().unwrap())
-                    < Node::get_op_level(op)
-            {
-                panic!(
-                    "Wait to impl the operator with single op: single_op: {:?}, op: {}",
-                    ctx.single_op, op
-                );
-            }
-            ctx.operators.push((op, ctx.start));
+            ctx.operators
+                .push((ASTParser::get_static_op(op).unwrap(), ctx.start));
             ctx.states.pop_state();
             ctx.start += ctx.length;
             ctx.length = 0;

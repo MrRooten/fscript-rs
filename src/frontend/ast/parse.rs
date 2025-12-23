@@ -372,56 +372,64 @@ impl ASTParser {
         Ok(res)
     }
 
-    pub fn get_static_op(op: &str) -> &'static str {
+    pub fn get_static_op(op: &str) -> Option<&'static str> {
         // op reference my not life longer enough, so return static str
-        if op.eq(">") {
-            return ">";
+        let op = if op.eq(">") {
+            ">"
         } else if op.eq("<") {
-            return "<";
+            "<"
         } else if op.eq(">=") {
-            return ">=";
+            ">="
         } else if op.eq("<=") {
-            return "<=";
+            "<="
         } else if op.eq("==") {
-            return "==";
+            "=="
         } else if op.eq("=") {
-            return "=";
+            "="
         } else if op.eq("+") {
-            return "+";
+            "+"
         } else if op.eq("-") {
-            return "-";
+            "-"
         } else if op.eq("*") {
-            return "*";
+            "*"
         } else if op.eq(".") {
-            return ".";
+            "."
         } else if op.eq(",") {
-            return ",";
+            ","
         } else if op.eq("&&") {
-            return "&&"
+            "&&"
         } else if op.eq("||") {
-            return "||"
+            "||"
         } else if op.eq("and") {
-            return "and"
+            "and"
         } else if op.eq("or") {
-            return "or"
+            "or"
         } else if op.eq("not") {
-            return "not"
+            "not"
         } else if op.eq("!") {
-            return "!"
+            "!"
         } else if op.eq("!=") {
-            return "!="
+            "!="
         } else if op.eq("/") {
-            return "/"
+            "/"
         } else if op.eq("::") {
-            return "::"
+            "::"
         } else if op.eq("..") {
-            return ".."
+            ".."
         } else if op.eq("%") {
-            return "%"
+            "%"
         } else if op.eq(":") {
-            return ":"
+            ":"
+        } else if op.eq("=") {
+            "="
         }
-
-        panic!("error: {}", op);
+        else {
+            "asdfasdf"
+        };
+        
+        if op.eq("asdfasdf") {
+            return None
+        }
+        Some(op)
     }
 }
