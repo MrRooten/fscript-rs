@@ -48,3 +48,4 @@ assert(not (true and false))
 assert(true or false and false, "test: true or false and false")
 
 assert(true and false or true, "test: true and false or true")
+

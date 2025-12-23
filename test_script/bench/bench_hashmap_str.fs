@@ -9,4 +9,7 @@ for i in 0..1000000 {
     v = t.get(a)
 }
 
+
+t = none
+gc_collect()
 gc_info()

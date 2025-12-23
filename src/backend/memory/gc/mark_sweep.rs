@@ -199,8 +199,8 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         let mut count = 0;
         if let Some(obj) = obj {
             is_mark = obj.is_marked();
-            if (!is_mark && !obj.free) && ((!full && obj.area == Area::Minjor) || full) {
-                // if (!full && obj.area == Area::Minjor) || full {
+            let is_not_skip = (!is_mark && !obj.free);
+            if is_not_skip && (obj.area == Area::Minjor || full) {
                 if obj.area == Area::Minjor {
                     self.tracker.minjar_object_count -= 1;
                 } else {
