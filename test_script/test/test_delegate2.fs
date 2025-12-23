@@ -12,6 +12,7 @@ fn delegate_inner() {
     println("delegate_inner")
     yield_fn().delegate
 
+    yield_fn().delegate
 }
 
 @async
