@@ -1,5 +1,3 @@
-fn abc() {
-    return "abcdf"
-}
+a = [1, 2, 3]
 
-assert(abc         () == "abcdf")
+assert(a    [0] == 1)

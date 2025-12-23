@@ -44,7 +44,7 @@ impl FSRGetter {
         let mut state = GetterState::Start;
         let mut start = 0;
         let mut length = 0;
-        let name;
+        let mut name;
         if source[start] == b'[' {
             name = std::str::from_utf8(&source[start..start + length]).unwrap();
         } else {
@@ -66,12 +66,21 @@ impl FSRGetter {
                     continue;
                 }
 
-                if state == GetterState::Name && t_i as char == '[' {
+                if state == GetterState::Name && !ASTParser::is_name_letter(t_i) {
                     name = std::str::from_utf8(&source[start..start + length]).unwrap();
-                    start += length;
-                    start += 1;
-                    break;
+                    let mut blank_length = 0;
+                    while ASTParser::is_blank_char(source[start + length + blank_length]) {
+                        blank_length += 1;
+                    }
+
+                    if state == GetterState::Name && source[blank_length + start + length] as char == '[' {
+                        name = std::str::from_utf8(&source[start..start + length]).unwrap();
+                        start += length + blank_length;
+                        break;
+                    }
                 }
+
+                panic!("Invalid function call syntax");
             }
         }
 
