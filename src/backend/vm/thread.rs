@@ -2226,12 +2226,14 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let mut frame = self.pop_stack();
         frame.ip = (frame.ip.0, frame.ip.1);
+        
         let future_mut = FSRObject::id_to_mut_obj(future_obj)
             .expect("not a future object")
             .as_mut_future();
         future_mut.frame = Some(frame);
         future_mut.set_suspend();
         future_mut.delegate_to = Some(delegate_value);
+        FSRObject::id_to_mut_obj(future_obj).map(|x| x.set_write_barrier(true));
         let res = poll_future([delegate_value].as_ptr(), 1, self)?.get_id();
         //push_middle!(self, v);
         let cur = self.get_cur_mut_frame();

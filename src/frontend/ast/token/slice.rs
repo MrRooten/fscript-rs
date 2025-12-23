@@ -80,11 +80,15 @@ impl FSRGetter {
                     }
                 }
 
-                panic!("Invalid function call syntax");
+                return Err(SyntaxError::new(
+                    &meta.clone(),
+                    format!("Invalid getter name: {}", std::str::from_utf8(&source[start..start + length]).unwrap())
+                ));
             }
         }
 
         let s = std::str::from_utf8(source).unwrap();
+        // The '[' and ']' positions is granted by outer caller
         let first = s.find('[').unwrap();
         let last = s.rfind(']').unwrap();
         let args = &source[first + 1..last];

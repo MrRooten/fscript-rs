@@ -59,6 +59,13 @@ impl FSRFuture {
             FSRThreadRuntime::process_callframe(&mut add_list, frame);
         }
         add_list.push(self.fn_obj);
+        if let Some(s) = self.send_value {
+            add_list.push(s);
+        }
+
+        if let Some(delegate) = self.delegate_to {
+            add_list.push(delegate);
+        }
         Box::new(add_list.into_iter())
     }
 }

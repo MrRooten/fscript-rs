@@ -19,9 +19,10 @@ class ArgOption {
     }
 
     fn __str__(self) {
-        return "ArgOption { name:{}, follow_value:{}, value: {}}".format(self.name, 
-        self.follow_value, 
-        self.value)
+        return "ArgOption { name:{}, follow_value:{}, value: {}}".format(
+            self.name, 
+            self.follow_value, 
+            self.value)
     }
 
     fn set_follow(self) {

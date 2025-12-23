@@ -232,15 +232,17 @@ pub fn fsr_timeit(
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    if args.len() != 2 {
+    if args.len() < 2 {
         return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
     }
 
-    let fn_def = FSRObject::id_to_obj(args[0]);
-    if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[1]).value {
+    let rest_args = &args[2..];
+
+    let fn_def = FSRObject::id_to_obj(args[1]);
+    if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[0]).value {
         let start = std::time::Instant::now();
         for _ in 0..*count {
-            match fn_def.call(&[], thread)? {
+            match fn_def.call(rest_args, thread)? {
                 FSRRetValue::GlobalId(id) => {
                     if FSRObject::is_sp_object(id) {
                         continue;

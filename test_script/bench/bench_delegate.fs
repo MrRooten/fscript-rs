@@ -7,17 +7,11 @@ fn yield_fn() {
 
 @async
 fn delegate_test() {
-    res = yield_fn()
+    yield_fn().delegate
 
-    res.delegate
+    yield_fn().delegate
 
-    res2 = yield_fn()
-
-    res2.delegate
-
-    res2 = yield_fn()
-
-    res2.delegate
+    yield_fn().delegate
 }
 
 delegate_obj = delegate_test()

@@ -4,11 +4,11 @@ use crate::{
     backend::{
         memory::GarbageCollector,
         types::{
-            base::{FSRObject, FSRRetValue, GlobalObj, ObjId},
-            fn_def::FSRFn, list::FSRList,
+            base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
+            fn_def::FSRFn, list::FSRList, module::FSRModule,
         },
         vm::thread::FSRThreadRuntime,
-    }, to_rs_list, utils::error::FSRError
+    }, register_class, register_fn, to_rs_list, utils::error::FSRError
 };
 
 
@@ -75,4 +75,23 @@ pub fn init_gc() -> HashMap<&'static str, FSRObject<'static>> {
     m.insert("gc_minjor_collect", gc_minjor_collect);
     m.insert("gc_shrink", gc_shrink);
     m
+}
+
+
+pub struct Gc {}
+
+impl Gc {
+    pub fn new_module(thread: &mut FSRThreadRuntime) -> FSRValue<'static> {
+        let mut module = FSRModule::new_module("fs");
+        // register_class!(module, thread, "File", FSRInnerFile::get_class());
+        // register_class!(module, thread, "Dir", FSRDir::get_class());
+        // register_fn!(module, thread, "is_file", fsr_fn_is_file);
+        //register_fn!(module, thread, "is_dir", fsr_fn_is_dir);
+        register_fn!(module, thread, "gc_info", fn_gc_info);
+        register_fn!(module, thread, "gc_collect", fn_gc_collect);
+        register_fn!(module, thread, "gc_minjor_collect", fn_minjor_gc_collect);
+        register_fn!(module, thread, "gc_shrink", fn_gc_shrink);
+
+        FSRValue::Module(Box::new(module))
+    }
 }
