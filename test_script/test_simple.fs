@@ -1,5 +1,5 @@
-fn abc(a: Abc, b: Abc) -> Abc {
-    return a
+fn abc() {
+    return "abcdf"
 }
 
-a = abc(1, 2)
+assert(abc         () == "abcdf")

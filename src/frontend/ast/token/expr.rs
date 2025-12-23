@@ -791,7 +791,7 @@ impl FSRExpr {
             };
         }
         let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
-        if name.eq("and") || name.eq("or") || name.eq("not") {
+        if Self::is_logic_keyword(&name) {
             if name.eq("not") {
                 ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
                 ctx.single_op = Some(SingleOp::Not);
@@ -818,6 +818,10 @@ impl FSRExpr {
         ctx.length = 0;
         ctx.states.pop_state();
         Ok(())
+    }
+
+    fn is_logic_keyword(name: &str) -> bool {
+        name.eq("and") || name.eq("or") || name.eq("not")
     }
 
     #[inline]
@@ -887,6 +891,25 @@ impl FSRExpr {
         if ctx.start + ctx.length >= source.len()
             || (cur_byte!(source) != b'(' && cur_byte!(source) != b'[')
         {
+            let mut index_checker = 0;
+            let name = std::str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            while ctx.start + ctx.length + index_checker < source.len() && ASTParser::is_blank_char(source[ctx.start + ctx.length + index_checker]) {
+                index_checker += 1;
+            }
+
+            if Self::is_logic_keyword(&name) {
+                return Self::_variable_process(source, ignore_nline, meta, ctx, context);
+            }
+
+            if ctx.start + ctx.length + index_checker >= source.len() {
+                return Self::_variable_process(source, ignore_nline, meta, ctx, context);
+            }
+
+            let char_skipped = source[ctx.start + ctx.length + index_checker];
+            if char_skipped == b'(' || char_skipped == b'[' {
+                ctx.length += index_checker;
+                return Ok(())
+            }
             return Self::_variable_process(source, ignore_nline, meta, ctx, context);
         }
 
@@ -1297,7 +1320,7 @@ impl FSRExpr {
                 }
                 let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
 
-                if name.eq("and") || name.eq("or") || name.eq("not") {
+                if Self::is_logic_keyword(&name) {
                     if name.eq("not") {
                         ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
                     }

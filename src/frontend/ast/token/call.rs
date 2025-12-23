@@ -50,7 +50,8 @@ impl FSRCall {
         let mut state = CallState::Start;
         let mut start = 0;
         let mut length = 0;
-        let name;
+        let mut name = "";
+        
         if b'(' == source[start] {
             name = "";
         } else {
@@ -73,24 +74,30 @@ impl FSRCall {
                     continue;
                 }
 
-                if state == CallState::Name && t_i as char == '(' {
+                if state == CallState::Name && !ASTParser::is_name_letter(t_i) {
                     name = str::from_utf8(&source[start..start + length]).unwrap();
-                    start += length;
-                    //start += 1;
-                    break;
+                    let mut blank_length = 0;
+                    while ASTParser::is_blank_char(source[start + length + blank_length]) {
+                        blank_length += 1;
+                    }
+
+                    if state == CallState::Name && source[blank_length + start + length] as char == '(' {
+                        name = str::from_utf8(&source[start..start + length]).unwrap();
+                        start += length + blank_length;
+                        break;
+                    }
                 }
+
+                panic!("Invalid function call syntax");
             }
         }
 
-        let end_blasket = ASTParser::read_valid_bracket(
-            &source[start..],
-            meta.new_offset(start),
-            context,
-        )
-        .unwrap();
+        let end_blasket =
+            ASTParser::read_valid_bracket(&source[start..], meta.new_offset(start), context)
+                .unwrap();
 
         let s = str::from_utf8(source).unwrap();
-        let first = s.find('(').unwrap();
+        //let first = s.find('(').unwrap();
         //let last = s.rfind(')').unwrap();
         let args = &source[start + 1..end_blasket + start - 1];
         let tmp = std::str::from_utf8(args).unwrap();
