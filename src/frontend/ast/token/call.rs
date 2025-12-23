@@ -76,15 +76,15 @@ impl FSRCall {
                 if state == CallState::Name && t_i as char == '(' {
                     name = str::from_utf8(&source[start..start + length]).unwrap();
                     start += length;
-                    start += 1;
+                    //start += 1;
                     break;
                 }
             }
         }
 
         let end_blasket = ASTParser::read_valid_bracket(
-            &source[start - 1..],
-            meta.new_offset(start - 1),
+            &source[start..],
+            meta.new_offset(start),
             context,
         )
         .unwrap();
@@ -92,7 +92,7 @@ impl FSRCall {
         let s = str::from_utf8(source).unwrap();
         let first = s.find('(').unwrap();
         //let last = s.rfind(')').unwrap();
-        let args = &source[start..end_blasket + start - 2];
+        let args = &source[start + 1..end_blasket + start - 1];
         let tmp = std::str::from_utf8(args).unwrap();
         let sub_meta = meta.new_offset(start);
         //let exprs = ASTParser::split_by_comma(args, sub_meta)?;
@@ -109,7 +109,7 @@ impl FSRCall {
         Ok(Self {
             name: name.to_string(),
             args: fn_args,
-            len: start + expr_len,
+            len: start + expr_len + 2,
             single_op: None,
             meta,
             is_defined: false,
