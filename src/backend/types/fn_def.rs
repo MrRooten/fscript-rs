@@ -3,8 +3,7 @@ use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, atomic::{AtomicBool, AtomicI16, Ordering}
     },
 };
 
@@ -30,7 +29,6 @@ pub type FSRRustFn = for<'a> fn(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime<'a>,
-    //code: ObjId,
 ) -> Result<FSRRetValue, FSRError>;
 
 #[derive(Debug, Clone)]
@@ -50,16 +48,22 @@ impl FSRFnInner<'_> {
     pub fn get_ip(&self) -> (usize, usize) {
         self.fn_ip
     }
-
-    // pub fn get_bytecode(&self) -> &Bytecode {
-    //     self.bytecode
-    // }
 }
 
 #[derive(Debug)]
 pub enum FSRnE<'a> {
     RustFn((Cow<'a, str>, FSRRustFn)),
     FSRFn(FSRFnInner<'a>),
+}
+
+pub struct FSRJitInfo {
+    run_count: AtomicI16,
+}
+
+impl FSRJitInfo {
+    pub fn call_once(&self) {
+        self.run_count.fetch_add(1, Ordering::Relaxed);
+    }
 }
 
 pub struct FSRFn<'a> {
