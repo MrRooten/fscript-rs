@@ -868,7 +868,7 @@ impl JitBuilder<'_> {
             let code_object = self.builder.block_params(context.entry_block)[1];
 
             let fn_obj_id = context.exp.pop().unwrap();
-            self.save_middle_value(context);
+            //self.save_middle_value(context);
             self.save_object_to_exp(context);
             let call = self.builder.ins().call(
                 func_ref,
@@ -939,7 +939,7 @@ impl JitBuilder<'_> {
             let thread_runtime = self.builder.block_params(context.entry_block)[0];
             let code_object = self.builder.block_params(context.entry_block)[1];
 
-            self.save_middle_value(context);
+            //self.save_middle_value(context);
             self.save_object_to_exp(context);
             let call = self.builder.ins().call(
                 func_ref,
@@ -992,7 +992,7 @@ impl JitBuilder<'_> {
 
     fn load_binary_op(&mut self, context: &mut OperatorContext, op: BinaryOffset) {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
-            self.save_middle_value(context);
+            //self.save_middle_value(context);
             self.save_object_to_exp(context);
             let binary_op_sig = self.make_binary_op();
 

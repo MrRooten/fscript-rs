@@ -3322,16 +3322,14 @@ impl<'a> FSRThreadRuntime<'a> {
     pub fn call_fn(&mut self, fn_def: &FSRFnInner, code: ObjId) -> Result<ObjId, FSRError> {
         {
             clear_exp!(self);
+            clear_middle_exp!(self);
 
             let offset = fn_def.get_ip();
             self.get_cur_mut_frame().ip = (offset.0, 0);
         }
         let mut code = FSRObject::id_to_obj(self.get_cur_frame().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
-            // if expr.is_empty() {
-            //     self.get_cur_mut_frame().ip.0 += 1;
-            //     continue;
-            // }
+
             let v = self.run_expr_wrapper(expr)?;
             if v {
                 break;
