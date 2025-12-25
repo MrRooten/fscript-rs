@@ -331,7 +331,7 @@ impl FSRFnDef {
         let (teller, start) = Self::teller_parse(&source, meta.clone(), context)?;
 
         let source = &source[start..];
-        let s = std::str::from_utf8(&source[0..2]).unwrap();
+        let s = std::str::from_utf8(&source[0..FN_IDENTIFY.len()]).unwrap();
 
         if source.len() < 3 {
             let mut sub_meta = meta.new_offset(start);
@@ -345,7 +345,7 @@ impl FSRFnDef {
         }
 
         // if source[2] as char != ' ' {
-        if !ASTParser::is_blank_char(source[2]) {
+        if !ASTParser::is_blank_char(source[FN_IDENTIFY.len()]) {
             let mut sub_meta = meta.new_offset(start);
             let err = SyntaxError::new(&sub_meta, "not a valid fn delemiter");
             return Err(err);
@@ -354,18 +354,18 @@ impl FSRFnDef {
         let len = Self::get_parse_len(source, meta.new_offset(start), start)?;
 
         let mut start_fn_name = 0;
-        while ASTParser::is_blank_char(source[2..][start_fn_name]) {
+        while ASTParser::is_blank_char(source[FN_IDENTIFY.len()..][start_fn_name]) {
             start_fn_name += 1;
         }
 
-        if !ASTParser::is_name_letter_first(source[2..][start_fn_name]) {
+        if !ASTParser::is_name_letter_first(source[FN_IDENTIFY.len()..][start_fn_name]) {
             let mut sub_meta = meta.new_offset(2 + start_fn_name);
             let err = SyntaxError::new(&sub_meta, "Invalid function name");
             return Err(err);
         }
 
         start_fn_name += 1;
-        while !ASTParser::is_name_letter(source[2..][start_fn_name]) {
+        while !ASTParser::is_name_letter(source[FN_IDENTIFY.len()..][start_fn_name]) {
             start_fn_name += 1;
         }
 
