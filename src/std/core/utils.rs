@@ -271,6 +271,24 @@ pub fn fsr_breakpoint(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
+pub fn unwrap(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let args = to_rs_list!(args, len);
+    if args.len() != 1 {
+        return Err(FSRError::new("too many args", FSRErrCode::NotValidArgs));
+    }
+
+    let obj = FSRObject::id_to_obj(args[0]);
+    if let FSRValue::String(opt) = &obj.value {
+        FSRThreadRuntime::thread_unwrap(thread, opt.as_str())?;
+    }
+
+    Err(FSRError::new("not an Option type", FSRErrCode::NotValidArgs))
+}
+
 pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
     let export_fn = FSRFn::from_rust_fn_static(fsr_fn_export, "export");
@@ -281,6 +299,7 @@ pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let id_fn = FSRFn::from_rust_fn_static(fsr_fn_id, "id");
     let get_class = FSRFn::from_rust_fn_static(fsr_get_class, "get_class");
     let breakpoint_fn = FSRFn::from_rust_fn_static(fsr_breakpoint, "breakpoint");
+    let unwrap_fn = FSRFn::from_rust_fn_static(unwrap, "unwrap");
     let mut m = HashMap::new();
     m.insert("assert", assert_fn);
     m.insert("export", export_fn);
@@ -291,5 +310,6 @@ pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     m.insert("id", id_fn);
     m.insert("get_class", get_class);
     m.insert("breakpoint", breakpoint_fn);
+    m.insert("panic", unwrap_fn);
     m
 }

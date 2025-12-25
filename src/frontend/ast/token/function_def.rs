@@ -249,11 +249,7 @@ impl FSRFnDef {
         }
     }
 
-    pub fn parse(
-        source: &[u8],
-        meta: FSRPosition,
-        context: &mut ASTContext,
-    ) -> Result<Rc<Self>, SyntaxError> {
+    fn teller_parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Option<FSRTell>, usize), SyntaxError> {
         let mut start = 0;
         let teller = if source[0] == b'@' {
             let teller = FSRTell::parse(source, meta.new_offset(0))?;
@@ -268,26 +264,14 @@ impl FSRFnDef {
             None
         };
 
-        let source = &source[start..];
-        let s = std::str::from_utf8(&source[0..2]).unwrap();
+        Ok((teller, start))
+    }
 
-        if source.len() < 3 {
-            let mut sub_meta = meta.new_offset(start);
-            let err = SyntaxError::new(&sub_meta, "fn define body length too small");
-            return Err(err);
-        }
-        if s != FN_IDENTIFY {
-            let mut sub_meta = meta.new_offset(start);
-            let err = SyntaxError::new(&sub_meta, "not fn token");
-            return Err(err);
-        }
-
-        if source[2] as char != ' ' {
-            let mut sub_meta = meta.new_offset(start);
-            let err = SyntaxError::new(&sub_meta, "not a valid fn delemiter");
-            return Err(err);
-        }
-
+    fn get_parse_len(
+        source: &[u8],
+        meta: FSRPosition,
+        start: usize
+    ) -> Result<usize, SyntaxError> {
         let mut state = State::Continue;
         let mut pre_state = State::Continue;
         let mut len = 0;
@@ -336,8 +320,52 @@ impl FSRFnDef {
             }
         }
 
-        let mut start_fn_name = "fn".len();
-        while !ASTParser::is_name_letter_first(source[2..][start_fn_name]) {
+        Ok(len)
+    }
+
+    pub fn parse(
+        source: &[u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<Rc<Self>, SyntaxError> {
+        let (teller, start) = Self::teller_parse(&source, meta.clone(), context)?;
+
+        let source = &source[start..];
+        let s = std::str::from_utf8(&source[0..2]).unwrap();
+
+        if source.len() < 3 {
+            let mut sub_meta = meta.new_offset(start);
+            let err = SyntaxError::new(&sub_meta, "fn define body length too small");
+            return Err(err);
+        }
+        if s != FN_IDENTIFY {
+            let mut sub_meta = meta.new_offset(start);
+            let err = SyntaxError::new(&sub_meta, "not fn token");
+            return Err(err);
+        }
+
+        // if source[2] as char != ' ' {
+        if !ASTParser::is_blank_char(source[2]) {
+            let mut sub_meta = meta.new_offset(start);
+            let err = SyntaxError::new(&sub_meta, "not a valid fn delemiter");
+            return Err(err);
+        }
+
+        let len = Self::get_parse_len(source, meta.new_offset(start), start)?;
+
+        let mut start_fn_name = 0;
+        while ASTParser::is_blank_char(source[2..][start_fn_name]) {
+            start_fn_name += 1;
+        }
+
+        if !ASTParser::is_name_letter_first(source[2..][start_fn_name]) {
+            let mut sub_meta = meta.new_offset(2 + start_fn_name);
+            let err = SyntaxError::new(&sub_meta, "Invalid function name");
+            return Err(err);
+        }
+
+        start_fn_name += 1;
+        while !ASTParser::is_name_letter(source[2..][start_fn_name]) {
             start_fn_name += 1;
         }
 
