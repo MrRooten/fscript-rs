@@ -422,8 +422,17 @@ impl ASTParser {
             ":"
         } else if op.eq("=") {
             "="
-        }
-        else {
+        } else if op.eq("+=") {
+            "+="
+        } else if op.eq("-=") {
+            "-="
+        } else if op.eq("*=") {
+            "*="
+        } else if op.eq("/=") {
+            "/="
+        } else if op.eq("%=") {
+            "%="
+        } else {
             "asdfasdf"
         };
         

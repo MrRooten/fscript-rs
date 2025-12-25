@@ -644,4 +644,13 @@ try {
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
     }
+
+    #[test]
+    fn test_op_assign() {
+        let s = "a += 1";
+        let meta = FSRPosition::new();
+        let mut context = ASTContext::new_context();
+        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        println!("{:#?}", b);
+    }
 }

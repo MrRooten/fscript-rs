@@ -28,12 +28,24 @@ fn main() {
         debugger = true;
     }
 
+    let mut ast = false;
+    if vs.iter().any(|x| x.eq("-ast")) {
+        ast = true;
+    }
+
     
     let vm = FSRVM::single();
     let file = &vs[1];
     let mut f = std::fs::File::open(file).unwrap();
     let mut source_code = String::new();
     f.read_to_string(&mut source_code).unwrap();
+
+    if ast {
+        let meta = FSRPosition::new();
+        let token = FSRModuleFrontEnd::parse(source_code.as_bytes(), meta).unwrap();
+        println!("{:#?}", token);
+        return;
+    }
 
     if just_bc {
         let meta = FSRPosition::new();

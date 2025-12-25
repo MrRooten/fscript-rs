@@ -2076,6 +2076,60 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(true)
     }
 
+    fn op_assign_helper(
+        left_id: ObjId,
+        right_id: ObjId,
+        thread: &mut FSRThreadRuntime<'a>,
+        offset: BinaryOffset,
+    ) -> Result<ObjId, FSRError> {
+        let args = [left_id, right_id];
+        let len = args.len();
+        if let Some(rust_fn) = obj_cls!(left_id).get_rust_fn(offset) {
+            let res = rust_fn(args.as_ptr(), len, thread)?;
+
+            let id = res.get_id();
+            return Ok(id);
+        }
+
+        let v = FSRObject::invoke_offset_method(
+            offset,
+            &[left_id, right_id],
+            thread,
+            //self.get_cur_frame().code,
+        )?
+        .get_id();
+        Ok(v)
+    }
+
+    fn load_op_assign(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<bool, FSRError> {
+        let op = if let ArgType::OpAssign(op) = bytecode.get_arg() {
+            op
+        } else {
+            return Err(FSRError::new(
+                "not a load op assign",
+                FSRErrCode::NotValidArgs,
+            ));
+        };
+
+        let right_id = pop_exp!(self).unwrap();
+        let left_id = pop_exp!(self).unwrap();
+
+        let out = match op.0 {
+            crate::backend::compiler::bytecode::OpAssign::Add => BinaryOffset::Add,
+            crate::backend::compiler::bytecode::OpAssign::Sub => BinaryOffset::Sub,
+            crate::backend::compiler::bytecode::OpAssign::Mul => BinaryOffset::Mul,
+            crate::backend::compiler::bytecode::OpAssign::Div => BinaryOffset::Div,
+            crate::backend::compiler::bytecode::OpAssign::Reminder => BinaryOffset::Reminder,
+        };
+
+        let v = Self::op_assign_helper(left_id, right_id, self, out)?;
+
+        Ok(false)
+    }
+
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn compare_test(
         self: &mut FSRThreadRuntime<'a>,
@@ -2226,7 +2280,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let mut frame = self.pop_stack();
         frame.ip = (frame.ip.0, frame.ip.1);
-        
+
         let future_mut = FSRObject::id_to_mut_obj(future_obj)
             .expect("not a future object")
             .as_mut_future();
@@ -2923,6 +2977,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::FormatString => Self::format_process(self, bytecode),
             BytecodeOperator::Delegate => Self::delegate_process(self),
             BytecodeOperator::LoadYield => Self::load_yield(self),
+            BytecodeOperator::OpAssign => Self::load_op_assign(self, bytecode),
             _ => {
                 panic!("not implement for {:#?}", op);
             }
@@ -3329,7 +3384,6 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         let mut code = FSRObject::id_to_obj(self.get_cur_frame().code).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
-
             let v = self.run_expr_wrapper(expr)?;
             if v {
                 break;

@@ -5,11 +5,7 @@ use std::{
 };
 
 use crate::{
-    backend::
-        types::
-            base::ObjId
-        
-    ,
+    backend::types::base::ObjId,
     frontend::ast::token::{
         assign::FSRAssign,
         base::{FSRPosition, FSRToken},
@@ -259,6 +255,7 @@ pub enum BytecodeOperator {
     FormatString = 54,
     Delegate = 55,
     LoadYield = 56,
+    OpAssign = 57,
     Load = 254,
 }
 
@@ -347,6 +344,28 @@ impl CompareOperator {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum OpAssign {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Reminder,
+}
+
+impl OpAssign {
+    pub fn from_str(op: &str) -> Option<Self> {
+        match op {
+            "+=" => Some(OpAssign::Add),
+            "-=" => Some(OpAssign::Sub),
+            "*=" => Some(OpAssign::Mul),
+            "/=" => Some(OpAssign::Div),
+            "%=" => Some(OpAssign::Reminder),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ArgType {
     Local((u64, String, bool)),
@@ -366,6 +385,7 @@ pub enum ArgType {
     WhileTest(u64),         //i64 is return to test, u64 is skip the block,
     WhileEnd(i64),
     Compare(CompareOperator),
+    OpAssign((OpAssign, Box<ArgType>)),
     FnLines(usize),
     CallArgsNumber(usize),
     CallArgsNumberWithVar((usize, u64, String, bool)), // number size, Variable
@@ -520,12 +540,26 @@ impl BytecodeOperator {
             return "::";
         } else if op.eq(":") {
             return ":";
+        } else if op.eq("+=") {
+            return "+=";
+        } else if op.eq("-=") {
+            return "-=";
+        } else if op.eq("*=") {
+            return "*=";
+        } else if op.eq("/=") {
+            return "/=";
+        } else if op.eq("%=") {
+            return "%=";
         }
 
         unimplemented!()
     }
 
-    pub fn get_op(op: &str, info: Box<FSRByteInfo>, attr_id: Option<ArgType>) -> Option<BytecodeArg> {
+    pub fn get_op(
+        op: &str,
+        info: Box<FSRByteInfo>,
+        attr_id: Option<ArgType>,
+    ) -> Option<BytecodeArg> {
         if op.eq("+") {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::BinaryAdd,
@@ -565,7 +599,10 @@ impl BytecodeOperator {
         {
             return Some(BytecodeArg {
                 operator: BytecodeOperator::CompareTest,
-                arg: Box::new(ArgType::Compare(CompareOperator::new_from_str(op).unwrap())),
+                arg: Box::new(ArgType::Compare(
+                    CompareOperator::new_from_str(op)
+                        .expect(&format!("Invalid compare operator: {}", op)),
+                )),
                 info,
             });
         } else if op.eq("<<") {
@@ -845,13 +882,19 @@ impl<'a> Bytecode {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryDot,
                         arg: Box::new(ArgType::Attr(*id, name.to_string())),
-                        info: Box::new(FSRByteInfo::new(&const_map.lines, getter.get_meta().clone())),
+                        info: Box::new(FSRByteInfo::new(
+                            &const_map.lines,
+                            getter.get_meta().clone(),
+                        )),
                     });
                 } else {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryClassGetter,
                         arg: Box::new(ArgType::Attr(*id, name.to_string())),
-                        info: Box::new(FSRByteInfo::new(&const_map.lines, getter.get_meta().clone())),
+                        info: Box::new(FSRByteInfo::new(
+                            &const_map.lines,
+                            getter.get_meta().clone(),
+                        )),
                     });
                 }
             } else {
@@ -861,13 +904,19 @@ impl<'a> Bytecode {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: Box::new(ArgType::ClosureVar((id, name.to_string()))),
-                        info: Box::new(FSRByteInfo::new(&const_map.lines, getter.get_meta().clone())),
+                        info: Box::new(FSRByteInfo::new(
+                            &const_map.lines,
+                            getter.get_meta().clone(),
+                        )),
                     });
                 } else {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: Box::new(ArgType::Local((id, name.to_string(), false))),
-                        info: Box::new(FSRByteInfo::new(&const_map.lines, getter.get_meta().clone())),
+                        info: Box::new(FSRByteInfo::new(
+                            &const_map.lines,
+                            getter.get_meta().clone(),
+                        )),
                     });
                 }
             }
@@ -881,7 +930,10 @@ impl<'a> Bytecode {
             result.push(BytecodeArg {
                 operator: BytecodeOperator::Getter,
                 arg: Box::new(ArgType::None),
-                info: Box::new(FSRByteInfo::new(&const_map.lines, getter.get_meta().clone())),
+                info: Box::new(FSRByteInfo::new(
+                    &const_map.lines,
+                    getter.get_meta().clone(),
+                )),
             });
         }
 
@@ -1014,7 +1066,10 @@ impl<'a> Bytecode {
                         ans.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                            info: Box::new(FSRByteInfo::new(
+                                &context.lines,
+                                var.get_meta().clone(),
+                            )),
                         });
                     }
                     _ => {
@@ -1056,7 +1111,10 @@ impl<'a> Bytecode {
                         ans.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                            info: Box::new(FSRByteInfo::new(
+                                &context.lines,
+                                var.get_meta().clone(),
+                            )),
                         });
                     }
                     _ => {
@@ -1188,16 +1246,17 @@ impl<'a> Bytecode {
                 info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
             }]);
         } else if var.get_name().eq("yield") {
-            return Some(vec![BytecodeArg {
-                operator: BytecodeOperator::Yield,
-                arg: Box::new(ArgType::None),
-                info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-            },
-            BytecodeArg {
-                operator: BytecodeOperator::LoadYield,
-                arg: Box::new(ArgType::None),
-                info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-            }
+            return Some(vec![
+                BytecodeArg {
+                    operator: BytecodeOperator::Yield,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                },
+                BytecodeArg {
+                    operator: BytecodeOperator::LoadYield,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                },
             ]);
         } else if var.get_name().eq("delegate") {
             return Some(vec![BytecodeArg {
@@ -1301,7 +1360,10 @@ impl<'a> Bytecode {
                         op_code.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(&const_map.lines, expr.get_meta().clone())),
+                            info: Box::new(FSRByteInfo::new(
+                                &const_map.lines,
+                                expr.get_meta().clone(),
+                            )),
                         });
                     } else {
                         panic!("not support this single op: {:?}", single_op);
@@ -1331,7 +1393,10 @@ impl<'a> Bytecode {
                         op_code.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(&const_map.lines, expr.get_meta().clone())),
+                            info: Box::new(FSRByteInfo::new(
+                                &const_map.lines,
+                                expr.get_meta().clone(),
+                            )),
                         });
                     } else {
                         panic!("not support this single op: {:?}", single_op);
@@ -1362,7 +1427,10 @@ impl<'a> Bytecode {
                         op_code.push(BytecodeArg {
                             operator: BytecodeOperator::NotOperator,
                             arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(&const_map.lines, expr.get_meta().clone())),
+                            info: Box::new(FSRByteInfo::new(
+                                &const_map.lines,
+                                expr.get_meta().clone(),
+                            )),
                         });
                     } else {
                         panic!("not support this single op: {:?}", single_op);
@@ -1501,7 +1569,10 @@ impl<'a> Bytecode {
         vs.push(vec![BytecodeArg {
             operator: BytecodeOperator::EndTry,
             arg: Box::new(ArgType::None),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, try_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                try_def.get_meta().clone(),
+            )),
         }]);
 
         let catch_start = vs.len();
@@ -1521,14 +1592,20 @@ impl<'a> Bytecode {
                     catch_start as u64 + 1,
                     vs.len() as u64 + 2,
                 )),
-                info: Box::new(FSRByteInfo::new(&const_map.lines, try_def.get_meta().clone())),
+                info: Box::new(FSRByteInfo::new(
+                    &const_map.lines,
+                    try_def.get_meta().clone(),
+                )),
             }],
         );
 
         vs.push(vec![BytecodeArg {
             operator: BytecodeOperator::EndCatch,
             arg: Box::new(ArgType::None),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, try_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                try_def.get_meta().clone(),
+            )),
         }]);
 
         (vs)
@@ -1557,7 +1634,10 @@ impl<'a> Bytecode {
                 block_items.len() as u64,
                 count_elses as u64,
             ))),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, if_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                if_def.get_meta().clone(),
+            )),
         });
         vs.push(test_list);
         vs.extend(block_items);
@@ -1572,7 +1652,10 @@ impl<'a> Bytecode {
                     test_list.push(BytecodeArg {
                         operator: BytecodeOperator::ElseIf,
                         arg: Box::new(ArgType::IfTestNext((block_items.len() as u64, 0))),
-                        info: Box::new(FSRByteInfo::new(&const_map.lines, if_def.get_meta().clone())),
+                        info: Box::new(FSRByteInfo::new(
+                            &const_map.lines,
+                            if_def.get_meta().clone(),
+                        )),
                     });
                     let mut v = Self::load_token_with_map(t, var_map, const_map, false, false);
                     let mut t = v.remove(0);
@@ -1580,7 +1663,10 @@ impl<'a> Bytecode {
                     test_list.push(BytecodeArg {
                         operator: BytecodeOperator::ElseIfTest,
                         arg: Box::new(ArgType::IfTestNext((block_items.len() as u64, 0))),
-                        info: Box::new(FSRByteInfo::new(&const_map.lines, if_def.get_meta().clone())),
+                        info: Box::new(FSRByteInfo::new(
+                            &const_map.lines,
+                            if_def.get_meta().clone(),
+                        )),
                     });
                     vs.push(test_list);
                     vs.extend(block_items);
@@ -1590,7 +1676,10 @@ impl<'a> Bytecode {
                     test_list.push(BytecodeArg {
                         operator: BytecodeOperator::Else,
                         arg: Box::new(ArgType::IfTestNext((block_items.len() as u64, 0))),
-                        info: Box::new(FSRByteInfo::new(&const_map.lines, if_def.get_meta().clone())),
+                        info: Box::new(FSRByteInfo::new(
+                            &const_map.lines,
+                            if_def.get_meta().clone(),
+                        )),
                     });
 
                     vs.push(test_list);
@@ -1602,7 +1691,10 @@ impl<'a> Bytecode {
         let end_if = vec![BytecodeArg {
             operator: BytecodeOperator::IfBlockEnd,
             arg: Box::new(ArgType::None),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, if_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                if_def.get_meta().clone(),
+            )),
         }];
         vs.push(end_if);
         (vs)
@@ -1627,14 +1719,20 @@ impl<'a> Bytecode {
         t.push(BytecodeArg {
             operator: BytecodeOperator::ForBlockRefAdd,
             arg: Box::new(ArgType::None),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, for_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                for_def.get_meta().clone(),
+            )),
         });
 
         let mut block_items = Self::load_block(for_def.get_block(), var_map, const_map);
         t.push(BytecodeArg {
             operator: BytecodeOperator::LoadForIter,
             arg: Box::new(ArgType::ForLine(block_items.len() as u64 + 3)),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, for_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                for_def.get_meta().clone(),
+            )),
         });
         result.push(t);
 
@@ -1649,7 +1747,10 @@ impl<'a> Bytecode {
                 for_def.get_var_name().to_string(),
                 false,
             ))),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, for_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                for_def.get_meta().clone(),
+            )),
         });
 
         result.push(load_next);
@@ -1657,7 +1758,10 @@ impl<'a> Bytecode {
         let end = vec![BytecodeArg {
             operator: BytecodeOperator::ForBlockEnd,
             arg: Box::new(ArgType::ForEnd(result.len() as i64 - 1)),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, for_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                for_def.get_meta().clone(),
+            )),
         }];
 
         result.push(end);
@@ -1680,7 +1784,10 @@ impl<'a> Bytecode {
         test_list.push(BytecodeArg {
             operator: BytecodeOperator::WhileTest,
             arg: Box::new(ArgType::WhileTest(block_items.len() as u64 + 1)),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, while_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                while_def.get_meta().clone(),
+            )),
         });
         vs.push(test_list);
         let len = block_items.len();
@@ -1688,7 +1795,10 @@ impl<'a> Bytecode {
         let end = BytecodeArg {
             operator: BytecodeOperator::WhileBlockEnd,
             arg: Box::new(ArgType::WhileEnd(len as i64 + 1)),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, while_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                while_def.get_meta().clone(),
+            )),
         };
         vs.extend(block_items);
         vs.push(vec![end]);
@@ -1726,7 +1836,10 @@ impl<'a> Bytecode {
                 id,
                 import.module_name.iter().map(|x| x.to_string()).collect(),
             )),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, import.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                import.get_meta().clone(),
+            )),
         }];
 
         (vec![import_list])
@@ -1772,7 +1885,7 @@ impl<'a> Bytecode {
         } else if let FSRToken::IfExp(if_def) = token {
             let v = Self::load_if_def(if_def, var_map, byte_context);
 
-            return v
+            return v;
         } else if let FSRToken::Assign(assign) = token {
             let v = Self::load_assign(assign, var_map, byte_context);
             return vec![v];
@@ -1820,7 +1933,10 @@ impl<'a> Bytecode {
                 let result = vec![BytecodeArg {
                     operator: BytecodeOperator::Load,
                     arg: Box::new(ArgType::Local((c_id, fn_def.get_name().to_string(), false))),
-                    info: Box::new(FSRByteInfo::new(&byte_context.lines, fn_def.get_meta().clone())),
+                    info: Box::new(FSRByteInfo::new(
+                        &byte_context.lines,
+                        fn_def.get_meta().clone(),
+                    )),
                 }];
                 return (vec![result]);
             }
@@ -2219,7 +2335,10 @@ impl<'a> Bytecode {
                 args_save,
                 store_to_cell,
             )),
-            info: Box::new(FSRByteInfo::new(&bytecontext.lines, fn_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &bytecontext.lines,
+                fn_def.get_meta().clone(),
+            )),
         });
 
         fn_body.insert(0, load_args);
@@ -2230,7 +2349,10 @@ impl<'a> Bytecode {
                 fn_body.push(vec![BytecodeArg {
                     operator: BytecodeOperator::ReturnValue,
                     arg: Box::new(ArgType::None),
-                    info: Box::new(FSRByteInfo::new(&bytecontext.lines, fn_def.get_meta().clone())),
+                    info: Box::new(FSRByteInfo::new(
+                        &bytecontext.lines,
+                        fn_def.get_meta().clone(),
+                    )),
                 }]);
             }
         }
@@ -2293,7 +2415,10 @@ impl<'a> Bytecode {
             BytecodeArg {
                 operator: BytecodeOperator::ClassDef,
                 arg: Box::new(ArgType::Local((arg_id, name.to_string(), store_to_cell))),
-                info: Box::new(FSRByteInfo::new(&const_map.lines, class_def.get_meta().clone())),
+                info: Box::new(FSRByteInfo::new(
+                    &const_map.lines,
+                    class_def.get_meta().clone(),
+                )),
             },
         ];
 
@@ -2302,7 +2427,10 @@ impl<'a> Bytecode {
         let end_of_cls = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineClass,
             arg: Box::new(ArgType::Local((arg_id, name.to_string(), false))),
-            info: Box::new(FSRByteInfo::new(&const_map.lines, class_def.get_meta().clone())),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                class_def.get_meta().clone(),
+            )),
         }];
         result.push(end_of_cls);
         var_map.pop();

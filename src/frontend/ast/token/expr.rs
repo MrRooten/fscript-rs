@@ -188,7 +188,16 @@ impl<'a> Node<'a> {
             return 3;
         }
 
-        if op.eq(">") || op.eq("<") || op.eq("==") || op.eq("!=") {
+        if op.eq(">")
+            || op.eq("<")
+            || op.eq("==")
+            || op.eq("!=")
+            || op.eq("+=")
+            || op.eq("-=")
+            || op.eq("*=")
+            || op.eq("/=")
+            || op.eq("%=")
+        {
             return 0;
         }
 
@@ -893,7 +902,9 @@ impl FSRExpr {
         {
             let mut index_checker = 0;
             let name = std::str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-            while ctx.start + ctx.length + index_checker < source.len() && ASTParser::is_blank_char(source[ctx.start + ctx.length + index_checker]) {
+            while ctx.start + ctx.length + index_checker < source.len()
+                && ASTParser::is_blank_char(source[ctx.start + ctx.length + index_checker])
+            {
                 index_checker += 1;
             }
 
@@ -908,7 +919,7 @@ impl FSRExpr {
             let char_skipped = source[ctx.start + ctx.length + index_checker];
             if char_skipped == b'(' || char_skipped == b'[' {
                 ctx.length += index_checker;
-                return Ok(())
+                return Ok(());
             }
             return Self::_variable_process(source, ignore_nline, meta, ctx, context);
         }
@@ -1037,6 +1048,112 @@ impl FSRExpr {
         ctx.start += ctx.length;
         ctx.length = 0;
 
+        Ok(())
+    }
+
+    fn getter_helper(
+        source: &[u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext,
+        context: &mut ASTContext,
+    ) -> Result<(), SyntaxError> {
+        let mut sub_meta = meta.new_offset(ctx.start);
+        let len =
+            ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta, context)?;
+        ctx.length += len;
+        let mut sub_meta = meta.new_offset(ctx.start);
+        let mut getter = FSRGetter::parse(
+            &source[ctx.start..ctx.start + ctx.length],
+            sub_meta,
+            context,
+        )
+        .unwrap();
+
+        if context.is_variable_defined_in_curr(getter.get_name()) {
+            getter.is_defined = true;
+        } else {
+            context.ref_variable(getter.get_name());
+        }
+        if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
+            let mut stack_expr = vec![];
+            let mut right = ctx.candidates.pop().unwrap();
+            if right.is_stack_expr() {
+                right.try_push_stack_expr(FSRToken::Getter(getter));
+                ctx.candidates.push(right);
+            } else {
+                stack_expr.push(right);
+                stack_expr.push(FSRToken::Getter(getter));
+                ctx.candidates
+                    .push(FSRToken::StackExpr((ctx.single_op.take(), stack_expr)));
+            }
+        } else {
+            ctx.candidates.push(FSRToken::Getter(getter));
+        }
+
+        ctx.start += ctx.length;
+        ctx.length = 0;
+
+        while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]) {
+            ctx.start += 1;
+        }
+
+        Ok(())
+    }
+
+    fn call_helper(
+        source: &[u8],
+        ignore_nline: bool,
+        meta: &FSRPosition,
+        ctx: &mut StmtContext,
+        context: &mut ASTContext,
+    ) -> Result<(), SyntaxError> {
+        let mut sub_meta = meta.new_offset(ctx.start);
+        let len =
+            ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta, context)?;
+        ctx.length += len;
+        let mut sub_meta = meta.new_offset(ctx.start);
+        let mut call = FSRCall::parse(
+            &source[ctx.start..ctx.start + ctx.length],
+            sub_meta,
+            context,
+            false,
+        )?;
+
+        // if reference to defined variable, will set is_defined to true
+        if context.is_variable_defined_in_curr(call.get_name()) {
+            call.is_defined = true;
+        } else {
+            context.ref_variable(call.get_name());
+        }
+
+        if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
+            let mut stack_expr = vec![];
+            let mut right = ctx.candidates.pop().unwrap();
+            if right.is_stack_expr() {
+                right.try_push_stack_expr(FSRToken::Call(call));
+                ctx.candidates.push(right);
+            } else {
+                stack_expr.push(right);
+                stack_expr.push(FSRToken::Call(call));
+                ctx.candidates
+                    .push(FSRToken::StackExpr((ctx.single_op.take(), stack_expr)));
+            }
+        } else {
+            call.single_op = ctx.single_op;
+            ctx.candidates.push(FSRToken::Call(call));
+            ctx.single_op = None;
+        }
+
+        if !ctx.operators.is_empty() && ctx.candidates.len() == 1 {
+            panic!(
+                "The call should not be the only candidate, operators: {:?}, candidates: {:?}",
+                ctx.operators, ctx.candidates
+            );
+        }
+
+        ctx.start += ctx.length;
+        ctx.length = 0;
         Ok(())
     }
 
@@ -1206,103 +1323,13 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::Variable) && t_c == '(' {
-                let mut sub_meta = meta.new_offset(ctx.start);
-                let len = ASTParser::read_valid_bracket(
-                    &source[ctx.start + ctx.length..],
-                    sub_meta,
-                    context,
-                )?;
-                ctx.length += len;
-                let mut sub_meta = meta.new_offset(ctx.start);
-                let mut call = FSRCall::parse(
-                    &source[ctx.start..ctx.start + ctx.length],
-                    sub_meta,
-                    context,
-                    false,
-                )?;
-
-                // if reference to defined variable, will set is_defined to true
-                if context.is_variable_defined_in_curr(call.get_name()) {
-                    call.is_defined = true;
-                } else {
-                    context.ref_variable(call.get_name());
-                }
-
-                if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
-                    let mut stack_expr = vec![];
-                    let mut right = ctx.candidates.pop().unwrap();
-                    if right.is_stack_expr() {
-                        right.try_push_stack_expr(FSRToken::Call(call));
-                        ctx.candidates.push(right);
-                    } else {
-                        stack_expr.push(right);
-                        stack_expr.push(FSRToken::Call(call));
-                        ctx.candidates
-                            .push(FSRToken::StackExpr((ctx.single_op.take(), stack_expr)));
-                    }
-                } else {
-                    call.single_op = ctx.single_op;
-                    ctx.candidates.push(FSRToken::Call(call));
-                    ctx.single_op = None;
-                }
-
-                if !ctx.operators.is_empty() && ctx.candidates.len() == 1 {
-                    panic!(
-                        "The call should not be the only candidate, operators: {:?}, candidates: {:?}",
-                        ctx.operators,
-                        ctx.candidates
-                    );
-                }
-
-                ctx.start += ctx.length;
-                ctx.length = 0;
+                Self::call_helper(source, ignore_nline, meta, ctx, context)?;
                 //ctx.states.pop_state();
                 continue;
             }
 
             if ctx.states.eq_peek(&ExprState::Variable) && t_c == '[' {
-                let mut sub_meta = meta.new_offset(ctx.start);
-                let len = ASTParser::read_valid_bracket(
-                    &source[ctx.start + ctx.length..],
-                    sub_meta,
-                    context,
-                )?;
-                ctx.length += len;
-                let mut sub_meta = meta.new_offset(ctx.start);
-                let mut getter = FSRGetter::parse(
-                    &source[ctx.start..ctx.start + ctx.length],
-                    sub_meta,
-                    context,
-                )
-                .unwrap();
-
-                if context.is_variable_defined_in_curr(getter.get_name()) {
-                    getter.is_defined = true;
-                } else {
-                    context.ref_variable(getter.get_name());
-                }
-                if ctx.operators.is_empty() && !ctx.candidates.is_empty() {
-                    let mut stack_expr = vec![];
-                    let mut right = ctx.candidates.pop().unwrap();
-                    if right.is_stack_expr() {
-                        right.try_push_stack_expr(FSRToken::Getter(getter));
-                        ctx.candidates.push(right);
-                    } else {
-                        stack_expr.push(right);
-                        stack_expr.push(FSRToken::Getter(getter));
-                        ctx.candidates
-                            .push(FSRToken::StackExpr((ctx.single_op.take(), stack_expr)));
-                    }
-                } else {
-                    ctx.candidates.push(FSRToken::Getter(getter));
-                }
-
-                ctx.start += ctx.length;
-                ctx.length = 0;
-
-                while ctx.start < source.len() && ASTParser::is_blank_char(source[ctx.start]) {
-                    ctx.start += 1;
-                }
+                Self::getter_helper(source, ignore_nline, meta, ctx, context)?;
                 // ctx.states.pop_state();
                 continue;
             }
@@ -1411,7 +1438,8 @@ impl FSRExpr {
                 ));
             }
             let op = ctx.operators.remove(0).0;
-            if op.eq("=") {
+            if op.eq("=") || op.eq("+=") || op.eq("-=") || op.eq("*=") || op.eq("/=") || op.eq("%=")
+            {
                 if let FSRToken::Variable(mut name) = left {
                     let type_hint = right.deduction_type(context);
                     n_left.as_mut_variable().set_type_hint(type_hint);
@@ -1423,6 +1451,7 @@ impl FSRExpr {
                             name: name.get_name().to_string(),
                             expr: Rc::new(right),
                             len: ctx.start + ctx.length,
+                            op_assign: op.to_string(),
                         }),
                         ctx.start + ctx.length,
                     ));
@@ -1435,6 +1464,7 @@ impl FSRExpr {
                             name: getter.get_name().to_string(),
                             expr: Rc::new(right),
                             len: ctx.start + ctx.length,
+                            op_assign: op.to_string(),
                         }),
                         ctx.start + ctx.length,
                     ));
@@ -1518,7 +1548,13 @@ impl FSRExpr {
         .0;
         let mut n_left = left.clone();
 
-        if operator.0.eq("=") {
+        if operator.0.eq("=")
+            || operator.0.eq("+=")
+            || operator.0.eq("-=")
+            || operator.0.eq("*=")
+            || operator.0.eq("/=")
+            || operator.0.eq("%=")
+        {
             if let FSRToken::Variable(name) = left {
                 let type_hint = right.deduction_type(context);
                 // context.set_variable_type(name.get_name(), type_hint.clone());
@@ -1531,6 +1567,7 @@ impl FSRExpr {
                         expr: Rc::new(right),
                         len: ctx.start + ctx.length,
                         meta,
+                        op_assign: operator.0.to_string(),
                     }),
                     ctx.start + ctx.length,
                 ));
@@ -1542,6 +1579,7 @@ impl FSRExpr {
                         expr: Rc::new(right),
                         len: ctx.start + ctx.length,
                         meta,
+                        op_assign: operator.0.to_string(),
                     }),
                     ctx.start + ctx.length,
                 ));

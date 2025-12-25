@@ -16,6 +16,7 @@ pub struct FSRAssign {
     pub(crate) name: String,
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
+    pub(crate) op_assign: String,
 }
 
 #[derive(PartialEq)]
