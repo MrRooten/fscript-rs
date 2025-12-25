@@ -109,6 +109,15 @@ impl FSRBlock {
 
                 continue;
             }
+
+            if c == '/' && start + length + 1 < source.len() && source[start + length + 1] as char == '/' {
+                while start + length < source.len() && source[start + length] as char != '\n' {
+                    start += 1;
+                }
+
+                continue;
+            }
+
             if (states.peek() == &BlockState::Start || states.peek() == &BlockState::Block)
                 && ASTParser::is_blank_char_with_new_line(c as u8)
             {

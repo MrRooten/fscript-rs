@@ -3,7 +3,7 @@ fn a1() {
 }
 
 fn a2() {
-    a1()
+    a1() // skdjfslkdfjskldfjklsdfj
 }
 
 fn a3() {

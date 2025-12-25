@@ -1201,6 +1201,28 @@ impl FSRExpr {
                 continue;
             }
 
+            if t_c == '/' && (ctx.start + ctx.length + 1) < source.len() {
+                let next_c = source[ctx.start + ctx.length + 1] as char;
+                if next_c == '/' {
+                    if ctx.length != 0 {
+                        let sub_meta = meta.new_offset(ctx.start);
+                        return Err(SyntaxError::new_with_type(
+                            &sub_meta,
+                            "error // place",
+                            SyntaxErrType::CommentError,
+                        ));
+                    }
+
+                    while ctx.start + ctx.length < source.len()
+                        && source[ctx.start + ctx.length] != b'\n'
+                    {
+                        ctx.start += 1;
+                    }
+
+                    continue;
+                }
+            }
+
             if ((t_c == '\n' && !ignore_nline) || t_c == ';' || t_c == '}')
                 && !ctx.states.eq_peek(&ExprState::EscapeNewline)
             {
