@@ -368,7 +368,7 @@ impl OpAssign {
 
 #[derive(Debug, Clone)]
 pub enum ArgType {
-    Local((u64, String, bool)),
+    Local((u64, String, bool, Option<OpAssign>)),
     Global(String),
     ClosureVar((u64, String)),
     CurrentFn,
@@ -912,7 +912,7 @@ impl<'a> Bytecode {
                 } else {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
-                        arg: Box::new(ArgType::Local((id, name.to_string(), false))),
+                        arg: Box::new(ArgType::Local((id, name.to_string(), false, None))),
                         info: Box::new(FSRByteInfo::new(
                             &const_map.lines,
                             getter.get_meta().clone(),
@@ -983,7 +983,7 @@ impl<'a> Bytecode {
                 } else {
                     let arg =
                         if context.variable_is_defined(name) || context.ref_map_stack.is_empty() {
-                            ArgType::Local((id, name.to_string(), false))
+                            ArgType::Local((id, name.to_string(), false, None))
                         } else {
                             ArgType::Global(name.to_string())
                         };
@@ -1138,7 +1138,7 @@ impl<'a> Bytecode {
             false => {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
                 let arg = if context.variable_is_defined(var.get_name()) {
-                    ArgType::Local((*arg_id, var.get_name().to_string(), false))
+                    ArgType::Local((*arg_id, var.get_name().to_string(), false, None))
                 } else {
                     ArgType::Global(var.get_name().to_string())
                 };
@@ -1195,7 +1195,7 @@ impl<'a> Bytecode {
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::AssignArgs,
-            arg: Box::new(ArgType::Local((*arg_id, var.get_name().to_string(), false))),
+            arg: Box::new(ArgType::Local((*arg_id, var.get_name().to_string(), false, None))),
             info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
         };
 
@@ -1746,6 +1746,7 @@ impl<'a> Bytecode {
                 arg_id,
                 for_def.get_var_name().to_string(),
                 false,
+                None
             ))),
             info: Box::new(FSRByteInfo::new(
                 &const_map.lines,
@@ -1932,7 +1933,7 @@ impl<'a> Bytecode {
                     .unwrap();
                 let result = vec![BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: Box::new(ArgType::Local((c_id, fn_def.get_name().to_string(), false))),
+                    arg: Box::new(ArgType::Local((c_id, fn_def.get_name().to_string(), false, None))),
                     info: Box::new(FSRByteInfo::new(
                         &byte_context.lines,
                         fn_def.get_meta().clone(),
@@ -2087,9 +2088,10 @@ impl<'a> Bytecode {
                     return (result_list);
                 }
             }
+            let op_assign = OpAssign::from_str(&token.op_assign);
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Assign,
-                arg: Box::new(ArgType::Local((*id, v.get_name().to_string(), false))),
+                arg: Box::new(ArgType::Local((*id, v.get_name().to_string(), false, op_assign))),
                 info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
             });
             (result_list)
@@ -2414,7 +2416,7 @@ impl<'a> Bytecode {
             // op_arg,
             BytecodeArg {
                 operator: BytecodeOperator::ClassDef,
-                arg: Box::new(ArgType::Local((arg_id, name.to_string(), store_to_cell))),
+                arg: Box::new(ArgType::Local((arg_id, name.to_string(), store_to_cell, None))),
                 info: Box::new(FSRByteInfo::new(
                     &const_map.lines,
                     class_def.get_meta().clone(),
@@ -2426,7 +2428,7 @@ impl<'a> Bytecode {
         result.extend(v);
         let end_of_cls = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineClass,
-            arg: Box::new(ArgType::Local((arg_id, name.to_string(), false))),
+            arg: Box::new(ArgType::Local((arg_id, name.to_string(), false, None))),
             info: Box::new(FSRByteInfo::new(
                 &const_map.lines,
                 class_def.get_meta().clone(),

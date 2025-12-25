@@ -14,6 +14,7 @@ use crate::{
         compiler::{
             bytecode::{
                 ArgType, BinaryOffset, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag,
+                OpAssign,
             },
             jit::cranelift::CraneLiftJitBackend,
         },
@@ -890,16 +891,32 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        if let ArgType::Local(v) = bytecode.get_arg() {
-            let var_id = v.0;
-            let obj_id = match pop_exp!(self) {
+        if let ArgType::Local((var_id, _, _, op_assign)) = bytecode.get_arg() {
+            let mut obj_id = match pop_exp!(self) {
                 Some(s) => s,
                 None => {
                     return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
                 }
             };
 
-            self.get_cur_mut_frame().insert_var(var_id, obj_id);
+            let left_id = match self.get_cur_frame().get_var(var_id) {
+                Some(s) => s.load(Ordering::Relaxed),
+                None => FSRObject::none_id(),
+            };
+
+            if let Some(op_assign) = op_assign {
+                let offset = match op_assign {
+                    OpAssign::Add => BinaryOffset::Add,
+                    OpAssign::Sub => BinaryOffset::Sub,
+                    OpAssign::Mul => BinaryOffset::Mul,
+                    OpAssign::Div => BinaryOffset::Div,
+                    OpAssign::Reminder => BinaryOffset::Reminder,
+                };
+
+                obj_id = Self::op_assign_helper(left_id, obj_id, self, offset)?;
+            }
+
+            self.get_cur_mut_frame().insert_var(*var_id, obj_id);
 
             return Ok(false);
         }
@@ -2647,7 +2664,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let ArgType::Local((id, name, store_to_cell)) = bytecode.get_arg() else {
+        let ArgType::Local((id, name, store_to_cell, _)) = bytecode.get_arg() else {
             return Err(FSRError::new(
                 "not a class def local",
                 FSRErrCode::NotValidArgs,
@@ -3017,7 +3034,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn get_chains(
         thread: &FSRThreadRuntime,
         state: &CallFrame,
-        var: &(u64, String, bool),
+        var: &(u64, String, bool, Option<OpAssign>),
     ) -> Option<ObjId> {
         let fn_id = state.fn_id;
         // if in __main__ the module base code

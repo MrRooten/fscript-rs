@@ -354,7 +354,7 @@ impl JitBuilder<'_> {
             .ins()
             .call(func_ref, &[iter_obj, thread_runtime]);
         let next_obj_value = self.builder.inst_results(next_obj)[0];
-        if let ArgType::Local((_, name, _)) = arg.get_arg() {
+        if let ArgType::Local((_, name, _, _)) = arg.get_arg() {
             let variable = self.variables.get(name).unwrap();
             self.builder.def_var(*variable, next_obj_value);
             self.defined_variables.insert(name.to_string(), *variable);
