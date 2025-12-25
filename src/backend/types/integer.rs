@@ -34,8 +34,6 @@ pub fn add(
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
@@ -57,8 +55,6 @@ pub fn sub(
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
@@ -404,6 +400,54 @@ fn hash_integer(
     unimplemented!()
 }
 
+fn repeat(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let args = to_rs_list!(args, len);
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let call_fn = FSRObject::id_to_obj(args[1]);
+    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
+    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
+
+    if let FSRValue::Integer(self_int) = self_object.value {
+        for _ in 0..self_int {
+            let _ = call_fn.call(&[], thread);
+        }
+
+        return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
+    }
+
+    unimplemented!()
+}
+
+fn repeat_with_index(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let args = to_rs_list!(args, len);
+    let self_object = FSRObject::id_to_obj(args[0]);
+    let call_fn = FSRObject::id_to_obj(args[1]);
+    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
+    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow();
+
+    if let FSRValue::Integer(self_int) = self_object.value {
+        for i in 0..self_int {
+            let index_obj = thread.garbage_collect.new_object(
+                FSRValue::Integer(i),
+                gid(GlobalObj::IntegerCls),
+            );
+            let _ = call_fn.call(&[index_obj], thread);
+        }
+
+        return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
+    }
+
+    unimplemented!()
+}
+
 impl<'a> FSRInteger {
     pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Integer");
@@ -443,6 +487,13 @@ impl<'a> FSRInteger {
 
         let reminder = FSRFn::from_rust_fn_static(reminder, "integer_reminder");
         cls.insert_offset_attr(BinaryOffset::Reminder, reminder);
+
+        let repeat = FSRFn::from_rust_fn_static(repeat, "integer_repeat");
+        cls.insert_attr("repeat", repeat);
+
+        let repeat_with_index = FSRFn::from_rust_fn_static(repeat_with_index, "integer_repeat_with_index");
+        cls.insert_attr("repeat_with_index", repeat_with_index);
+
         cls
     }
 

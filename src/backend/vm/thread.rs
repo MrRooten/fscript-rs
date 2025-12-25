@@ -3144,11 +3144,12 @@ impl<'a> FSRThreadRuntime<'a> {
         //let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
             ArgType::Local(var) => {
-                let state = self.get_cur_frame();
-                let id = if let Some(s) = state.get_var(&var.0) {
+                let id = if let Some(s) = self.get_cur_frame().get_var(&var.0) {
                     s.load(Ordering::Relaxed)
                 } else {
-                    Self::get_chains(self, state, var).unwrap()
+                    let v = Self::get_chains(self, self.get_cur_frame(), var).unwrap();
+                    //self.get_cur_mut_frame().insert_var(var.0, v);
+                    v
                 };
                 push_exp!(self, id);
             }
@@ -3162,20 +3163,28 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             ArgType::ClosureVar(v) => {
-                let fn_id = self.get_cur_frame().fn_id;
-                let var = if is_base_fn!(fn_id) {
-                    let state = self.get_cur_frame();
-
-                    Self::get_chain_by_name(self, &v.1).unwrap()
+                let var = if let Some(s) = self.get_cur_frame().get_var(&v.0) {
+                    s.load(Ordering::Relaxed)
                 } else {
-                    let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
-                    let var = match fn_obj.get_closure_var(&v.1) {
-                        Some(s) => s,
-                        None => {
-                            let state = self.get_cur_frame();
-                            Self::get_chain_by_name(self, &v.1).unwrap()
-                        }
+                    let fn_id = self.get_cur_frame().fn_id;
+                    let var = if is_base_fn!(fn_id) {
+                        let state = self.get_cur_frame();
+
+                        Self::get_chain_by_name(self, &v.1).unwrap()
+                    } else {
+                        let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
+                        let var = match fn_obj.get_closure_var(&v.1) {
+                            Some(s) => s,
+                            None => {
+                                let state = self.get_cur_frame();
+                                Self::get_chain_by_name(self, &v.1).unwrap()
+                            }
+                        };
+                        var
                     };
+                    // Cache the variable in the current frame
+                    self.get_cur_mut_frame().insert_var(v.0, var);
+
                     var
                 };
 

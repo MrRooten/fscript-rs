@@ -1,12 +1,13 @@
-fn abc() {
-    a = 1
-    ddc = || {
-        a = a + 1
-        println(a)
-    }
-
-    return ddc
-}
-
-a = abc()
-a()
+a = 1
+3000000.repeat(|| {
+    a
+    a
+    a
+    a
+    a
+    a
+    a
+    a
+    a
+    a
+})

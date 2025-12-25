@@ -29,7 +29,7 @@ pub fn fsr_fn_assert(
         }
     }
     if value.is_false() {
-        panic!("assert error")
+        panic!("assert error");
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
