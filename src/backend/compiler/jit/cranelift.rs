@@ -1530,7 +1530,7 @@ impl JitBuilder<'_> {
     }
 
     fn binary_dot_process(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
-        if let ArgType::Attr(id, name) = arg.get_arg() {
+        if let ArgType::Attr(id, name, _) = arg.get_arg() {
             let mut binary_dot_sig = self.module.make_signature();
             binary_dot_sig
                 .params

@@ -47,3 +47,21 @@ fn abc3() {
 
 a = abc3()
 assert(a() == 2, "a() == 2 error")
+
+fn abc4() {
+    a = 1
+    fn ddc() {
+        a = a + 1
+        println(a)
+        return a
+    }
+
+    fn abcd() {
+        return ddc
+    }
+
+    return abcd()
+}
+
+dd = abc4()
+assert(dd() == 2, "a() == 2 error")

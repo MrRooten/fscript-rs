@@ -102,6 +102,7 @@ impl<'a> FSRFn<'a> {
         for i in self.closure_fn.iter().rev() {
             let obj = FSRObject::id_to_obj(*i);
             if let FSRValue::Function(f) = &obj.value {
+                //println!("check closure fn: {:?}", f.store_cells);
                 let v = match f.store_cells.get(name) {
                     Some(s) => s.load(Ordering::Relaxed),
                     None => continue,

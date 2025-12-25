@@ -869,7 +869,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let ArgType::Attr(attr_id, name) = bytecode.get_arg() else {
+        let ArgType::Attr(attr_id, name, op_assign) = bytecode.get_arg() else {
             return Err(FSRError::new(
                 "attr assign process error",
                 FSRErrCode::NotValidArgs,
@@ -881,6 +881,25 @@ impl<'a> FSRThreadRuntime<'a> {
         let assign_value = peek_exp!(self, len - 2).unwrap();
 
         let father_obj = FSRObject::id_to_mut_obj(father).unwrap();
+
+        if let Some(op_assign) = op_assign {
+            let left_value = father_obj.get_attr(name).unwrap().load(Ordering::Relaxed);
+
+            let offset = match op_assign {
+                OpAssign::Add => BinaryOffset::Add,
+                OpAssign::Sub => BinaryOffset::Sub,
+                OpAssign::Mul => BinaryOffset::Mul,
+                OpAssign::Div => BinaryOffset::Div,
+                OpAssign::Reminder => BinaryOffset::Reminder,
+            };
+
+            let new_value = Self::op_assign_helper(left_value, assign_value, self, offset)?;
+
+            father_obj.set_attr(name, new_value);
+
+            return Ok(false);
+        }
+
         father_obj.set_attr(name, assign_value);
 
         Ok(false)
@@ -891,7 +910,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        if let ArgType::Local((var_id, _, _, op_assign)) = bytecode.get_arg() {
+        if let ArgType::Local((var_id, name, _, op_assign)) = bytecode.get_arg() {
             let mut obj_id = match pop_exp!(self) {
                 Some(s) => s,
                 None => {
@@ -899,12 +918,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            let left_id = match self.get_cur_frame().get_var(var_id) {
-                Some(s) => s.load(Ordering::Relaxed),
-                None => FSRObject::none_id(),
-            };
-
             if let Some(op_assign) = op_assign {
+                let left_id = match self.get_cur_frame().get_var(var_id) {
+                    Some(s) => s.load(Ordering::Relaxed),
+                    None => Self::get_chain_by_name(self, name).unwrap(),
+                };
+
                 let offset = match op_assign {
                     OpAssign::Add => BinaryOffset::Add,
                     OpAssign::Sub => BinaryOffset::Sub,
@@ -922,7 +941,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         if let ArgType::ClosureVar(v) = bytecode.get_arg() {
-            self.load_closure(v)?;
+            self.assign_closure(v)?;
             return Ok(false);
         }
 
@@ -1188,7 +1207,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let attr_id = if let ArgType::Attr(attr_id, name) = bytecode.get_arg() {
+        let attr_id = if let ArgType::Attr(attr_id, name, _) = bytecode.get_arg() {
             (attr_id, name)
         } else {
             unimplemented!()
@@ -1238,7 +1257,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let attr_id = if let ArgType::Attr(attr_id, name) = bytecode.get_arg() {
+        let attr_id = if let ArgType::Attr(attr_id, name, _) = bytecode.get_arg() {
             (attr_id, name)
         } else {
             //println!("error in get cls attr process: {:#?}", bytecode.get_arg());
@@ -2581,7 +2600,10 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn load_closure(&mut self, closure: &(u64, String)) -> Result<(), FSRError> {
+    fn assign_closure(
+        &mut self,
+        closure: &(u64, String, Option<OpAssign>),
+    ) -> Result<(), FSRError> {
         let obj_id = pop_exp!(self)
             .ok_or_else(|| FSRError::new("Empty expression stack", FSRErrCode::EmptyExpStack))?;
 
@@ -2600,6 +2622,34 @@ impl<'a> FSRThreadRuntime<'a> {
             .as_mut_fn();
 
         let name = closure.1.as_str();
+
+        if let Some(op_assign) = closure.2 {
+            let left_value = fn_obj.store_cells.get(name).ok_or_else(|| {
+                FSRError::new(
+                    "Closure variable not found for op assign",
+                    FSRErrCode::RuntimeError,
+                )
+            })?;
+            let left_id = left_value.load(Ordering::Relaxed);
+            let right_id = obj_id;
+
+            let offset = match op_assign {
+                OpAssign::Add => BinaryOffset::Add,
+                OpAssign::Sub => BinaryOffset::Sub,
+                OpAssign::Mul => BinaryOffset::Mul,
+                OpAssign::Div => BinaryOffset::Div,
+                OpAssign::Reminder => BinaryOffset::Reminder,
+            };
+
+            let v = Self::op_assign_helper(left_id, right_id, self, offset)?;
+            match fn_obj.store_cells.get(name) {
+                Some(cell) => cell.store(v, Ordering::Relaxed),
+                None => {
+                    fn_obj.store_cells.insert(name, AtomicObjId::new(v));
+                }
+            }
+        }
+
         match fn_obj.store_cells.get(name) {
             Some(cell) => cell.store(obj_id, Ordering::Relaxed),
             None => {
@@ -2624,7 +2674,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::Local(s_id) = bytecode.get_arg() {
             state.insert_var(s_id.0, v);
         } else if let ArgType::ClosureVar(s_id) = bytecode.get_arg() {
-            self.load_closure(s_id)?;
+            self.assign_closure(s_id)?;
         }
         Ok(false)
     }
