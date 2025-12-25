@@ -51,7 +51,7 @@ assert(a() == 2, "a() == 2 error")
 fn abc4() {
     a = 1
     fn ddc() {
-        a = a + 1
+        a += 1
         println(a)
         return a
     }
@@ -63,5 +63,5 @@ fn abc4() {
     return abcd()
 }
 
-dd = abc4()
-assert(dd() == 2, "a() == 2 error")
+a = abc4()
+assert(a() == 2, "a() == 2 error")

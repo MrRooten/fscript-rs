@@ -2105,7 +2105,6 @@ impl<'a> Bytecode {
             let id = var_map.last_mut().unwrap().get_var(v.get_name()).unwrap();
             if let Some(ref_map) = const_map.ref_map_stack.last() {
                 if ref_map.get(v.get_name()).copied().unwrap_or(false)
-                    && const_map.contains_variable_in_ref_stack(v.get_name())
                 {
                     result_list.push(BytecodeArg {
                         operator: BytecodeOperator::Assign,
