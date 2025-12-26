@@ -1,7 +1,7 @@
 use std::{
     cell::UnsafeCell,
     collections::HashMap,
-    sync::{Arc, Mutex, Once, atomic::AtomicBool},
+    sync::{atomic::AtomicBool, Arc, Mutex, Once},
 };
 
 use ahash::AHashMap;
@@ -10,7 +10,7 @@ use crate::{
     backend::types::{
         any::FSRThreadHandle,
         asynclib::future::FSRFuture,
-        base::{Area, FALSE_ID, FSRObject, FSRValue, GlobalObj, NONE_ID, ObjId, TRUE_ID},
+        base::{Area, FSRObject, FSRValue, GlobalObj, ObjId, FALSE_ID, NONE_ID, TRUE_ID},
         bool::FSRBool,
         bytes::FSRInnerBytes,
         class::FSRClass,
@@ -28,8 +28,13 @@ use crate::{
         string::FSRString,
     },
     std::{
-        core::{gc::{Gc, init_gc}, io::init_io, thread::init_thread, utils::init_utils},
-        fs::{FSRFileSystem, file::FSRInnerFile},
+        core::{
+            gc::{init_gc, Gc},
+            io::init_io,
+            thread::init_thread,
+            utils::init_utils,
+        },
+        fs::{file::FSRInnerFile, FSRFileSystem},
         os::FSROs,
         string::FSRStringModule,
     },
@@ -90,9 +95,9 @@ pub extern "C" fn gid(id: GlobalObj) -> ObjId {
         if let Some(obj) = obj {
             FSRObject::obj_to_id(obj)
         } else {
-            for i in OBJECTS.iter().enumerate() {
-                println!("{}: {:?}", i.0, i.1);
-            }
+            // for i in OBJECTS.iter().enumerate() {
+            //     println!("{}: {:?}", i.0, i.1);
+            // }
             panic!("Global object not found: {:?}", &OBJECTS[id as usize]);
         }
     }
@@ -141,11 +146,9 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn single() -> Arc<FSRVM<'static>> {
-        INIT.call_once(|| {
-            unsafe {
-                if VM.is_none() {
-                    VM = Some(Arc::new(FSRVM::new()))
-                }
+        INIT.call_once(|| unsafe {
+            if VM.is_none() {
+                VM = Some(Arc::new(FSRVM::new()))
             }
         });
 

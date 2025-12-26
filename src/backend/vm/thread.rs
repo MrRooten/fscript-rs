@@ -906,13 +906,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let Some(op_assign) = op_assign {
             let left_value = father_obj.get_attr(name).unwrap().load(Ordering::Relaxed);
 
-            let offset = match op_assign {
-                OpAssign::Add => BinaryOffset::Add,
-                OpAssign::Sub => BinaryOffset::Sub,
-                OpAssign::Mul => BinaryOffset::Mul,
-                OpAssign::Div => BinaryOffset::Div,
-                OpAssign::Reminder => BinaryOffset::Reminder,
-            };
+            let offset = op_assign.get_offset();
 
             let new_value = Self::op_assign_helper(left_value, assign_value, self, offset)?;
 
@@ -945,13 +939,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     None => Self::get_chain_by_name(self, name).unwrap(),
                 };
 
-                let offset = match op_assign {
-                    OpAssign::Add => BinaryOffset::Add,
-                    OpAssign::Sub => BinaryOffset::Sub,
-                    OpAssign::Mul => BinaryOffset::Mul,
-                    OpAssign::Div => BinaryOffset::Div,
-                    OpAssign::Reminder => BinaryOffset::Reminder,
-                };
+                let offset = op_assign.get_offset();
 
                 obj_id = Self::op_assign_helper(left_id, obj_id, self, offset)?;
             }
@@ -2174,13 +2162,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let right_id = pop_exp!(self).unwrap();
         let left_id = pop_exp!(self).unwrap();
 
-        let out = match op.0 {
-            crate::backend::compiler::bytecode::OpAssign::Add => BinaryOffset::Add,
-            crate::backend::compiler::bytecode::OpAssign::Sub => BinaryOffset::Sub,
-            crate::backend::compiler::bytecode::OpAssign::Mul => BinaryOffset::Mul,
-            crate::backend::compiler::bytecode::OpAssign::Div => BinaryOffset::Div,
-            crate::backend::compiler::bytecode::OpAssign::Reminder => BinaryOffset::Reminder,
-        };
+        let out = op.0.get_offset();
 
         let v = Self::op_assign_helper(left_id, right_id, self, out)?;
 
@@ -2654,13 +2636,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let left_id = left_value.load(Ordering::Relaxed);
             let right_id = obj_id;
 
-            let offset = match op_assign {
-                OpAssign::Add => BinaryOffset::Add,
-                OpAssign::Sub => BinaryOffset::Sub,
-                OpAssign::Mul => BinaryOffset::Mul,
-                OpAssign::Div => BinaryOffset::Div,
-                OpAssign::Reminder => BinaryOffset::Reminder,
-            };
+            let offset = op_assign.get_offset();
 
             let v = Self::op_assign_helper(left_id, right_id, self, offset)?;
             match fn_obj.store_cells.get(name) {

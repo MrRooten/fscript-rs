@@ -364,6 +364,16 @@ impl OpAssign {
             _ => None,
         }
     }
+
+    pub fn get_offset(&self) -> BinaryOffset {
+        match self {
+            OpAssign::Add => BinaryOffset::Add,
+            OpAssign::Sub => BinaryOffset::Sub,
+            OpAssign::Mul => BinaryOffset::Mul,
+            OpAssign::Div => BinaryOffset::Div,
+            OpAssign::Reminder => BinaryOffset::Reminder,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

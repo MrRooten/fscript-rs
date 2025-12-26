@@ -1,4 +1,4 @@
-@jit
+
 fn while_test() {
     i = 3
     while i < 3000000 { // while test
