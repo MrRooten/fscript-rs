@@ -1,7 +1,7 @@
 use std::{
     cell::UnsafeCell,
     collections::HashMap,
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{Arc, Mutex, Once, atomic::AtomicBool},
 };
 
 use ahash::AHashMap;
@@ -114,7 +114,7 @@ pub extern "C" fn get_none() -> ObjId {
 }
 
 pub static mut GLOBAL_CLASS: Option<FSRClass> = None;
-
+static INIT: Once = Once::new();
 impl<'a> FSRVM<'a> {
     pub fn core_module() -> AHashMap<&'static str, NewModuleFn> {
         let mut res: AHashMap<&'static str, fn(&mut FSRThreadRuntime<'_>) -> FSRValue<'static>> =
@@ -141,13 +141,15 @@ impl<'a> FSRVM<'a> {
     }
 
     pub fn single() -> Arc<FSRVM<'static>> {
-        unsafe {
-            if VM.is_none() {
-                VM = Some(Arc::new(FSRVM::new()))
+        INIT.call_once(|| {
+            unsafe {
+                if VM.is_none() {
+                    VM = Some(Arc::new(FSRVM::new()))
+                }
             }
+        });
 
-            VM.as_ref().unwrap().clone()
-        }
+        unsafe { VM.as_ref().unwrap().clone() }
     }
 
     pub fn get_thread(&self, thread_id: usize) -> Option<&mut FSRThreadRuntime<'a>> {

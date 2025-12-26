@@ -10,7 +10,7 @@ t.abc()
 t.index = 1
 b = 1
 while t.index < 3000000 {
-    t.index = t.index + 1
+    t.index += 1
 }
 
 println(t.index)
