@@ -1,17 +1,5 @@
-fn a1() {
-    panic("error happened")
+@static
+fn abc() {
+    b: u8 = 1
 }
 
-fn a2() {
-    a1() // skdjfslkdfjskldfjklsdfj
-}
-
-fn a3() {
-    a2()
-}
-
-fn a4() {
-    a3()
-}
-
-a4()
