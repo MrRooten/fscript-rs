@@ -256,6 +256,12 @@ pub enum BytecodeOperator {
     Delegate = 55,
     LoadYield = 56,
     OpAssign = 57,
+    CLoadIntU8 = 58, // Only use for jit
+    CLoadStr = 59, // Only use for jit
+    CLoadIntU16 = 60,
+    CLoadIntU32 = 61,
+    CLoadIntU64 = 62,
+    CLoadArray = 63,
     Load = 254,
 }
 
