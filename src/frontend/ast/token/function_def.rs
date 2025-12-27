@@ -83,6 +83,13 @@ impl FSRFnDef {
             .unwrap_or(false)
     }
 
+    pub fn is_static(&self) -> bool {
+        self.teller
+            .as_ref()
+            .map(|x| x.value.iter().any(|x| x.eq("@static")))
+            .unwrap_or(false)
+    }
+
     pub fn parse_lambda(
         source: &[u8],
         meta: FSRPosition,
