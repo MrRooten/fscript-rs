@@ -13,14 +13,13 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag,
-                OpAssign,
+                ArgType, BinaryOffset, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag, LocalVar, OpAssign
             },
             jit::cranelift::CraneLiftJitBackend,
         },
         memory::{gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator},
         types::{
-            asynclib::future::{poll_future, FSRFuture},
+            asynclib::future::{FSRFuture, poll_future},
             base::{Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
@@ -925,7 +924,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        if let ArgType::Local((var_id, name, _, op_assign)) = bytecode.get_arg() {
+        if let ArgType::Local(var) = bytecode.get_arg() {
             let mut obj_id = match pop_exp!(self) {
                 Some(s) => s,
                 None => {
@@ -933,10 +932,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 }
             };
 
-            if let Some(op_assign) = op_assign {
-                let left_id = match self.get_cur_frame().get_var(var_id) {
+            if let Some(op_assign) = var.op_assign {
+                let left_id = match self.get_cur_frame().get_var(&var.id) {
                     Some(s) => s.load(Ordering::Relaxed),
-                    None => Self::get_chain_by_name(self, name).unwrap(),
+                    None => Self::get_chain_by_name(self, &var.name).unwrap(),
                 };
 
                 let offset = op_assign.get_offset();
@@ -944,7 +943,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 obj_id = Self::op_assign_helper(left_id, obj_id, self, offset)?;
             }
 
-            self.get_cur_mut_frame().insert_var(*var_id, obj_id);
+            self.get_cur_mut_frame().insert_var(var.id, obj_id);
 
             return Ok(false);
         }
@@ -2669,7 +2668,7 @@ impl<'a> FSRThreadRuntime<'a> {
             )
         })?;
         if let ArgType::Local(s_id) = bytecode.get_arg() {
-            state.insert_var(s_id.0, v);
+            state.insert_var(s_id.id, v);
         } else if let ArgType::ClosureVar(s_id) = bytecode.get_arg() {
             self.assign_closure(s_id)?;
         }
@@ -2711,13 +2710,13 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let ArgType::Local((id, name, store_to_cell, _)) = bytecode.get_arg() else {
+        let ArgType::Local(var) = bytecode.get_arg() else {
             return Err(FSRError::new(
                 "not a class def local",
                 FSRErrCode::NotValidArgs,
             ));
         };
-        let mut new_cls = FSRClass::new(name);
+        let mut new_cls = FSRClass::new(&var.name);
         let default_equal = FSRFn::from_rust_fn_static(
             crate::backend::types::class::class_default_equal,
             "object_equal",
@@ -2818,7 +2817,7 @@ impl<'a> FSRThreadRuntime<'a> {
             panic!("not a class def local");
         };
 
-        let id = var.0;
+        let id = var.id;
         let mut cls_obj = FSRObject::new();
         // cls_obj.set_cls(FSRGlobalObjId::ClassCls as ObjId);
         cls_obj.set_cls(gid(GlobalObj::ClassCls));
@@ -2907,7 +2906,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if let ArgType::Local(v) = arg.get_arg() {
             let state = self.get_cur_mut_frame();
-            state.insert_var(v.0, res_id);
+            state.insert_var(v.id, res_id);
             return Ok(false);
         }
         push_exp!(self, res_id);
@@ -3081,13 +3080,13 @@ impl<'a> FSRThreadRuntime<'a> {
     fn get_chains(
         thread: &FSRThreadRuntime,
         state: &CallFrame,
-        var: &(u64, String, bool, Option<OpAssign>),
+        var: &LocalVar,
     ) -> Option<ObjId> {
         let fn_id = state.fn_id;
         // if in __main__ the module base code
         if !is_base_fn!(fn_id) {
             let obj = FSRObject::id_to_obj(fn_id).as_fn();
-            if let Some(s) = obj.get_closure_var(var.1.as_str()) {
+            if let Some(s) = obj.get_closure_var(var.name.as_str()) {
                 return Some(s);
             }
         }
@@ -3096,11 +3095,11 @@ impl<'a> FSRThreadRuntime<'a> {
             FSRObject::id_to_obj(FSRObject::id_to_obj(state.code).as_code().module).as_module();
         let vm = thread.get_vm();
         let v = module
-            .get_object(&var.1)
+            .get_object(&var.name)
             .map(|s| s.load(Ordering::Relaxed))
-            .or_else(|| vm.get_global_obj_by_name(&var.1).copied())
+            .or_else(|| vm.get_global_obj_by_name(&var.name).copied())
             .unwrap_or_else(|| {
-                panic!("not found var: {}", var.1);
+                panic!("not found var: {}", var.name);
             });
 
         Some(v)
@@ -3141,7 +3140,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
             ArgType::Local(var) => {
-                let id = if let Some(s) = self.get_cur_frame().get_var(&var.0) {
+                let id = if let Some(s) = self.get_cur_frame().get_var(&var.id) {
                     s.load(Ordering::Relaxed)
                 } else {
                     let v = Self::get_chains(self, self.get_cur_frame(), var).unwrap();

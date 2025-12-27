@@ -354,10 +354,10 @@ impl JitBuilder<'_> {
             .ins()
             .call(func_ref, &[iter_obj, thread_runtime]);
         let next_obj_value = self.builder.inst_results(next_obj)[0];
-        if let ArgType::Local((_, name, _, _)) = arg.get_arg() {
-            let variable = self.variables.get(name).unwrap();
+        if let ArgType::Local(var) = arg.get_arg() {
+            let variable = self.variables.get(&var.name).unwrap();
             self.builder.def_var(*variable, next_obj_value);
-            self.defined_variables.insert(name.to_string(), *variable);
+            self.defined_variables.insert(var.name.to_string(), *variable);
 
             let v = self.builder.use_var(*variable);
             let condition = self.is_none(v, context);
@@ -1225,9 +1225,9 @@ impl JitBuilder<'_> {
         let ret = self.builder.inst_results(call)[0];
 
         if let ArgType::Local(v) = arg.get_arg() {
-            let variable = self.variables.get(v.1.as_str()).unwrap();
+            let variable = self.variables.get(v.name.as_str()).unwrap();
             self.builder.def_var(*variable, ret);
-            self.defined_variables.insert(v.1.to_string(), *variable);
+            self.defined_variables.insert(v.name.to_string(), *variable);
         } else {
             panic!("GetArgs requires a Local argument");
         }
@@ -1668,7 +1668,7 @@ impl JitBuilder<'_> {
             match arg.get_operator() {
                 BytecodeOperator::Load => {
                     if let ArgType::Local(v) = arg.get_arg() {
-                        let variable = self.variables.get(v.1.as_str()).unwrap();
+                        let variable = self.variables.get(v.name.as_str()).unwrap();
                         // context.left = Some(self.builder.use_var(*variable));
                         let value = self.builder.use_var(*variable);
                         context.exp.push(value);
@@ -1722,11 +1722,11 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::Assign => {
                     if let ArgType::Local(v) = arg.get_arg() {
-                        let variable = self.variables.get(v.1.as_str()).unwrap();
+                        let variable = self.variables.get(v.name.as_str()).unwrap();
                         let var = context.exp.pop().unwrap();
                         context.middle_value.push(var);
                         self.builder.def_var(*variable, var);
-                        self.defined_variables.insert(v.1.to_string(), *variable);
+                        self.defined_variables.insert(v.name.to_string(), *variable);
                     } else {
                         panic!("not supported assign type: {:?}", arg.get_arg());
                     }

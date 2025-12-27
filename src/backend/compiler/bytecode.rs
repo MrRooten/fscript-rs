@@ -387,8 +387,36 @@ impl OpAssign {
 }
 
 #[derive(Debug, Clone)]
+pub struct LocalVar {
+    // (u64, String, bool, Option<OpAssign>)
+    pub(crate) id: u64,
+    pub(crate) name: String,
+    pub(crate) store_to_cell: bool,
+    pub(crate) op_assign: Option<OpAssign>,
+}
+
+impl LocalVar {
+    pub fn new(id: u64, name: String, store_to_cell: bool, op_assign: Option<OpAssign>) -> Self {
+        Self {
+            id,
+            name: name,
+            store_to_cell,
+            op_assign,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ClosureVar {
+    // (u64, String, Option<OpAssign>)
+    id: u64,
+    name: String,
+    op_assign: Option<OpAssign>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ArgType {
-    Local((u64, String, bool, Option<OpAssign>)),
+    Local(LocalVar),
     Global(String),
     ClosureVar((u64, String, Option<OpAssign>)),
     CurrentFn,
@@ -980,7 +1008,7 @@ impl<'a> Bytecode {
                 } else {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
-                        arg: Box::new(ArgType::Local((id, name.to_string(), false, None))),
+                        arg: Box::new(ArgType::Local(LocalVar::new(id, name.to_string(), false, None))),
                         info: Box::new(FSRByteInfo::new(
                             &const_map.lines,
                             getter.get_meta().clone(),
@@ -1051,7 +1079,7 @@ impl<'a> Bytecode {
                 } else {
                     let arg =
                         if context.variable_is_defined(name) || context.ref_map_stack.is_empty() {
-                            ArgType::Local((id, name.to_string(), false, None))
+                            ArgType::Local(LocalVar::new(id, name.to_string(), false, None))
                         } else {
                             ArgType::Global(name.to_string())
                         };
@@ -1215,7 +1243,7 @@ impl<'a> Bytecode {
             false => {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
                 let arg = if context.variable_is_defined(var.get_name()) {
-                    ArgType::Local((*arg_id, var.get_name().to_string(), false, None))
+                    ArgType::Local(LocalVar::new(*arg_id, var.get_name().to_string(), false, None))
                 } else {
                     ArgType::Global(var.get_name().to_string())
                 };
@@ -1276,7 +1304,7 @@ impl<'a> Bytecode {
 
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::AssignArgs,
-            arg: Box::new(ArgType::Local((
+            arg: Box::new(ArgType::Local(LocalVar::new(
                 *arg_id,
                 var.get_name().to_string(),
                 false,
@@ -1828,7 +1856,7 @@ impl<'a> Bytecode {
 
         load_next.push(BytecodeArg {
             operator: BytecodeOperator::SpecialLoadFor,
-            arg: Box::new(ArgType::Local((
+            arg: Box::new(ArgType::Local(LocalVar::new(
                 arg_id,
                 for_def.get_var_name().to_string(),
                 false,
@@ -2019,7 +2047,7 @@ impl<'a> Bytecode {
                     .unwrap();
                 let result = vec![BytecodeArg {
                     operator: BytecodeOperator::Load,
-                    arg: Box::new(ArgType::Local((
+                    arg: Box::new(ArgType::Local(LocalVar::new(
                         c_id,
                         fn_def.get_name().to_string(),
                         false,
@@ -2166,7 +2194,7 @@ impl<'a> Bytecode {
                     // .....Wait to implement
                     let type_name = type_hint.name.as_str();
                     let type_id = bc_map.type_info.get_type(type_name).expect("wait to impl: if not getting type_id");
-                    
+
                 } else {
                     panic!(
                         "Static variable {} must have type hint",
@@ -2197,7 +2225,7 @@ impl<'a> Bytecode {
             let op_assign = OpAssign::from_str(&token.op_assign);
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::Assign,
-                arg: Box::new(ArgType::Local((
+                arg: Box::new(ArgType::Local(LocalVar::new(
                     *id,
                     v.get_name().to_string(),
                     false,
@@ -2526,7 +2554,7 @@ impl<'a> Bytecode {
             // op_arg,
             BytecodeArg {
                 operator: BytecodeOperator::ClassDef,
-                arg: Box::new(ArgType::Local((
+                arg: Box::new(ArgType::Local(LocalVar::new(
                     arg_id,
                     name.to_string(),
                     store_to_cell,
@@ -2543,7 +2571,7 @@ impl<'a> Bytecode {
         result.extend(v);
         let end_of_cls = vec![BytecodeArg {
             operator: BytecodeOperator::EndDefineClass,
-            arg: Box::new(ArgType::Local((arg_id, name.to_string(), false, None))),
+            arg: Box::new(ArgType::Local(LocalVar::new(arg_id, name.to_string(), false, None))),
             info: Box::new(FSRByteInfo::new(
                 &const_map.lines,
                 class_def.get_meta().clone(),
