@@ -2258,7 +2258,7 @@ impl<'a> Bytecode {
                         Some(type_id),
                     );
                     return result_list;
-                } else {
+                } else if !bc_map.variable_is_defined(v.get_name()) {
                     panic!("Static variable {} must have type hint", v.get_name());
                 }
             }
