@@ -72,7 +72,7 @@ impl FSRFnDef {
     pub fn is_jit(&self) -> bool {
         self.teller
             .as_ref()
-            .map(|x| x.value.iter().any(|x| x.eq("@jit")))
+            .map(|x| x.value.iter().any(|x| x.eq("@jit") || x.eq("@static") ))
             .unwrap_or(false)
     }
 

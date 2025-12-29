@@ -94,7 +94,7 @@ mod test {
     fn test() {
         let a = "
         @async
-        @jit
+        @static
         ";
 
         let tell = FSRTell::parse(a.as_bytes(), FSRPosition::new());

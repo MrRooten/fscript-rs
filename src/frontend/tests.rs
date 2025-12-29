@@ -593,7 +593,7 @@ try {
     #[test]
     fn test_telling2() {
         let c = r#"
-        @is_jit
+        @is_static
         fn abc(a: Abc, b: Abc) -> Abc {
             c = a
         }

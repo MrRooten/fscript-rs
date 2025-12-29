@@ -1,13 +1,13 @@
 
 class Abc {
-    @jit
+    @static
     fn __add__(self, abc) {
         println("test: ", self, abc)
         return 1
     }
 }
 
-@jit
+@static
 fn jit_test() {
     abc = -2
 
@@ -23,7 +23,7 @@ fn jit_test() {
     }
 }
 
-@jit
+@static
 fn jit_no_else() {
     abc = -2
 

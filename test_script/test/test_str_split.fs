@@ -7,7 +7,7 @@ fn test() {
     }
 }
 
-@jit
+@static
 fn test_jit() {
     a = "abcd efgh ijkl mnop"
 

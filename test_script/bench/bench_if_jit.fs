@@ -1,4 +1,4 @@
-@jit
+@static
 fn jit_if() {
     for i in 0..3000000 {
         c = 1 + 1

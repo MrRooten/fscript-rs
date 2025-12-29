@@ -18,8 +18,7 @@ use crate::{
                 ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
             },
             jit::jit_wrapper::{
-                binary_dot_getter, clear_exp, get_current_fn_id, get_obj_method, load_list,
-                save_to_exp,
+                binary_dot_getter, c_println, clear_exp, get_current_fn_id, get_obj_method, load_list, save_to_exp
             },
         },
         types::base::{FSRObject, ObjId},
@@ -66,7 +65,7 @@ struct OperatorContext {
     if_exit_blocks: Vec<(Block, bool)>,
     entry_block: Block,
     args_index: usize,
-    ins_check_gc: bool,
+    //ins_check_gc: bool,
     for_obj: Vec<Value>,
     for_iter_obj: Vec<Value>,
     logic_end_block: Option<Block>,
@@ -116,37 +115,38 @@ impl JitBuilder<'_> {
     }
 
     fn load_is_true(&mut self, context: &mut OperatorContext) -> Value {
-        if let Some(value) = context.exp.last() {
-            let true_id = self.builder.ins().iconst(
-                self.module.target_config().pointer_type(),
-                FSRObject::true_id() as i64,
-            );
-            let is_true =
-                self.builder
-                    .ins()
-                    .icmp(codegen::ir::condcodes::IntCC::Equal, *value, true_id);
-            // context.exp.push(is_true);
-            is_true
-        } else {
-            panic!("IsTrue requires a value operand");
-        }
+        // if let Some(value) = context.exp.last() {
+        //     let true_id = self.builder.ins().iconst(
+        //         self.module.target_config().pointer_type(),
+        //         FSRObject::true_id() as i64,
+        //     );
+        //     let is_true =
+        //         self.builder
+        //             .ins()
+        //             .icmp(codegen::ir::condcodes::IntCC::Equal, *value, true_id);
+        //     // context.exp.push(is_true);
+        //     is_true
+        // } else {
+        //     panic!("IsTrue requires a value operand");
+        // }
+        context.exp.last().unwrap().clone()
     }
 
-    fn load_is_not_false(&mut self, context: &mut OperatorContext) -> Value {
-        if let Some(value) = context.exp.last() {
-            let false_id = self.builder.ins().iconst(
-                self.module.target_config().pointer_type(),
-                FSRObject::false_id() as i64,
-            );
-            let is_not_false =
-                self.builder
-                    .ins()
-                    .icmp(codegen::ir::condcodes::IntCC::NotEqual, *value, false_id);
-            is_not_false
-        } else {
-            panic!("IsNotFalse requires a value operand");
-        }
-    }
+    // fn load_is_not_false(&mut self, context: &mut OperatorContext) -> Value {
+    //     if let Some(value) = context.exp.last() {
+    //         let false_id = self.builder.ins().iconst(
+    //             self.module.target_config().pointer_type(),
+    //             FSRObject::false_id() as i64,
+    //         );
+    //         let is_not_false =
+    //             self.builder
+    //                 .ins()
+    //                 .icmp(codegen::ir::condcodes::IntCC::NotEqual, *value, false_id);
+    //         is_not_false
+    //     } else {
+    //         panic!("IsNotFalse requires a value operand");
+    //     }
+    // }
 
     fn load_is_not_true(&mut self, context: &mut OperatorContext) -> Value {
         if let Some(value) = context.exp.last() {
@@ -168,46 +168,96 @@ impl JitBuilder<'_> {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
             // pub extern "C" fn compare_test(thread: &mut FSRThreadRuntime, left: ObjId, right: ObjId, op: CompareOperator)
 
-            let mut compare_test_sig = self.module.make_signature();
-            compare_test_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-            compare_test_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // left operand
-            compare_test_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
-            compare_test_sig.params.push(AbiParam::new(types::I32)); // compare operator type
-            compare_test_sig
-                .returns
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (boolean)
-            let fn_id = self
-                .module
-                .declare_function(
-                    "compare_test",
-                    cranelift_module::Linkage::Import,
-                    &compare_test_sig,
-                )
-                .unwrap();
-            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            // let op = self.builder.ins().iconst(types::I32, 0); // Replace with actual operator type
-            // let op = CompareOperator::new_from_str(context.operator).unwrap() as i32;
+            // let mut compare_test_sig = self.module.make_signature();
+            // compare_test_sig
+            //     .params
+            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            // compare_test_sig
+            //     .params
+            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // left operand
+            // compare_test_sig
+            //     .params
+            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
+            // compare_test_sig.params.push(AbiParam::new(types::I32)); // compare operator type
+            // compare_test_sig
+            //     .returns
+            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (boolean)
+            // let fn_id = self
+            //     .module
+            //     .declare_function(
+            //         "compare_test",
+            //         cranelift_module::Linkage::Import,
+            //         &compare_test_sig,
+            //     )
+            //     .unwrap();
+            // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            // let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            // // let op = self.builder.ins().iconst(types::I32, 0); // Replace with actual operator type
+            // // let op = CompareOperator::new_from_str(context.operator).unwrap() as i32;
+            // let op = if let ArgType::Compare(op) = arg.get_arg() {
+            //     let v = *op as i64;
+            //     self.builder.ins().iconst(types::I32, v)
+            // } else {
+            //     panic!("CompareTest requires a CompareOperator argument")
+            // };
+            // let call = self
+            //     .builder
+            //     .ins()
+            //     .call(func_ref, &[thread_runtime, left, right, op]);
+            // let result = self.builder.inst_results(call)[0];
+
             let op = if let ArgType::Compare(op) = arg.get_arg() {
-                let v = *op as i64;
-                self.builder.ins().iconst(types::I32, v)
+                op
             } else {
-                panic!("CompareTest requires a CompareOperator argument")
+                panic!("......not op")
             };
-            let call = self
-                .builder
-                .ins()
-                .call(func_ref, &[thread_runtime, left, right, op]);
-            let result = self.builder.inst_results(call)[0];
+
+            let result = match op {
+                CompareOperator::Equal => {
+                    self.builder.ins().icmp(
+                        codegen::ir::condcodes::IntCC::Equal,
+                        left,
+                        right,
+                    )
+                },
+                CompareOperator::NotEqual => {
+                    self.builder.ins().icmp(
+                        codegen::ir::condcodes::IntCC::NotEqual,
+                        left,
+                        right,
+                    )
+                },
+                CompareOperator::Greater => {
+                    self.builder.ins().icmp(
+                        codegen::ir::condcodes::IntCC::SignedGreaterThan,
+                        left,
+                        right,
+                    )
+                },
+                CompareOperator::GreaterEqual => {
+                    self.builder.ins().icmp(
+                        codegen::ir::condcodes::IntCC::SignedGreaterThanOrEqual,
+                        left,
+                        right,
+                    )
+                },
+                CompareOperator::Less => {
+                    self.builder.ins().icmp(
+                        codegen::ir::condcodes::IntCC::SignedLessThan,
+                        left,
+                        right,
+                    )
+                },
+                CompareOperator::LessEqual => {
+                    self.builder.ins().icmp(
+                        codegen::ir::condcodes::IntCC::SignedLessThanOrEqual,
+                        left,
+                        right,
+                    )
+                },
+            };
+
             context.exp.push(result);
-            context.middle_value.push(left);
-            context.middle_value.push(right);
         } else {
             panic!("CompareTest requires both left and right operands");
         }
@@ -217,7 +267,7 @@ impl JitBuilder<'_> {
         //let header_block = self.builder.create_block();
         let body_block = self.builder.create_block();
         let exit_block = self.builder.create_block();
-        let is_true = self.load_is_not_false(context);
+        let is_true = self.load_is_true(context);
         let condition = is_true;
         self.builder
             .ins()
@@ -226,7 +276,7 @@ impl JitBuilder<'_> {
         self.builder.switch_to_block(body_block);
         self.builder.seal_block(body_block);
         context.loop_exit_blocks.push(exit_block);
-        context.ins_check_gc = true;
+        //context.ins_check_gc = true;
     }
 
     fn load_while_end(&mut self, context: &mut OperatorContext) -> Result<()> {
@@ -248,25 +298,23 @@ impl JitBuilder<'_> {
         self.builder.seal_block(v);
         self.builder.switch_to_block(exit_block);
         self.builder.seal_block(exit_block);
-        context.ins_check_gc = true;
+        //context.ins_check_gc = true;
         Ok(())
         //self.builder.ins().iconst(self.int, 0);
     }
 
     fn load_continue(&mut self, context: &mut OperatorContext) -> Result<()> {
-        self.builder.ins().jump(
-            *context.loop_blocks.last().unwrap(),
-            &[],
-        );
+        self.builder
+            .ins()
+            .jump(*context.loop_blocks.last().unwrap(), &[]);
         context.is_body_jump = true;
         Ok(())
     }
 
     fn load_break(&mut self, context: &mut OperatorContext) -> Result<()> {
-        self.builder.ins().jump(
-            *context.loop_exit_blocks.last().unwrap(),
-            &[],
-        );
+        self.builder
+            .ins()
+            .jump(*context.loop_exit_blocks.last().unwrap(), &[]);
         context.is_body_jump = true;
         Ok(())
     }
@@ -357,7 +405,8 @@ impl JitBuilder<'_> {
         if let ArgType::Local(var) = arg.get_arg() {
             let variable = self.variables.get(&var.name).unwrap();
             self.builder.def_var(*variable, next_obj_value);
-            self.defined_variables.insert(var.name.to_string(), *variable);
+            self.defined_variables
+                .insert(var.name.to_string(), *variable);
 
             let v = self.builder.use_var(*variable);
             let condition = self.is_none(v, context);
@@ -370,7 +419,7 @@ impl JitBuilder<'_> {
             self.builder.switch_to_block(body_block);
             self.builder.seal_block(body_block);
             context.loop_exit_blocks.push(exit_block);
-            context.ins_check_gc = true;
+            //context.ins_check_gc = true;
         } else {
             panic!("ForNext requires a Local argument");
         }
@@ -390,7 +439,7 @@ impl JitBuilder<'_> {
         self.builder.seal_block(exit_block);
         context.for_iter_obj.pop();
         context.for_obj.pop();
-        context.ins_check_gc = true;
+        //context.ins_check_gc = true;
         //self.builder.ins().iconst(self.int, 0);
     }
 
@@ -400,7 +449,7 @@ impl JitBuilder<'_> {
         let exit_block = context.if_exit_blocks.pop().unwrap();
 
         // let condition = context.exp.pop().unwrap();
-        let is_true = self.load_is_not_false(context);
+        let is_true = self.load_is_true(context);
         let condition = is_true;
         let not_condition = self.builder.ins().bnot(condition);
         self.builder
@@ -410,11 +459,11 @@ impl JitBuilder<'_> {
         self.builder.switch_to_block(body_block);
         self.builder.seal_block(body_block);
         context.if_exit_blocks.push((exit_block.0, false));
-        context.ins_check_gc = true;
+        //context.ins_check_gc = true;
     }
 
     fn load_else_if(&mut self, context: &mut OperatorContext) {
-        context.ins_check_gc = true;
+        //context.ins_check_gc = true;
         //let test_header_block = context.if_blocks.pop().unwrap();
         //let exit_block = context.if_exit_blocks.pop().unwrap();
         //self.builder.switch_to_block(exit_block.0);
@@ -468,7 +517,7 @@ impl JitBuilder<'_> {
         let body_block = context.if_body_blocks.pop().unwrap();
         let exit_block = context.if_exit_blocks.pop().unwrap();
         // let condition = context.exp.pop().unwrap();
-        let is_true = self.load_is_not_false(context);
+        let is_true = self.load_is_true(context);
         let condition = is_true;
         let not_condition = self.builder.ins().bnot(condition);
         self.builder
@@ -478,11 +527,11 @@ impl JitBuilder<'_> {
         self.builder.switch_to_block(body_block);
         self.builder.seal_block(body_block);
         context.if_exit_blocks.push((exit_block.0, false));
-        context.ins_check_gc = true;
+        //context.ins_check_gc = true;
     }
 
     fn load_else(&mut self, context: &mut OperatorContext) {
-        context.ins_check_gc = true;
+        //context.ins_check_gc = true;
         //let test_header_block = context.if_blocks.pop().unwrap();
         //let exit_block = context.if_exit_blocks.pop().unwrap();
         //self.builder.switch_to_block(exit_block.0);
@@ -531,7 +580,6 @@ impl JitBuilder<'_> {
     }
 
     fn load_if_end(&mut self, context: &mut OperatorContext) {
-        
         if context.if_exit_blocks.last().unwrap().1 || context.is_body_jump {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
@@ -551,7 +599,7 @@ impl JitBuilder<'_> {
         self.builder.seal_block(v);
         self.builder.switch_to_block(exit_block.0);
         self.builder.seal_block(exit_block.0);
-        context.ins_check_gc = true;
+        //context.ins_check_gc = true;
         //self.builder.ins().iconst(self.int, 0);
     }
 
@@ -647,7 +695,6 @@ impl JitBuilder<'_> {
     }
 
     fn load_make_middle_v_list_save(&mut self, context: &mut OperatorContext) -> Value {
-
         let mut malloc_ret = self
             .builder
             .use_var(*self.variables.get("#args_ptr").unwrap());
@@ -993,30 +1040,51 @@ impl JitBuilder<'_> {
     fn load_binary_op(&mut self, context: &mut OperatorContext, op: BinaryOffset) {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
             //self.save_middle_value(context);
-            self.save_object_to_exp(context);
-            let binary_op_sig = self.make_binary_op();
+            // self.save_object_to_exp(context);
+            // let binary_op_sig = self.make_binary_op();
 
-            let fn_id = self
-                .module
-                .declare_function(
-                    "binary_op",
-                    cranelift_module::Linkage::Import,
-                    &binary_op_sig,
-                )
-                .unwrap();
-            let thread = self.builder.block_params(context.entry_block)[0];
-            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            let add_t = self.builder.ins().iconst(types::I32, op as i64);
-            let code_object = self.builder.block_params(context.entry_block)[1];
-            let call = self
-                .builder
-                .ins()
-                .call(func_ref, &[left, right, add_t, code_object, thread]);
-            let ret = self.builder.inst_results(call)[0];
+            // let fn_id = self
+            //     .module
+            //     .declare_function(
+            //         "binary_op",
+            //         cranelift_module::Linkage::Import,
+            //         &binary_op_sig,
+            //     )
+            //     .unwrap();
+            // let thread = self.builder.block_params(context.entry_block)[0];
+            // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            // let add_t = self.builder.ins().iconst(types::I32, op as i64);
+            // let code_object = self.builder.block_params(context.entry_block)[1];
+            // let call = self
+            //     .builder
+            //     .ins()
+            //     .call(func_ref, &[left, right, add_t, code_object, thread]);
+            // let ret = self.builder.inst_results(call)[0];
+            let ret = match op {
+                BinaryOffset::Add => {
+                    // For addition, we can use integer addition directly
+                    self.builder.ins().iadd(left, right)
+                }
+                BinaryOffset::Sub => {
+                    // For subtraction, we can use integer subtraction directly
+                    self.builder.ins().isub(left, right)
+                }
+                BinaryOffset::Mul => {
+                    // For multiplication, we can use integer multiplication directly
+                    self.builder.ins().imul(left, right)
+                }
+                BinaryOffset::Div => {
+                    // For division, we can use integer division directly
+                    self.builder.ins().sdiv(left, right)
+                }
+                _ => {
+                    unimplemented!("Binary operation {:?} is not implemented yet", op);
+                }
+            };
             context.exp.push(ret);
-            context.middle_value.push(ret);
-            context.middle_value.push(right);
-            context.middle_value.push(left);
+            // context.middle_value.push(ret);
+            // context.middle_value.push(right);
+            // context.middle_value.push(left);
             // self.clear_middle_value(context);
         } else {
             unimplemented!("BinaryAdd requires both left and right operands");
@@ -1238,7 +1306,7 @@ impl JitBuilder<'_> {
     fn load_or_jump(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         // process or logic like a or b
         //let last_ssa_value = *context.exp.last().unwrap();
-        let last_ssa_value = self.load_is_not_false(context);
+        let last_ssa_value = self.load_is_true(context);
         //let last_ssa_value = context.exp.pop().unwrap();
         let b_block = self.builder.create_block();
         let end_block = self.builder.create_block();
@@ -1297,38 +1365,22 @@ impl JitBuilder<'_> {
         arg: &BytecodeArg,
         context: &mut OperatorContext,
     ) -> Result<()> {
-        // pub extern "C" fn load_integer(
-        //     value: i64,
-        //     thread: &mut FSRThreadRuntime,
-        // ) -> ObjId {
         if let ArgType::ConstInteger(id, s, op) = arg.get_arg() {
-            let mut load_integer_sig = self.module.make_signature();
-            load_integer_sig.params.push(AbiParam::new(types::I64)); // value
-            load_integer_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-            load_integer_sig
-                .returns
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
-            let fn_id = self
-                .module
-                .declare_function(
-                    "load_integer",
-                    cranelift_module::Linkage::Import,
-                    &load_integer_sig,
-                )
-                .unwrap();
-            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            // let mut load_integer_sig = self.module.make_signature();
+            // load_integer_sig.params.push(AbiParam::new(types::I64)); // value
+            // load_integer_sig
+            //     .params
+            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            // load_integer_sig
+            //     .returns
+            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
             let v = match op {
                 Some(SingleOp::Minus) => -*s,
                 None => *s,
                 _ => panic!("Unsupported single operation for constant integer"),
             };
 
-            let value = self.builder.ins().iconst(types::I64, v);
-            let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            let call = self.builder.ins().call(func_ref, &[value, thread_runtime]);
-            let ret = self.builder.inst_results(call)[0];
+            let ret = self.builder.ins().iconst(types::I64, v);
 
             let name = format!("{}_constant", id);
 
@@ -1605,6 +1657,27 @@ impl JitBuilder<'_> {
         self.builder.def_var(*var, malloc_ret);
     }
 
+    fn println(&mut self, context: &mut OperatorContext) {
+        // pub extern "C" fn c_println(obj: i64) {
+        let mut println_sig = self.module.make_signature();
+        println_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // object to print
+        println_sig.returns.push(AbiParam::new(types::I32)); // return type
+        let fn_id = self
+            .module
+            .declare_function(
+                "c_println",
+                cranelift_module::Linkage::Import,
+                &println_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let obj = context.exp.pop().unwrap();
+        let call = self.builder.ins().call(func_ref, &[obj]);
+        let _ret = self.builder.inst_results(call)[0];
+    }
+
     fn malloc_call_args(&mut self, context: &mut OperatorContext) {
         let mut malloc_sig = self.module.make_signature();
         malloc_sig
@@ -1685,18 +1758,18 @@ impl JitBuilder<'_> {
                         );
                         self.load_global_name(name_ptr, name_len, context);
                     } else if let ArgType::LoadTrue = arg.get_arg() {
-                        let true_id = FSRObject::true_id();
+                        //let true_id = FSRObject::true_id();
                         let true_value = self
                             .builder
                             .ins()
-                            .iconst(self.module.target_config().pointer_type(), true_id as i64);
+                            .iconst(types::I8, 1 as i64);
                         context.exp.push(true_value);
                     } else if let ArgType::LoadFalse = arg.get_arg() {
-                        let false_id = FSRObject::false_id();
+                        //let false_id = FSRObject::false_id();
                         let false_value = self
                             .builder
                             .ins()
-                            .iconst(self.module.target_config().pointer_type(), false_id as i64);
+                            .iconst(types::I8, 0 as i64);
                         context.exp.push(false_value);
                     } else if let ArgType::LoadNone = arg.get_arg() {
                         self.load_none(context);
@@ -1748,7 +1821,7 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::AssignArgs => {
                     self.load_args(context, arg);
-                    context.ins_check_gc = true;
+                    //context.ins_check_gc = true;
                 }
 
                 BytecodeOperator::EndFn => {
@@ -1965,6 +2038,7 @@ impl CraneLiftJitBackend {
         builder.symbol("binary_dot_getter", binary_dot_getter as *const u8);
         builder.symbol("get_obj_method", get_obj_method as *const u8);
         builder.symbol("load_list", load_list as *const u8);
+        builder.symbol("println", c_println as *const u8);
     }
 
     pub fn new() -> Self {
@@ -2031,7 +2105,7 @@ impl CraneLiftJitBackend {
             if_header_blocks: vec![],
             if_exit_blocks: vec![],
             args_index: 0,
-            ins_check_gc: false,
+            //ins_check_gc: false,
             for_obj: vec![],
             for_iter_obj: vec![],
             logic_end_block: None,
@@ -2065,19 +2139,17 @@ impl CraneLiftJitBackend {
             constans: HashMap::new(),
         };
 
-
         trans.malloc_args(&mut context);
         trans.malloc_call_args(&mut context);
         for (i, expr) in code.bytecode.iter().enumerate() {
-            if i % 20 == 0 || context.ins_check_gc {
-                trans.load_check_gc(&mut context);
-                context.ins_check_gc = false;
-            }
+            // if i % 20 == 0 || context.ins_check_gc {
+            //     trans.load_check_gc(&mut context);
+            //     context.ins_check_gc = false;
+            // }
 
             trans.compile_expr(expr, &mut context);
             context.exp.clear();
             context.middle_value.clear();
-
         }
 
         trans.builder.finalize();

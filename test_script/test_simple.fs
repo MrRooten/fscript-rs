@@ -1,5 +1,9 @@
 @static
 fn abc() {
-    b: u8 = 1
+    a: u8 = 0
+    while a < 30000000 {
+        a: u8 = a + 1
+    }
 }
 
+abc()

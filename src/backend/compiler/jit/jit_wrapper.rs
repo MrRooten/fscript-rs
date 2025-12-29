@@ -340,3 +340,7 @@ pub extern "C" fn load_list(
         gid(GlobalObj::ListCls),
     )
 }
+
+pub extern "C" fn c_println(obj: i64) {
+    println!("{}", obj);
+}

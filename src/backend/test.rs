@@ -483,7 +483,7 @@ pub mod tests {
     fn test_jit() {
         let _ = FSRVM::single();
         let module1 = r#"
-        @jit
+        @static
         fn abc() {
             a = 1 + 2
             println(a)
@@ -509,7 +509,7 @@ pub mod tests {
     fn test_jit_while() {
         let _ = FSRVM::single();
         let module1 = r#"
-        @jit
+        @static
         fn abc() {
             a = 0
             while a < 20000 {

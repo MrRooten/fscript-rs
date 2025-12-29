@@ -184,14 +184,14 @@ dump(test.Abc)
 ### JIT Support
 ```rust
 class Abc {
-    @jit
+    @static
     fn __add__(self, other: Abc) -> Integer {
         #println("add")
         return 1
     }
 }
 
-@jit
+@static
 fn jit_test(n) {
     for i in 0..30000000 {
         n + n

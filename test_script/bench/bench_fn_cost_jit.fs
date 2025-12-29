@@ -1,4 +1,4 @@
-@jit
+@static
 fn abc() {
 
 }

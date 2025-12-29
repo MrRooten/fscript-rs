@@ -1246,13 +1246,18 @@ impl<'a> Bytecode {
             }
             false => {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
+                let type_info = if context.is_static {
+                    let type_hint = var.get_type_hint();
+                    let type_info = type_hint.and_then(|x| context.type_info.get_type(&x.name));
+                    type_info
+                } else {
+                    None
+                };
+
+                let mut lvar = LocalVar::new(*arg_id, var.get_name().to_string(), false, None);
+                lvar.var_type = type_info;
                 let arg = if context.variable_is_defined(var.get_name()) {
-                    ArgType::Local(LocalVar::new(
-                        *arg_id,
-                        var.get_name().to_string(),
-                        false,
-                        None,
-                    ))
+                    ArgType::Local(lvar)
                 } else {
                     ArgType::Global(var.get_name().to_string())
                 };
@@ -2219,12 +2224,7 @@ impl<'a> Bytecode {
             }
         }
         let op_assign = OpAssign::from_str(&token.op_assign);
-        let mut local_var = LocalVar::new(
-                *id,
-                v.get_name().to_string(),
-                false,
-                op_assign,
-            );
+        let mut local_var = LocalVar::new(*id, v.get_name().to_string(), false, op_assign);
 
         local_var.var_type = type_id;
         result_list.push(BytecodeArg {
@@ -3011,7 +3011,7 @@ abc()
     #[test]
     fn test_is_jit() {
         let expr = "
-        @jit
+        @static
         fn abc() {
             a = 1
             b = 1

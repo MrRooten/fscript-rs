@@ -1,5 +1,5 @@
 
-@jit
+@static
 fn fib(n) {
     n = 2
     if n == 1 or n == 2 {
