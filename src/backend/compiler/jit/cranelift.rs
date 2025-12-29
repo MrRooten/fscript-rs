@@ -15,7 +15,7 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
+                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator, FSRSType,
             },
             jit::jit_wrapper::{
                 binary_dot_getter, c_println, clear_exp, get_current_fn_id, get_obj_method, load_list, save_to_exp
@@ -24,7 +24,7 @@ use crate::{
         types::base::{FSRObject, ObjId},
         vm::thread::FSRThreadRuntime,
     },
-    frontend::ast::token::{call, constant::FSROrinStr2, expr::SingleOp},
+    frontend::ast::token::{call, constant::FSROrinStr2, expr::SingleOp, variable},
 };
 
 use super::jit_wrapper::{
@@ -52,6 +52,7 @@ struct JitBuilder<'a> {
     constans: HashMap<u64, Variable>,
     defined_variables: HashMap<String, Variable>,
     module: &'a mut JITModule,
+    var_index: usize
 }
 
 struct OperatorContext {
@@ -1705,6 +1706,24 @@ impl JitBuilder<'_> {
         self.builder.def_var(*var, malloc_ret);
     }
 
+    fn get_var_type(&self, s_type: &FSRSType) -> Option<types::Type> {
+        match s_type {
+            FSRSType::UInt8 => Some(types::I8),
+            FSRSType::UInt16 => Some(types::I16),
+            FSRSType::UInt32 => Some(types::I32),
+            FSRSType::UInt64 => Some(types::I64),
+            FSRSType::IInt8 => todo!(),
+            FSRSType::IInt16 => todo!(),
+            FSRSType::IInt32 => todo!(),
+            FSRSType::IInt64 => todo!(),
+            FSRSType::Float32 => todo!(),
+            FSRSType::Float64 => todo!(),
+            FSRSType::String => todo!(),
+            FSRSType::Array => todo!(),
+            FSRSType::Other => None,
+        }
+    }
+
     fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext) {
         if expr.last().is_none() {
             return;
@@ -1795,6 +1814,14 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::Assign => {
                     if let ArgType::Local(v) = arg.get_arg() {
+                        if let Some(var_type) = &v.var_type {
+                            let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
+                            let var_type = new_type.unwrap();
+                            let mut var_id = self.var_index;
+                            let new_var = declare_variable(var_type, &mut self.builder, &mut self.variables, &mut var_id, &v.name);
+                            self.var_index = var_id;
+                        } 
+                        
                         let variable = self.variables.get(v.name.as_str()).unwrap();
                         let var = context.exp.pop().unwrap();
                         context.middle_value.push(var);
@@ -1945,7 +1972,7 @@ impl JitBuilder<'_> {
 }
 
 fn declare_variable(
-    int: types::Type,
+    var_type: types::Type,
     builder: &mut FunctionBuilder,
     variables: &mut HashMap<String, Variable>,
     index: &mut usize,
@@ -1954,7 +1981,7 @@ fn declare_variable(
     let var = Variable::new(*index);
     if !variables.contains_key(name) {
         variables.insert(name.into(), var);
-        builder.declare_var(var, int);
+        builder.declare_var(var, var_type);
         *index += 1;
     }
     var
@@ -1962,13 +1989,13 @@ fn declare_variable(
 
 fn declare_variables(
     module: &JITModule,
-    int: types::Type,
+    var_type: types::Type,
     builder: &mut FunctionBuilder,
     params: &[String],
     //the_return: &str,
     //stmts: &[Expr],
     entry_block: Block,
-) -> HashMap<String, Variable> {
+) -> (HashMap<String, Variable>, usize) {
     let mut variables = HashMap::new();
     let mut index = 0;
 
@@ -1979,11 +2006,11 @@ fn declare_variables(
         let val = builder
             .ins()
             .iconst(module.target_config().pointer_type(), 0);
-        let var = declare_variable(int, builder, &mut variables, &mut index, name);
+        let var = declare_variable(var_type, builder, &mut variables, &mut index, name);
         builder.def_var(var, val);
     }
 
-    let zero = builder.ins().iconst(int, 0);
+    let zero = builder.ins().iconst(var_type, 0);
     // let return_variable = declare_variable(
     //     int,
     //     builder,
@@ -1996,7 +2023,7 @@ fn declare_variables(
     //     declare_variables_in_stmt(int, builder, &mut variables, &mut index, expr);
     // }
 
-    variables
+    (variables, index)
 }
 
 fn declare_constants(
@@ -2079,7 +2106,8 @@ impl CraneLiftJitBackend {
         self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
 
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
-        let mut variables = code.var_map.var_map.keys().cloned().collect::<Vec<_>>();
+        //let mut variables = code.var_map.var_map.keys().cloned().collect::<Vec<_>>();
+        let mut variables = vec![];
 
         let constans = code
             .var_map
@@ -2133,10 +2161,11 @@ impl CraneLiftJitBackend {
         let mut trans = JitBuilder {
             int: ptr,
             builder,
-            variables,
+            variables: variables.0,
             module: &mut self.module,
             defined_variables: HashMap::new(),
             constans: HashMap::new(),
+            var_index: variables.1
         };
 
         trans.malloc_args(&mut context);
