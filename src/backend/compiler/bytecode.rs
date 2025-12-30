@@ -256,12 +256,7 @@ pub enum BytecodeOperator {
     Delegate = 55,
     LoadYield = 56,
     OpAssign = 57,
-    CLoadIntU8 = 58, // Only use for jit
-    SLoadStr = 59,   // Only use for jit
-    SLoadIntU16 = 60,
-    SLoadIntU32 = 61,
-    SLoadIntU64 = 62,
-    SLoadArray = 63,
+    SLoadRef = 58, //jit used only
     Load = 254,
 }
 
@@ -718,6 +713,7 @@ pub struct FnDef {
 
 #[derive(Debug, Clone)]
 pub enum FSRSType {
+    Bool,
     UInt8,
     UInt16,
     UInt32,
@@ -1389,6 +1385,12 @@ impl<'a> Bytecode {
         } else if var.get_name().eq("delegate") {
             return Some(vec![BytecodeArg {
                 operator: BytecodeOperator::Delegate,
+                arg: Box::new(ArgType::None),
+                info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+            }]);
+        } else if var.get_name().eq("ref") {
+            return Some(vec![BytecodeArg {
+                operator: BytecodeOperator::SLoadRef,
                 arg: Box::new(ArgType::None),
                 info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
             }]);

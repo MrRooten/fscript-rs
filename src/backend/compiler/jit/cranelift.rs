@@ -1712,15 +1712,16 @@ impl JitBuilder<'_> {
             FSRSType::UInt16 => Some(types::I16),
             FSRSType::UInt32 => Some(types::I32),
             FSRSType::UInt64 => Some(types::I64),
-            FSRSType::IInt8 => todo!(),
-            FSRSType::IInt16 => todo!(),
-            FSRSType::IInt32 => todo!(),
-            FSRSType::IInt64 => todo!(),
-            FSRSType::Float32 => todo!(),
-            FSRSType::Float64 => todo!(),
-            FSRSType::String => todo!(),
-            FSRSType::Array => todo!(),
+            FSRSType::IInt8 => Some(types::I8),
+            FSRSType::IInt16 => Some(types::I16),
+            FSRSType::IInt32 => Some(types::I32),
+            FSRSType::IInt64 => Some(types::I64),
+            FSRSType::Float32 => Some(types::F32),
+            FSRSType::Float64 => Some(types::F64),
+            FSRSType::String => Some(self.module.target_config().pointer_type()),
+            FSRSType::Array => Some(self.module.target_config().pointer_type()),
             FSRSType::Other => None,
+            FSRSType::Bool => Some(types::I8),
         }
     }
 
@@ -1822,6 +1823,7 @@ impl JitBuilder<'_> {
                             self.var_index = var_id;
                         } 
                         
+
                         let variable = self.variables.get(v.name.as_str()).unwrap();
                         let var = context.exp.pop().unwrap();
                         context.middle_value.push(var);
