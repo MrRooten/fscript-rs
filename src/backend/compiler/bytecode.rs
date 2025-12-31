@@ -711,7 +711,13 @@ pub struct FnDef {
     is_static: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FSRSStruct {
+    orders: Vec<String>,
+    fields: HashMap<String, Box<FSRSType>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FSRSType {
     Bool,
     UInt8,
@@ -726,7 +732,7 @@ pub enum FSRSType {
     Float64,
     String,
     Array,
-    Other,
+    Struct(FSRSStruct),
 }
 
 #[derive(Debug)]
@@ -1356,45 +1362,83 @@ impl<'a> Bytecode {
     fn special_variable_trigger(
         var: &FSRVariable,
         context: &mut BytecodeContext,
-    ) -> Option<Vec<BytecodeArg>> {
+    ) -> (Option<Vec<BytecodeArg>>, Option<FSRSType>) {
         if var.get_name().eq("try") {
-            return Some(vec![BytecodeArg {
-                operator: BytecodeOperator::TryException,
-                arg: Box::new(ArgType::None),
-                info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-            }]);
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::TryException,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                }]),
+                None,
+            );
         } else if var.get_name().eq("await") {
-            return Some(vec![BytecodeArg {
-                operator: BytecodeOperator::Await,
-                arg: Box::new(ArgType::None),
-                info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-            }]);
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::Await,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                }]),
+                None,
+            );
         } else if var.get_name().eq("yield") {
-            return Some(vec![
-                BytecodeArg {
-                    operator: BytecodeOperator::Yield,
-                    arg: Box::new(ArgType::None),
-                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-                },
-                BytecodeArg {
-                    operator: BytecodeOperator::LoadYield,
-                    arg: Box::new(ArgType::None),
-                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-                },
-            ]);
+            return (
+                Some(vec![
+                    BytecodeArg {
+                        operator: BytecodeOperator::Yield,
+                        arg: Box::new(ArgType::None),
+                        info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                    },
+                    BytecodeArg {
+                        operator: BytecodeOperator::LoadYield,
+                        arg: Box::new(ArgType::None),
+                        info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                    },
+                ]),
+                None,
+            );
         } else if var.get_name().eq("delegate") {
-            return Some(vec![BytecodeArg {
-                operator: BytecodeOperator::Delegate,
-                arg: Box::new(ArgType::None),
-                info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-            }]);
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::Delegate,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                }]),
+                None,
+            );
         } else if var.get_name().eq("ref") {
-            return Some(vec![BytecodeArg {
-                operator: BytecodeOperator::SLoadRef,
-                arg: Box::new(ArgType::None),
-                info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-            }]);
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::SLoadRef,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                }]),
+                None,
+            );
         }
+        (None, None)
+    }
+
+    fn deduction_two_type(
+        left: &Option<FSRSType>,
+        right: &Option<FSRSType>,
+        op: &str,
+    ) -> Option<FSRSType> {
+        if left.is_none() || right.is_none() {
+            return None;
+        }
+
+        let l = left.as_ref().unwrap();
+        let r = right.as_ref().unwrap();
+
+        if op.eq("&&") || op.eq("and") || op.eq("||") || op.eq("or") {
+            return Some(FSRSType::Bool);
+        }
+
+        if l.eq(r) {
+            return Some(l.clone());
+        }
+
         None
     }
 
@@ -1402,19 +1446,27 @@ impl<'a> Bytecode {
         expr: &FSRExpr,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
-    ) -> (Vec<BytecodeArg>) {
+    ) -> (Vec<BytecodeArg>, Option<FSRSType>) {
         let mut op_code = Vec::new();
+        let mut return_type = None;
         if let FSRToken::Expr(sub_expr) = expr.get_left() {
             let mut v = Self::load_expr(sub_expr, var_map, const_map);
-            op_code.append(&mut v);
+            return_type = v.1;
+            op_code.append(&mut v.0);
         } else if let FSRToken::Variable(v) = expr.get_left() {
-            let mut v = Self::load_variable(v, var_map, false, const_map);
-            match v {
+            let mut attr_id_or_code = Self::load_variable(v, var_map, false, const_map);
+            match attr_id_or_code {
                 AttrIdOrCode::Bytecode(mut bytecode_args) => {
                     op_code.append(&mut bytecode_args);
                 }
                 AttrIdOrCode::AttrId(arg_type) => todo!(),
             }
+
+            if let Some(var_type) = &v.var_type {
+                let tmp = const_map.type_info.get_type(&var_type.name);
+                return_type = tmp;
+            }
+
         } else if let FSRToken::Call(c) = expr.get_left() {
             let mut v = Self::load_call(c, var_map, false, false, const_map);
             op_code.append(&mut v);
@@ -1439,17 +1491,18 @@ impl<'a> Bytecode {
         let mut attr_id = None;
         if let FSRToken::Expr(sub_expr) = expr.get_right() {
             let mut v = Self::load_expr(sub_expr, var_map, const_map);
-            second.append(&mut v);
+            return_type = Self::deduction_two_type(&v.1, &return_type, expr.get_op());
+            second.append(&mut v.0);
             //
         } else if let FSRToken::Variable(v) = expr.get_right() {
             let mut is_attr = false;
 
             if expr.get_op().eq(".") {
                 let v = Self::special_variable_trigger(v, const_map);
-                if let Some(op_arg) = v {
+                if let Some(op_arg) = v.0 {
                     second.extend(op_arg);
                     op_code.append(&mut second);
-                    return (op_code);
+                    return (op_code, v.1);
                 }
             }
 
@@ -1457,12 +1510,18 @@ impl<'a> Bytecode {
                 is_attr = true;
             }
 
-            let v = Self::load_variable(v, var_map, is_attr, const_map);
-            match v {
+            let attr_id_r = Self::load_variable(v, var_map, is_attr, const_map);
+            match attr_id_r {
                 AttrIdOrCode::Bytecode(mut bytecode_args) => {
                     second.append(&mut bytecode_args);
                 }
                 AttrIdOrCode::AttrId(arg_type) => attr_id = Some(arg_type),
+            }
+
+            if let Some(var_type) = &v.var_type {
+                let tmp = const_map.type_info.get_type(&var_type.name);
+
+                return_type = Self::deduction_two_type(&tmp, &return_type, expr.get_op());
             }
 
             //
@@ -1499,7 +1558,7 @@ impl<'a> Bytecode {
                         panic!("not support this single op: {:?}", single_op);
                     }
                 }
-                return (op_code);
+                return (op_code, return_type);
             }
         } else if let FSRToken::Getter(s) = expr.get_right() {
             let mut is_attr = false;
@@ -1532,7 +1591,7 @@ impl<'a> Bytecode {
                         panic!("not support this single op: {:?}", single_op);
                     }
                 }
-                return (op_code);
+                return (op_code, return_type);
             }
         } else if let FSRToken::Constant(c) = expr.get_right() {
             let mut v = Self::load_constant(c, var_map, const_map);
@@ -1566,7 +1625,7 @@ impl<'a> Bytecode {
                         panic!("not support this single op: {:?}", single_op);
                     }
                 }
-                return (op_code);
+                return (op_code, return_type);
             }
 
             second.append(&mut v);
@@ -1597,7 +1656,7 @@ impl<'a> Bytecode {
                     panic!("not support this single op: {:?}", single_op);
                 }
             }
-            return (op_code);
+            return (op_code, Some(FSRSType::Bool));
         } else if expr.get_op().eq("||") || expr.get_op().eq("or") {
             op_code.push(BytecodeArg {
                 operator: BytecodeOperator::OrJump,
@@ -1616,7 +1675,9 @@ impl<'a> Bytecode {
                     panic!("not support this single op: {:?}", single_op);
                 }
             }
-            return (op_code);
+
+            return_type = Some(FSRSType::Bool);
+            return (op_code, return_type);
         }
 
         op_code.append(&mut second);
@@ -1639,7 +1700,7 @@ impl<'a> Bytecode {
                 });
             }
         }
-        (op_code)
+        (op_code, return_type)
     }
 
     fn load_block(
@@ -1995,7 +2056,7 @@ impl<'a> Bytecode {
     ) -> (Vec<Vec<BytecodeArg>>) {
         if let FSRToken::Expr(expr) = token {
             let v = Self::load_expr(expr, var_map, byte_context);
-            return (vec![v]);
+            return (vec![v.0]);
         } else if let FSRToken::Variable(v) = token {
             let v = Self::load_variable(v, var_map, false, byte_context);
             match v {
