@@ -1,7 +1,10 @@
 use std::{
     cell::Cell,
     collections::HashMap,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
 
 use crate::{
@@ -388,7 +391,7 @@ pub struct LocalVar {
     pub(crate) name: String,
     pub(crate) store_to_cell: bool,
     pub(crate) op_assign: Option<OpAssign>,
-    pub(crate) var_type: Option<FSRSType>,
+    pub(crate) var_type: Option<Arc<FSRSType>>,
 }
 
 impl LocalVar {
@@ -712,9 +715,9 @@ pub struct FnDef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FSRSStruct {
-    orders: Vec<String>,
-    fields: HashMap<String, Box<FSRSType>>,
+pub struct FSRStruct {
+    pub name: String,
+    pub fields: HashMap<String, (usize, Arc<FSRSType>)>, // field name to index
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -732,29 +735,45 @@ pub enum FSRSType {
     Float64,
     String,
     Array,
-    Struct(FSRSStruct),
+    Struct(Arc<FSRStruct>),
 }
 
 #[derive(Debug)]
-pub struct FSRSTypeInfo {}
+pub struct FSRSTypeInfo {
+    types: HashMap<String, Arc<FSRSType>>,
+}
 
 impl FSRSTypeInfo {
-    pub fn get_type(&self, name: &str) -> Option<FSRSType> {
-        match name {
-            "u8" => Some(FSRSType::UInt8),
-            "u16" => Some(FSRSType::UInt16),
-            "u32" => Some(FSRSType::UInt32),
-            "u64" => Some(FSRSType::UInt64),
-            "i8" => Some(FSRSType::IInt8),
-            "i16" => Some(FSRSType::IInt16),
-            "i32" => Some(FSRSType::IInt32),
-            "i64" => Some(FSRSType::IInt64),
-            "f32" => Some(FSRSType::Float32),
-            "f64" => Some(FSRSType::Float64),
-            "string" => Some(FSRSType::String),
-            "array" => Some(FSRSType::Array),
-            _ => None,
+    pub fn get_type(&self, name: &str) -> Option<Arc<FSRSType>> {
+        self.types.get(name).cloned()
+    }
+
+    pub fn new() -> Self {
+        let mut types = HashMap::new();
+        for name in [
+            "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "string", "array",
+        ] {
+            let v = match name {
+                "u8" => Some(FSRSType::UInt8),
+                "u16" => Some(FSRSType::UInt16),
+                "u32" => Some(FSRSType::UInt32),
+                "u64" => Some(FSRSType::UInt64),
+                "i8" => Some(FSRSType::IInt8),
+                "i16" => Some(FSRSType::IInt16),
+                "i32" => Some(FSRSType::IInt32),
+                "i64" => Some(FSRSType::IInt64),
+                "f32" => Some(FSRSType::Float32),
+                "f64" => Some(FSRSType::Float64),
+                "string" => Some(FSRSType::String),
+                "array" => Some(FSRSType::Array),
+                _ => None,
+            };
+
+            if let Some(v) = v {
+                types.insert(name.to_string(), Arc::new(v));
+            }
         }
+        Self { types }
     }
 }
 
@@ -787,7 +806,7 @@ impl BytecodeContext {
             key_map: v,
             lines,
             is_static: false,
-            type_info: FSRSTypeInfo {},
+            type_info: FSRSTypeInfo::new(),
         }
     }
 
@@ -1362,7 +1381,7 @@ impl<'a> Bytecode {
     fn special_variable_trigger(
         var: &FSRVariable,
         context: &mut BytecodeContext,
-    ) -> (Option<Vec<BytecodeArg>>, Option<FSRSType>) {
+    ) -> (Option<Vec<BytecodeArg>>, Option<Arc<FSRSType>>) {
         if var.get_name().eq("try") {
             return (
                 Some(vec![BytecodeArg {
@@ -1420,10 +1439,11 @@ impl<'a> Bytecode {
     }
 
     fn deduction_two_type(
-        left: &Option<FSRSType>,
-        right: &Option<FSRSType>,
+        type_info: &FSRSTypeInfo,
+        left: &Option<Arc<FSRSType>>,
+        right: &Option<Arc<FSRSType>>,
         op: &str,
-    ) -> Option<FSRSType> {
+    ) -> Option<Arc<FSRSType>> {
         if left.is_none() || right.is_none() {
             return None;
         }
@@ -1432,7 +1452,7 @@ impl<'a> Bytecode {
         let r = right.as_ref().unwrap();
 
         if op.eq("&&") || op.eq("and") || op.eq("||") || op.eq("or") {
-            return Some(FSRSType::Bool);
+            return Some(type_info.get_type("bool").unwrap());
         }
 
         if l.eq(r) {
@@ -1446,7 +1466,7 @@ impl<'a> Bytecode {
         expr: &FSRExpr,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
-    ) -> (Vec<BytecodeArg>, Option<FSRSType>) {
+    ) -> (Vec<BytecodeArg>, Option<Arc<FSRSType>>) {
         let mut op_code = Vec::new();
         let mut return_type = None;
         if let FSRToken::Expr(sub_expr) = expr.get_left() {
@@ -1466,7 +1486,6 @@ impl<'a> Bytecode {
                 let tmp = const_map.type_info.get_type(&var_type.name);
                 return_type = tmp;
             }
-
         } else if let FSRToken::Call(c) = expr.get_left() {
             let mut v = Self::load_call(c, var_map, false, false, const_map);
             op_code.append(&mut v);
@@ -1491,7 +1510,8 @@ impl<'a> Bytecode {
         let mut attr_id = None;
         if let FSRToken::Expr(sub_expr) = expr.get_right() {
             let mut v = Self::load_expr(sub_expr, var_map, const_map);
-            return_type = Self::deduction_two_type(&v.1, &return_type, expr.get_op());
+            return_type =
+                Self::deduction_two_type(&const_map.type_info, &v.1, &return_type, expr.get_op());
             second.append(&mut v.0);
             //
         } else if let FSRToken::Variable(v) = expr.get_right() {
@@ -1502,7 +1522,7 @@ impl<'a> Bytecode {
                 if let Some(op_arg) = v.0 {
                     second.extend(op_arg);
                     op_code.append(&mut second);
-                    return (op_code, v.1);
+                    return (op_code, v.1.clone());
                 }
             }
 
@@ -1521,7 +1541,12 @@ impl<'a> Bytecode {
             if let Some(var_type) = &v.var_type {
                 let tmp = const_map.type_info.get_type(&var_type.name);
 
-                return_type = Self::deduction_two_type(&tmp, &return_type, expr.get_op());
+                return_type = Self::deduction_two_type(
+                    &const_map.type_info,
+                    &tmp,
+                    &return_type,
+                    expr.get_op(),
+                );
             }
 
             //
@@ -1656,7 +1681,7 @@ impl<'a> Bytecode {
                     panic!("not support this single op: {:?}", single_op);
                 }
             }
-            return (op_code, Some(FSRSType::Bool));
+            return (op_code, Some(const_map.type_info.get_type("bool").unwrap()));
         } else if expr.get_op().eq("||") || expr.get_op().eq("or") {
             op_code.push(BytecodeArg {
                 operator: BytecodeOperator::OrJump,
@@ -1676,7 +1701,7 @@ impl<'a> Bytecode {
                 }
             }
 
-            return_type = Some(FSRSType::Bool);
+            return_type = Some(const_map.type_info.get_type("bool").unwrap());
             return (op_code, return_type);
         }
 
@@ -2265,7 +2290,7 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         bc_map: &mut BytecodeContext,
         result_list: &mut Vec<BytecodeArg>,
-        type_id: Option<FSRSType>,
+        type_id: Option<Arc<FSRSType>>,
     ) {
         let mut right =
             Self::load_token_with_map(token.get_assign_expr(), var_map, bc_map, false, false);

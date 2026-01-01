@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::frontend::ast::token::module::FSRModuleFrontEnd;
+use crate::frontend::ast::token::xtruct::FSRStructFrontEnd;
 use crate::{frontend::ast::token::block::FSRBlock, utils::error::SyntaxError};
 
 use super::expr::SingleOp;
@@ -38,6 +39,7 @@ pub enum FSRToken {
     Getter(FSRGetter),
     TryBlock(FSRTryBlock),
     EmptyExpr(FSRPosition),
+    Struct(FSRStructFrontEnd),
     None,
 }
 
@@ -52,7 +54,6 @@ impl FSRToken {
             FSRToken::Constant(e) => e.single_op = Some(op),
             _ => panic!("Not an expression"),
         }
-
     }
 
     pub fn as_variable(&self) -> &FSRVariable {
@@ -74,22 +75,20 @@ impl FSRToken {
             FSRToken::Variable(e) => {
                 let name = e.get_name();
                 if let FSRToken::Variable(v) = context.get_token(name)? {
-                    return v.var_type.clone()
+                    return v.var_type.clone();
                 }
 
                 None
-            },
+            }
             FSRToken::Call(c) => {
                 let state = context.get_token(c.get_name())?;
                 if let FSRToken::FunctionDef(c) = &state {
-                    return c.ret_type.clone()
+                    return c.ret_type.clone();
                 }
 
                 None
             }
-            FSRToken::Constant(c) => {
-                Some(c.deduction())
-            }
+            FSRToken::Constant(c) => Some(c.deduction()),
             _ => None,
         }
     }
@@ -118,6 +117,7 @@ impl FSRToken {
             FSRToken::Getter(fsrgetter) => fsrgetter.get_meta(),
             FSRToken::StackExpr(fsrexprs) => fsrexprs.1.first().unwrap().get_meta(),
             FSRToken::TryBlock(fsrtry_block) => fsrtry_block.get_meta(),
+            FSRToken::Struct(fsrstruct_front_end) => fsrstruct_front_end.get_meta(),
         }
     }
 
@@ -152,7 +152,6 @@ impl FSRToken {
         Err(SyntaxError::new(value.get_meta(), "Empty stack expression"))
     }
 
-    
     #[allow(clippy::single_match)]
     pub fn flatten_comma(&self) -> Vec<FSRToken> {
         let mut v = vec![];
@@ -167,9 +166,7 @@ impl FSRToken {
                     return v;
                 }
             }
-            _ => {
-                
-            },
+            _ => {}
         }
 
         v.push(self.clone());
@@ -222,7 +219,6 @@ impl Display for FSRPosition {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct FSRType {
     pub(crate) name: String,
@@ -231,6 +227,9 @@ pub struct FSRType {
 
 impl FSRType {
     pub fn new(name: &str) -> Self {
-        Self { name: name.to_string(), subtype: None }
+        Self {
+            name: name.to_string(),
+            subtype: None,
+        }
     }
 }
