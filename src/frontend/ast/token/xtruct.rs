@@ -69,6 +69,12 @@ impl FSRStructFrontEnd {
         let len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let sub_meta = meta.new_offset(start);
         let block = FSRBlock::parse(&source[start..start + len], sub_meta, context)?;
+        for stmt in block.get_tokens() {
+            if !stmt.is_variable() {
+                let offset = stmt.get_meta();
+                return Err(SyntaxError::new(&offset, "only variable definitions are allowed in struct block"));
+            }
+        }
         context.add_variable(name, None);
         Ok((Self { name: name.to_string(), block, meta }, start + len))
     }

@@ -93,6 +93,16 @@ impl FSRToken {
         }
     }
 
+    pub fn is_expr(&self) -> bool {
+        matches!(self, FSRToken::Expr(_))
+    }
+
+    pub fn is_variable(&self) -> bool {
+        matches!(self, FSRToken::Variable(_))
+    }
+
+    
+
     pub fn get_meta(&self) -> &FSRPosition {
         match self {
             FSRToken::FunctionDef(e) => e.get_meta(),

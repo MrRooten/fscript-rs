@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     frontend::ast::{
-        parse::ASTParser, token::ASTVariableState, utils::automaton::{FSTrie, NodeType}
+        parse::ASTParser, token::{ASTVariableState, xtruct::FSRStructFrontEnd}, utils::automaton::{FSTrie, NodeType}
     },
     utils::error::SyntaxError,
 };
@@ -228,6 +228,13 @@ impl FSRModuleFrontEnd {
                 let try_def = FSRTryBlock::parse(&source[start..], sub_meta, &mut context)?;
                 length += try_def.get_len();
                 module.tokens.push(FSRToken::TryBlock(try_def));
+                start += length;
+                length = 0;
+            } else if t == &NodeType::Struct {
+                let mut sub_meta = meta.new_offset(start);
+                let struct_def = FSRStructFrontEnd::parse(&source[start..], sub_meta, &mut context)?;
+                length += struct_def.1;
+                module.tokens.push(FSRToken::Struct(struct_def.0));
                 start += length;
                 length = 0;
             } else {

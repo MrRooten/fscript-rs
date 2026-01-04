@@ -12,6 +12,7 @@ use super::while_statement::FSRWhile;
 use super::ASTContext;
 use crate::frontend::ast::token::assign;
 use crate::frontend::ast::token::assign::FSRAssign;
+use crate::frontend::ast::token::xtruct::FSRStructFrontEnd;
 use crate::frontend::ast::utils::automaton::{FSTrie, NodeType};
 use crate::frontend::ast::{parse::ASTParser, token::expr::FSRExpr};
 use crate::utils::error::SyntaxError;
@@ -257,6 +258,13 @@ impl FSRBlock {
                     let expr = FSRExpr::parse(&source[start..], false, sub_meta, context)?;
                     length += expr.1;
                     block.tokens.push(expr.0);
+                    start += length;
+                    length = 0;
+                } else if t == &NodeType::Struct {
+                    let mut sub_meta = meta.new_offset(start);
+                    let struct_def = FSRStructFrontEnd::parse(&source[start..], sub_meta, context)?;
+                    length += struct_def.1;
+                    block.tokens.push(FSRToken::Struct(struct_def.0));
                     start += length;
                     length = 0;
                 } else {

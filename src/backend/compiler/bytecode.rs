@@ -27,7 +27,7 @@ use crate::{
         slice::FSRGetter,
         try_expr::FSRTryBlock,
         variable::FSRVariable,
-        while_statement::FSRWhile,
+        while_statement::FSRWhile, xtruct::FSRStructFrontEnd,
     },
 };
 
@@ -260,6 +260,7 @@ pub enum BytecodeOperator {
     LoadYield = 56,
     OpAssign = 57,
     SLoadRef = 58, //jit used only
+    SDefAttr = 59,
     Load = 254,
 }
 
@@ -1460,6 +1461,16 @@ impl<'a> Bytecode {
         }
 
         None
+    }
+
+    fn load_struct(
+        struct_stmt: &FSRStructFrontEnd,
+        var_map: &mut Vec<VarMap>,
+        const_map: &mut BytecodeContext,
+    ) -> (Vec<BytecodeArg>) {
+        //let mut result = Vec::new();
+
+        unimplemented!()
     }
 
     fn load_expr(
