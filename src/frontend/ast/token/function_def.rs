@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRPosition, FSRToken, FSRType},
+    base::{FSRPosition, FSRToken, FSRTypeName},
     tell::FSRTell,
     ASTContext, ASTVariableState,
 };
@@ -25,7 +25,7 @@ pub struct FSRFnDef {
     body: Rc<FSRBlock>,
     len: usize,
     meta: FSRPosition,
-    pub(crate) ret_type: Option<FSRType>,
+    pub(crate) ret_type: Option<FSRTypeName>,
     pub(crate) ref_map: Rc<RefCell<HashMap<String, ASTVariableState>>>,
 }
 
@@ -163,7 +163,7 @@ impl FSRFnDef {
                 let mut variable = FSRVariable::parse(
                     arg,
                     meta.new_offset(1 + pos_arg.0),
-                    Some(FSRType::new("Function")),
+                    Some(FSRTypeName::new("Function")),
                 )?;
                 variable.is_defined = true;
                 arg_collect.push(FSRToken::Variable(variable));
@@ -217,7 +217,7 @@ impl FSRFnDef {
         source: &[u8],
         meta: FSRPosition,
         context: &mut ASTContext,
-    ) -> Result<Option<FSRType>, SyntaxError> {
+    ) -> Result<Option<FSRTypeName>, SyntaxError> {
         let process_str = std::str::from_utf8(source).unwrap();
         let process_str = process_str.trim();
 
@@ -239,7 +239,7 @@ impl FSRFnDef {
             if type_name.is_empty() {
                 return Ok(None);
             }
-            let type_name = FSRType::new(type_name);
+            let type_name = FSRTypeName::new(type_name);
             return Ok(Some(type_name));
         }
 

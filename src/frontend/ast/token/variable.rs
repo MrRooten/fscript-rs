@@ -1,6 +1,6 @@
 use crate::utils::error::SyntaxError;
 
-use super::{base::{FSRPosition, FSRType}, expr::SingleOp};
+use super::{base::{FSRPosition, FSRTypeName}, expr::SingleOp};
 
 #[derive(Debug, Clone)]
 pub struct FSRVariable {
@@ -9,7 +9,7 @@ pub struct FSRVariable {
     pub(crate) len: usize,
     pub(crate) meta: FSRPosition,
     pub(crate) is_defined: bool,
-    pub(crate) var_type: Option<FSRType>,
+    pub(crate) var_type: Option<FSRTypeName>,
     pub(crate) force_type: bool
 }
 
@@ -17,7 +17,7 @@ impl FSRVariable {
     pub fn get_meta(&self) -> &FSRPosition {
         &self.meta
     }
-    pub fn parse(name: &str, meta: FSRPosition, var_type: Option<FSRType>) -> Result<FSRVariable, SyntaxError> {
+    pub fn parse(name: &str, meta: FSRPosition, var_type: Option<FSRTypeName>) -> Result<FSRVariable, SyntaxError> {
         
         Ok(Self {
             name: name.to_string(),
@@ -44,14 +44,14 @@ impl FSRVariable {
 
     /// Set the variable type
     /// If force_type is true, the type will not be set even if it is already set
-    pub fn set_type_hint(&mut self, var_type: Option<FSRType>) {
+    pub fn set_type_hint(&mut self, var_type: Option<FSRTypeName>) {
         if self.force_type{
             return;
         }
         self.var_type = var_type;
     }
 
-    pub fn get_type_hint(&self) -> Option<&FSRType> {
+    pub fn get_type_hint(&self) -> Option<&FSRTypeName> {
         self.var_type.as_ref()
     }
 }

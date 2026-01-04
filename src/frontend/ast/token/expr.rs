@@ -12,7 +12,7 @@ use crate::frontend::ast::{parse::ASTParser, token::constant::FSRConstant};
 use crate::utils::error::{SyntaxErrType, SyntaxError};
 use std::str;
 
-use super::base::{FSRPosition, FSRType};
+use super::base::{FSRPosition, FSRTypeName};
 use super::ASTContext;
 use super::{base::FSRToken, call::FSRCall, variable::FSRVariable};
 
@@ -1500,7 +1500,7 @@ impl FSRExpr {
                         let mut var = FSRVariable::parse(
                             name,
                             left.get_meta().clone(),
-                            Some(FSRType::new(type_name.get_name())),
+                            Some(FSRTypeName::new(type_name.get_name())),
                         )
                         .unwrap();
                         var.force_type = true;
@@ -1615,7 +1615,7 @@ impl FSRExpr {
                     let mut var = FSRVariable::parse(
                         name,
                         left.get_meta().clone(),
-                        Some(FSRType::new(type_name.get_name())),
+                        Some(FSRTypeName::new(type_name.get_name())),
                     )
                     .unwrap();
                     var.force_type = true;

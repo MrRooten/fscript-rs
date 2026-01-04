@@ -70,7 +70,7 @@ impl FSRToken {
         }
     }
 
-    pub fn deduction_type(&self, context: &ASTContext) -> Option<FSRType> {
+    pub fn deduction_type(&self, context: &ASTContext) -> Option<FSRTypeName> {
         match self {
             FSRToken::Variable(e) => {
                 let name = e.get_name();
@@ -101,7 +101,7 @@ impl FSRToken {
         matches!(self, FSRToken::Variable(_))
     }
 
-    
+
 
     pub fn get_meta(&self) -> &FSRPosition {
         match self {
@@ -230,12 +230,12 @@ impl Display for FSRPosition {
 }
 
 #[derive(Debug, Clone)]
-pub struct FSRType {
+pub struct FSRTypeName {
     pub(crate) name: String,
-    pub(crate) subtype: Option<Vec<Box<FSRType>>>,
+    pub(crate) subtype: Option<Vec<Box<FSRTypeName>>>,
 }
 
-impl FSRType {
+impl FSRTypeName {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),

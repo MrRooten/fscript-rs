@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{
-    base::{FSRPosition, FSRType},
+    base::{FSRPosition, FSRTypeName},
     expr::SingleOp,
 };
 
@@ -137,11 +137,11 @@ impl FSRConstant {
         self.len
     }
 
-    pub fn deduction(&self) -> FSRType {
+    pub fn deduction(&self) -> FSRTypeName {
         match &self.constant {
-            FSRConstantType::String(_) => FSRType::new("String"),
-            FSRConstantType::Integer(_) => FSRType::new("Integer"),
-            FSRConstantType::Float(_) => FSRType::new("Float"),
+            FSRConstantType::String(_) => FSRTypeName::new("String"),
+            FSRConstantType::Integer(_) => FSRTypeName::new("Integer"),
+            FSRConstantType::Float(_) => FSRTypeName::new("Float"),
         }
     }
 }

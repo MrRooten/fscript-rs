@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use base::{FSRToken, FSRType};
+use base::{FSRToken, FSRTypeName};
 
 use crate::frontend::ast::token::base::FSRPosition;
 
@@ -95,7 +95,7 @@ impl ASTContext {
         None
     }
 
-    pub fn get_token_var_type(&self, name: &str, context: &ASTContext) -> Option<FSRType> {
+    pub fn get_token_var_type(&self, name: &str, context: &ASTContext) -> Option<FSRTypeName> {
         for scope in self.variable_define.iter().rev() {
             if scope.borrow().contains_key(name) {
                 return scope

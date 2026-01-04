@@ -11,7 +11,7 @@ use crate::{
     backend::types::base::ObjId,
     frontend::ast::token::{
         assign::FSRAssign,
-        base::{FSRPosition, FSRToken, FSRType},
+        base::{FSRPosition, FSRToken, FSRTypeName},
         block::FSRBlock,
         call::FSRCall,
         class::FSRClassFrontEnd,
@@ -27,7 +27,8 @@ use crate::{
         slice::FSRGetter,
         try_expr::FSRTryBlock,
         variable::FSRVariable,
-        while_statement::FSRWhile, xtruct::FSRStructFrontEnd,
+        while_statement::FSRWhile,
+        xtruct::FSRStructFrontEnd,
     },
 };
 
@@ -261,6 +262,8 @@ pub enum BytecodeOperator {
     OpAssign = 57,
     SLoadRef = 58, //jit used only
     SDefAttr = 59,
+    SStructDef = 60,
+    SStructEndDef = 61,
     Load = 254,
 }
 
@@ -416,6 +419,14 @@ pub struct ClosureVar {
 }
 
 #[derive(Debug, Clone)]
+pub struct StructAttr {
+    pub name: String,
+    pub attr_type: Arc<FSRSType>,
+    pub offset: usize,
+    pub size: usize,
+}
+
+#[derive(Debug, Clone)]
 pub enum ArgType {
     Local(LocalVar),
     Global(String),
@@ -455,6 +466,8 @@ pub enum ArgType {
     LoadFalse,
     LoadNone,
     FormatStringLen(u64, String), // length, format string
+    CreateStruct(u64, String),    // struct id, struct name
+    DefAttr(StructAttr),          // struct id, attr name, attr type
     None,
 }
 
@@ -735,8 +748,33 @@ pub enum FSRSType {
     Float32,
     Float64,
     String,
-    Array,
     Struct(Arc<FSRStruct>),
+}
+
+impl FSRSType {
+    pub fn size_of(&self) -> usize {
+        match self {
+            FSRSType::Bool => 1,
+            FSRSType::UInt8 => 1,
+            FSRSType::UInt16 => 2,
+            FSRSType::UInt32 => 4,
+            FSRSType::UInt64 => 8,
+            FSRSType::IInt8 => 1,
+            FSRSType::IInt16 => 2,
+            FSRSType::IInt32 => 4,
+            FSRSType::IInt64 => 8,
+            FSRSType::Float32 => 4,
+            FSRSType::Float64 => 8,
+            FSRSType::String => std::mem::size_of::<String>(),
+            FSRSType::Struct(s) => {
+                let mut size = 0;
+                for (_, (offset, t)) in &s.fields {
+                    size += t.size_of();
+                }
+                size
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -766,7 +804,6 @@ impl FSRSTypeInfo {
                 "f32" => Some(FSRSType::Float32),
                 "f64" => Some(FSRSType::Float64),
                 "string" => Some(FSRSType::String),
-                "array" => Some(FSRSType::Array),
                 _ => None,
             };
 
@@ -1468,9 +1505,55 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
-        //let mut result = Vec::new();
+        let mut result = Vec::new();
+        ensure_var_id!(var_map, struct_stmt.get_name());
+        let struct_name_id = var_map.last_mut().unwrap().get_var(struct_stmt.get_name());
+        result.push(BytecodeArg {
+            operator: BytecodeOperator::SStructDef,
+            arg: Box::new(ArgType::Local(LocalVar::new(
+                0,
+                struct_stmt.get_name().to_string(),
+                false,
+                None,
+            ))),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                struct_stmt.get_meta().clone(),
+            )),
+        });
 
-        unimplemented!()
+        let mut offset = 0;
+        for variable in struct_stmt.get_block().get_tokens() {
+            if let FSRToken::Variable(v) = variable {
+                let name = v.get_name();
+                let type_name = v.get_type_hint().unwrap();
+                let var_type = const_map.type_info.get_type(&type_name.name).unwrap();
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::SDefAttr,
+                    arg: Box::new(ArgType::DefAttr(StructAttr {
+                        name: name.to_string(),
+                        attr_type: var_type.clone(),
+                        offset: offset,
+                        size: var_type.size_of(),
+                    })),
+                    info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
+                });
+                offset += var_type.size_of();
+            } else {
+                panic!("Struct can only contain variables.");
+            }
+        }
+
+        result.push(BytecodeArg {
+            operator: BytecodeOperator::SStructEndDef,
+            arg: Box::new(ArgType::None),
+            info: Box::new(FSRByteInfo::new(
+                &const_map.lines,
+                struct_stmt.get_meta().clone(),
+            )),
+        });
+
+        result
     }
 
     fn load_expr(
@@ -2203,7 +2286,10 @@ impl<'a> Bytecode {
         } else if let FSRToken::TryBlock(try_block) = token {
             let v = Self::load_try_def(try_block, var_map, byte_context);
             return v;
-        } else if let FSRToken::EmptyExpr(_) = token {
+        } else if let FSRToken::Struct(struct_stmt) = token {
+            let v = Self::load_struct(struct_stmt, var_map, byte_context);
+            return vec![v];
+        }else if let FSRToken::EmptyExpr(_) = token {
             return vec![];
         }
 
