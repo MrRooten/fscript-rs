@@ -131,7 +131,7 @@ impl FSRModuleFrontEnd {
                 let l = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
                 length += l;
                 let mut sub_block_meta = meta.new_offset(start);
-                let sub_block = FSRBlock::parse(&source[start..start + length], sub_block_meta, &mut context)?;
+                let sub_block = FSRBlock::parse(&source[start..start + length], sub_block_meta, &mut context, None)?;
                 module.tokens.push(FSRToken::Block(sub_block));
                 start += length;
                 length = 0;
@@ -181,7 +181,7 @@ impl FSRModuleFrontEnd {
                 length = 0;
             } else if t == &NodeType::FnState {
                 let mut sub_meta = meta.new_offset(start);
-                let fn_def = FSRFnDef::parse(&source[start..], sub_meta, &mut context)?;
+                let fn_def = FSRFnDef::parse(&source[start..], sub_meta, &mut context, None)?;
                 length += fn_def.get_len();
                 module.tokens.push(FSRToken::FunctionDef(fn_def));
                 start += length;

@@ -84,6 +84,7 @@ impl FSRBlock {
         source: &[u8],
         meta: FSRPosition,
         context: &mut ASTContext,
+        struct_info: Option<String>, // for struct parsing
     ) -> Result<Self, SyntaxError> {
         let mut trie = FSTrie::new();
         let mut start = 0;
@@ -158,7 +159,7 @@ impl FSRBlock {
                 let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
                 let mut sub_block_meta = meta.new_offset(start);
                 let sub_block =
-                    Self::parse(&source[start..start + length], sub_block_meta, context)?;
+                    Self::parse(&source[start..start + length], sub_block_meta, context, None)?;
                 block.tokens.push(FSRToken::Block(sub_block));
 
                 start += length;
@@ -204,7 +205,7 @@ impl FSRBlock {
                     length = 0;
                 } else if t == &NodeType::FnState {
                     let mut sub_meta = meta.new_offset(start);
-                    let fn_def = FSRFnDef::parse(&source[start..], sub_meta, context)?;
+                    let fn_def = FSRFnDef::parse(&source[start..], sub_meta, context, struct_info.clone())?;
                     length += fn_def.get_len();
                     block.tokens.push(FSRToken::FunctionDef(fn_def));
                     start += length;
@@ -290,7 +291,7 @@ mod test {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context, None).unwrap();
         println!("{:#?}", b);
     }
 
@@ -301,7 +302,7 @@ mod test {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context, None).unwrap();
         println!("{:#?}", b);
     }
 }

@@ -101,7 +101,9 @@ impl FSRToken {
         matches!(self, FSRToken::Variable(_))
     }
 
-
+    pub fn is_function(&self) -> bool {
+        matches!(self, FSRToken::FunctionDef(_))
+    }
 
     pub fn get_meta(&self) -> &FSRPosition {
         match self {

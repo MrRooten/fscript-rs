@@ -72,7 +72,7 @@ impl FSRFnDef {
     pub fn is_jit(&self) -> bool {
         self.teller
             .as_ref()
-            .map(|x| x.value.iter().any(|x| x.eq("@jit") || x.eq("@static") ))
+            .map(|x| x.value.iter().any(|x| x.eq("@jit") || x.eq("@static")))
             .unwrap_or(false)
     }
 
@@ -198,6 +198,7 @@ impl FSRFnDef {
             &source[args_len..args_len + fn_block_len],
             sub_meta,
             context,
+            None,
         )?;
         let scope = context.pop_scope();
         Ok(Self {
@@ -256,7 +257,11 @@ impl FSRFnDef {
         }
     }
 
-    fn teller_parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Option<FSRTell>, usize), SyntaxError> {
+    fn teller_parse(
+        source: &[u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<(Option<FSRTell>, usize), SyntaxError> {
         let mut start = 0;
         let teller = if source[0] == b'@' {
             let teller = FSRTell::parse(source, meta.new_offset(0))?;
@@ -274,11 +279,7 @@ impl FSRFnDef {
         Ok((teller, start))
     }
 
-    fn get_parse_len(
-        source: &[u8],
-        meta: FSRPosition,
-        start: usize
-    ) -> Result<usize, SyntaxError> {
+    fn get_parse_len(source: &[u8], meta: FSRPosition, start: usize) -> Result<usize, SyntaxError> {
         let mut state = State::Continue;
         let mut pre_state = State::Continue;
         let mut len = 0;
@@ -334,6 +335,7 @@ impl FSRFnDef {
         source: &[u8],
         meta: FSRPosition,
         context: &mut ASTContext,
+        struct_info: Option<String>,
     ) -> Result<Rc<Self>, SyntaxError> {
         let (teller, start) = Self::teller_parse(&source, meta.clone(), context)?;
 
@@ -409,17 +411,36 @@ impl FSRFnDef {
             context,
         )?;
         let block_meta = meta.new_offset(fn_block_start);
+        let mut is_first = true;
         for arg in fn_call.get_args_mut() {
             if let FSRToken::Variable(v) = arg {
+                if is_first {
+                    if let Some(struct_name) = &struct_info {
+                        if &v.name != "self" {
+                            let mut sub_meta = v.get_meta().clone();
+                            let err = SyntaxError::new(
+                                &sub_meta,
+                                "the first argument of method must be self",
+                            );
+                            return Err(err);
+                        }
+                        v.var_type = Some(FSRTypeName::new(struct_name));
+                    }
+                }
                 let clone = v.clone();
                 v.is_defined = true;
                 context.add_variable(v.get_name(), Some(FSRToken::Variable(clone)));
+            } else {
+                panic!("Function args should be variables");
             }
+
+            is_first = false;
         }
         let fn_block = FSRBlock::parse(
             &source[fn_block_start..fn_block_start + fn_block_len],
             block_meta,
             context,
+            None,
         )?;
 
         let cur = context.pop_scope();

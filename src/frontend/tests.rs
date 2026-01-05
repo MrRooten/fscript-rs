@@ -113,7 +113,7 @@ mod frontend_tests {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context, None).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.get_len(), s.len());
     }
@@ -182,7 +182,7 @@ mod frontend_tests {
         }";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let i = FSRFnDef::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let i = FSRFnDef::parse(s.as_bytes(), meta, &mut context, None).unwrap();
         println!("{:#?}", i);
         assert_eq!(s.len(), i.get_len())
     }

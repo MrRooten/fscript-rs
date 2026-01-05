@@ -1721,6 +1721,7 @@ impl JitBuilder<'_> {
             FSRSType::String => Some(self.module.target_config().pointer_type()),
             FSRSType::Struct(_) => None,
             FSRSType::Bool => Some(types::I8),
+            FSRSType::Ref(fsrstype) => Some(self.module.target_config().pointer_type()),
         }
     }
 

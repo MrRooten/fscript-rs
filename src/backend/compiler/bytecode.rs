@@ -749,6 +749,7 @@ pub enum FSRSType {
     Float64,
     String,
     Struct(Arc<FSRStruct>),
+    Ref(Arc<FSRSType>),
 }
 
 impl FSRSType {
@@ -773,6 +774,10 @@ impl FSRSType {
                 }
                 size
             }
+            FSRSType::Ref(fsrstype) => {
+                // ptr size
+                std::mem::size_of::<usize>()
+            },
         }
     }
 }
@@ -1504,8 +1509,12 @@ impl<'a> Bytecode {
         struct_stmt: &FSRStructFrontEnd,
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
-    ) -> (Vec<BytecodeArg>) {
+    ) {
         let mut result = Vec::new();
+        let mut struct_type = FSRStruct {
+            name: struct_stmt.get_name().to_string(),
+            fields: HashMap::new(),
+        };
         ensure_var_id!(var_map, struct_stmt.get_name());
         let struct_name_id = var_map.last_mut().unwrap().get_var(struct_stmt.get_name());
         result.push(BytecodeArg {
@@ -1539,6 +1548,17 @@ impl<'a> Bytecode {
                     info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
                 });
                 offset += var_type.size_of();
+                struct_type.fields.insert(name.to_string(), (offset, var_type));
+            } else if let FSRToken::FunctionDef(def) = variable {
+                let v = Self::load_function(def, var_map, const_map);
+                var_map.last_mut().unwrap().sub_fn_def.push(Bytecode {
+                    name: def.get_name().to_string(),
+                    context: BytecodeContext::new(vec![]),
+                    bytecode: v.0,
+                    var_map: v.1,
+                    is_jit: def.is_static(),
+                    is_async: def.is_async(),
+                });
             } else {
                 panic!("Struct can only contain variables.");
             }
@@ -1553,7 +1573,12 @@ impl<'a> Bytecode {
             )),
         });
 
-        result
+        const_map.type_info.types.insert(
+            struct_stmt.get_name().to_string(),
+            Arc::new(FSRSType::Struct(Arc::new(struct_type))),
+        );
+
+        //result
     }
 
     fn load_expr(
@@ -2288,7 +2313,7 @@ impl<'a> Bytecode {
             return v;
         } else if let FSRToken::Struct(struct_stmt) = token {
             let v = Self::load_struct(struct_stmt, var_map, byte_context);
-            return vec![v];
+            return vec![];
         }else if let FSRToken::EmptyExpr(_) = token {
             return vec![];
         }

@@ -117,7 +117,7 @@ impl FSRWhile {
         let mut sub_meta = meta.new_offset(start);
         let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let mut sub_meta = meta.new_offset(start);
-        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context)?;
+        let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context, None)?;
 
         Ok(Self {
             test: Box::new(test_expr),
