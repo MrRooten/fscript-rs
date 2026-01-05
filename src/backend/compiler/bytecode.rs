@@ -768,16 +768,12 @@ impl FSRSType {
             FSRSType::Float64 => 8,
             FSRSType::String => std::mem::size_of::<String>(),
             FSRSType::Struct(s) => {
-                let mut size = 0;
-                for (_, (offset, t)) in &s.fields {
-                    size += t.size_of();
-                }
-                size
+                std::mem::size_of::<usize>() // All struct are pointer size
             }
             FSRSType::Ref(fsrstype) => {
                 // ptr size
                 std::mem::size_of::<usize>()
-            },
+            }
         }
     }
 }
@@ -785,6 +781,7 @@ impl FSRSType {
 #[derive(Debug)]
 pub struct FSRSTypeInfo {
     types: HashMap<String, Arc<FSRSType>>,
+    structs: Vec<String>,
 }
 
 impl FSRSTypeInfo {
@@ -796,6 +793,7 @@ impl FSRSTypeInfo {
         let mut types = HashMap::new();
         for name in [
             "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "string", "array",
+            "bool",
         ] {
             let v = match name {
                 "u8" => Some(FSRSType::UInt8),
@@ -809,6 +807,7 @@ impl FSRSTypeInfo {
                 "f32" => Some(FSRSType::Float32),
                 "f64" => Some(FSRSType::Float64),
                 "string" => Some(FSRSType::String),
+                "bool" => Some(FSRSType::Bool),
                 _ => None,
             };
 
@@ -816,7 +815,10 @@ impl FSRSTypeInfo {
                 types.insert(name.to_string(), Arc::new(v));
             }
         }
-        Self { types }
+        Self {
+            types,
+            structs: vec![],
+        }
     }
 }
 
@@ -870,7 +872,7 @@ impl BytecodeContext {
         }
     }
 
-    pub fn contains_variable_in_ref_stack(&self, name: &str) -> bool {
+    pub fn is_variable_in_ref_stack(&self, name: &str) -> bool {
         for i in &self.ref_map_stack {
             if let Some(v) = i.get(name) {
                 return *v;
@@ -890,7 +892,7 @@ impl BytecodeContext {
     /// # Returns
     /// * `bool` - Returns true if the variable is found in any of the reference maps except the last one, otherwise false.
     ///
-    pub fn contains_variable_in_ref_stack_not_last(&self, name: &str) -> bool {
+    pub fn is_variable_in_outer_ref_stack(&self, name: &str) -> bool {
         if self.ref_map_stack.len() < 2 {
             return false;
         }
@@ -1058,7 +1060,7 @@ impl<'a> Bytecode {
                 }
             } else {
                 let id = ensure_var_id!(var_map, name);
-                if !getter.is_defined && const_map.contains_variable_in_ref_stack(getter.get_name())
+                if !getter.is_defined && const_map.is_variable_in_ref_stack(getter.get_name())
                 {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
@@ -1138,7 +1140,7 @@ impl<'a> Bytecode {
                         arg: Box::new(ArgType::CurrentFn),
                         info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
                     });
-                } else if context.contains_variable_in_ref_stack_not_last(call.get_name()) {
+                } else if context.is_variable_in_outer_ref_stack(call.get_name()) {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: Box::new(ArgType::ClosureVar((id, name.to_string(), None))),
@@ -1199,12 +1201,32 @@ impl<'a> Bytecode {
         (result)
     }
 
-    fn load_variable(
+    fn single_op_match(
+        var: &FSRVariable,
+        ans: &mut Vec<BytecodeArg>,
+        context: &mut BytecodeContext,
+    ) {
+        if let Some(single_op) = var.single_op {
+            match single_op {
+                SingleOp::Not => {
+                    ans.push(BytecodeArg {
+                        operator: BytecodeOperator::NotOperator,
+                        arg: Box::new(ArgType::None),
+                        info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                    });
+                }
+                _ => {
+                    panic!("not support single op {:?}", single_op);
+                }
+            }
+        }
+    }
+
+    fn init_attr(
         var: &FSRVariable,
         var_map: &mut Vec<VarMap>,
         is_attr: bool,
-        context: &mut BytecodeContext,
-    ) -> (AttrIdOrCode) {
+    ) {
         if !is_attr {
             if !var_map.last_mut().unwrap().has_var(var.get_name()) {
                 let v = var.get_name();
@@ -1214,6 +1236,15 @@ impl<'a> Bytecode {
             let v = var.get_name();
             var_map.last_mut().unwrap().insert_attr(v);
         }
+    }
+
+    fn load_variable(
+        var: &FSRVariable,
+        var_map: &mut Vec<VarMap>,
+        is_attr: bool,
+        context: &mut BytecodeContext,
+    ) -> (AttrIdOrCode) {
+        Self::init_attr(var, var_map, is_attr);
 
         if context.key_map.contains_key(var.get_name()) {
             let obj = context.key_map.get(var.get_name()).unwrap().clone();
@@ -1224,28 +1255,12 @@ impl<'a> Bytecode {
             };
 
             let mut ans = vec![op_arg];
-            if let Some(single_op) = var.single_op {
-                match single_op {
-                    SingleOp::Not => {
-                        ans.push(BytecodeArg {
-                            operator: BytecodeOperator::NotOperator,
-                            arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(
-                                &context.lines,
-                                var.get_meta().clone(),
-                            )),
-                        });
-                    }
-                    _ => {
-                        panic!("not support single op {:?}", single_op);
-                    }
-                }
-            }
+            Self::single_op_match(var, &mut ans, context);
 
             return (AttrIdOrCode::Bytecode(ans));
         }
 
-        if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined {
+        if context.is_variable_in_ref_stack(var.get_name()) && !var.is_defined {
             // if context.contains_variable_in_ref_stack(var.get_name()) && !var.is_defined{
             let op_arg = match is_attr {
                 true => {
@@ -1274,23 +1289,7 @@ impl<'a> Bytecode {
                 },
             };
             let mut ans = vec![op_arg];
-            if let Some(single_op) = var.single_op {
-                match single_op {
-                    SingleOp::Not => {
-                        ans.push(BytecodeArg {
-                            operator: BytecodeOperator::NotOperator,
-                            arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(
-                                &context.lines,
-                                var.get_meta().clone(),
-                            )),
-                        });
-                    }
-                    _ => {
-                        panic!("not support single op {:?}", single_op);
-                    }
-                }
-            }
+            Self::single_op_match(var, &mut ans, context);
 
             return (AttrIdOrCode::Bytecode(ans));
         }
@@ -1333,20 +1332,7 @@ impl<'a> Bytecode {
             }
         };
         let mut ans = vec![op_arg];
-        if let Some(single_op) = var.single_op {
-            match single_op {
-                SingleOp::Not => {
-                    ans.push(BytecodeArg {
-                        operator: BytecodeOperator::NotOperator,
-                        arg: Box::new(ArgType::None),
-                        info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
-                    });
-                }
-                _ => {
-                    panic!("not support single op {:?}", single_op);
-                }
-            }
-        }
+        Self::single_op_match(var, &mut ans, context);
 
         (AttrIdOrCode::Bytecode(ans))
     }
@@ -1505,6 +1491,40 @@ impl<'a> Bytecode {
         None
     }
 
+    fn load_struct_attr(
+        v: &FSRVariable,
+        offset: &mut usize,
+        struct_type: &mut FSRStruct,
+        result: &mut Vec<BytecodeArg>,
+        const_map: &mut BytecodeContext,
+    ) {
+        let name = v.get_name();
+        let type_name = v.get_type_hint().unwrap();
+        let var_type = const_map.type_info.get_type(&type_name.name).unwrap();
+        result.push(BytecodeArg {
+            operator: BytecodeOperator::SDefAttr,
+            arg: Box::new(ArgType::DefAttr(StructAttr {
+                name: name.to_string(),
+                attr_type: var_type.clone(),
+                offset: *offset,
+                size: var_type.size_of(),
+            })),
+            info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
+        });
+        let var_size = var_type.size_of();
+        let a = 4;
+        let align_size = if var_size % a == 0 {
+            var_size
+        } else {
+            var_size + (a - (var_size % a))
+        };
+
+        struct_type
+            .fields
+            .insert(name.to_string(), (*offset, var_type));
+        *offset += align_size;
+    }
+
     fn load_struct(
         struct_stmt: &FSRStructFrontEnd,
         var_map: &mut Vec<VarMap>,
@@ -1530,39 +1550,22 @@ impl<'a> Bytecode {
                 struct_stmt.get_meta().clone(),
             )),
         });
+        const_map
+            .type_info
+            .structs
+            .push(struct_stmt.get_name().to_string());
 
         let mut offset = 0;
         for variable in struct_stmt.get_block().get_tokens() {
             if let FSRToken::Variable(v) = variable {
-                let name = v.get_name();
-                let type_name = v.get_type_hint().unwrap();
-                let var_type = const_map.type_info.get_type(&type_name.name).unwrap();
-                result.push(BytecodeArg {
-                    operator: BytecodeOperator::SDefAttr,
-                    arg: Box::new(ArgType::DefAttr(StructAttr {
-                        name: name.to_string(),
-                        attr_type: var_type.clone(),
-                        offset: offset,
-                        size: var_type.size_of(),
-                    })),
-                    info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
-                });
-                offset += var_type.size_of();
-                struct_type.fields.insert(name.to_string(), (offset, var_type));
-            } else if let FSRToken::FunctionDef(def) = variable {
-                let v = Self::load_function(def, var_map, const_map);
-                var_map.last_mut().unwrap().sub_fn_def.push(Bytecode {
-                    name: def.get_name().to_string(),
-                    context: BytecodeContext::new(vec![]),
-                    bytecode: v.0,
-                    var_map: v.1,
-                    is_jit: def.is_static(),
-                    is_async: def.is_async(),
-                });
+                Self::load_struct_attr(v, &mut offset, &mut struct_type, &mut result, const_map);
+            } else if variable.is_function() {
+                continue;
             } else {
                 panic!("Struct can only contain variables.");
             }
         }
+        const_map.type_info.structs.pop();
 
         result.push(BytecodeArg {
             operator: BytecodeOperator::SStructEndDef,
@@ -1578,7 +1581,39 @@ impl<'a> Bytecode {
             Arc::new(FSRSType::Struct(Arc::new(struct_type))),
         );
 
+        for function in struct_stmt.get_block().get_tokens() {
+            if let FSRToken::FunctionDef(def) = function {
+                let v = Self::load_function(def, var_map, const_map);
+                var_map.last_mut().unwrap().sub_fn_def.push(Bytecode {
+                    name: def.get_name().to_string(),
+                    context: BytecodeContext::new(vec![]),
+                    bytecode: v.0,
+                    var_map: v.1,
+                    is_jit: def.is_static(),
+                    is_async: def.is_async(),
+                });
+            }
+        }
+
         //result
+    }
+
+    fn single_op_expr(
+        expr: &FSRExpr,
+        op_code: &mut Vec<BytecodeArg>,
+        const_map: &mut BytecodeContext,
+    ) {
+        if let Some(single_op) = expr.get_single_op() {
+            if single_op.eq(&SingleOp::Not) {
+                op_code.push(BytecodeArg {
+                    operator: BytecodeOperator::NotOperator,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&const_map.lines, expr.get_meta().clone())),
+                });
+            } else {
+                panic!("not support this single op: {:?}", single_op);
+            }
+        }
     }
 
     fn load_expr(
@@ -1688,20 +1723,7 @@ impl<'a> Bytecode {
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 op_code.append(&mut second);
-                if let Some(single_op) = expr.get_single_op() {
-                    if single_op.eq(&SingleOp::Not) {
-                        op_code.push(BytecodeArg {
-                            operator: BytecodeOperator::NotOperator,
-                            arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(
-                                &const_map.lines,
-                                expr.get_meta().clone(),
-                            )),
-                        });
-                    } else {
-                        panic!("not support this single op: {:?}", single_op);
-                    }
-                }
+                Self::single_op_expr(expr, &mut op_code, const_map);
                 return (op_code, return_type);
             }
         } else if let FSRToken::Getter(s) = expr.get_right() {
@@ -1721,20 +1743,7 @@ impl<'a> Bytecode {
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 op_code.append(&mut second);
-                if let Some(single_op) = expr.get_single_op() {
-                    if single_op.eq(&SingleOp::Not) {
-                        op_code.push(BytecodeArg {
-                            operator: BytecodeOperator::NotOperator,
-                            arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(
-                                &const_map.lines,
-                                expr.get_meta().clone(),
-                            )),
-                        });
-                    } else {
-                        panic!("not support this single op: {:?}", single_op);
-                    }
-                }
+                Self::single_op_expr(expr, &mut op_code, const_map);
                 return (op_code, return_type);
             }
         } else if let FSRToken::Constant(c) = expr.get_right() {
@@ -2314,7 +2323,7 @@ impl<'a> Bytecode {
         } else if let FSRToken::Struct(struct_stmt) = token {
             let v = Self::load_struct(struct_stmt, var_map, byte_context);
             return vec![];
-        }else if let FSRToken::EmptyExpr(_) = token {
+        } else if let FSRToken::EmptyExpr(_) = token {
             return vec![];
         }
 
@@ -2621,7 +2630,7 @@ impl<'a> Bytecode {
         let arg_id = ensure_var_id!(var_map, name);
         let store_to_cell = if let Some(ref_map) = bytecontext.ref_map_stack.last() {
             ref_map.get(name).copied().unwrap_or(false)
-                && bytecontext.contains_variable_in_ref_stack(name)
+                && bytecontext.is_variable_in_ref_stack(name)
         } else {
             false
         };
@@ -2778,7 +2787,7 @@ impl<'a> Bytecode {
         let arg_id = ensure_var_id!(var_map, name);
         let store_to_cell = if let Some(ref_map) = const_map.ref_map_stack.last() {
             ref_map.get(name).cloned().unwrap_or(false)
-                && const_map.contains_variable_in_ref_stack(name)
+                && const_map.is_variable_in_ref_stack(name)
         } else {
             false
         };
