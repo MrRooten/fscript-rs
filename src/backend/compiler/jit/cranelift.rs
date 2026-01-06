@@ -1,4 +1,4 @@
-use std::{collections::HashMap, os::unix::thread};
+use std::{collections::HashMap, os::unix::thread, sync::Arc};
 
 use anyhow::{Context, Ok, Result};
 use cranelift::{
@@ -15,10 +15,12 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator, FSRSType,
+                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
+                FSRSType,
             },
             jit::jit_wrapper::{
-                binary_dot_getter, c_println, clear_exp, get_current_fn_id, get_obj_method, load_list, save_to_exp
+                binary_dot_getter, c_println, clear_exp, get_current_fn_id, get_obj_method,
+                load_list, save_to_exp,
             },
         },
         types::base::{FSRObject, ObjId},
@@ -52,7 +54,7 @@ struct JitBuilder<'a> {
     constans: HashMap<u64, Variable>,
     defined_variables: HashMap<String, Variable>,
     module: &'a mut JITModule,
-    var_index: usize
+    var_index: usize,
 }
 
 struct OperatorContext {
@@ -215,47 +217,35 @@ impl JitBuilder<'_> {
 
             let result = match op {
                 CompareOperator::Equal => {
-                    self.builder.ins().icmp(
-                        codegen::ir::condcodes::IntCC::Equal,
-                        left,
-                        right,
-                    )
-                },
+                    self.builder
+                        .ins()
+                        .icmp(codegen::ir::condcodes::IntCC::Equal, left, right)
+                }
                 CompareOperator::NotEqual => {
-                    self.builder.ins().icmp(
-                        codegen::ir::condcodes::IntCC::NotEqual,
-                        left,
-                        right,
-                    )
-                },
-                CompareOperator::Greater => {
-                    self.builder.ins().icmp(
-                        codegen::ir::condcodes::IntCC::SignedGreaterThan,
-                        left,
-                        right,
-                    )
-                },
-                CompareOperator::GreaterEqual => {
-                    self.builder.ins().icmp(
-                        codegen::ir::condcodes::IntCC::SignedGreaterThanOrEqual,
-                        left,
-                        right,
-                    )
-                },
-                CompareOperator::Less => {
-                    self.builder.ins().icmp(
-                        codegen::ir::condcodes::IntCC::SignedLessThan,
-                        left,
-                        right,
-                    )
-                },
-                CompareOperator::LessEqual => {
-                    self.builder.ins().icmp(
-                        codegen::ir::condcodes::IntCC::SignedLessThanOrEqual,
-                        left,
-                        right,
-                    )
-                },
+                    self.builder
+                        .ins()
+                        .icmp(codegen::ir::condcodes::IntCC::NotEqual, left, right)
+                }
+                CompareOperator::Greater => self.builder.ins().icmp(
+                    codegen::ir::condcodes::IntCC::SignedGreaterThan,
+                    left,
+                    right,
+                ),
+                CompareOperator::GreaterEqual => self.builder.ins().icmp(
+                    codegen::ir::condcodes::IntCC::SignedGreaterThanOrEqual,
+                    left,
+                    right,
+                ),
+                CompareOperator::Less => self.builder.ins().icmp(
+                    codegen::ir::condcodes::IntCC::SignedLessThan,
+                    left,
+                    right,
+                ),
+                CompareOperator::LessEqual => self.builder.ins().icmp(
+                    codegen::ir::condcodes::IntCC::SignedLessThanOrEqual,
+                    left,
+                    right,
+                ),
             };
 
             context.exp.push(result);
@@ -1265,6 +1255,51 @@ impl JitBuilder<'_> {
         }
     }
 
+    fn load_data(&mut self, var_type: &Arc<FSRSType>, value: Value) -> Value {
+        // input a data ptr to get value
+        match var_type.as_ref() {
+            FSRSType::Bool => {
+                // like &i8 to i8
+                self.builder.ins().load(types::I8, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::UInt8 => {
+                self.builder.ins().load(types::I8, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::UInt16 => {
+                self.builder.ins().load(types::I16, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::UInt32 => {
+                self.builder.ins().load(types::I32, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::UInt64 => {
+                self.builder.ins().load(types::I64, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::IInt8 => {
+                self.builder.ins().load(types::I8, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::IInt16 => {
+                self.builder.ins().load(types::I16, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::IInt32 => {
+                self.builder.ins().load(types::I32, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::IInt64 => {
+                self.builder.ins().load(types::I64, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::Float32 => {
+                self.builder.ins().load(types::F32, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::Float64 => {
+                self.builder.ins().load(types::F64, cranelift::codegen::ir::MemFlags::new(), value, 0)
+            },
+            FSRSType::String => todo!(),
+            FSRSType::Struct(fsrstruct) => {
+                value
+            },
+            FSRSType::Ref(fsrstype) => todo!(),
+        }
+    }
+
     fn load_args(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         let index = context.args_index;
         // pub extern "C" fn get_n_args(thread: &mut FSRThreadRuntime, index: i32) -> ObjId
@@ -1294,8 +1329,25 @@ impl JitBuilder<'_> {
         let ret = self.builder.inst_results(call)[0];
 
         if let ArgType::Local(v) = arg.get_arg() {
+            if let Some(var_type) = &v.var_type {
+                let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
+                let var_type = new_type.unwrap();
+                let mut var_id = self.var_index;
+                let new_var = declare_variable(
+                    var_type,
+                    &mut self.builder,
+                    &mut self.variables,
+                    &mut var_id,
+                    &v.name,
+                );
+                self.var_index = var_id;
+            }
+
+            let trans_data = Self::load_data(self, v.var_type.as_ref().unwrap(), ret);
+            Self::println(self, context, trans_data);
             let variable = self.variables.get(v.name.as_str()).unwrap();
-            self.builder.def_var(*variable, ret);
+            
+            self.builder.def_var(*variable, trans_data);
             self.defined_variables.insert(v.name.to_string(), *variable);
         } else {
             panic!("GetArgs requires a Local argument");
@@ -1622,7 +1674,7 @@ impl JitBuilder<'_> {
         self.builder.def_var(*var, malloc_ret);
     }
 
-    fn println(&mut self, context: &mut OperatorContext) {
+    fn println(&mut self, context: &mut OperatorContext, value: Value) {
         // pub extern "C" fn c_println(obj: i64) {
         let mut println_sig = self.module.make_signature();
         println_sig
@@ -1631,15 +1683,10 @@ impl JitBuilder<'_> {
         println_sig.returns.push(AbiParam::new(types::I32)); // return type
         let fn_id = self
             .module
-            .declare_function(
-                "c_println",
-                cranelift_module::Linkage::Import,
-                &println_sig,
-            )
+            .declare_function("c_println", cranelift_module::Linkage::Import, &println_sig)
             .unwrap();
         let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        let obj = context.exp.pop().unwrap();
-        let call = self.builder.ins().call(func_ref, &[obj]);
+        let call = self.builder.ins().call(func_ref, &[value]);
         let _ret = self.builder.inst_results(call)[0];
     }
 
@@ -1743,17 +1790,11 @@ impl JitBuilder<'_> {
                         self.load_global_name(name_ptr, name_len, context);
                     } else if let ArgType::LoadTrue = arg.get_arg() {
                         //let true_id = FSRObject::true_id();
-                        let true_value = self
-                            .builder
-                            .ins()
-                            .iconst(types::I8, 1 as i64);
+                        let true_value = self.builder.ins().iconst(types::I8, 1 as i64);
                         context.exp.push(true_value);
                     } else if let ArgType::LoadFalse = arg.get_arg() {
                         //let false_id = FSRObject::false_id();
-                        let false_value = self
-                            .builder
-                            .ins()
-                            .iconst(types::I8, 0 as i64);
+                        let false_value = self.builder.ins().iconst(types::I8, 0 as i64);
                         context.exp.push(false_value);
                     } else if let ArgType::LoadNone = arg.get_arg() {
                         self.load_none(context);
@@ -1783,10 +1824,15 @@ impl JitBuilder<'_> {
                             let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
                             let var_type = new_type.unwrap();
                             let mut var_id = self.var_index;
-                            let new_var = declare_variable(var_type, &mut self.builder, &mut self.variables, &mut var_id, &v.name);
+                            let new_var = declare_variable(
+                                var_type,
+                                &mut self.builder,
+                                &mut self.variables,
+                                &mut var_id,
+                                &v.name,
+                            );
                             self.var_index = var_id;
-                        } 
-                        
+                        }
 
                         let variable = self.variables.get(v.name.as_str()).unwrap();
                         let var = context.exp.pop().unwrap();
@@ -2031,7 +2077,7 @@ impl CraneLiftJitBackend {
         builder.symbol("binary_dot_getter", binary_dot_getter as *const u8);
         builder.symbol("get_obj_method", get_obj_method as *const u8);
         builder.symbol("load_list", load_list as *const u8);
-        builder.symbol("println", c_println as *const u8);
+        builder.symbol("c_println", c_println as *const u8);
     }
 
     pub fn new() -> Self {
@@ -2131,7 +2177,7 @@ impl CraneLiftJitBackend {
             module: &mut self.module,
             defined_variables: HashMap::new(),
             constans: HashMap::new(),
-            var_index: variables.1
+            var_index: variables.1,
         };
 
         trans.malloc_args(&mut context);

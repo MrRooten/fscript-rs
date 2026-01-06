@@ -187,12 +187,12 @@ pub extern "C" fn get_cur_frame<'a>(thread: &'a mut FSRThreadRuntime<'a>) -> *mu
 /// The object ID of the argument at the specified index, or `FSRObject::none_id()` if no arguments exist.
 pub extern "C" fn get_n_args(thread: &mut FSRThreadRuntime, index: i32) -> ObjId {
     let frame = thread.get_cur_mut_frame();
-    let len = frame.args.len();
+    let len = frame.static_args.len();
     if len == 0 {
         return FSRObject::none_id();
     }
     frame
-        .args
+        .static_args
         .get(len - 1 - index as usize)
         .cloned()
         .unwrap_or(FSRObject::none_id())
@@ -342,5 +342,5 @@ pub extern "C" fn load_list(
 }
 
 pub extern "C" fn c_println(obj: i64) {
-    println!("{}", obj);
+    println!("test_args value: {}", obj);
 }

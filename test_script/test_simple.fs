@@ -1,10 +1,9 @@
-struct Test {
-    field1: i32
-    field2: u64
-
-    @static
-    fn __new__(self, a: u64) {
-        self.field1 = 0
-        self.field2 = 0
+@static
+fn test(n: i64) {
+    i: u64 = 0
+    while i < n {
+        i = i + 1
     }
 }
+
+test(10000000)

@@ -990,6 +990,14 @@ impl<'a> FSRObject<'a> {
             any.undirty();
         }
     }
+
+    pub fn get_static_value_ptr(&self) -> usize {
+        match &self.value {
+            FSRValue::Integer(i) => i as *const i64 as usize,
+            FSRValue::Float(f) => &f.to_bits() as *const u64 as usize,
+            _ => self as *const Self as usize,
+        }
+    }
 }
 
 mod test {
