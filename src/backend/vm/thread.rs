@@ -889,7 +889,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let ArgType::Attr(attr_id, name, op_assign) = bytecode.get_arg() else {
+        let ArgType::Attr(attr_var) = bytecode.get_arg() else {
             return Err(FSRError::new(
                 "attr assign process error",
                 FSRErrCode::NotValidArgs,
@@ -902,19 +902,19 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let father_obj = FSRObject::id_to_mut_obj(father).unwrap();
 
-        if let Some(op_assign) = op_assign {
-            let left_value = father_obj.get_attr(name).unwrap().load(Ordering::Relaxed);
+        if let Some(op_assign) = attr_var.op_assign {
+            let left_value = father_obj.get_attr(&attr_var.name).unwrap().load(Ordering::Relaxed);
 
             let offset = op_assign.get_offset();
 
             let new_value = Self::op_assign_helper(left_value, assign_value, self, offset)?;
 
-            father_obj.set_attr(name, new_value);
+            father_obj.set_attr(&attr_var.name, new_value);
 
             return Ok(false);
         }
 
-        father_obj.set_attr(name, assign_value);
+        father_obj.set_attr(&attr_var.name, assign_value);
 
         Ok(false)
     }
@@ -1215,8 +1215,8 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let attr_id = if let ArgType::Attr(attr_id, name, _) = bytecode.get_arg() {
-            (attr_id, name)
+        let attr_var = if let ArgType::Attr(attr_var) = bytecode.get_arg() {
+            attr_var
         } else {
             unimplemented!()
         };
@@ -1231,7 +1231,7 @@ impl<'a> FSRThreadRuntime<'a> {
         };
 
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
-        let name = &attr_id.1;
+        let name = &attr_var.name;
         let id = if dot_father_obj.is_code() {
             //let name = attr_id.1;
             let id = dot_father_obj.get_attr(name);
@@ -1265,8 +1265,8 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let attr_id = if let ArgType::Attr(attr_id, name, _) = bytecode.get_arg() {
-            (attr_id, name)
+        let attr_var = if let ArgType::Attr(attr_var) = bytecode.get_arg() {
+            attr_var
         } else {
             //println!("error in get cls attr process: {:#?}", bytecode.get_arg());
             unimplemented!()
@@ -1284,7 +1284,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
         // println!("father: {:#?}", dot_father_obj);
-        let name = &attr_id.1;
+        let name = &attr_var.name;
         let id = dot_father_obj.get_cls_getter_attr(name);
 
         if let Some(id) = id {

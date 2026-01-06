@@ -427,6 +427,27 @@ pub struct StructAttr {
 }
 
 #[derive(Debug, Clone)]
+pub struct AttrVar {
+    pub attr_id: u64,
+    pub name: String,
+    pub op_assign: Option<OpAssign>,
+    pub attr_type: Option<Arc<FSRSType>>,
+    pub offset: Option<usize>
+}
+
+impl AttrVar {
+    pub fn new(attr_id: u64, name: String, op_assign: Option<OpAssign>) -> Self {
+        Self {
+            attr_id,
+            name,
+            op_assign,
+            attr_type: None,
+            offset: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum ArgType {
     Local(LocalVar),
     Global(String),
@@ -439,7 +460,7 @@ pub enum ArgType {
     ConstFloat(u64, String, Option<SingleOp>),
     ConstString(u64, String),
     Const(u64),
-    Attr(u64, String, Option<OpAssign>),
+    Attr(AttrVar),
     BinaryOperator(BinaryOffset),
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
     WhileTest(u64),         //i64 is return to test, u64 is skip the block,
@@ -1040,18 +1061,20 @@ impl<'a> Bytecode {
                 let id = var_map.last_mut().unwrap().get_attr(name).unwrap();
 
                 if is_method_call {
+                    let attr_var = AttrVar::new(*id, name.to_string(), None);
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryDot,
-                        arg: Box::new(ArgType::Attr(*id, name.to_string(), None)),
+                        arg: Box::new(ArgType::Attr(attr_var)),
                         info: Box::new(FSRByteInfo::new(
                             &const_map.lines,
                             getter.get_meta().clone(),
                         )),
                     });
                 } else {
+                    let attr_var = AttrVar::new(*id, name.to_string(), None);
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryClassGetter,
-                        arg: Box::new(ArgType::Attr(*id, name.to_string(), None)),
+                        arg: Box::new(ArgType::Attr(attr_var)),
                         info: Box::new(FSRByteInfo::new(
                             &const_map.lines,
                             getter.get_meta().clone(),
@@ -1060,8 +1083,7 @@ impl<'a> Bytecode {
                 }
             } else {
                 let id = ensure_var_id!(var_map, name);
-                if !getter.is_defined && const_map.is_variable_in_ref_stack(getter.get_name())
-                {
+                if !getter.is_defined && const_map.is_variable_in_ref_stack(getter.get_name()) {
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
                         arg: Box::new(ArgType::ClosureVar((id, name.to_string(), None))),
@@ -1125,9 +1147,10 @@ impl<'a> Bytecode {
                 attr_id_arg = Some((id, name.to_string()));
                 if is_method_call {
                 } else {
+                    let attr_var = AttrVar::new(id, name.to_string(), None);
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryClassGetter,
-                        arg: Box::new(ArgType::Attr(id, name.to_string(), None)),
+                        arg: Box::new(ArgType::Attr(attr_var)),
                         info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
                     });
                 }
@@ -1222,11 +1245,7 @@ impl<'a> Bytecode {
         }
     }
 
-    fn init_attr(
-        var: &FSRVariable,
-        var_map: &mut Vec<VarMap>,
-        is_attr: bool,
-    ) {
+    fn init_attr(var: &FSRVariable, var_map: &mut Vec<VarMap>, is_attr: bool) {
         if !is_attr {
             if !var_map.last_mut().unwrap().has_var(var.get_name()) {
                 let v = var.get_name();
@@ -1269,11 +1288,8 @@ impl<'a> Bytecode {
                         .unwrap()
                         .get_attr(var.get_name())
                         .unwrap();
-                    return AttrIdOrCode::AttrId(ArgType::Attr(
-                        *arg_id,
-                        var.get_name().to_string(),
-                        None,
-                    ));
+                    let attr_var = AttrVar::new(*arg_id, var.get_name().to_string(), None);
+                    return AttrIdOrCode::AttrId(ArgType::Attr(attr_var));
                 }
                 false => BytecodeArg {
                     operator: BytecodeOperator::Load,
@@ -1301,11 +1317,8 @@ impl<'a> Bytecode {
                     .unwrap()
                     .get_attr(var.get_name())
                     .unwrap();
-                return AttrIdOrCode::AttrId(ArgType::Attr(
-                    *arg_id,
-                    var.get_name().to_string(),
-                    None,
-                ));
+                let attr_var = AttrVar::new(*arg_id, var.get_name().to_string(), None);
+                return AttrIdOrCode::AttrId(ArgType::Attr(attr_var));
             }
             false => {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
@@ -1365,15 +1378,18 @@ impl<'a> Bytecode {
         }
 
         let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
-
+        let mut v = LocalVar::new(*arg_id, var.get_name().to_string(), false, None);
+        let type_info = if context.is_static {
+            let type_hint = var.get_type_hint();
+            let type_info = type_hint.and_then(|x| context.type_info.get_type(&x.name));
+            type_info
+        } else {
+            None
+        };
+        v.var_type = type_info;
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::AssignArgs,
-            arg: Box::new(ArgType::Local(LocalVar::new(
-                *arg_id,
-                var.get_name().to_string(),
-                false,
-                None,
-            ))),
+            arg: Box::new(ArgType::Local(v)),
             info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
         };
 
@@ -2370,12 +2386,15 @@ impl<'a> Bytecode {
             result_list.append(&mut left[0]);
             //right.1.last_mut().unwrap().insert_var(v.get_name());
             //let id = right.1.last_mut().unwrap().get_var(v.get_name()).unwrap();
+            let attr_var = AttrVar::new(
+                attr_id,
+                attr_name.to_string(),
+                OpAssign::from_str(&token.op_assign),
+            );
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::AssignAttr,
                 arg: Box::new(ArgType::Attr(
-                    attr_id,
-                    attr_name.to_string(),
-                    OpAssign::from_str(&token.op_assign),
+                    attr_var,
                 )),
                 info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
             });
@@ -2644,6 +2663,8 @@ impl<'a> Bytecode {
         }
         bytecontext.ref_map_stack.push(hash_map_ref_map);
         let args: &Vec<FSRToken> = fn_def.get_args();
+        let origin_is_static = bytecontext.is_static;
+        bytecontext.is_static = fn_def.is_static();
         for arg in args {
             if let FSRToken::Variable(v) = arg {
                 let mut a = Self::load_assign_arg(v, var_map, bytecontext);
@@ -2656,6 +2677,7 @@ impl<'a> Bytecode {
         let mut define_fn = Vec::new();
         let mut arg_len = 0;
         let mut args_save = vec![];
+
         for arg in args {
             if let FSRToken::Variable(v) = arg {
                 args_save.push(v.get_name().to_string());
@@ -2668,8 +2690,7 @@ impl<'a> Bytecode {
         let body = fn_def.get_body();
         bytecontext.cur_fn_name.push(name.to_string());
         let cur_name = bytecontext.cur_fn_name.join("::").to_string();
-        let origin_is_static = bytecontext.is_static;
-        bytecontext.is_static = fn_def.is_static();
+
         let v = Self::load_block(body, var_map, bytecontext);
         bytecontext.is_static = origin_is_static;
         bytecontext.cur_fn_name.pop();
@@ -2786,8 +2807,7 @@ impl<'a> Bytecode {
         let name = class_def.get_name();
         let arg_id = ensure_var_id!(var_map, name);
         let store_to_cell = if let Some(ref_map) = const_map.ref_map_stack.last() {
-            ref_map.get(name).cloned().unwrap_or(false)
-                && const_map.is_variable_in_ref_stack(name)
+            ref_map.get(name).cloned().unwrap_or(false) && const_map.is_variable_in_ref_stack(name)
         } else {
             false
         };

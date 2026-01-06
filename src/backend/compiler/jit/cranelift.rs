@@ -1583,49 +1583,13 @@ impl JitBuilder<'_> {
     }
 
     fn binary_dot_process(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
-        if let ArgType::Attr(id, name, _) = arg.get_arg() {
-            let mut binary_dot_sig = self.module.make_signature();
-            binary_dot_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // father object
-            binary_dot_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // name pointer
-            binary_dot_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // name length
-            binary_dot_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+        if let ArgType::Attr(attr_var) = arg.get_arg() {
+            let attr_type = attr_var.attr_type.as_ref().unwrap().clone();
+            let offset = attr_var.offset.unwrap();
+            let father_value = *context.exp.last().unwrap();
 
-            binary_dot_sig
-                .returns
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
-            let fn_id = self
-                .module
-                .declare_function(
-                    "binary_dot_getter",
-                    cranelift_module::Linkage::Import,
-                    &binary_dot_sig,
-                )
-                .unwrap();
-            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            let father = context.exp.pop().unwrap();
-            let name_ptr = self.builder.ins().iconst(
-                self.module.target_config().pointer_type(),
-                name.as_ptr() as i64,
-            );
-            let name_len = self.builder.ins().iconst(
-                self.module.target_config().pointer_type(),
-                name.len() as i64,
-            );
-            let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            let call = self
-                .builder
-                .ins()
-                .call(func_ref, &[father, name_ptr, name_len, thread_runtime]);
-            let ret = self.builder.inst_results(call)[0];
-            context.exp.push(ret);
+            let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
+            context.exp.push(addr);
         } else {
             panic!("BinaryDot requires an Attr argument");
         }
