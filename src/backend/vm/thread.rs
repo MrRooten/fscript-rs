@@ -13,14 +13,13 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag,
-                LocalVar, OpAssign,
+                ArgType, BinaryOffset, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag, LocalVar, OpAssign
             },
             jit::cranelift::CraneLiftJitBackend,
         },
         memory::{gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator},
         types::{
-            asynclib::future::{poll_future, FSRFuture},
+            asynclib::future::{FSRFuture, poll_future},
             base::{Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
@@ -906,10 +905,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let father_obj = FSRObject::id_to_mut_obj(father).unwrap();
 
         if let Some(op_assign) = attr_var.op_assign {
-            let left_value = father_obj
-                .get_attr(&attr_var.name)
-                .unwrap()
-                .load(Ordering::Relaxed);
+            let left_value = father_obj.get_attr(&attr_var.name).unwrap().load(Ordering::Relaxed);
 
             let offset = op_assign.get_offset();
 
@@ -1521,9 +1517,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
         self.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
         for arg in args.iter().cloned() {
-            self.get_cur_mut_frame()
-                .static_args
-                .push(FSRObject::id_to_obj(arg).get_static_value_ptr());
+            self.get_cur_mut_frame().static_args.push(FSRObject::id_to_obj(arg).get_static_value_ptr());
         }
         let call_fn = unsafe {
             std::mem::transmute::<
@@ -1531,9 +1525,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, &[ObjId], i32) -> ObjId,
             >(jit_code)
         };
-        
         let res = call_fn(self, self.get_cur_frame().code, args, args.len() as i32);
-        self.get_cur_mut_frame().static_args.clear();
         let v = self.pop_frame();
         self.frame_free_list.free(v);
         push_exp!(self, res);
@@ -3087,7 +3079,11 @@ impl<'a> FSRThreadRuntime<'a> {
             .map_err(|_| FSRError::new("Failed to parse float", FSRErrCode::NotValidArgs))
     }
 
-    fn get_chains(thread: &FSRThreadRuntime, state: &CallFrame, var: &LocalVar) -> Option<ObjId> {
+    fn get_chains(
+        thread: &FSRThreadRuntime,
+        state: &CallFrame,
+        var: &LocalVar,
+    ) -> Option<ObjId> {
         let fn_id = state.fn_id;
         // if in __main__ the module base code
         if !is_base_fn!(fn_id) {

@@ -189,13 +189,13 @@ pub extern "C" fn get_n_args(thread: &mut FSRThreadRuntime, index: i32) -> ObjId
     let frame = thread.get_cur_mut_frame();
     let len = frame.static_args.len();
     if len == 0 {
-        return FSRObject::none_id();
+        return 0;
     }
     frame
         .static_args
-        .get(len - 1 - index as usize)
+        .get(index as usize)
         .cloned()
-        .unwrap_or(FSRObject::none_id())
+        .unwrap_or(0)
 }
 
 pub extern "C" fn getter(

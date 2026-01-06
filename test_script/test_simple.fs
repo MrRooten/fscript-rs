@@ -1,9 +1,9 @@
 @static
-fn test(n: i64) {
-    i: u64 = 0
-    while i < n {
-        i = i + 1
-    }
+fn test(n: u64) {
+    
 }
 
-test(10000000)
+fn test2() {
+}
+
+timeit(30000000, test, 1)

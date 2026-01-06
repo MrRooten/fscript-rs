@@ -237,7 +237,6 @@ pub fn fsr_timeit(
     }
 
     let rest_args = &args[2..];
-
     let fn_def = FSRObject::id_to_obj(args[1]);
     if let FSRValue::Integer(count) = &FSRObject::id_to_obj(args[0]).value {
         let start = std::time::Instant::now();
@@ -258,8 +257,9 @@ pub fn fsr_timeit(
             *count as f64 / (end - start).as_secs_f64()
         );
         return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
+    } else {
+        return Err(FSRError::new("not an integer", FSRErrCode::NotValidArgs));
     }
-    unimplemented!()
 }
 
 pub fn fsr_breakpoint(
