@@ -28,14 +28,19 @@ A toy scripting language that runs on bytecode. It’s currently minimalistic an
 Support embed static type jit like
 ```rust
 @static
+fn simple(n: u64) -> u64 {
+    a: u64 = 1
+    return n
+}
+
+@entry
 fn test() -> u64 {
     a: u64 = 2
-    while a < 3000000 {
-        a = a + 1
-    }
+    b: u64 = simple(3)
     
-    return a
+    return b
 }
+
 
 a = test()
 println(a)
@@ -178,14 +183,19 @@ dump(test.Abc)
 ### JIT Support
 ```rust
 @static
+fn simple(n: u64) -> u64 {
+    a: u64 = 1
+    return n
+}
+
+@entry
 fn test() -> u64 {
     a: u64 = 2
-    while a < 3000000 {
-        a = a + 1
-    }
+    b: u64 = simple(3)
     
-    return a
+    return b
 }
+
 
 a = test()
 println(a)
