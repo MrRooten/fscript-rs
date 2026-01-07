@@ -2031,9 +2031,15 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn compile_jit(code_obj: &FSRCode, code: ObjId, is_entry: bool) -> *const u8 {
+    fn compile_jit(
+        code_obj: &FSRCode,
+        code: ObjId,
+        is_entry: bool,
+        call_sig: Option<Arc<FnCallSig>>,
+    ) -> *const u8 {
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(code_obj.get_bytecode(), code, is_entry).unwrap()
+        jit.compile(code_obj.get_bytecode(), code, is_entry, call_sig)
+            .unwrap()
     }
 
     fn get_const_map(
@@ -2090,9 +2096,7 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
         //bc: &'a Bytecode,
     ) -> Result<bool, FSRError> {
-        let ArgType::DefineFnArgs(name_id, name, fn_identify_name, args, store_to_cell) =
-            bytecode.get_arg()
-        else {
+        let ArgType::DefineFnArgs(fn_args) = bytecode.get_arg() else {
             return Err(FSRError::new(
                 "not a define fn args",
                 FSRErrCode::NotValidArgs,
@@ -2103,22 +2107,27 @@ impl<'a> FSRThreadRuntime<'a> {
             .as_code()
             .module;
         let module = FSRObject::id_to_obj(module_id).as_module();
-        let fn_code = module.get_fn(fn_identify_name).unwrap();
+        let fn_code = module.get_fn(&fn_args.fn_identify_name).unwrap();
         let fn_code_inner = fn_code.as_code();
         let const_map = self.get_const_map(fn_code_inner)?;
         let is_jit = fn_code_inner.get_bytecode().is_jit;
         let code = if is_jit {
-            Some(Self::compile_jit(fn_code_inner, self.get_cur_frame().code, fn_code_inner.get_bytecode().is_entry))
+            Some(Self::compile_jit(
+                fn_code_inner,
+                self.get_cur_frame().code,
+                fn_code_inner.get_bytecode().is_entry,
+                fn_args.call_sig.clone(),
+            ))
         } else {
             None
         };
 
         let fn_code_id = FSRObject::obj_to_id(fn_code);
         let fn_obj = FSRFn::from_fsr_fn(
-            name,
+            fn_args.name.as_str(),
             FnDesc {
                 u: (0, 0),
-                args: args.clone(),
+                args: fn_args.args.clone(),
                 code_obj: fn_code_id,
                 fn_id: self.get_cur_frame().fn_id,
                 jit_code: code,
@@ -2132,18 +2141,18 @@ impl<'a> FSRThreadRuntime<'a> {
             .garbage_collect
             .new_object(fn_obj, gid(GlobalObj::FnCls));
         if let Some(cur_cls) = &mut frame.cur_cls {
-            let offset = BinaryOffset::from_alias_name(name.as_str());
+            let offset = BinaryOffset::from_alias_name(fn_args.name.as_str());
             if let Some(offset) = offset {
                 cur_cls.insert_offset_attr_obj_id(offset, fn_id);
                 self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
                 return Ok(true);
             }
-            cur_cls.insert_attr_id(name, fn_id);
+            cur_cls.insert_attr_id(&fn_args.name, fn_id);
             self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
             return Ok(true);
         }
 
-        frame.insert_var(*name_id, fn_id);
+        frame.insert_var(fn_args.name_id, fn_id);
         let define_fn_obj = self.get_cur_frame().fn_id;
 
         // if function define in base function, register to module
@@ -2155,23 +2164,23 @@ impl<'a> FSRThreadRuntime<'a> {
             )
             .unwrap()
             .as_mut_module();
-            module.register_object(name, fn_id);
+            module.register_object(&fn_args.name, fn_id);
             module
                 .jit_code_map
-                .insert(fn_identify_name.clone(), code.map(|x| x as usize));
+                .insert(fn_args.fn_identify_name.clone(), code.map(|x| x as usize));
         }
 
-        if *store_to_cell && !is_base_fn!(define_fn_obj) {
+        if fn_args.store_to_cell && !is_base_fn!(define_fn_obj) {
             let define_fn_obj = self.get_cur_frame().fn_id;
             let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj)
                 .expect("not a fn obj")
                 .as_mut_fn();
-            if let Some(s) = define_fn_obj.store_cells.get(name.as_str()) {
+            if let Some(s) = define_fn_obj.store_cells.get(fn_args.name.as_str()) {
                 s.store(fn_id, Ordering::Relaxed);
             } else {
                 define_fn_obj
                     .store_cells
-                    .insert(name.as_str(), AtomicObjId::new(fn_id));
+                    .insert(fn_args.name.as_str(), AtomicObjId::new(fn_id));
             }
         }
 

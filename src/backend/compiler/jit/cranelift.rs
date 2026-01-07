@@ -2,11 +2,9 @@ use std::{collections::HashMap, os::unix::thread, sync::Arc};
 
 use anyhow::{Context, Ok, Result};
 use cranelift::{
-    codegen,
+    codegen::{self, ir},
     prelude::{
-        settings, types, AbiParam, Block, Configurable, EntityRef, FunctionBuilder,
-        FunctionBuilderContext, InstBuilder, Signature, StackSlotData, StackSlotKind, Type, Value,
-        Variable,
+        AbiParam, Block, Configurable, EntityRef, FunctionBuilder, FunctionBuilderContext, InstBuilder, Signature, StackSlotData, StackSlotKind, Type, Value, Variable, settings, types
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -887,7 +885,7 @@ impl JitBuilder<'_> {
         call_fn_sig
     }
 
-    fn get_cl_type(&self, ty: &FSRSType) -> types::Type {
+    fn get_cl_type(ptr: ir::Type, ty: &FSRSType) -> types::Type {
         match ty {
             FSRSType::Bool => types::I8,
             FSRSType::UInt8 | FSRSType::IInt8 => types::I8,
@@ -897,26 +895,27 @@ impl JitBuilder<'_> {
             FSRSType::Float32 => types::F32,
             FSRSType::Float64 => types::F64,
             FSRSType::String => todo!(),
-            FSRSType::Struct(fsrstruct) => self.module.target_config().pointer_type(),
-            FSRSType::Ref(fsrstype) => self.module.target_config().pointer_type(),
+            FSRSType::Struct(fsrstruct) => ptr,
+            FSRSType::Ref(fsrstype) => ptr,
         }
     }
 
     fn make_inner_call_fn(&self, call_sig: &FnCallSig) -> Signature {
         let mut inner_call_fn_sig = self.module.make_signature();
+        let ptr = self.module.target_config().pointer_type();
         inner_call_fn_sig
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
         for params in call_sig.params.iter() {
             inner_call_fn_sig
                 .params
-                .push(AbiParam::new(self.get_cl_type(params))); // args
+                .push(AbiParam::new(Self::get_cl_type(ptr ,params))); // args
         }
 
         if let Some(ret_type) = &call_sig.return_type {
             inner_call_fn_sig
                 .returns
-                .push(AbiParam::new(self.get_cl_type(ret_type)));
+                .push(AbiParam::new(Self::get_cl_type(ptr, ret_type)));
         } else {
             inner_call_fn_sig.returns.push(AbiParam::new(types::I64)); // return type (ObjId)
         }
@@ -927,12 +926,11 @@ impl JitBuilder<'_> {
     fn load_call(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
         if let ArgType::CallArgsNumber((len, call_sig)) = arg.get_arg() {
             let call_fn_sig = self.make_inner_call_fn(call_sig.as_ref().unwrap());
-            
-            
+
             // generate SigRef from Signature
             let call_fn_sig_ref = self.builder.import_signature(call_fn_sig.clone());
             let mut rev_args = vec![];
-            
+
             for i in 0..*len {
                 // Assuming we have a way to get the next argument value
                 let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
@@ -1743,7 +1741,13 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext, code: ObjId, is_entry: bool) {
+    fn compile_expr(
+        &mut self,
+        expr: &[BytecodeArg],
+        context: &mut OperatorContext,
+        code: ObjId,
+        is_entry: bool,
+    ) {
         if expr.last().is_none() {
             return;
         }
@@ -1885,7 +1889,7 @@ impl JitBuilder<'_> {
                     } else {
                         self.load_static_args(context, arg);
                     }
-                    
+
                     //context.ins_check_gc = true;
                 }
 
@@ -2130,17 +2134,43 @@ impl CraneLiftJitBackend {
         }
     }
 
-    pub fn compile(&mut self, bs_code: &Bytecode, code: ObjId, is_entry: bool) -> Result<*const u8> {
+    pub fn compile(
+        &mut self,
+        bs_code: &Bytecode,
+        code: ObjId,
+        is_entry: bool,
+        call_sig: Option<Arc<FnCallSig>>,
+    ) -> Result<*const u8> {
         let ptr = self.module.target_config().pointer_type();
-        self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
-        self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
-                                                                 // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
-                                                                 // self.ctx
-                                                                 //     .func
-                                                                 //     .signature
-                                                                 //     .params
-                                                                 //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
-        self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
+
+        if is_entry {
+            self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
+            self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
+                                                                     // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
+                                                                     // self.ctx
+                                                                     //     .func
+                                                                     //     .signature
+                                                                     //     .params
+                                                                     //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
+            self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
+        } else {
+            self.ctx.func.signature
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+            for params in call_sig.as_ref().unwrap().params.iter() {
+                self.ctx.func.signature
+                    .params
+                    .push(AbiParam::new(JitBuilder::get_cl_type(ptr, params))); // args
+            }
+
+            if let Some(ret_type) = &call_sig.as_ref().unwrap().return_type {
+                self.ctx.func.signature
+                    .returns
+                    .push(AbiParam::new(JitBuilder::get_cl_type(ptr, ret_type.as_ref())));
+            } else {
+                self.ctx.func.signature.returns.push(AbiParam::new(types::I64)); // return type (ObjId)
+            }
+        }
 
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
         //let mut variables = code.var_map.var_map.keys().cloned().collect::<Vec<_>>();

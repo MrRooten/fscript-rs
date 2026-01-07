@@ -456,6 +456,17 @@ impl AttrVar {
 }
 
 #[derive(Debug, Clone)]
+pub struct FnArgs {
+    // u64, String, String, Vec<String>, bool, Option<Arc<FnCallSig>>
+    pub name_id: u64,
+    pub name: String,
+    pub fn_identify_name: String,
+    pub args: Vec<String>,
+    pub store_to_cell: bool,
+    pub call_sig: Option<Arc<FnCallSig>>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ArgType {
     Local(LocalVar),
     Global(String),
@@ -479,7 +490,7 @@ pub enum ArgType {
     CallArgsNumber((usize, Option<Arc<FnCallSig>>)), // number size, return type
     CallArgsNumberWithVar((usize, u64, String, bool)), // number size, Variable
     CallArgsNumberWithAttr((usize, u64, String)),
-    DefineFnArgs(u64, String, String, Vec<String>, bool), // function len, args len, identify function name
+    DefineFnArgs(FnArgs), // function len, args len, identify function name
     DefineClassLine(u64),
     LoadListNumber(usize),
     ForEnd(i64),
@@ -2842,6 +2853,7 @@ impl<'a> Bytecode {
         let body = fn_def.get_body();
         bytecontext.cur_fn_name.push(name.to_string());
         let ret_type = fn_def.ret_type.as_ref();
+        let mut call_sig_maybe = None;
         if bytecontext.is_static {
             if let Some(type_hint) = ret_type {
                 let type_name = type_hint.name.as_str();
@@ -2855,6 +2867,7 @@ impl<'a> Bytecode {
                 bytecontext.def_fn_ret.push(None);
             }
             let call_sig = Arc::new(call_sig);
+            call_sig_maybe = Some(call_sig.clone());
             bytecontext.type_info.fn_call_sig_map.insert(
                 bytecontext.cur_fn_name.join("::").to_string(),
                 call_sig.clone(),
@@ -2911,13 +2924,14 @@ impl<'a> Bytecode {
 
         define_fn.push(BytecodeArg {
             operator: BytecodeOperator::DefineFn,
-            arg: Box::new(ArgType::DefineFnArgs(
-                arg_id,
-                name.to_string(),
-                cur_name.to_string(),
-                args_save,
+            arg: Box::new(ArgType::DefineFnArgs( FnArgs {
+                name_id: arg_id,
+                name: name.to_string(),
+                fn_identify_name: cur_name.to_string(),
+                args: args_save,
                 store_to_cell,
-            )),
+                call_sig: call_sig_maybe.clone(),
+            })),
             info: Box::new(FSRByteInfo::new(
                 &bytecontext.lines,
                 fn_def.get_meta().clone(),
