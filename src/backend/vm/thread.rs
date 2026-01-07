@@ -14,7 +14,7 @@ use crate::{
         compiler::{
             bytecode::{
                 ArgType, BinaryOffset, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag,
-                FSRSType, LocalVar, OpAssign,
+                FSRSType, FnCallSig, LocalVar, OpAssign,
             },
             jit::cranelift::CraneLiftJitBackend,
         },
@@ -1503,7 +1503,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn ret_type_process(
         res: usize,
-        ret_type: &Option<Arc<FSRSType>>,
+        call_sig: &Option<Arc<FnCallSig>>,
         thread: &mut FSRThreadRuntime,
     ) -> Result<ObjId, FSRError> {
         fn to_integer(thread: &mut FSRThreadRuntime, res: usize) -> Result<ObjId, FSRError> {
@@ -1513,32 +1513,34 @@ impl<'a> FSRThreadRuntime<'a> {
             );
             return Ok(id);
         }
-        if let Some(ret_type) = ret_type {
-            match ret_type.as_ref() {
-                FSRSType::Bool => {
-                    if res == 0 {
-                        return Ok(FSRObject::false_id());
-                    } else {
-                        return Ok(FSRObject::true_id());
+        if let Some(call_sig) = call_sig {
+            if let Some(ret_type) = &call_sig.return_type {
+                match ret_type.as_ref() {
+                    FSRSType::Bool => {
+                        if res == 0 {
+                            return Ok(FSRObject::false_id());
+                        } else {
+                            return Ok(FSRObject::true_id());
+                        }
                     }
+                    FSRSType::UInt8 => {
+                        return to_integer(thread, res);
+                    }
+                    FSRSType::UInt16
+                    | FSRSType::UInt32
+                    | FSRSType::UInt64
+                    | FSRSType::IInt8
+                    | FSRSType::IInt16
+                    | FSRSType::IInt32
+                    | FSRSType::IInt64 => {
+                        return to_integer(thread, res);
+                    }
+                    FSRSType::Float32 => todo!(),
+                    FSRSType::Float64 => todo!(),
+                    FSRSType::String => todo!(),
+                    FSRSType::Struct(fsrstruct) => todo!(),
+                    FSRSType::Ref(fsrstype) => return Ok(res),
                 }
-                FSRSType::UInt8 => {
-                    return to_integer(thread, res);
-                }
-                FSRSType::UInt16
-                | FSRSType::UInt32
-                | FSRSType::UInt64
-                | FSRSType::IInt8
-                | FSRSType::IInt16
-                | FSRSType::IInt32
-                | FSRSType::IInt64 => {
-                    return to_integer(thread, res);
-                }
-                FSRSType::Float32 => todo!(),
-                FSRSType::Float64 => todo!(),
-                FSRSType::String => todo!(),
-                FSRSType::Struct(fsrstruct) => todo!(),
-                FSRSType::Ref(fsrstype) => return Ok(res),
             }
         }
 
@@ -1551,7 +1553,7 @@ impl<'a> FSRThreadRuntime<'a> {
         fn_id: ObjId,
         args: &mut SmallVec<[ObjId; 4]>,
         f: &FSRFnInner,
-        ret_type: &Option<Arc<FSRSType>>,
+        call_sig: &Option<Arc<FnCallSig>>,
     ) -> Result<bool, FSRError> {
         if f.is_async {
             return Err(FSRError::new(
@@ -1576,7 +1578,7 @@ impl<'a> FSRThreadRuntime<'a> {
             )
         };
         let res = call_fn(self, self.get_cur_frame().code);
-        let res = Self::ret_type_process(res, ret_type, self)?;
+        let res = Self::ret_type_process(res, call_sig, self)?;
         let v = self.pop_frame();
         self.frame_free_list.free(v);
         push_exp!(self, res);
@@ -1605,7 +1607,7 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self,
         fn_id: ObjId,
         args: &mut SmallVec<[ObjId; 4]>,
-        ret_type: &Option<Arc<FSRSType>>,
+        ret_type: &Option<Arc<FnCallSig>>,
     ) -> Result<bool, FSRError> {
         let fn_obj = FSRObject::id_to_obj(fn_id);
         //let call_method = false;
@@ -1701,7 +1703,6 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_id = self.get_call_fn_id(&var, false)?;
 
         //self.call_process_ret(fn_id, &mut args, &None, false)
-
         self.call_process_ret(fn_id, &mut args, &iret_type)
     }
 
@@ -2030,9 +2031,9 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn compile_jit(code: &FSRCode) -> *const u8 {
+    fn compile_jit(code_obj: &FSRCode, code: ObjId) -> *const u8 {
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(code.get_bytecode()).unwrap()
+        jit.compile(code_obj.get_bytecode(), code).unwrap()
     }
 
     fn get_const_map(
@@ -2107,7 +2108,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let const_map = self.get_const_map(fn_code_inner)?;
         let is_jit = fn_code_inner.get_bytecode().is_jit;
         let code = if is_jit {
-            Some(Self::compile_jit(fn_code_inner))
+            Some(Self::compile_jit(fn_code_inner, self.get_cur_frame().code))
         } else {
             None
         };
@@ -2155,6 +2156,9 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap()
             .as_mut_module();
             module.register_object(name, fn_id);
+            module
+                .jit_code_map
+                .insert(fn_identify_name.clone(), code.map(|x| x as usize));
         }
 
         if *store_to_cell && !is_base_fn!(define_fn_obj) {
@@ -3477,7 +3481,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let const_map = Self::get_const_map(self, main_code.unwrap().as_code())?;
 
         self.cur_frame.code = code_id;
-        self.cur_frame.fn_id = base_fn_id;
+        self.cur_frame.fn_id = 0;
         self.cur_frame.const_map = Arc::new(const_map);
         let mut code = FSRObject::id_to_obj(code_id).as_code();
 

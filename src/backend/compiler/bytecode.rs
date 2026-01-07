@@ -1,3 +1,4 @@
+use core::panic;
 use std::{
     cell::Cell,
     collections::HashMap,
@@ -387,6 +388,11 @@ impl OpAssign {
         }
     }
 }
+#[derive(Debug, Clone)]
+pub struct FnCallSig {
+    pub(crate) params: Vec<Arc<FSRSType>>,
+    pub(crate) return_type: Option<Arc<FSRSType>>,
+}
 
 #[derive(Debug, Clone)]
 pub struct LocalVar {
@@ -396,6 +402,7 @@ pub struct LocalVar {
     pub(crate) store_to_cell: bool,
     pub(crate) op_assign: Option<OpAssign>,
     pub(crate) var_type: Option<Arc<FSRSType>>,
+    pub(crate) fn_call_identity: Option<String>,
 }
 
 impl LocalVar {
@@ -406,6 +413,7 @@ impl LocalVar {
             store_to_cell,
             op_assign,
             var_type: None,
+            fn_call_identity: None,
         }
     }
 }
@@ -468,7 +476,7 @@ pub enum ArgType {
     Compare(CompareOperator),
     OpAssign((OpAssign, Box<ArgType>)),
     FnLines(usize),
-    CallArgsNumber((usize, Option<Arc<FSRSType>>)), // number size, return type
+    CallArgsNumber((usize, Option<Arc<FnCallSig>>)), // number size, return type
     CallArgsNumberWithVar((usize, u64, String, bool)), // number size, Variable
     CallArgsNumberWithAttr((usize, u64, String)),
     DefineFnArgs(u64, String, String, Vec<String>, bool), // function len, args len, identify function name
@@ -489,6 +497,7 @@ pub enum ArgType {
     FormatStringLen(u64, String), // length, format string
     CreateStruct(u64, String),    // struct id, struct name
     DefAttr(StructAttr),          // struct id, attr name, attr type
+    JitFunction(String),          // function identify name
     None,
 }
 
@@ -803,7 +812,7 @@ impl FSRSType {
 pub struct FSRSTypeInfo {
     types: HashMap<String, Arc<FSRSType>>,
     structs: Vec<String>,
-    fn_call_ret_map: HashMap<String, Option<Arc<FSRSType>>>,
+    fn_call_sig_map: HashMap<String, Arc<FnCallSig>>,
 }
 
 impl FSRSTypeInfo {
@@ -840,7 +849,7 @@ impl FSRSTypeInfo {
         Self {
             types,
             structs: vec![],
-            fn_call_ret_map: HashMap::new(),
+            fn_call_sig_map: HashMap::new(),
         }
     }
 }
@@ -1132,6 +1141,59 @@ impl<'a> Bytecode {
         (result)
     }
 
+    fn call_helper(
+        call: &FSRCall,
+        var_map: &mut Vec<VarMap>,
+        is_attr: bool,
+        is_method_call: bool,
+        attr_id_arg: &mut Option<(u64, String)>,
+        result: &mut Vec<BytecodeArg>,
+        context: &mut BytecodeContext,
+        name: &str,
+    ) {
+        if is_attr {
+            let id = ensure_attr_id!(var_map, name);
+            *attr_id_arg = Some((id, name.to_string()));
+            if is_method_call {
+            } else {
+                let attr_var = AttrVar::new(id, name.to_string(), None);
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::BinaryClassGetter,
+                    arg: Box::new(ArgType::Attr(attr_var)),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                });
+            }
+        } else {
+            let id = ensure_var_id!(var_map, name);
+            // if !call.is_defined && const_map.contains_variable_in_ref_stack(call.get_name()) {
+            if !context.cur_fn_name.is_empty() && name.eq(context.cur_fn_name.last().unwrap()) {
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: Box::new(ArgType::CurrentFn),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                });
+            } else if context.is_variable_in_outer_ref_stack(call.get_name()) {
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: Box::new(ArgType::ClosureVar((id, name.to_string(), None))),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                });
+            } else {
+                let arg = if context.variable_is_defined(name) || context.ref_map_stack.is_empty() {
+                    ArgType::Local(LocalVar::new(id, name.to_string(), false, None))
+                } else {
+                    ArgType::Global(name.to_string())
+                };
+
+                result.push(BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: Box::new(arg),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                });
+            }
+        }
+    }
+
     fn load_call(
         call: &FSRCall,
         var_map: &mut Vec<VarMap>,
@@ -1146,47 +1208,34 @@ impl<'a> Bytecode {
         let mut var_id = 0;
         let mut attr_id_arg = None;
         if !name.is_empty() {
-            if is_attr {
-                let id = ensure_attr_id!(var_map, name);
-                attr_id_arg = Some((id, name.to_string()));
-                if is_method_call {
-                } else {
-                    let attr_var = AttrVar::new(id, name.to_string(), None);
-                    result.push(BytecodeArg {
-                        operator: BytecodeOperator::BinaryClassGetter,
-                        arg: Box::new(ArgType::Attr(attr_var)),
-                        info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
-                    });
-                }
-            } else {
-                let id = ensure_var_id!(var_map, name);
-                // if !call.is_defined && const_map.contains_variable_in_ref_stack(call.get_name()) {
-                if !context.cur_fn_name.is_empty() && name.eq(context.cur_fn_name.last().unwrap()) {
-                    result.push(BytecodeArg {
-                        operator: BytecodeOperator::Load,
-                        arg: Box::new(ArgType::CurrentFn),
-                        info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
-                    });
-                } else if context.is_variable_in_outer_ref_stack(call.get_name()) {
-                    result.push(BytecodeArg {
-                        operator: BytecodeOperator::Load,
-                        arg: Box::new(ArgType::ClosureVar((id, name.to_string(), None))),
-                        info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
-                    });
-                } else {
-                    let arg =
-                        if context.variable_is_defined(name) || context.ref_map_stack.is_empty() {
-                            ArgType::Local(LocalVar::new(id, name.to_string(), false, None))
-                        } else {
-                            ArgType::Global(name.to_string())
+            if context.is_static {
+                if let Some(fn_def) = context.fn_def_map.get(name) {
+                    if fn_def.is_static {
+                        let op_arg = BytecodeArg {
+                            operator: BytecodeOperator::Load,
+                            arg: Box::new(ArgType::JitFunction(name.to_string())),
+                            info: Box::new(FSRByteInfo::new(
+                                &context.lines,
+                                call.get_meta().clone(),
+                            )),
                         };
 
-                    result.push(BytecodeArg {
-                        operator: BytecodeOperator::Load,
-                        arg: Box::new(arg),
-                        info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
-                    });
+                        result.push(op_arg);
+                    }
+                } else {
+                    panic!("Static function {} not found", name);
                 }
+            } else {
+                Self::call_helper(
+                    call,
+                    var_map,
+                    is_attr,
+                    is_method_call,
+                    &mut attr_id_arg,
+                    &mut result,
+                    context,
+                    name,
+                );
             }
         }
 
@@ -1208,13 +1257,8 @@ impl<'a> Bytecode {
                 attr_id_arg.unwrap().1,
             ))
         } else {
-            let ret_type = context
-                .type_info
-                .fn_call_ret_map
-                .get(name)
-                .cloned()
-                .unwrap_or(None);
-            ArgType::CallArgsNumber((call.get_args().len(), ret_type))
+            let call_sig = context.type_info.fn_call_sig_map.get(name).cloned();
+            ArgType::CallArgsNumber((call.get_args().len(), call_sig))
         };
 
         // if is_var {
@@ -2490,7 +2534,7 @@ impl<'a> Bytecode {
                     info: Box::new(FSRByteInfo::new(&bc_map.lines, v.get_meta().clone())),
                 });
                 //return (result_list);
-                return 
+                return;
             }
         }
         let op_assign = OpAssign::from_str(&token.op_assign);
@@ -2643,10 +2687,7 @@ impl<'a> Bytecode {
         (result_list)
     }
 
-    fn check_ret_type(
-        v: &Option<Arc<FSRSType>>,
-        const_map: &BytecodeContext,
-    ) {
+    fn check_ret_type(v: &Option<Arc<FSRSType>>, const_map: &BytecodeContext) {
         if const_map.is_static {
             if v.is_some()
                 && const_map
@@ -2746,10 +2787,33 @@ impl<'a> Bytecode {
         let args: &Vec<FSRToken> = fn_def.get_args();
         let origin_is_static = bytecontext.is_static;
         bytecontext.is_static = fn_def.is_static();
+        let mut call_sig = FnCallSig {
+            params: vec![],
+            return_type: None,
+        };
+        let mut is_first = true;
         for arg in args {
             if let FSRToken::Variable(v) = arg {
                 let mut a = Self::load_assign_arg(v, var_map, bytecontext);
                 load_args.append(&mut a);
+                if bytecontext.is_static {
+                    if let Some(type_hint) = v.get_type_hint() {
+                        let type_name = type_hint.name.as_str();
+                        let type_id = bytecontext
+                            .type_info
+                            .get_type(type_name)
+                            .expect("wait to impl: if not getting type_id");
+                        call_sig.params.push(type_id.clone());
+                    } else {
+                        panic!(
+                            "Static function argument {} must have type hint",
+                            v.get_name()
+                        );
+                    }
+                }
+                is_first = false;
+            } else {
+                panic!("Function argument must be a variable");
             }
         }
 
@@ -2778,22 +2842,23 @@ impl<'a> Bytecode {
                     .type_info
                     .get_type(type_name)
                     .expect("wait to impl: if not getting type_id");
+                call_sig.return_type = Some(type_id.clone());
                 bytecontext.def_fn_ret.push(Some(type_id.clone()));
-                bytecontext.type_info.fn_call_ret_map.insert(
-                    bytecontext.cur_fn_name.join("::").to_string(),
-                    Some(type_id),
-                );
             } else {
                 bytecontext.def_fn_ret.push(None);
             }
+            let call_sig = Arc::new(call_sig);
+            bytecontext.type_info.fn_call_sig_map.insert(
+                bytecontext.cur_fn_name.join("::").to_string(),
+                call_sig.clone(),
+            );
         } else {
             bytecontext.def_fn_ret.push(None);
         }
         let cur_name = bytecontext.cur_fn_name.join("::").to_string();
 
         let v = Self::load_block(body, var_map, bytecontext);
-        
-        
+
         bytecontext.cur_fn_name.pop();
         let mut fn_body = v;
 
@@ -2857,7 +2922,6 @@ impl<'a> Bytecode {
             if last.last().is_none()
                 || last.last().unwrap().operator != BytecodeOperator::ReturnValue
             {
-
                 Self::check_ret_type(&None, bytecontext);
                 fn_body.push(vec![BytecodeArg {
                     operator: BytecodeOperator::ReturnValue,

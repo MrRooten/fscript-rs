@@ -1,10 +1,16 @@
-a = 1
-
-
-class Test {
-    fn __new__(self, a, b, c) {
-        
-    }
+@static
+fn simple() -> u64 {
+    a: u64 = 5
+    return a
 }
 
-c = Test(1, 2, 3)
+@static
+fn test() -> u64 {
+    a: u64 = 2
+    b: u64 = simple()
+    
+    return b
+}
+
+a = test()
+println(a)

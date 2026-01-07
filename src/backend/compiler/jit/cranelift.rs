@@ -4,7 +4,9 @@ use anyhow::{Context, Ok, Result};
 use cranelift::{
     codegen,
     prelude::{
-        AbiParam, Block, Configurable, EntityRef, FunctionBuilder, FunctionBuilderContext, InstBuilder, Signature, StackSlotData, StackSlotKind, Type, Value, Variable, settings, types
+        settings, types, AbiParam, Block, Configurable, EntityRef, FunctionBuilder,
+        FunctionBuilderContext, InstBuilder, Signature, StackSlotData, StackSlotKind, Type, Value,
+        Variable,
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -15,7 +17,7 @@ use crate::{
         compiler::{
             bytecode::{
                 ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
-                FSRSType,
+                FSRSType, FnCallSig,
             },
             jit::jit_wrapper::{
                 binary_dot_getter, c_println, clear_exp, get_current_fn_id, get_obj_method,
@@ -885,35 +887,60 @@ impl JitBuilder<'_> {
         call_fn_sig
     }
 
+    fn get_cl_type(&self, ty: &FSRSType) -> types::Type {
+        match ty {
+            FSRSType::Bool => types::I8,
+            FSRSType::UInt8 | FSRSType::IInt8 => types::I8,
+            FSRSType::UInt16 | FSRSType::IInt16 => types::I16,
+            FSRSType::UInt32 | FSRSType::IInt32 => types::I32,
+            FSRSType::UInt64 | FSRSType::IInt64 => types::I64,
+            FSRSType::Float32 => types::F32,
+            FSRSType::Float64 => types::F64,
+            FSRSType::String => todo!(),
+            FSRSType::Struct(fsrstruct) => self.module.target_config().pointer_type(),
+            FSRSType::Ref(fsrstype) => self.module.target_config().pointer_type(),
+        }
+    }
+
+    fn make_inner_call_fn(&self, call_sig: &FnCallSig) -> Signature {
+        let mut inner_call_fn_sig = self.module.make_signature();
+        for params in call_sig.params.iter() {
+            inner_call_fn_sig
+                .params
+                .push(AbiParam::new(self.get_cl_type(params))); // args
+        }
+
+        if let Some(ret_type) = &call_sig.return_type {
+            inner_call_fn_sig
+                .returns
+                .push(AbiParam::new(self.get_cl_type(ret_type)));
+        } else {
+            inner_call_fn_sig.returns.push(AbiParam::new(types::I64)); // return type (ObjId)
+        }
+
+        inner_call_fn_sig
+    }
+
     fn load_call(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
-        if let ArgType::CallArgsNumber((v, ret_type)) = arg.get_arg() {
-            //let variable = self.variables.get(v.2.as_str()).unwrap();
-            // context.left = Some(self.builder.use_var(*variable));
-            //let fn_obj_id = self.builder.use_var(*variable);
+        if let ArgType::CallArgsNumber((len, call_sig)) = arg.get_arg() {
+            let call_fn_sig = self.make_inner_call_fn(call_sig.as_ref().unwrap());
+            let fn_ptr = context.exp.pop().unwrap();
+            // generate SigRef from Signature
+            let call_fn_sig_ref = self.builder.import_signature(call_fn_sig.clone());
+            let mut rev_args = vec![];
+            for i in 0..*len {
+                // Assuming we have a way to get the next argument value
+                let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
+                context.middle_value.push(arg_value);
+                rev_args.push(arg_value);
+            }
 
-            // call_fn(args: *const ObjId, len: usize, fn_id: ObjId, thread: &mut FSRThreadRuntime, code: ObjId) -> ObjId
-
-            let call_fn_sig = self.make_call_fn();
-            let fn_id = self
-                .module
-                .declare_function("call_fn", cranelift_module::Linkage::Import, &call_fn_sig)
-                .unwrap();
-            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            let list_ptr = self.load_make_arg_list(context, *v);
-            let len = self.builder.ins().iconst(types::I64, *v as i64);
-            let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            let code_object = self.builder.block_params(context.entry_block)[1];
-
-            let fn_obj_id = context.exp.pop().unwrap();
-            //self.save_middle_value(context);
-            // self.save_object_to_exp(context);
-            let call = self.builder.ins().call(
-                func_ref,
-                &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
-            );
-            //self.clear_middle_value(context);
-
-            let ret = self.builder.inst_results(call)[0];
+            rev_args.reverse();
+            let call_inst = self
+                .builder
+                .ins()
+                .call_indirect(call_fn_sig_ref, fn_ptr, &rev_args);
+            let ret = self.builder.inst_results(call_inst)[0];
 
             // Free the argument list after the call
             //self.load_free_arg_list(list_ptr, context, *v as i64);
@@ -1161,42 +1188,75 @@ impl JitBuilder<'_> {
         match var_type.as_ref() {
             FSRSType::Bool => {
                 // like &i8 to i8
-                self.builder.ins().load(types::I8, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::UInt8 => {
-                self.builder.ins().load(types::I8, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::UInt16 => {
-                self.builder.ins().load(types::I16, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::UInt32 => {
-                self.builder.ins().load(types::I32, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::UInt64 => {
-                self.builder.ins().load(types::I64, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::IInt8 => {
-                self.builder.ins().load(types::I8, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::IInt16 => {
-                self.builder.ins().load(types::I16, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::IInt32 => {
-                self.builder.ins().load(types::I32, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::IInt64 => {
-                self.builder.ins().load(types::I64, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::Float32 => {
-                self.builder.ins().load(types::F32, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
-            FSRSType::Float64 => {
-                self.builder.ins().load(types::F64, cranelift::codegen::ir::MemFlags::new(), value, 0)
-            },
+                self.builder.ins().load(
+                    types::I8,
+                    cranelift::codegen::ir::MemFlags::new(),
+                    value,
+                    0,
+                )
+            }
+            FSRSType::UInt8 => self.builder.ins().load(
+                types::I8,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::UInt16 => self.builder.ins().load(
+                types::I16,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::UInt32 => self.builder.ins().load(
+                types::I32,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::UInt64 => self.builder.ins().load(
+                types::I64,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::IInt8 => self.builder.ins().load(
+                types::I8,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::IInt16 => self.builder.ins().load(
+                types::I16,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::IInt32 => self.builder.ins().load(
+                types::I32,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::IInt64 => self.builder.ins().load(
+                types::I64,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::Float32 => self.builder.ins().load(
+                types::F32,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
+            FSRSType::Float64 => self.builder.ins().load(
+                types::F64,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
             FSRSType::String => todo!(),
-            FSRSType::Struct(fsrstruct) => {
-                value
-            },
+            FSRSType::Struct(fsrstruct) => value,
             FSRSType::Ref(fsrstype) => todo!(),
         }
     }
@@ -1247,7 +1307,7 @@ impl JitBuilder<'_> {
             let trans_data = Self::load_data(self, v.var_type.as_ref().unwrap(), ret);
             Self::println(self, context, trans_data);
             let variable = self.variables.get(v.name.as_str()).unwrap();
-            
+
             self.builder.def_var(*variable, trans_data);
             self.defined_variables.insert(v.name.to_string(), *variable);
         } else {
@@ -1619,13 +1679,12 @@ impl JitBuilder<'_> {
         let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
             CALL_ARGS_LEN as u32,
-            0
-        ));
-        let stack_slot_addr = self.builder.ins().stack_addr(
-            self.module.target_config().pointer_type(),
-            slot,
             0,
-        );
+        ));
+        let stack_slot_addr =
+            self.builder
+                .ins()
+                .stack_addr(self.module.target_config().pointer_type(), slot, 0);
         self.builder.def_var(*var, stack_slot_addr);
     }
 
@@ -1648,7 +1707,7 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext) {
+    fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext, code: ObjId) {
         if expr.last().is_none() {
             return;
         }
@@ -1688,6 +1747,20 @@ impl JitBuilder<'_> {
                         // context.left = Some(self.builder.use_var(*variable));
                         let value = self.builder.use_var(*variable);
                         context.exp.push(value);
+                    } else if let ArgType::JitFunction(f_name) = arg.get_arg() {
+                        let module = FSRObject::id_to_obj(code).as_code().module;
+                        let module_obj = FSRObject::id_to_obj(module).as_module();
+                        let target_fn = module_obj
+                            .jit_code_map
+                            .get(f_name)
+                            .and_then(|x| x.clone())
+                            .expect("Not found jit");
+                        let fn_value = self
+                            .builder
+                            .ins()
+                            .iconst(self.module.target_config().pointer_type(), target_fn as i64);
+                        context.exp.push(fn_value);
+                        //self.load_jit_function(f_name, context);
                     } else if let ArgType::Const(c) = arg.get_arg() {
                         self.load_constant(*c, context);
                     } else if let ArgType::Global(name) = arg.get_arg() {
@@ -2016,24 +2089,24 @@ impl CraneLiftJitBackend {
         }
     }
 
-    pub fn compile(&mut self, code: &Bytecode) -> Result<*const u8> {
+    pub fn compile(&mut self, bs_code: &Bytecode, code: ObjId) -> Result<*const u8> {
         let ptr = self.module.target_config().pointer_type();
 
         self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
         self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
-        // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
-        // self.ctx
-        //     .func
-        //     .signature
-        //     .params
-        //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
+                                                                 // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
+                                                                 // self.ctx
+                                                                 //     .func
+                                                                 //     .signature
+                                                                 //     .params
+                                                                 //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
         self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
 
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
         //let mut variables = code.var_map.var_map.keys().cloned().collect::<Vec<_>>();
         let mut variables = vec![];
 
-        let constans = code
+        let constans = bs_code
             .var_map
             .const_map
             .values()
@@ -2094,20 +2167,20 @@ impl CraneLiftJitBackend {
 
         //trans.malloc_args(&mut context);
         trans.malloc_call_args(&mut context);
-        for (i, expr) in code.bytecode.iter().enumerate() {
+        for (i, expr) in bs_code.bytecode.iter().enumerate() {
             // if i % 20 == 0 || context.ins_check_gc {
             //     trans.load_check_gc(&mut context);
             //     context.ins_check_gc = false;
             // }
 
-            trans.compile_expr(expr, &mut context);
+            trans.compile_expr(expr, &mut context, code);
             context.exp.clear();
             context.middle_value.clear();
         }
 
         trans.builder.finalize();
 
-        let fn_name = code.name.as_str();
+        let fn_name = bs_code.name.as_str();
 
         let id = self
             .module

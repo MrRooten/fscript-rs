@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug, ptr::addr_of, sync::atomic::AtomicUs
 
 use ahash::AHashMap;
 
-use crate::backend::vm::{thread::FSRThreadRuntime, virtual_machine::gid};
+use crate::backend::{compiler::bytecode::FnCallSig, vm::{thread::FSRThreadRuntime, virtual_machine::gid}};
 
 use super::{base::{AtomicObjId, GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
@@ -13,6 +13,7 @@ pub struct FSRModule<'a> {
     name: String,
     fn_map: HashMap<String, FSRObject<'a>>,
     pub(crate) object_map: AHashMap<String, AtomicObjId>,
+    pub(crate) jit_code_map: AHashMap<String, Option<usize>>, // JITed code address map
     // pub(crate) const_table: Vec<Option<ObjId>>,
 }
 
@@ -45,6 +46,7 @@ impl<'a> FSRModule<'a> {
             name: name.to_string(),
             fn_map: HashMap::new(),
             object_map: AHashMap::new(),
+            jit_code_map: AHashMap::new(),
             // const_table: vec![],
         };
         let mut object = FSRObject::new();
@@ -58,6 +60,7 @@ impl<'a> FSRModule<'a> {
             name: name.to_string(),
             fn_map: HashMap::new(),
             object_map: AHashMap::new(),
+            jit_code_map: AHashMap::new(),
             // const_table: vec![],
         }
     }
