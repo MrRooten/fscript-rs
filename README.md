@@ -24,27 +24,21 @@ A toy scripting language that runs on bytecode. It’s currently minimalistic an
 
 ---
 
-## Next main proposal
+## Next main proposal(The code below is ok to run)
 Support embed static type jit like
 ```rust
-fn normal() {
-    // ....
-}
-
 @static
-fn static_jit() {
-    i: cint8 = 1
-    while i < 300 {
-        i = i + 1
+fn test() -> u64 {
+    a: u64 = 2
+    while a < 3000000 {
+        a = a + 1
     }
-
-    // can call dynamic function
-    v: Object = normal()
-    s: cstr = v.as_str()
-    // when in dynamic function will auto convert to String 
-    // when in static function just return value
-    return s 
+    
+    return a
 }
+
+a = test()
+println(a)
 ```
 
 ## 🔧 Build Instructions
