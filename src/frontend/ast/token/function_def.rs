@@ -72,7 +72,7 @@ impl FSRFnDef {
     pub fn is_jit(&self) -> bool {
         self.teller
             .as_ref()
-            .map(|x| x.value.iter().any(|x| x.eq("@jit") || x.eq("@static")))
+            .map(|x| x.value.iter().any(|x| x.eq("@jit") || x.eq("@static") || x.eq("@entry")))
             .unwrap_or(false)
     }
 
@@ -86,7 +86,14 @@ impl FSRFnDef {
     pub fn is_static(&self) -> bool {
         self.teller
             .as_ref()
-            .map(|x| x.value.iter().any(|x| x.eq("@static")))
+            .map(|x| x.value.iter().any(|x| x.eq("@static") || x.eq("@entry")))
+            .unwrap_or(false)
+    }
+
+    pub fn is_static_entry(&self) -> bool {
+        self.teller
+            .as_ref()
+            .map(|x| x.value.iter().any(|x| x.eq("@entry")))
             .unwrap_or(false)
     }
 

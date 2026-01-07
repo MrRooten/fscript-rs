@@ -2031,9 +2031,9 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn compile_jit(code_obj: &FSRCode, code: ObjId) -> *const u8 {
+    fn compile_jit(code_obj: &FSRCode, code: ObjId, is_entry: bool) -> *const u8 {
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(code_obj.get_bytecode(), code).unwrap()
+        jit.compile(code_obj.get_bytecode(), code, is_entry).unwrap()
     }
 
     fn get_const_map(
@@ -2108,7 +2108,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let const_map = self.get_const_map(fn_code_inner)?;
         let is_jit = fn_code_inner.get_bytecode().is_jit;
         let code = if is_jit {
-            Some(Self::compile_jit(fn_code_inner, self.get_cur_frame().code))
+            Some(Self::compile_jit(fn_code_inner, self.get_cur_frame().code, fn_code_inner.get_bytecode().is_entry))
         } else {
             None
         };
@@ -2147,7 +2147,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let define_fn_obj = self.get_cur_frame().fn_id;
 
         // if function define in base function, register to module
-        if is_base_fn!(define_fn_obj) {
+        if is_base_fn!(define_fn_obj) || is_jit {
             let module = FSRObject::id_to_mut_obj(
                 FSRObject::id_to_obj(self.get_cur_frame().code)
                     .as_code()
@@ -3481,7 +3481,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let const_map = Self::get_const_map(self, main_code.unwrap().as_code())?;
 
         self.cur_frame.code = code_id;
-        self.cur_frame.fn_id = 0;
+        self.cur_frame.fn_id = base_fn_id;
         self.cur_frame.const_map = Arc::new(const_map);
         let mut code = FSRObject::id_to_obj(code_id).as_code();
 

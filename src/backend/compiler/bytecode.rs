@@ -756,6 +756,7 @@ pub struct FnDef {
     is_jit: bool,
     is_async: bool,
     is_static: bool,
+    is_entry: bool
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1039,6 +1040,8 @@ pub struct Bytecode {
     pub(crate) var_map: VarMap,
     pub(crate) is_jit: bool,
     pub(crate) is_async: bool,
+    pub(crate) is_static: bool,
+    pub(crate) is_entry: bool,
 }
 
 enum AttrIdOrCode {
@@ -1684,6 +1687,8 @@ impl<'a> Bytecode {
                     var_map: v.1,
                     is_jit: def.is_static(),
                     is_async: def.is_async(),
+                    is_static: def.is_static(),
+                    is_entry: def.is_static_entry(),
                 });
             }
         }
@@ -2361,6 +2366,8 @@ impl<'a> Bytecode {
                     var_map: v.1,
                     is_jit: false,
                     is_async: false,
+                    is_static: false,
+                    is_entry: false,
                 });
                 let c_id = var_map
                     .last_mut()
@@ -2949,6 +2956,7 @@ impl<'a> Bytecode {
             is_jit: fn_def.is_jit(),
             is_async: fn_def.is_async(),
             is_static: fn_def.is_static(),
+            is_entry: fn_def.is_static_entry()
         };
         bytecontext.fn_def_map.insert(cur_name, fn_def);
 
@@ -3102,6 +3110,8 @@ impl<'a> Bytecode {
                 var_map: vs.1,
                 is_jit: false,
                 is_async: false,
+                is_static: false,
+                is_entry: false,
             },
         );
 
@@ -3115,6 +3125,8 @@ impl<'a> Bytecode {
                 var_map: code.1.var_map,
                 is_jit: code.1.is_jit,
                 is_async: code.1.is_async,
+                is_static: code.1.is_static,
+                is_entry: code.1.is_entry,
             };
 
             res.insert(code.0.to_string(), bytecode);

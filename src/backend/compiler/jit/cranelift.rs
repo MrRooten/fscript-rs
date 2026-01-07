@@ -904,6 +904,9 @@ impl JitBuilder<'_> {
 
     fn make_inner_call_fn(&self, call_sig: &FnCallSig) -> Signature {
         let mut inner_call_fn_sig = self.module.make_signature();
+        inner_call_fn_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
         for params in call_sig.params.iter() {
             inner_call_fn_sig
                 .params
@@ -924,18 +927,21 @@ impl JitBuilder<'_> {
     fn load_call(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
         if let ArgType::CallArgsNumber((len, call_sig)) = arg.get_arg() {
             let call_fn_sig = self.make_inner_call_fn(call_sig.as_ref().unwrap());
-            let fn_ptr = context.exp.pop().unwrap();
+            
+            
             // generate SigRef from Signature
             let call_fn_sig_ref = self.builder.import_signature(call_fn_sig.clone());
             let mut rev_args = vec![];
+            
             for i in 0..*len {
                 // Assuming we have a way to get the next argument value
                 let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
                 context.middle_value.push(arg_value);
                 rev_args.push(arg_value);
             }
-
+            let fn_ptr = context.exp.pop().unwrap();
             rev_args.reverse();
+            rev_args.insert(0, self.builder.block_params(context.entry_block)[0]); // insert thread runtime at the beginning
             let call_inst = self
                 .builder
                 .ins()
@@ -1261,7 +1267,37 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn load_args(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+    fn load_static_args(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        let base = 1; // first args is taken by FSRThreadRuntime
+        let index = context.args_index;
+        if let ArgType::Local(v) = arg.get_arg() {
+            if let Some(var_type) = &v.var_type {
+                let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
+                let var_type = new_type.unwrap();
+                let mut var_id = self.var_index;
+                let new_var = declare_variable(
+                    var_type,
+                    &mut self.builder,
+                    &mut self.variables,
+                    &mut var_id,
+                    &v.name,
+                );
+                self.var_index = var_id;
+            }
+
+            let data = self.builder.block_params(context.entry_block)[base + index];
+            let variable = self.variables.get(v.name.as_str()).unwrap();
+
+            self.builder.def_var(*variable, data);
+            self.defined_variables.insert(v.name.to_string(), *variable);
+        } else {
+            panic!("GetArgs requires a Local argument");
+        }
+
+        context.args_index += 1;
+    }
+
+    fn load_entry_args(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         let index = context.args_index;
         // pub extern "C" fn get_n_args(thread: &mut FSRThreadRuntime, index: i32) -> ObjId
         let mut get_n_args_sig = self.module.make_signature();
@@ -1707,7 +1743,7 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext, code: ObjId) {
+    fn compile_expr(&mut self, expr: &[BytecodeArg], context: &mut OperatorContext, code: ObjId, is_entry: bool) {
         if expr.last().is_none() {
             return;
         }
@@ -1844,7 +1880,12 @@ impl JitBuilder<'_> {
                     self.load_binary_op(context, BinaryOffset::Reminder);
                 }
                 BytecodeOperator::AssignArgs => {
-                    self.load_args(context, arg);
+                    if is_entry {
+                        self.load_entry_args(context, arg);
+                    } else {
+                        self.load_static_args(context, arg);
+                    }
+                    
                     //context.ins_check_gc = true;
                 }
 
@@ -2089,9 +2130,8 @@ impl CraneLiftJitBackend {
         }
     }
 
-    pub fn compile(&mut self, bs_code: &Bytecode, code: ObjId) -> Result<*const u8> {
+    pub fn compile(&mut self, bs_code: &Bytecode, code: ObjId, is_entry: bool) -> Result<*const u8> {
         let ptr = self.module.target_config().pointer_type();
-
         self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
         self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
                                                                  // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
@@ -2173,7 +2213,7 @@ impl CraneLiftJitBackend {
             //     context.ins_check_gc = false;
             // }
 
-            trans.compile_expr(expr, &mut context, code);
+            trans.compile_expr(expr, &mut context, code, is_entry);
             context.exp.clear();
             context.middle_value.clear();
         }

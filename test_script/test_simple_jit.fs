@@ -1,12 +1,7 @@
-@static
-fn simple() {
-
-}
 
 @static
-fn test() -> u64 {
+fn test(n: u64) -> u64 {
     a: u64 = 2
-    simple()
     
     return a
 }

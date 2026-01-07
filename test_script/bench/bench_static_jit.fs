@@ -7,7 +7,11 @@ fn simple(n: u64) -> u64 {
 @entry
 fn test() -> u64 {
     a: u64 = 2
-    b: u64 = simple(3)
+    while a < 30000000 {
+        b: u64 = simple(3)
+        a = a + 1
+    }
+    
     
     return b
 }
