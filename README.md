@@ -177,23 +177,18 @@ dump(test.Abc)
 
 ### JIT Support
 ```rust
-class Abc {
-    @static
-    fn __add__(self, other: Abc) -> Integer {
-        #println("add")
-        return 1
-    }
-}
-
 @static
-fn jit_test(n) {
-    for i in 0..30000000 {
-        n + n
+fn test() -> u64 {
+    a: u64 = 2
+    while a < 3000000 {
+        a = a + 1
     }
+    
+    return a
 }
 
-a = Abc()
-jit_test(a)
+a = test()
+println(a)
 ```
 
 performance is 1.5-2.0x faster than origin
