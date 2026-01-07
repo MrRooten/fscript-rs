@@ -416,15 +416,10 @@ impl FSRFnDef {
             if let FSRToken::Variable(v) = arg {
                 if is_first {
                     if let Some(struct_name) = &struct_info {
-                        if &v.name != "self" {
-                            let mut sub_meta = v.get_meta().clone();
-                            let err = SyntaxError::new(
-                                &sub_meta,
-                                "the first argument of method must be self",
-                            );
-                            return Err(err);
+                        if v.get_type_hint().is_none() {
+                            v.var_type = Some(FSRTypeName::new(struct_name));
                         }
-                        v.var_type = Some(FSRTypeName::new(struct_name));
+                        
                     }
                 }
                 let clone = v.clone();

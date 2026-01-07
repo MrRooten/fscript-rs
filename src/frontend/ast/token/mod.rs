@@ -95,7 +95,7 @@ impl ASTContext {
         None
     }
 
-    pub fn get_token_var_type(&self, name: &str, context: &ASTContext) -> Option<FSRTypeName> {
+    pub fn get_var_type(&self, name: &str) -> Option<FSRTypeName> {
         for scope in self.variable_define.iter().rev() {
             if scope.borrow().contains_key(name) {
                 return scope
@@ -104,7 +104,7 @@ impl ASTContext {
                     .unwrap()
                     .token
                     .as_ref()
-                    .and_then(|x| x.deduction_type(context));
+                    .and_then(|x| x.deduction_type(self));
             }
         }
         None

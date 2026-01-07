@@ -886,7 +886,7 @@ impl JitBuilder<'_> {
     }
 
     fn load_call(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
-        if let ArgType::CallArgsNumber(v) = arg.get_arg() {
+        if let ArgType::CallArgsNumber((v, ret_type)) = arg.get_arg() {
             //let variable = self.variables.get(v.2.as_str()).unwrap();
             // context.left = Some(self.builder.use_var(*variable));
             //let fn_obj_id = self.builder.use_var(*variable);
@@ -2021,12 +2021,12 @@ impl CraneLiftJitBackend {
 
         self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
         self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
-        self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
-        self.ctx
-            .func
-            .signature
-            .params
-            .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
+        // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
+        // self.ctx
+        //     .func
+        //     .signature
+        //     .params
+        //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
         self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
 
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);

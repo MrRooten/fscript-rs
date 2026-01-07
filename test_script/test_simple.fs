@@ -1,9 +1,10 @@
-@static
-fn test(n: u64) {
-    
+a = 1
+
+
+class Test {
+    fn __new__(self, a, b, c) {
+        
+    }
 }
 
-fn test2() {
-}
-
-timeit(30000000, test, 1)
+c = Test(1, 2, 3)
