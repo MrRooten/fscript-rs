@@ -54,6 +54,7 @@ struct JitBuilder<'a> {
     defined_variables: HashMap<String, Variable>,
     module: &'a mut JITModule,
     var_index: usize,
+    self_call_sig: Arc<FnCallSig>,
 }
 
 struct OperatorContext {
@@ -2170,6 +2171,7 @@ impl CraneLiftJitBackend {
             } else {
                 self.ctx.func.signature.returns.push(AbiParam::new(types::I64)); // return type (ObjId)
             }
+
         }
 
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
@@ -2233,6 +2235,7 @@ impl CraneLiftJitBackend {
             defined_variables: HashMap::new(),
             constans: HashMap::new(),
             var_index: variables.1,
+            self_call_sig: call_sig.unwrap(),
         };
 
         //trans.malloc_args(&mut context);

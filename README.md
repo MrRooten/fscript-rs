@@ -45,6 +45,12 @@ fn test() -> u64 {
 a = test()
 println(a)
 ```
+The backend uses Cranelift to compile the static typed functions to native code. The performance is at same level compared with C in some scenarios. But the implementation is still in progress.
+
+A lot of develop designs are not determined yet.
+### Memory management
+The current memory management is based on threaded scope garbage collection. The static typed jit functions will use manual memory management to avoid the overhead of reference counting.
+
 
 ## 🔧 Build Instructions
 
