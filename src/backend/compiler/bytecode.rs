@@ -265,6 +265,7 @@ pub enum BytecodeOperator {
     SDefAttr = 59,
     SStructDef = 60,
     SStructEndDef = 61,
+    SAlloc = 62,
     Load = 254,
 }
 
@@ -509,6 +510,7 @@ pub enum ArgType {
     CreateStruct(u64, String),    // struct id, struct name
     DefAttr(StructAttr),          // struct id, attr name, attr type
     JitFunction(String),          // function identify name
+    Alloc((String, usize)),        // type name, size
     None,
 }
 
@@ -1534,6 +1536,7 @@ impl<'a> Bytecode {
     /// Use to trigger special attribute
     /// like var.await, var.yield, var.return, var.throw
     fn special_variable_trigger(
+        father: &FSRToken,
         var: &FSRVariable,
         context: &mut BytecodeContext,
     ) -> (Option<Vec<BytecodeArg>>, Option<Arc<FSRSType>>) {
@@ -1585,6 +1588,22 @@ impl<'a> Bytecode {
                 Some(vec![BytecodeArg {
                     operator: BytecodeOperator::SLoadRef,
                     arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                }]),
+                None,
+            );
+        } else if var.get_name().eq("alloc") {
+            let type_name = if let FSRToken::Variable(v) = father {
+                v.get_name()
+            } else {
+                panic!("Alloc must be a Struct name");
+            };
+            let var_type = context.type_info.get_type(&FSRTypeName::new(type_name)).unwrap();
+            let struct_size = var_type.size_of();
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::SAlloc,
+                    arg: Box::new(ArgType::Alloc((var.get_name().to_string(), struct_size))),
                     info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
                 }]),
                 None,
@@ -1815,7 +1834,7 @@ impl<'a> Bytecode {
             let mut is_attr = false;
 
             if expr.get_op().eq(".") {
-                let v = Self::special_variable_trigger(v, const_map);
+                let v = Self::special_variable_trigger(expr.get_left(), v, const_map);
                 if let Some(op_arg) = v.0 {
                     second.extend(op_arg);
                     op_code.append(&mut second);

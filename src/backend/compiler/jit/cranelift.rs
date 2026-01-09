@@ -1721,6 +1721,37 @@ impl JitBuilder<'_> {
         self.builder.def_var(*var, stack_slot_addr);
     }
 
+    fn struct_alloc(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        let size = if let ArgType::Alloc((_, size)) = arg.get_arg() {
+            *size as i64
+        } else {
+            panic!("StructAlloc requires a StructSize argument");
+        };
+        let mut malloc_sig = self.module.make_signature();
+        malloc_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // size
+        malloc_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
+        let malloc_id = self
+            .module
+            .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
+            .unwrap();
+        let malloc_func_ref = self
+            .module
+            .declare_func_in_func(malloc_id, self.builder.func);
+
+        let size_value = self
+            .builder
+            .ins()
+            .iconst(self.module.target_config().pointer_type(), size);
+        let malloc_call = self.builder.ins().call(malloc_func_ref, &[size_value]);
+        let malloc_ret = self.builder.inst_results(malloc_call)[0];
+
+        context.exp.push(malloc_ret);
+    }
+
     fn get_var_type(&self, s_type: &FSRSType) -> Option<types::Type> {
         match s_type {
             FSRSType::UInt8 => Some(types::I8),
@@ -1985,6 +2016,9 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::Break => {
                     self.load_break(context);
+                }
+                BytecodeOperator::SAlloc => {
+                    self.struct_alloc(context, arg);
                 }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())
