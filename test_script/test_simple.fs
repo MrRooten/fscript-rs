@@ -1,17 +1,16 @@
-@static
-fn fib(n: u64, b: u64) -> u64 {
-    a: u64 = 1
-    return b
+struct Test {
+    field: u64
+
+    @static
+    fn __new__(self) {
+        self.field = 10
+    }
 }
 
 @entry
-fn test() -> u64 {
-    a: u64 = 2
-    b: u64 = simple(3, 4)
-    if b > 3 {
-        b = b + 1
-    }
-    return b
+fn test() -> Ptr[Test] {
+    a: Ptr[Test] = Test.alloc
+    return a
 }
 
 

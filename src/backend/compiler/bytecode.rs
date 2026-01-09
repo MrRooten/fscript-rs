@@ -767,7 +767,7 @@ pub struct FnDef {
     is_jit: bool,
     is_async: bool,
     is_static: bool,
-    is_entry: bool
+    is_entry: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -791,7 +791,7 @@ pub enum FSRSType {
     Float64,
     String,
     Struct(Arc<FSRStruct>),
-    Ref(Arc<FSRSType>),
+    Ptr(Arc<FSRSType>),
 }
 
 impl FSRSType {
@@ -810,9 +810,17 @@ impl FSRSType {
             FSRSType::Float64 => 8,
             FSRSType::String => std::mem::size_of::<String>(),
             FSRSType::Struct(s) => {
-                std::mem::size_of::<usize>() // All struct are pointer size
+                let mut size = 0;
+                for (_, (offset, attr_type)) in &s.fields {
+                    size += attr_type.size_of();
+                }
+                let align = std::mem::align_of::<usize>();
+                if size % align != 0 {
+                    size += align - (size % align);
+                }
+                size
             }
-            FSRSType::Ref(fsrstype) => {
+            FSRSType::Ptr(fsrstype) => {
                 // ptr size
                 std::mem::size_of::<usize>()
             }
@@ -822,14 +830,33 @@ impl FSRSType {
 
 #[derive(Debug)]
 pub struct FSRSTypeInfo {
-    types: HashMap<String, Arc<FSRSType>>,
+    types: HashMap<Vec<String>, Arc<FSRSType>>,
     structs: Vec<String>,
     fn_call_sig_map: HashMap<String, Arc<FnCallSig>>,
 }
 
 impl FSRSTypeInfo {
-    pub fn get_type(&self, name: &str) -> Option<Arc<FSRSType>> {
-        self.types.get(name).cloned()
+    pub fn get_type(&mut self, type_name: &FSRTypeName) -> Option<Arc<FSRSType>> {
+        let mut search = vec![];
+        let name = &type_name.name;
+        search.push(name.clone());
+        match name.as_str() {
+            "Ptr" => {
+                let sub_type_name = type_name.subtype.as_ref().unwrap().get(0).unwrap();
+                let sub_type = self.get_type(sub_type_name).unwrap();
+                search.push(sub_type_name.name.clone());
+                if let Some(t) = self.types.get(&search) {
+                    return Some(t.clone());
+                }
+                let new_ptr = Arc::new(FSRSType::Ptr(sub_type));
+                self.types.insert(search, new_ptr.clone());
+                return Some(new_ptr);
+            },
+            _ => {
+                
+            }
+        };
+        self.types.get(&search).cloned()
     }
 
     pub fn new() -> Self {
@@ -855,7 +882,7 @@ impl FSRSTypeInfo {
             };
 
             if let Some(v) = v {
-                types.insert(name.to_string(), Arc::new(v));
+                types.insert(vec![name.to_string()], Arc::new(v));
             }
         }
         Self {
@@ -1081,10 +1108,11 @@ impl<'a> Bytecode {
         let name = getter.get_name();
         if !name.is_empty() {
             if is_attr {
-                if !var_map.last_mut().unwrap().has_attr(name) {
-                    let v = name;
-                    var_map.last_mut().unwrap().insert_attr(v);
-                }
+                // if !var_map.last_mut().unwrap().has_attr(name) {
+                //     let v = name;
+                //     var_map.last_mut().unwrap().insert_attr(v);
+                // }
+                ensure_attr_id!(var_map, name);
                 let id = var_map.last_mut().unwrap().get_attr(name).unwrap();
 
                 if is_method_call {
@@ -1208,6 +1236,27 @@ impl<'a> Bytecode {
         }
     }
 
+    fn load_call_static(
+        call: &FSRCall,
+        result: &mut Vec<BytecodeArg>,
+        context: &mut BytecodeContext,
+        name: &str,
+    ) {
+        if let Some(fn_def) = context.fn_def_map.get(name) {
+            if fn_def.is_static {
+                let op_arg = BytecodeArg {
+                    operator: BytecodeOperator::Load,
+                    arg: Box::new(ArgType::JitFunction(name.to_string())),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                };
+
+                result.push(op_arg);
+            }
+        } else {
+            panic!("Static function {} not found", name);
+        }
+    }
+
     fn load_call(
         call: &FSRCall,
         var_map: &mut Vec<VarMap>,
@@ -1223,22 +1272,7 @@ impl<'a> Bytecode {
         let mut attr_id_arg = None;
         if !name.is_empty() {
             if context.is_static {
-                if let Some(fn_def) = context.fn_def_map.get(name) {
-                    if fn_def.is_static {
-                        let op_arg = BytecodeArg {
-                            operator: BytecodeOperator::Load,
-                            arg: Box::new(ArgType::JitFunction(name.to_string())),
-                            info: Box::new(FSRByteInfo::new(
-                                &context.lines,
-                                call.get_meta().clone(),
-                            )),
-                        };
-
-                        result.push(op_arg);
-                    }
-                } else {
-                    panic!("Static function {} not found", name);
-                }
+                Self::load_call_static(call, &mut result, context, name);
             } else {
                 Self::call_helper(
                     call,
@@ -1337,7 +1371,7 @@ impl<'a> Bytecode {
             let obj = context.key_map.get(var.get_name()).unwrap().clone();
             let ret_type = match obj {
                 ArgType::LoadTrue | ArgType::LoadFalse => {
-                    Some(context.type_info.get_type("bool").unwrap())
+                    Some(context.type_info.get_type(&FSRTypeName::new("bool")).unwrap())
                 }
                 ArgType::LoadNone => None,
                 _ => None,
@@ -1399,7 +1433,7 @@ impl<'a> Bytecode {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
                 let type_info = if context.is_static {
                     let type_hint = var.get_type_hint();
-                    let type_info = type_hint.and_then(|x| context.type_info.get_type(&x.name));
+                    let type_info = type_hint.and_then(|x| context.type_info.get_type(&x));
                     ret_type = type_info.clone();
                     type_info
                 } else {
@@ -1457,7 +1491,7 @@ impl<'a> Bytecode {
         let mut v = LocalVar::new(*arg_id, var.get_name().to_string(), false, None);
         let type_info = if context.is_static {
             let type_hint = var.get_type_hint();
-            let type_info = type_hint.and_then(|x| context.type_info.get_type(&x.name));
+            let type_info = type_hint.and_then(|x| context.type_info.get_type(&x));
             type_info
         } else {
             None
@@ -1560,7 +1594,7 @@ impl<'a> Bytecode {
     }
 
     fn deduction_two_type(
-        type_info: &FSRSTypeInfo,
+        type_info: &mut FSRSTypeInfo,
         left: &Option<Arc<FSRSType>>,
         right: &Option<Arc<FSRSType>>,
         op: &str,
@@ -1573,7 +1607,7 @@ impl<'a> Bytecode {
         let r = right.as_ref().unwrap();
 
         if op.eq("&&") || op.eq("and") || op.eq("||") || op.eq("or") {
-            return Some(type_info.get_type("bool").unwrap());
+            return Some(type_info.get_type(&FSRTypeName::new("bool")).unwrap());
         }
 
         if l.eq(r) {
@@ -1595,7 +1629,7 @@ impl<'a> Bytecode {
         let l = left.as_ref().unwrap();
         let r = right.as_ref().unwrap();
 
-        l.eq(r)
+        l.as_ref() as *const FSRSType == r.as_ref() as *const FSRSType
     }
 
     fn load_struct_attr(
@@ -1607,7 +1641,7 @@ impl<'a> Bytecode {
     ) {
         let name = v.get_name();
         let type_name = v.get_type_hint().unwrap();
-        let var_type = const_map.type_info.get_type(&type_name.name).unwrap();
+        let var_type = const_map.type_info.get_type(&type_name).unwrap();
         result.push(BytecodeArg {
             operator: BytecodeOperator::SDefAttr,
             arg: Box::new(ArgType::DefAttr(StructAttr {
@@ -1684,7 +1718,7 @@ impl<'a> Bytecode {
         });
 
         const_map.type_info.types.insert(
-            struct_stmt.get_name().to_string(),
+            vec![struct_stmt.get_name().to_string()],
             Arc::new(FSRSType::Struct(Arc::new(struct_type))),
         );
 
@@ -1746,7 +1780,7 @@ impl<'a> Bytecode {
             }
 
             if let Some(var_type) = &v.var_type {
-                let tmp = const_map.type_info.get_type(&var_type.name);
+                let tmp = const_map.type_info.get_type(&var_type);
                 return_type = tmp;
             }
         } else if let FSRToken::Call(c) = expr.get_left() {
@@ -1774,7 +1808,7 @@ impl<'a> Bytecode {
         if let FSRToken::Expr(sub_expr) = expr.get_right() {
             let mut v = Self::load_expr(sub_expr, var_map, const_map);
             return_type =
-                Self::deduction_two_type(&const_map.type_info, &v.1, &return_type, expr.get_op());
+                Self::deduction_two_type(&mut const_map.type_info, &v.1, &return_type, expr.get_op());
             second.append(&mut v.0);
             //
         } else if let FSRToken::Variable(v) = expr.get_right() {
@@ -1802,10 +1836,10 @@ impl<'a> Bytecode {
             }
 
             if let Some(var_type) = &v.var_type {
-                let tmp = const_map.type_info.get_type(&var_type.name);
+                let tmp = const_map.type_info.get_type(&var_type);
 
                 return_type = Self::deduction_two_type(
-                    &const_map.type_info,
+                    &mut const_map.type_info,
                     &tmp,
                     &return_type,
                     expr.get_op(),
@@ -1918,7 +1952,7 @@ impl<'a> Bytecode {
                     panic!("not support this single op: {:?}", single_op);
                 }
             }
-            return (op_code, Some(const_map.type_info.get_type("bool").unwrap()));
+            return (op_code, Some(const_map.type_info.get_type(&FSRTypeName::new("bool")).unwrap()));
         } else if expr.get_op().eq("||") || expr.get_op().eq("or") {
             op_code.push(BytecodeArg {
                 operator: BytecodeOperator::OrJump,
@@ -1938,7 +1972,7 @@ impl<'a> Bytecode {
                 }
             }
 
-            return_type = Some(const_map.type_info.get_type("bool").unwrap());
+            return_type = Some(const_map.type_info.get_type(&FSRTypeName::new("bool")).unwrap());
             return (op_code, return_type);
         }
 
@@ -2579,7 +2613,7 @@ impl<'a> Bytecode {
                     let type_name = type_hint.name.as_str();
                     let type_id = bc_map
                         .type_info
-                        .get_type(type_name)
+                        .get_type(type_hint)
                         .expect("wait to impl: if not getting type_id");
                     Self::load_assign_helper(
                         token,
@@ -2647,20 +2681,20 @@ impl<'a> Bytecode {
                 info: Box::new(FSRByteInfo::new(&const_map.lines, token.get_meta().clone())),
             });
 
-            return (result, const_map.type_info.get_type("string"));
+            return (result, const_map.type_info.get_type(&FSRTypeName::new("string")));
         }
 
         let c = token.get_const_str();
 
         let ret_type = match c {
             crate::frontend::ast::token::constant::FSROrinStr::Integer(_, _) => {
-                const_map.type_info.get_type("i64")
+                const_map.type_info.get_type(&FSRTypeName::new("i64"))
             }
             crate::frontend::ast::token::constant::FSROrinStr::Float(_, _) => {
-                const_map.type_info.get_type("f64")
+                const_map.type_info.get_type(&FSRTypeName::new("f64"))
             }
             crate::frontend::ast::token::constant::FSROrinStr::String(_) => {
-                const_map.type_info.get_type("string")
+                const_map.type_info.get_type(&FSRTypeName::new("string"))
             }
         };
 
@@ -2716,7 +2750,7 @@ impl<'a> Bytecode {
             {
                 let ret_type = const_map.def_fn_ret.last().unwrap();
                 if let Some(ret_type_id) = ret_type {
-                    if !Arc::ptr_eq(&v.as_ref().unwrap(), ret_type_id) {
+                    if !&v.as_ref().unwrap().eq(ret_type_id) {
                         panic!(
                             "Return type mismatch: expected {:?}, got {:?}",
                             ret_type_id, v
@@ -2819,7 +2853,7 @@ impl<'a> Bytecode {
                         let type_name = type_hint.name.as_str();
                         let type_id = bytecontext
                             .type_info
-                            .get_type(type_name)
+                            .get_type(type_hint)
                             .expect("wait to impl: if not getting type_id");
                         call_sig.params.push(type_id.clone());
                     } else {
@@ -2859,7 +2893,7 @@ impl<'a> Bytecode {
                 let type_name = type_hint.name.as_str();
                 let type_id = bytecontext
                     .type_info
-                    .get_type(type_name)
+                    .get_type(type_hint)
                     .expect("wait to impl: if not getting type_id");
                 call_sig.return_type = Some(type_id.clone());
                 bytecontext.def_fn_ret.push(Some(type_id.clone()));
@@ -2924,7 +2958,7 @@ impl<'a> Bytecode {
 
         define_fn.push(BytecodeArg {
             operator: BytecodeOperator::DefineFn,
-            arg: Box::new(ArgType::DefineFnArgs( FnArgs {
+            arg: Box::new(ArgType::DefineFnArgs(FnArgs {
                 name_id: arg_id,
                 name: name.to_string(),
                 fn_identify_name: cur_name.to_string(),
@@ -2970,7 +3004,7 @@ impl<'a> Bytecode {
             is_jit: fn_def.is_jit(),
             is_async: fn_def.is_async(),
             is_static: fn_def.is_static(),
-            is_entry: fn_def.is_static_entry()
+            is_entry: fn_def.is_static_entry(),
         };
         bytecontext.fn_def_map.insert(cur_name, fn_def);
 

@@ -897,7 +897,7 @@ impl JitBuilder<'_> {
             FSRSType::Float64 => types::F64,
             FSRSType::String => todo!(),
             FSRSType::Struct(fsrstruct) => ptr,
-            FSRSType::Ref(fsrstype) => ptr,
+            FSRSType::Ptr(fsrstype) => ptr,
         }
     }
 
@@ -1262,7 +1262,7 @@ impl JitBuilder<'_> {
             ),
             FSRSType::String => todo!(),
             FSRSType::Struct(fsrstruct) => value,
-            FSRSType::Ref(fsrstype) => todo!(),
+            FSRSType::Ptr(fsrstype) => todo!(),
         }
     }
 
@@ -1630,6 +1630,25 @@ impl JitBuilder<'_> {
         self.builder.inst_results(call)[0]
     }
 
+    fn load_ptr_data(&mut self, var_type: &Arc<FSRSType>, value: Value) -> Value {
+        // input a data ptr to get value
+        match var_type.as_ref() {
+            
+            FSRSType::Ptr(fsrstype) => {
+                let ir_type = self.get_var_type(var_type).expect("Unrecongize ptr");
+                let value = self.builder.ins().load(
+                    ir_type,
+                    cranelift::codegen::ir::MemFlags::new(),
+                    value,
+                    0,
+                );
+
+                value
+            },
+            _ => panic!("load_ptr_data expects a Ptr type"),
+        }
+    }
+
     fn binary_dot_process(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         if let ArgType::Attr(attr_var) = arg.get_arg() {
             let attr_type = attr_var.attr_type.as_ref().unwrap().clone();
@@ -1637,7 +1656,8 @@ impl JitBuilder<'_> {
             let father_value = *context.exp.last().unwrap();
 
             let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
-            context.exp.push(addr);
+            let data = Self::load_ptr_data(self, &attr_type, addr);
+            context.exp.push(data);
         } else {
             panic!("BinaryDot requires an Attr argument");
         }
@@ -1687,28 +1707,6 @@ impl JitBuilder<'_> {
     }
 
     fn malloc_call_args(&mut self, context: &mut OperatorContext) {
-        // let mut malloc_sig = self.module.make_signature();
-        // malloc_sig
-        //     .params
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // size
-        // malloc_sig
-        //     .returns
-        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
-        // let malloc_id = self
-        //     .module
-        //     .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
-        //     .unwrap();
-        // let malloc_func_ref = self
-        //     .module
-        //     .declare_func_in_func(malloc_id, self.builder.func);
-
-        // let size = self
-        //     .builder
-        //     .ins()
-        //     .iconst(self.module.target_config().pointer_type(), CALL_ARGS_LEN);
-        // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
-        // let malloc_ret = self.builder.inst_results(malloc_call)[0];
-
         let var = self.variables.get("#call_args_ptr").unwrap();
         // self.builder.def_var(*var, malloc_ret);
         let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
@@ -1738,7 +1736,7 @@ impl JitBuilder<'_> {
             FSRSType::String => Some(self.module.target_config().pointer_type()),
             FSRSType::Struct(_) => None,
             FSRSType::Bool => Some(types::I8),
-            FSRSType::Ref(fsrstype) => Some(self.module.target_config().pointer_type()),
+            FSRSType::Ptr(fsrstype) => Some(self.module.target_config().pointer_type()),
         }
     }
 

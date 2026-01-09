@@ -3,7 +3,7 @@
 # FScript-RS
 
 A toy scripting language that runs on bytecode. It’s currently minimalistic and experimental, but aims to evolve into a **zero-dependency**, **embeddable**, and **Turing-complete** scripting language.
-
+(In quick development, not going to update version number)
 ---
 
 ## 🚀 Features & Roadmap
@@ -25,7 +25,7 @@ A toy scripting language that runs on bytecode. It’s currently minimalistic an
 ---
 
 ## Next main proposal(The code below is ok to run)
-Support embed static type jit like
+Support embed static type jit like subset of dynamic language.
 ```rust
 @static
 fn simple(n: u64) -> u64 {

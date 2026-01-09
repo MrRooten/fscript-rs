@@ -5,7 +5,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     frontend::ast::{
         parse::ASTParser,
-        token::{block::FSRBlock, call::FSRCall, variable::FSRVariable},
+        token::{block::FSRBlock, call::FSRCall, expr::FSRExpr, variable::FSRVariable},
     },
     utils::error::SyntaxError,
 };
@@ -247,7 +247,10 @@ impl FSRFnDef {
             if type_name.is_empty() {
                 return Ok(None);
             }
-            let type_name = FSRTypeName::new(type_name);
+
+            let type_hint_expr = FSRExpr::parse(type_name.as_bytes(), false, meta.clone(), context)?.0;
+            let type_name = FSRExpr::parse_type_hint(&type_hint_expr, &meta);
+            //let type_name = FSRTypeName::new(type_name);
             return Ok(Some(type_name));
         }
 

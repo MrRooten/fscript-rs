@@ -1415,6 +1415,20 @@ impl FSRExpr {
         Ok(())
     }
 
+    pub fn parse_type_hint(type_hint: &FSRToken, meta: &FSRPosition) -> FSRTypeName {
+        if let FSRToken::Variable(type_name) = type_hint {
+            return FSRTypeName::new(type_name.get_name());
+        } else if let FSRToken::Getter(type_inner) = type_hint {
+            let sub_type = type_inner.get_getter();
+            let sub_type_inner = Self::parse_type_hint(sub_type, &meta);
+            let mut new_type = FSRTypeName::new(type_inner.get_name());
+            new_type.subtype = Some(vec![Box::new(sub_type_inner)]);
+            return new_type;
+        } else {
+            panic!("{}: Type hint must be a variable", meta.to_string());
+        }
+    }
+
     pub fn parse(
         source: &[u8],
         ignore_nline: bool,
@@ -1496,18 +1510,15 @@ impl FSRExpr {
             if op.eq(":") {
                 if let FSRToken::Variable(name) = &left {
                     let name = name.get_name();
-                    if let FSRToken::Variable(type_name) = &right {
-                        let mut var = FSRVariable::parse(
-                            name,
-                            left.get_meta().clone(),
-                            Some(FSRTypeName::new(type_name.get_name())),
-                        )
-                        .unwrap();
-                        var.force_type = true;
-                        return Ok((FSRToken::Variable(var), ctx.start + ctx.length));
-                    } else {
-                        panic!("Type name must be a string")
-                    }
+                    let type_hint = Self::parse_type_hint(&right, &right.get_meta());
+                    //if let FSRToken::Variable(type_name) = &right {
+                    let mut var =
+                        FSRVariable::parse(name, left.get_meta().clone(), Some(type_hint)).unwrap();
+                    var.force_type = true;
+                    return Ok((FSRToken::Variable(var), ctx.start + ctx.length));
+                    // /} else {
+                    //     panic!("Type name must be a string")
+                    // }
                 } else {
                     unimplemented!()
                 }
@@ -1612,19 +1623,16 @@ impl FSRExpr {
         if operator.0.eq(":") {
             if let FSRToken::Variable(name) = &left {
                 let name = name.get_name();
-                if let FSRToken::Variable(type_name) = &right {
-                    let mut var = FSRVariable::parse(
-                        name,
-                        left.get_meta().clone(),
-                        Some(FSRTypeName::new(type_name.get_name())),
-                    )
-                    .unwrap();
-                    var.force_type = true;
-                    context.set_variable_token(name, Some(FSRToken::Variable(var.clone())));
-                    return Ok((FSRToken::Variable(var), ctx.start + ctx.length));
-                } else {
-                    panic!("Type name must be a string")
-                }
+                //if let FSRToken::Variable(type_name) = &right {
+                let type_hint = Self::parse_type_hint(&right, &right.get_meta());
+                let mut var =
+                    FSRVariable::parse(name, left.get_meta().clone(), Some(type_hint)).unwrap();
+                var.force_type = true;
+                context.set_variable_token(name, Some(FSRToken::Variable(var.clone())));
+                return Ok((FSRToken::Variable(var), ctx.start + ctx.length));
+                // } else {
+                //     panic!("Type name must be a string")
+                // }
             } else {
                 panic!("not support define a not variable type to typehint")
             }
@@ -1644,5 +1652,18 @@ impl FSRExpr {
 
     pub fn get_op(&self) -> &str {
         self.op.unwrap()
+    }
+}
+
+mod test {
+    use crate::frontend::ast::token::{base::FSRPosition, expr::FSRExpr, ASTContext};
+
+    #[test]
+    fn test_inner_type() {
+        let source = "a: List[int]";
+        let mut context = ASTContext::new_context();
+        let expr =
+            FSRExpr::parse(source.as_bytes(), false, FSRPosition::new(), &mut context).unwrap();
+        println!("expr: {:?}", expr.0);
     }
 }

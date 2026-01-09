@@ -12,7 +12,6 @@ fn test() -> u64 {
         a = a + 1
     }
     
-    
     return b
 }
 
