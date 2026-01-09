@@ -1633,16 +1633,17 @@ impl JitBuilder<'_> {
     fn load_ptr_data(&mut self, var_type: &Arc<FSRSType>, value: Value) -> Value {
         // input a data ptr to get value
         match var_type.as_ref() {
-            
-            FSRSType::Ptr(fsrstype) => {
-                let ir_type = self.get_var_type(var_type).expect("Unrecongize ptr");
-                let value = self.builder.ins().load(
-                    ir_type,
+            &FSRSType::UInt64 => {
+                // like &i64 to i64
+                self.builder.ins().load(
+                    types::I64,
                     cranelift::codegen::ir::MemFlags::new(),
                     value,
                     0,
-                );
-
+                )
+            },
+            
+            FSRSType::Ptr(fsrstype) => {
                 value
             },
             _ => panic!("load_ptr_data expects a Ptr type"),
@@ -1750,6 +1751,26 @@ impl JitBuilder<'_> {
         let malloc_ret = self.builder.inst_results(malloc_call)[0];
 
         context.exp.push(malloc_ret);
+    }
+
+    fn store_attr(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        if let ArgType::Attr(attr_var) = arg.get_arg() {
+            let attr_type = attr_var.attr_type.as_ref().unwrap().clone();
+            let offset = attr_var.offset.unwrap();
+            let father_value = context.exp.pop().unwrap();
+            let value_to_store = context.exp.pop().unwrap();
+            
+
+            let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
+            self.builder.ins().store(
+                cranelift::codegen::ir::MemFlags::new(),
+                value_to_store,
+                addr,
+                0,
+            );
+        } else {
+            panic!("StoreAttr requires an Attr argument");
+        }
     }
 
     fn get_var_type(&self, s_type: &FSRSType) -> Option<types::Type> {
@@ -2019,6 +2040,9 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::SAlloc => {
                     self.struct_alloc(context, arg);
+                }
+                BytecodeOperator::AssignAttr => {
+                    self.store_attr(context, arg);
                 }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())

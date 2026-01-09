@@ -1539,7 +1539,9 @@ impl<'a> FSRThreadRuntime<'a> {
                     FSRSType::Float64 => todo!(),
                     FSRSType::String => todo!(),
                     FSRSType::Struct(fsrstruct) => todo!(),
-                    FSRSType::Ptr(fsrstype) => return Ok(res),
+                    FSRSType::Ptr(fsrstype) => {
+                        return to_integer(thread, res);
+                    },
                 }
             }
         }

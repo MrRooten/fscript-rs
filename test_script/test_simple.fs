@@ -3,7 +3,11 @@ struct Test {
 }
 
 @entry
-fn test() -> Ptr[Test] {
+fn test() -> u64 {
     a: Ptr[Test] = Test.alloc
-    return a
+    a.field = 42
+    return a.field
 }
+
+a = test()
+println(a)
