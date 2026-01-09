@@ -4,7 +4,9 @@ use anyhow::{Context, Ok, Result};
 use cranelift::{
     codegen::{self, ir},
     prelude::{
-        AbiParam, Block, Configurable, EntityRef, FunctionBuilder, FunctionBuilderContext, InstBuilder, Signature, StackSlotData, StackSlotKind, Type, Value, Variable, settings, types
+        settings, types, AbiParam, Block, Configurable, EntityRef, FunctionBuilder,
+        FunctionBuilderContext, InstBuilder, Signature, StackSlotData, StackSlotKind, Type, Value,
+        Variable,
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -911,7 +913,7 @@ impl JitBuilder<'_> {
         for params in call_sig.params.iter() {
             inner_call_fn_sig
                 .params
-                .push(AbiParam::new(Self::get_cl_type(ptr ,params))); // args
+                .push(AbiParam::new(Self::get_cl_type(ptr, params))); // args
         }
 
         if let Some(ret_type) = &call_sig.return_type {
@@ -1643,11 +1645,9 @@ impl JitBuilder<'_> {
                     value,
                     0,
                 )
-            },
-            
-            FSRSType::Ptr(fsrstype) => {
-                value
-            },
+            }
+
+            FSRSType::Ptr(fsrstype) => value,
             _ => panic!("load_ptr_data expects a Ptr type"),
         }
     }
@@ -1755,6 +1755,28 @@ impl JitBuilder<'_> {
         context.exp.push(malloc_ret);
     }
 
+    fn ret_op_value(
+        &mut self,
+        current_value: Value,
+        value_to_store: Value,
+        op_assign: &Option<OpAssign>,
+    ) -> Value {
+        let value_to_store = if let Some(op_assign) = op_assign {
+            let new_value = match op_assign {
+                OpAssign::Add => self.builder.ins().iadd(current_value, value_to_store),
+                OpAssign::Sub => self.builder.ins().isub(current_value, value_to_store),
+                OpAssign::Mul => self.builder.ins().imul(current_value, value_to_store),
+                OpAssign::Div => self.builder.ins().sdiv(current_value, value_to_store),
+                OpAssign::Reminder => self.builder.ins().srem(current_value, value_to_store),
+            };
+            new_value
+        } else {
+            value_to_store
+        };
+
+        value_to_store
+    }
+
     fn store_attr(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         if let ArgType::Attr(attr_var) = arg.get_arg() {
             let attr_type = attr_var.attr_type.as_ref().unwrap().clone();
@@ -1809,6 +1831,67 @@ impl JitBuilder<'_> {
             FSRSType::Bool => Some(types::I8),
             FSRSType::Ptr(fsrstype) => Some(self.module.target_config().pointer_type()),
             FSRSType::Fn(fn_call_sig) => Some(self.module.target_config().pointer_type()),
+        }
+    }
+
+    fn assign_process(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        if let ArgType::Local(v) = arg.get_arg() {
+            if let Some(var_type) = &v.var_type {
+                let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
+                let var_type = new_type.unwrap();
+                let mut var_id = self.var_index;
+                let new_var = declare_variable(
+                    var_type,
+                    &mut self.builder,
+                    &mut self.variables,
+                    &mut var_id,
+                    &v.name,
+                );
+                self.var_index = var_id;
+            }
+
+            let op_assign = v.op_assign;
+            let var = if let Some(op) = op_assign {
+                // load the current value
+                let variable = self.variables.get(v.name.as_str()).unwrap();
+                let current_value = self.builder.use_var(*variable);
+                let assign_value = context.exp.pop().unwrap();
+                // the value to assign is already on the stack
+                let result = match op {
+                    crate::backend::compiler::bytecode::OpAssign::Add => {
+                        let result = self.builder.ins().iadd(current_value, assign_value);
+                        result
+                    }
+                    crate::backend::compiler::bytecode::OpAssign::Sub => {
+                        let result = self.builder.ins().isub(current_value, assign_value);
+                        result
+                    }
+                    crate::backend::compiler::bytecode::OpAssign::Mul => {
+                        let result = self.builder.ins().imul(current_value, assign_value);
+                        result
+                    }
+                    crate::backend::compiler::bytecode::OpAssign::Div => {
+                        let result = self.builder.ins().sdiv(current_value, assign_value);
+                        result
+                    }
+                    crate::backend::compiler::bytecode::OpAssign::Reminder => {
+                        let result = self.builder.ins().srem(current_value, assign_value);
+                        result
+                    }
+                };
+                result
+            } else {
+                let var = context.exp.pop().unwrap();
+                var
+            };
+
+            let variable = self.variables.get(v.name.as_str()).unwrap();
+
+            context.middle_value.push(var);
+            self.builder.def_var(*variable, var);
+            self.defined_variables.insert(v.name.to_string(), *variable);
+        } else {
+            panic!("not supported assign type: {:?}", arg.get_arg());
         }
     }
 
@@ -1915,64 +1998,7 @@ impl JitBuilder<'_> {
                     //unimplemented!()
                 }
                 BytecodeOperator::Assign => {
-                    if let ArgType::Local(v) = arg.get_arg() {
-                        if let Some(var_type) = &v.var_type {
-                            let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
-                            let var_type = new_type.unwrap();
-                            let mut var_id = self.var_index;
-                            let new_var = declare_variable(
-                                var_type,
-                                &mut self.builder,
-                                &mut self.variables,
-                                &mut var_id,
-                                &v.name,
-                            );
-                            self.var_index = var_id;
-                        }
-
-                        let op_assign = v.op_assign;
-                        let var = if let Some(op) = op_assign {
-                            // load the current value
-                            let variable = self.variables.get(v.name.as_str()).unwrap();
-                            let current_value = self.builder.use_var(*variable);
-                            let assign_value = context.exp.pop().unwrap();
-                            // the value to assign is already on the stack
-                            let result = match op {
-                                crate::backend::compiler::bytecode::OpAssign::Add => {
-                                    let result = self.builder.ins().iadd(current_value, assign_value);
-                                    result
-                                },
-                                crate::backend::compiler::bytecode::OpAssign::Sub => {
-                                    let result = self.builder.ins().isub(current_value, assign_value);
-                                    result
-                                },
-                                crate::backend::compiler::bytecode::OpAssign::Mul => {
-                                    let result = self.builder.ins().imul(current_value, assign_value);
-                                    result
-                                },
-                                crate::backend::compiler::bytecode::OpAssign::Div => {
-                                    let result = self.builder.ins().sdiv(current_value, assign_value);
-                                    result
-                                },
-                                crate::backend::compiler::bytecode::OpAssign::Reminder => {
-                                    let result = self.builder.ins().srem(current_value, assign_value);
-                                    result
-                                },
-                            };
-                            result
-                        } else {
-                            let var = context.exp.pop().unwrap();
-                            var
-                        };
-
-                        let variable = self.variables.get(v.name.as_str()).unwrap();
-                        
-                        context.middle_value.push(var);
-                        self.builder.def_var(*variable, var);
-                        self.defined_variables.insert(v.name.to_string(), *variable);
-                    } else {
-                        panic!("not supported assign type: {:?}", arg.get_arg());
-                    }
+                    self.assign_process(context, arg);
                 }
                 BytecodeOperator::BinaryAdd => {
                     self.load_binary_op(context, BinaryOffset::Add);
@@ -2266,23 +2292,35 @@ impl CraneLiftJitBackend {
                                                                      //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
             self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
         } else {
-            self.ctx.func.signature
+            self.ctx
+                .func
+                .signature
                 .params
                 .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
             for params in call_sig.as_ref().unwrap().params.iter() {
-                self.ctx.func.signature
+                self.ctx
+                    .func
+                    .signature
                     .params
                     .push(AbiParam::new(JitBuilder::get_cl_type(ptr, params))); // args
             }
 
             if let Some(ret_type) = &call_sig.as_ref().unwrap().return_type {
-                self.ctx.func.signature
+                self.ctx
+                    .func
+                    .signature
                     .returns
-                    .push(AbiParam::new(JitBuilder::get_cl_type(ptr, ret_type.as_ref())));
+                    .push(AbiParam::new(JitBuilder::get_cl_type(
+                        ptr,
+                        ret_type.as_ref(),
+                    )));
             } else {
-                self.ctx.func.signature.returns.push(AbiParam::new(types::I64)); // return type (ObjId)
+                self.ctx
+                    .func
+                    .signature
+                    .returns
+                    .push(AbiParam::new(types::I64)); // return type (ObjId)
             }
-
         }
 
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
