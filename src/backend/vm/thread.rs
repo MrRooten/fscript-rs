@@ -1542,6 +1542,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     FSRSType::Ptr(fsrstype) => {
                         return to_integer(thread, res);
                     },
+                    FSRSType::Fn(fn_call_sig) => return to_integer(thread, res),
                 }
             }
         }

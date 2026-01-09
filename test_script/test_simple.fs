@@ -3,17 +3,12 @@ struct Test {
     field2: u64
 }
 
-@static
-fn simple(n: u64) -> Ptr[Test] {
-    ptr: Ptr[Test] = Test.alloc
-    ptr.field2 = n
-    return ptr
-}
-
 @entry
 fn test() -> u64 {
-    out_ptr: Ptr[Test] = simple(2)
-    return out_ptr.field2
+    t: Ptr[Test] = Test.alloc
+    t.field = 0
+    t.field += 1
+    return t.field
 }
 
 a = test()

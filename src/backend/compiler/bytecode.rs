@@ -389,7 +389,7 @@ impl OpAssign {
         }
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnCallSig {
     pub(crate) params: Vec<Arc<FSRSType>>,
     pub(crate) return_type: Option<Arc<FSRSType>>,
@@ -773,6 +773,7 @@ pub struct FnDef {
     is_async: bool,
     is_static: bool,
     is_entry: bool,
+    fn_type: Option<Arc<FnCallSig>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -795,6 +796,7 @@ pub enum FSRSType {
     Float32,
     Float64,
     String,
+    Fn(Arc<FnCallSig>),
     Struct(Arc<FSRStruct>),
     Ptr(Arc<FSRSType>),
 }
@@ -829,6 +831,9 @@ impl FSRSType {
                 // ptr size
                 std::mem::size_of::<usize>()
             }
+            FSRSType::Fn(fn_call_sig) => {
+                std::mem::size_of::<usize>()
+            },
         }
     }
 }
@@ -1083,6 +1088,7 @@ pub struct Bytecode {
     pub(crate) is_async: bool,
     pub(crate) is_static: bool,
     pub(crate) is_entry: bool,
+    pub(crate) fn_type: Option<Arc<FnCallSig>>,
 }
 
 enum AttrIdOrCode {
@@ -1758,7 +1764,8 @@ impl<'a> Bytecode {
                 panic!("Struct can only contain variables.");
             }
         }
-        const_map.type_info.structs.pop();
+
+        
 
         result.push(BytecodeArg {
             operator: BytecodeOperator::SStructEndDef,
@@ -1769,6 +1776,8 @@ impl<'a> Bytecode {
             )),
         });
 
+        
+
         const_map.type_info.types.insert(
             vec![struct_stmt.get_name().to_string()],
             Arc::new(FSRSType::Struct(Arc::new(struct_type))),
@@ -1777,6 +1786,29 @@ impl<'a> Bytecode {
         for function in struct_stmt.get_block().get_tokens() {
             if let FSRToken::FunctionDef(def) = function {
                 let v = Self::load_function(def, var_map, const_map);
+                let fn_type = Arc::new(FSRSType::Fn(v.2.as_ref().unwrap().clone()));
+                const_map.type_info.types.insert(
+                    vec![
+                        struct_stmt.get_name().to_string(),
+                        def.get_name().to_string(),
+                    ],
+                    fn_type.clone(),
+                );
+                // take the Arc out of the map so we can mutate its contents (clone-on-write
+                // if there are other references)
+                let key = vec![struct_stmt.get_name().to_string()];
+                let mut m_type = const_map.type_info.types.remove(&key).unwrap();
+                // get mutable access to the outer FSRSType (may clone if necessary)
+                match Arc::make_mut(&mut m_type) {
+                    FSRSType::Struct(ref mut arc_struct) => {
+                        // arc_struct is &mut Arc<FSRStruct>, make_mut to get &mut FSRStruct
+                        let s = Arc::make_mut(arc_struct);
+                        s.fields.insert(def.get_name().to_string(), (0, fn_type.clone()));
+                    }
+                    _ => panic!("expected struct type when adding method to struct"),
+                }
+                // put the (possibly cloned/modified) Arc back into the map
+                const_map.type_info.types.insert(key, m_type);
                 var_map.last_mut().unwrap().sub_fn_def.push(Bytecode {
                     name: def.get_name().to_string(),
                     context: BytecodeContext::new(vec![]),
@@ -1786,9 +1818,12 @@ impl<'a> Bytecode {
                     is_async: def.is_async(),
                     is_static: def.is_static(),
                     is_entry: def.is_static_entry(),
+                    fn_type: v.2,
                 });
             }
         }
+
+        
 
         //result
     }
@@ -2493,6 +2528,7 @@ impl<'a> Bytecode {
                     is_async: false,
                     is_static: false,
                     is_entry: false,
+                    fn_type: v.2,
                 });
                 let c_id = var_map
                     .last_mut()
@@ -2984,7 +3020,7 @@ impl<'a> Bytecode {
         fn_def: &FSRFnDef,
         var_map: &mut Vec<VarMap>,
         bytecontext: &mut BytecodeContext,
-    ) -> (Vec<Vec<BytecodeArg>>, VarMap) {
+    ) -> (Vec<Vec<BytecodeArg>>, VarMap, Option<Arc<FnCallSig>>) {
         let mut result = vec![];
         let name = fn_def.get_name();
         let arg_id = ensure_var_id!(var_map, name);
@@ -3172,6 +3208,7 @@ impl<'a> Bytecode {
             is_async: fn_def.is_async(),
             is_static: fn_def.is_static(),
             is_entry: fn_def.is_static_entry(),
+            fn_type: call_sig_maybe.clone(),
         };
         bytecontext.fn_def_map.insert(cur_name, fn_def);
 
@@ -3188,7 +3225,7 @@ impl<'a> Bytecode {
         //result.push(end_of_fn);
 
         // result.push(end_list);
-        (result, v)
+        (result, v, call_sig_maybe)
     }
 
     fn load_class(
@@ -3327,6 +3364,7 @@ impl<'a> Bytecode {
                 is_async: false,
                 is_static: false,
                 is_entry: false,
+                fn_type: None,
             },
         );
 
@@ -3342,6 +3380,7 @@ impl<'a> Bytecode {
                 is_async: code.1.is_async,
                 is_static: code.1.is_static,
                 is_entry: code.1.is_entry,
+                fn_type: code.1.fn_type.clone(),
             };
 
             res.insert(code.0.to_string(), bytecode);

@@ -15,7 +15,7 @@ use crate::{
         compiler::{
             bytecode::{
                 ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
-                FSRSType, FnCallSig,
+                FSRSType, FnCallSig, OpAssign,
             },
             jit::jit_wrapper::{
                 binary_dot_getter, c_println, clear_exp, get_current_fn_id, get_obj_method,
@@ -898,6 +898,7 @@ impl JitBuilder<'_> {
             FSRSType::String => todo!(),
             FSRSType::Struct(fsrstruct) => ptr,
             FSRSType::Ptr(fsrstype) => ptr,
+            FSRSType::Fn(fn_call_sig) => ptr,
         }
     }
 
@@ -1262,7 +1263,8 @@ impl JitBuilder<'_> {
             ),
             FSRSType::String => todo!(),
             FSRSType::Struct(fsrstruct) => value,
-            FSRSType::Ptr(fsrstype) => todo!(),
+            FSRSType::Ptr(fsrstype) => value,
+            FSRSType::Fn(fn_call_sig) => value,
         }
     }
 
@@ -1759,7 +1761,24 @@ impl JitBuilder<'_> {
             let offset = attr_var.offset.unwrap();
             let father_value = context.exp.pop().unwrap();
             let value_to_store = context.exp.pop().unwrap();
-            
+            let op_assign = attr_var.op_assign;
+
+            let value_to_store = if let Some(op_assign) = op_assign {
+                // load current value
+                let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
+                let current_value = Self::load_data(self, &attr_type, addr);
+                // perform operation
+                let new_value = match op_assign {
+                    OpAssign::Add => self.builder.ins().iadd(current_value, value_to_store),
+                    OpAssign::Sub => self.builder.ins().isub(current_value, value_to_store),
+                    OpAssign::Mul => self.builder.ins().imul(current_value, value_to_store),
+                    OpAssign::Div => self.builder.ins().sdiv(current_value, value_to_store),
+                    OpAssign::Reminder => self.builder.ins().srem(current_value, value_to_store),
+                };
+                new_value
+            } else {
+                value_to_store
+            };
 
             let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
             self.builder.ins().store(
@@ -1789,6 +1808,7 @@ impl JitBuilder<'_> {
             FSRSType::Struct(_) => None,
             FSRSType::Bool => Some(types::I8),
             FSRSType::Ptr(fsrstype) => Some(self.module.target_config().pointer_type()),
+            FSRSType::Fn(fn_call_sig) => Some(self.module.target_config().pointer_type()),
         }
     }
 
@@ -1910,8 +1930,43 @@ impl JitBuilder<'_> {
                             self.var_index = var_id;
                         }
 
+                        let op_assign = v.op_assign;
+                        let var = if let Some(op) = op_assign {
+                            // load the current value
+                            let variable = self.variables.get(v.name.as_str()).unwrap();
+                            let current_value = self.builder.use_var(*variable);
+                            let assign_value = context.exp.pop().unwrap();
+                            // the value to assign is already on the stack
+                            let result = match op {
+                                crate::backend::compiler::bytecode::OpAssign::Add => {
+                                    let result = self.builder.ins().iadd(current_value, assign_value);
+                                    result
+                                },
+                                crate::backend::compiler::bytecode::OpAssign::Sub => {
+                                    let result = self.builder.ins().isub(current_value, assign_value);
+                                    result
+                                },
+                                crate::backend::compiler::bytecode::OpAssign::Mul => {
+                                    let result = self.builder.ins().imul(current_value, assign_value);
+                                    result
+                                },
+                                crate::backend::compiler::bytecode::OpAssign::Div => {
+                                    let result = self.builder.ins().sdiv(current_value, assign_value);
+                                    result
+                                },
+                                crate::backend::compiler::bytecode::OpAssign::Reminder => {
+                                    let result = self.builder.ins().srem(current_value, assign_value);
+                                    result
+                                },
+                            };
+                            result
+                        } else {
+                            let var = context.exp.pop().unwrap();
+                            var
+                        };
+
                         let variable = self.variables.get(v.name.as_str()).unwrap();
-                        let var = context.exp.pop().unwrap();
+                        
                         context.middle_value.push(var);
                         self.builder.def_var(*variable, var);
                         self.defined_variables.insert(v.name.to_string(), *variable);
