@@ -45,6 +45,23 @@ fn test() -> u64 {
 a = test()
 println(a)
 ```
+
+Struct support
+```rust
+struct Test {
+    field: u64
+}
+
+@entry
+fn test() -> u64 {
+    a: Ptr[Test] = Test.alloc
+    a.field = 42
+    return a.field
+}
+
+a = test()
+println(a)
+```
 The backend uses Cranelift to compile the static typed functions to native code. The performance is at same level compared with C in some scenarios. But the implementation is still in progress.
 
 A lot of develop designs are not determined yet.
