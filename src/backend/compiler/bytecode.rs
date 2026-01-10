@@ -1276,8 +1276,8 @@ impl<'a> Bytecode {
         context: &mut BytecodeContext,
         name: &str,
     ) {
-        if let Some(fn_def) = context.fn_def_map.get(name) {
-            if fn_def.is_static {
+        //if let Some(fn_def) = context.fn_def_map.get(name) {
+            //if fn_def.is_static {
                 let op_arg = BytecodeArg {
                     operator: BytecodeOperator::Load,
                     arg: Box::new(ArgType::JitFunction(name.to_string())),
@@ -1285,10 +1285,10 @@ impl<'a> Bytecode {
                 };
 
                 result.push(op_arg);
-            }
-        } else {
-            panic!("Static function {} not found", name);
-        }
+            //}
+        // } else {
+        //     panic!("Static function {} not found", name);
+        // }
     }
 
     fn load_call(
@@ -3336,8 +3336,55 @@ impl<'a> Bytecode {
         (v.0, var)
     }
 
-    pub fn load_ast(_name: &str, token: FSRToken, lines: Vec<usize>) -> HashMap<String, Bytecode> {
+    fn pre_load_ast(_name: &str, token: &FSRToken, lines: Vec<usize>) -> BytecodeContext {
         let mut const_table = BytecodeContext::new(lines);
+        let vs = Self::load_isolate_block(&token, &mut const_table);
+        let mut result = vec![];
+        for v in vs.0 {
+            let single_line = Vec::from_iter(v);
+            result.push(single_line);
+        }
+
+        let mut const_map = &vs.1.const_map;
+        let mut const_loader = vec![];
+        for const_var in const_map {
+            match const_var.0 {
+                FSROrinStr2::Integer(i, v) => {
+                    const_loader.push(BytecodeArg {
+                        operator: BytecodeOperator::LoadConst,
+                        arg: Box::new(ArgType::ConstInteger(
+                            *const_var.1,
+                            Self::process_integer(i.as_str()),
+                            *v,
+                        )),
+                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+                    });
+                }
+                FSROrinStr2::Float(f, v) => {
+                    const_loader.push(BytecodeArg {
+                        operator: BytecodeOperator::LoadConst,
+                        arg: Box::new(ArgType::ConstFloat(*const_var.1, f.to_string(), *v)),
+                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+                    });
+                }
+                FSROrinStr2::String(s) => {
+                    const_loader.push(BytecodeArg {
+                        operator: BytecodeOperator::LoadConst,
+                        arg: Box::new(ArgType::ConstString(*const_var.1, s.to_string())),
+                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+                    });
+                }
+            }
+        }
+
+        const_table
+    }
+
+    pub fn load_ast(name: &str, token: FSRToken, lines: Vec<usize>) -> HashMap<String, Bytecode> {
+        let type_info = Self::pre_load_ast(name, &token, lines.clone());
+        let type_info = type_info.type_info;
+        let mut const_table = BytecodeContext::new(lines);
+        const_table.type_info = type_info;
         let vs = Self::load_isolate_block(&token, &mut const_table);
         let mut result = vec![];
         for v in vs.0 {

@@ -13,7 +13,7 @@ pub struct FSRModule<'a> {
     name: String,
     fn_map: HashMap<String, FSRObject<'a>>,
     pub(crate) object_map: AHashMap<String, AtomicObjId>,
-    pub(crate) jit_code_map: AHashMap<String, Option<usize>>, // JITed code address map
+    pub(crate) jit_code_map: AHashMap<String, AtomicUsize>, // JITed code address map
     // pub(crate) const_table: Vec<Option<ObjId>>,
 }
 
@@ -33,6 +33,21 @@ impl Debug for FSRModule<'_> {
 }
 
 impl<'a> FSRModule<'a> {
+    /// Get the JITed function address pointer by name
+    /// # Arguments
+    /// * `name` - The name of the function
+    /// # Returns
+    /// * `Option<usize>` - The address pointer of the JITed function
+    pub fn get_fn_addr_ptr(&self, name: &str) -> usize {
+        // Use for lazy JIT function address retrieval
+        let v = self.jit_code_map.get(name).and_then(|x| Some(x as *const AtomicUsize as usize));
+        match v {
+            Some(addr) => addr,
+            None => 0,
+        }
+        
+    }
+
     pub fn get_name(&self) -> &str {
         &self.name
     }

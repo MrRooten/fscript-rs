@@ -1,10 +1,14 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
+    collections::HashMap,
     ops::Range,
     path::PathBuf,
     str::FromStr,
-    sync::{atomic::Ordering, Arc, Condvar, Mutex},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Condvar, Mutex,
+    },
 };
 
 use smallvec::SmallVec;
@@ -1541,7 +1545,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     FSRSType::Struct(fsrstruct) => todo!(),
                     FSRSType::Ptr(fsrstype) => {
                         return to_integer(thread, res);
-                    },
+                    }
                     FSRSType::Fn(fn_call_sig) => return to_integer(thread, res),
                     FSRSType::List(fsrstype, _) => todo!(),
                 }
@@ -2115,18 +2119,22 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_code_inner = fn_code.as_code();
         let const_map = self.get_const_map(fn_code_inner)?;
         let is_jit = fn_code_inner.get_bytecode().is_jit;
-        let code = if is_jit {
-            Some(Self::compile_jit(
-                fn_code_inner,
-                self.get_cur_frame().code,
-                fn_code_inner.get_bytecode().is_entry,
-                fn_args.call_sig.clone(),
-            ))
-        } else {
-            None
-        };
+        // let code = if is_jit {
+        //     Some(Self::compile_jit(
+        //         fn_code_inner,
+        //         self.get_cur_frame().code,
+        //         fn_code_inner.get_bytecode().is_entry,
+        //         fn_args.call_sig.clone(),
+        //     ))
+        // } else {
+        //     None
+        // };
 
         let fn_code_id = FSRObject::obj_to_id(fn_code);
+        let code = module
+            .jit_code_map
+            .get(&fn_args.fn_identify_name)
+            .map(|x| x.load(Ordering::Relaxed) as *const u8);
         let fn_obj = FSRFn::from_fsr_fn(
             fn_args.name.as_str(),
             FnDesc {
@@ -2169,9 +2177,12 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap()
             .as_mut_module();
             module.register_object(&fn_args.name, fn_id);
-            module
-                .jit_code_map
-                .insert(fn_args.fn_identify_name.clone(), code.map(|x| x as usize));
+            // if is_jit {
+            //     module.jit_code_map.insert(
+            //         fn_args.fn_identify_name.clone(),
+            //         AtomicUsize::new(code.unwrap() as usize),
+            //     );
+            // }
         }
 
         if fn_args.store_to_cell && !is_base_fn!(define_fn_obj) {
@@ -3470,6 +3481,53 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
+    // compile jit function
+    fn compile_fn(&self, module: ObjId) {
+        let mut h = HashMap::new();
+        let mut v = vec![];
+        for code in FSRObject::id_to_obj(module).as_module().iter_fn() {
+            if code.0 == MAIN_FN {
+                continue;
+            }
+
+            let fn_obj = code.1.as_code();
+            if fn_obj.get_bytecode().is_jit {
+                v.push(code.0.to_string());
+            }
+        }
+
+        for fn_name in v {
+            let mut mut_module = FSRObject::id_to_mut_obj(module).unwrap().as_mut_module();
+            mut_module.jit_code_map.insert(fn_name, AtomicUsize::new(0));
+        }
+
+        for code in FSRObject::id_to_obj(module).as_module().iter_fn() {
+            if code.0 == MAIN_FN {
+                continue;
+            }
+
+            let fn_obj = code.1.as_code();
+            if fn_obj.get_bytecode().is_jit {
+                let jit = Self::compile_jit(
+                    fn_obj,
+                    self.get_cur_frame().code,
+                    fn_obj.get_bytecode().is_entry,
+                    fn_obj.get_bytecode().fn_type.clone(),
+                );
+                h.insert(code.0.to_string(), jit);
+            }
+        }
+
+        for code in h {
+            let mut mut_module = FSRObject::id_to_mut_obj(module).unwrap().as_mut_module();
+            mut_module
+                .jit_code_map
+                .get(&code.0)
+                .unwrap()
+                .store(code.1 as usize, Ordering::Relaxed);
+        }
+    }
+
     pub fn start(&mut self, module: ObjId, start_dbg: bool) -> Result<(), FSRError> {
         self.dbg_flag = start_dbg;
         let code_id = FSRObject::obj_to_id(
@@ -3487,6 +3545,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
+        
+
         let base_fn = FSRFn::new_empty();
         let base_fn_id = FSRObject::new_inst(base_fn, gid(GlobalObj::FnCls));
         let base_fn_id = FSRVM::leak_object(Box::new(base_fn_id));
@@ -3502,6 +3562,8 @@ impl<'a> FSRThreadRuntime<'a> {
         if start_dbg {
             self.startup_debug(code);
         }
+
+        Self::compile_fn(self, module);
 
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;

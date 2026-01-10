@@ -1111,6 +1111,10 @@ impl JitBuilder<'_> {
                     // For division, we can use integer division directly
                     self.builder.ins().sdiv(left, right)
                 }
+                BinaryOffset::Reminder => {
+                    // For modulus, we can use integer remainder directly
+                    self.builder.ins().srem(left, right)
+                }
                 _ => {
                     unimplemented!("Binary operation {:?} is not implemented yet", op);
                 }
@@ -2118,16 +2122,28 @@ impl JitBuilder<'_> {
                     } else if let ArgType::JitFunction(f_name) = arg.get_arg() {
                         let module = FSRObject::id_to_obj(code).as_code().module;
                         let module_obj = FSRObject::id_to_obj(module).as_module();
-                        let target_fn = module_obj
-                            .jit_code_map
-                            .get(f_name)
-                            .and_then(|x| x.clone())
-                            .expect("Not found jit");
-                        let fn_value = self
-                            .builder
-                            .ins()
-                            .iconst(self.module.target_config().pointer_type(), target_fn as i64);
-                        context.exp.push(fn_value);
+                        // let target_fn = module_obj
+                        //     .jit_code_map
+                        //     .get(f_name)
+                        //     .and_then(|x| x.clone())
+                        //     .expect("Not found jit");
+                        let target_fn_ptr = module_obj
+                            .get_fn_addr_ptr(f_name);
+                        let target_fn_value = self.builder.ins().iconst(
+                            self.module.target_config().pointer_type(),
+                            target_fn_ptr as i64,
+                        );
+                        let target_fn = self.builder.ins().load(
+                            self.module.target_config().pointer_type(),
+                            cranelift::codegen::ir::MemFlags::new(),
+                            target_fn_value,
+                            0,
+                        );
+                        // let fn_value = self
+                        //     .builder
+                        //     .ins()
+                        //     .iconst(self.module.target_config().pointer_type(), target_fn as i64);
+                        context.exp.push(target_fn);
                         //self.load_jit_function(f_name, context);
                     } else if let ArgType::Const(c) = arg.get_arg() {
                         self.load_constant(*c, context);
@@ -2157,16 +2173,10 @@ impl JitBuilder<'_> {
                         let fn_id = self.get_current_fn_id(context);
                         context.exp.push(fn_id);
                     } else if let ArgType::ClosureVar(v) = arg.get_arg() {
-                        // same as load global for now
-                        let name_ptr = self.builder.ins().iconst(
-                            self.module.target_config().pointer_type(),
-                            v.1.as_ptr() as i64,
-                        );
-                        let name_len = self
-                            .builder
-                            .ins()
-                            .iconst(self.module.target_config().pointer_type(), v.1.len() as i64);
-                        self.load_global_name(name_ptr, name_len, context);
+                        let variable = self.variables.get(v.1.as_str()).unwrap();
+                        // context.left = Some(self.builder.use_var(*variable));
+                        let value = self.builder.use_var(*variable);
+                        context.exp.push(value);
                     } else {
                         panic!("Load requires a variable or constant argument");
                     }
