@@ -2,9 +2,39 @@ use std::time::Instant;
 
 use std::io::Read;
 
-use fscript_rs::{backend::{
-    compiler::bytecode::Bytecode, types::{base::FSRObject, code::FSRCode, module::FSRModule}, vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM}
-}, frontend::ast::token::{base::{FSRPosition, FSRToken}, module::FSRModuleFrontEnd}};
+use fscript_rs::{
+    backend::{
+        compiler::bytecode::Bytecode,
+        types::{base::FSRObject, code::FSRCode, module::FSRModule},
+        vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
+    },
+    frontend::ast::token::{
+        base::{FSRPosition, FSRToken},
+        module::FSRModuleFrontEnd,
+    },
+};
+
+fn bench_compile() {
+    let mut line = vec![];
+    for _ in 0..10000 {
+        line.push(format!("a: u64 = 1"));
+        line.push(r#"
+        if a > 10 {
+            a = a + 1
+        } else {
+            a = a - 1
+        }
+        "#.to_string());
+    }
+
+    let source_code = line.join("\n");
+    let start = Instant::now();
+    let meta = FSRPosition::new();
+    let token = FSRModuleFrontEnd::parse(source_code.as_bytes(), meta).unwrap();
+    Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
+    let end = Instant::now();
+    println!("Compile Time: {:?}", end - start);
+}
 
 fn main() {
     let mut vs = vec![];
@@ -19,7 +49,7 @@ fn main() {
 
     let mut just_bc = false;
     if vs.iter().any(|x| x.eq("-bc")) {
-        just_bc = true; 
+        just_bc = true;
     }
 
     let mut debugger = false;
@@ -33,7 +63,11 @@ fn main() {
         ast = true;
     }
 
-    
+    if vs.iter().any(|x| x.eq("-bench-compile")) {
+        bench_compile();
+        return;
+    }
+
     let vm = FSRVM::single();
     let file = &vs[1];
     let mut f = std::fs::File::open(file).unwrap();
@@ -53,7 +87,7 @@ fn main() {
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
 
-        return ;
+        return;
     }
 
     let rt = FSRThreadRuntime::new_runtime();

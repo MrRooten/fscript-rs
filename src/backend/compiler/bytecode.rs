@@ -541,6 +541,7 @@ impl FSRByteInfo {
     /// # Returns
     /// * `FSRByteInfo` - A new instance of FSRByteInfo with the position set.
     pub fn new(lines: &[usize], meta: FSRPosition) -> Self {
+        // Fast path: empty lines
         if lines.is_empty() {
             return Self {
                 pos: FSRPos {
@@ -552,8 +553,6 @@ impl FSRByteInfo {
         }
 
         let offset = meta.get_offset();
-        let mut left = 0;
-        let mut right = 1;
 
         if offset <= lines[0] {
             return Self {
@@ -565,14 +564,14 @@ impl FSRByteInfo {
             };
         }
 
-        while right < lines.len() && lines[right] <= offset {
-            left += 1;
-            right += 1;
-        }
+        let idx = match lines.binary_search(&offset) {
+            Ok(i) => i,           // exact match
+            Err(ins) => ins - 1,  // insertion point -> previous index
+        };
 
         let pos = FSRPos {
-            line: left + 1,
-            column: offset - lines[left],
+            line: idx + 1,
+            column: offset - lines[idx],
         };
 
         Self {
