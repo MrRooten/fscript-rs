@@ -2,8 +2,10 @@
 
 # FScript-RS
 
-A toy scripting language that runs on bytecode. It’s currently minimalistic and experimental, but aims to evolve into a **zero-dependency**, **embeddable**, and **Turing-complete** scripting language.
-(In quick development, not going to update version number)
+A lightweight, experimental scripting language that compiles to bytecode. It is intentionally minimal during early development,
+but aims to become a **zero-dependency**, **embeddable**, and **Turing-complete**,**Static-Jit support** language.
+
+> Active development — the version number may not be updated regularly.
 ---
 
 ## 🚀 Features & Roadmap
