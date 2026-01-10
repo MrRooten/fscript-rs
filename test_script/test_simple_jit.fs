@@ -1,7 +1,12 @@
 
 @entry
 fn test(n: u64) -> u64 {
-    a: [u8, 8] = uninit
+    a: [u64, 8] = uninit
+    a[0] = 1
+    c: u64 = a[0]
     b: u64 = 0
-    return b
+    return c
 }
+
+a = test(10)
+println(a)

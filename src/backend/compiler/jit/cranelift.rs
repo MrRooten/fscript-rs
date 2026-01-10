@@ -1,3 +1,4 @@
+use core::panic;
 use std::{collections::HashMap, os::unix::thread, sync::Arc};
 
 use anyhow::{Context, Ok, Result};
@@ -929,6 +930,29 @@ impl JitBuilder<'_> {
         inner_call_fn_sig
     }
 
+    fn load_getter(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+        if let ArgType::TypeInfo(v) = arg.get_arg() {
+            let index = context.exp.pop().unwrap();
+            let father_obj_id = context.exp.pop().unwrap();
+            let type_info = v.as_ref().unwrap();
+            let type_size = type_info.size_of();
+
+            // target = father_obj_id + index * type_size
+            let index_size = self.builder.ins().imul_imm(index, type_size as i64);
+            let target_ptr = self.builder.ins().iadd(father_obj_id, index_size);
+            // trans to pointer
+            //if let FSRSType::List(l, _) = type_info.as_ref() {
+            let new_value = Self::load_ptr_data(self, type_info, target_ptr);
+            // Self::println(self, context, new_value);
+            context.exp.push(new_value);
+            // } else {
+            //     panic!("Getter only supports List type currently");
+            // }
+        } else {
+            unimplemented!()
+        }
+    }
+
     fn load_call(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
         if let ArgType::CallArgsNumber((len, call_sig)) = arg.get_arg() {
             let call_fn_sig = self.make_inner_call_fn(call_sig.as_ref().unwrap());
@@ -1644,7 +1668,7 @@ impl JitBuilder<'_> {
     fn load_ptr_data(&mut self, var_type: &Arc<FSRSType>, value: Value) -> Value {
         // input a data ptr to get value
         match var_type.as_ref() {
-            &FSRSType::UInt64 => {
+            FSRSType::UInt64 => {
                 // like &i64 to i64
                 self.builder.ins().load(
                     types::I64,
@@ -1653,8 +1677,15 @@ impl JitBuilder<'_> {
                     0,
                 )
             }
+            FSRSType::IInt64 => self.builder.ins().load(
+                types::I64,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
 
             FSRSType::Ptr(fsrstype) => value,
+            FSRSType::List(l, _) => value,
             _ => panic!("load_ptr_data expects a Ptr type"),
         }
     }
@@ -1782,6 +1813,33 @@ impl JitBuilder<'_> {
         };
 
         value_to_store
+    }
+
+    fn store_container(
+        &mut self,
+        context: &mut OperatorContext,
+        arg: &BytecodeArg,
+    ) {
+        if let ArgType::TypeInfo(v) = arg.get_arg() {
+            let value_index = context.exp.pop().unwrap();
+            let container_ptr = context.exp.pop().unwrap();
+            let value_assign = context.exp.pop().unwrap();
+            
+            let type_info = v.as_ref().unwrap();
+            let type_size = type_info.size_of() as i64;
+            let offset = self.builder.ins().imul_imm(value_index, type_size);
+            let addr = self.builder.ins().iadd(container_ptr, offset);
+
+            self.builder.ins().store(
+                cranelift::codegen::ir::MemFlags::new(),
+                value_assign,
+                addr,
+                0,
+            );
+
+        } else {
+            panic!("StoreContainer requires a Local argument");
+        }
     }
 
     fn store_attr(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
@@ -1939,7 +1997,6 @@ impl JitBuilder<'_> {
                 let var = context.exp.pop().unwrap();
                 var
             };
-
 
             let variable = self.variables.get(v.name.as_str()).unwrap();
 
@@ -2243,6 +2300,12 @@ impl JitBuilder<'_> {
                 }
                 BytecodeOperator::AssignAttr => {
                     self.store_attr(context, arg);
+                }
+                BytecodeOperator::Getter => {
+                    self.load_getter(context, arg);
+                }
+                BytecodeOperator::AssignContainer => {
+                    self.store_container(context, arg);
                 }
                 _ => {
                     unimplemented!("Compile operator: {:?} not support now", arg.get_operator())

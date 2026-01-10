@@ -512,6 +512,7 @@ pub enum ArgType {
     DefAttr(StructAttr),          // struct id, attr name, attr type
     JitFunction(String),          // function identify name
     Alloc((String, usize)),       // type name, size
+    TypeInfo(Option<Arc<FSRSType>>),
     None,
 }
 
@@ -1136,7 +1137,7 @@ impl<'a> Bytecode {
         is_method_call: bool,
         is_assign: bool,
         const_map: &mut BytecodeContext,
-    ) -> (Vec<BytecodeArg>) {
+    ) -> (Vec<BytecodeArg>, Option<Arc<FSRSType>>) {
         let mut result = Vec::new();
         let name = getter.get_name();
         if !name.is_empty() {
@@ -1205,7 +1206,7 @@ impl<'a> Bytecode {
         if !is_assign {
             result.push(BytecodeArg {
                 operator: BytecodeOperator::Getter,
-                arg: Box::new(ArgType::None),
+                arg: Box::new(ArgType::TypeInfo(v.1.clone())),
                 info: Box::new(FSRByteInfo::new(
                     &const_map.lines,
                     getter.get_meta().clone(),
@@ -1213,7 +1214,7 @@ impl<'a> Bytecode {
             });
         }
 
-        (result)
+        (result, v.1.clone())
     }
 
     fn call_helper(
@@ -1900,7 +1901,8 @@ impl<'a> Bytecode {
             op_code.append(&mut v);
         } else if let FSRToken::Getter(s) = expr.get_left() {
             let mut v = Self::load_list_getter(s, var_map, false, false, false, const_map);
-            op_code.append(&mut v);
+            op_code.append(&mut v.0);
+            return_type = v.1;
         } else if let FSRToken::Constant(c) = expr.get_left() {
             let mut v = Self::load_constant(c, var_map, const_map);
             op_code.append(&mut v.0);
@@ -2007,8 +2009,8 @@ impl<'a> Bytecode {
             }
             let mut v =
                 Self::load_list_getter(s, var_map, is_attr, is_method_call, false, const_map);
-            second.append(&mut v);
-
+            second.append(&mut v.0);
+            return_type = Self::deduction_two_type(&mut const_map.type_info, &return_type, &v.1, expr.get_op());
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 op_code.append(&mut second);
@@ -2535,7 +2537,7 @@ impl<'a> Bytecode {
                 false,
                 byte_context,
             );
-            return (vec![v], None);
+            return (vec![v.0], v.1);
         } else if let FSRToken::Constant(c) = token {
             let v = Self::load_constant(c, var_map, byte_context);
             return (vec![v.0], v.1);
@@ -2773,12 +2775,12 @@ impl<'a> Bytecode {
             );
 
             result_list.append(&mut right.0[0]);
-            result_list.append(&mut left);
+            result_list.append(&mut left.0);
             //right.1.last_mut().unwrap().insert_var(v.get_name());
             //let id = right.1.last_mut().unwrap().get_var(v.get_name()).unwrap();
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::AssignContainer,
-                arg: Box::new(ArgType::None),
+                arg: Box::new(ArgType::TypeInfo(left.1)),
                 info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
             });
             return Some(result_list);
