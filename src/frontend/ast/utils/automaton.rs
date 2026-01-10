@@ -21,7 +21,8 @@ pub enum NodeType {
     Import,
     Try,
     Telling,
-    Struct
+    Struct,
+    DefineVar
 }
 
 #[allow(unused)]
@@ -70,6 +71,7 @@ impl FSTrie {
         self.insert("try", NodeType::Try);
         self.insert("@", NodeType::FnState);
         self.insert("struct", NodeType::Struct);
+        self.insert("let", NodeType::DefineVar);
     }
 
     pub fn new() -> FSTrie {

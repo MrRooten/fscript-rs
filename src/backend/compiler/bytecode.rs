@@ -506,6 +506,7 @@ pub enum ArgType {
     LoadTrue,
     LoadFalse,
     LoadNone,
+    LoadUninit,
     FormatStringLen(u64, String), // length, format string
     CreateStruct(u64, String),    // struct id, struct name
     DefAttr(StructAttr),          // struct id, attr name, attr type
@@ -796,6 +797,7 @@ pub enum FSRSType {
     Float32,
     Float64,
     String,
+    List(Arc<FSRSType>, usize), // subtype, length
     Fn(Arc<FnCallSig>),
     Struct(Arc<FSRStruct>),
     Ptr(Arc<FSRSType>),
@@ -834,6 +836,9 @@ impl FSRSType {
             FSRSType::Fn(fn_call_sig) => {
                 std::mem::size_of::<usize>()
             },
+            FSRSType::List(fsrstype, len) => {
+                fsrstype.size_of() * (*len)
+            },
         }
     }
 }
@@ -859,6 +864,24 @@ impl FSRSTypeInfo {
                     return Some(t.clone());
                 }
                 let new_ptr = Arc::new(FSRSType::Ptr(sub_type));
+                self.types.insert(search, new_ptr.clone());
+                return Some(new_ptr);
+            }
+            "List" => {
+                let sub_type_name = type_name.subtype.as_ref().unwrap().get(0).unwrap();
+                let sub_type = self.get_type(sub_type_name).unwrap();
+                search.push(sub_type_name.name.clone());
+                let len = type_name.subtype.as_ref().unwrap().get(1).unwrap();
+                let len_num = len
+                    .name
+                    .parse::<usize>()
+                    .expect("List length must be a number");
+                search.push(len.name.clone());
+                if let Some(t) = self.types.get(&search) {
+                    return Some(t.clone());
+                }
+                
+                let new_ptr = Arc::new(FSRSType::List(sub_type, len_num));
                 self.types.insert(search, new_ptr.clone());
                 return Some(new_ptr);
             }
@@ -922,6 +945,7 @@ impl BytecodeContext {
         v.insert("true", ArgType::LoadTrue);
         v.insert("false", ArgType::LoadFalse);
         v.insert("none", ArgType::LoadNone);
+        v.insert("uninit", ArgType::LoadUninit);
         Self {
             //const_map: HashMap::new(),
             table: vec![0],
@@ -1479,6 +1503,7 @@ impl<'a> Bytecode {
                 };
 
                 let mut lvar = LocalVar::new(*arg_id, var.get_name().to_string(), false, None);
+                ret_type = type_info.clone();
                 lvar.var_type = type_info;
                 let arg = if context.variable_is_defined(var.get_name()) {
                     ArgType::Local(lvar)

@@ -61,6 +61,7 @@ struct JitBuilder<'a> {
 
 struct OperatorContext {
     exp: Vec<Value>,
+    is_uninit: bool,
     middle_value: Vec<Value>, // used to store intermediate values during operator processing, clear line
     operator: &'static str,
     loop_blocks: Vec<Block>,
@@ -901,6 +902,7 @@ impl JitBuilder<'_> {
             FSRSType::Struct(fsrstruct) => ptr,
             FSRSType::Ptr(fsrstype) => ptr,
             FSRSType::Fn(fn_call_sig) => ptr,
+            FSRSType::List(fsrstype, _) => ptr,
         }
     }
 
@@ -1035,6 +1037,10 @@ impl JitBuilder<'_> {
             .iconst(self.module.target_config().pointer_type(), none_id as i64);
         // let ret = self.builder.inst_results(call)[0];
         context.exp.push(none_value);
+    }
+
+    fn load_uninit(&mut self, context: &mut OperatorContext) {
+        context.is_uninit = true;
     }
 
     fn make_binary_op(&self) -> Signature {
@@ -1267,6 +1273,7 @@ impl JitBuilder<'_> {
             FSRSType::Struct(fsrstruct) => value,
             FSRSType::Ptr(fsrstype) => value,
             FSRSType::Fn(fn_call_sig) => value,
+            FSRSType::List(fsrstype, _) => value,
         }
     }
 
@@ -1831,6 +1838,7 @@ impl JitBuilder<'_> {
             FSRSType::Bool => Some(types::I8),
             FSRSType::Ptr(fsrstype) => Some(self.module.target_config().pointer_type()),
             FSRSType::Fn(fn_call_sig) => Some(self.module.target_config().pointer_type()),
+            FSRSType::List(fsrstype, _) => Some(self.module.target_config().pointer_type()),
         }
     }
 
@@ -1847,7 +1855,54 @@ impl JitBuilder<'_> {
                     &mut var_id,
                     &v.name,
                 );
+
                 self.var_index = var_id;
+            }
+
+            if context.is_uninit {
+                context.is_uninit = false;
+                let stack_slot_addr = if let Some(var_type) = &v.var_type {
+                    let v = match var_type.as_ref() {
+                        FSRSType::List(list_type, len) => {
+                            // allocate stack slot for list args
+                            let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                                StackSlotKind::ExplicitSlot,
+                                (list_type.size_of() * len) as u32,
+                                0,
+                            ));
+                            let stack_slot_addr = self.builder.ins().stack_addr(
+                                self.module.target_config().pointer_type(),
+                                slot,
+                                0,
+                            );
+                            stack_slot_addr
+                        }
+                        FSRSType::Struct(s) => {
+                            // allocate stack slot for struct
+                            let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                                StackSlotKind::ExplicitSlot,
+                                var_type.size_of() as u32,
+                                0,
+                            ));
+                            let stack_slot_addr = self.builder.ins().stack_addr(
+                                self.module.target_config().pointer_type(),
+                                slot,
+                                0,
+                            );
+                            stack_slot_addr
+                        }
+                        _ => panic!("LoadDefineVar only supports basic types for now"),
+                    };
+                    v
+                } else {
+                    panic!("AssignProcess only supports defined variable types");
+                };
+                let variable = self.variables.get(v.name.as_str()).unwrap();
+
+                context.middle_value.push(stack_slot_addr);
+                self.builder.def_var(*variable, stack_slot_addr);
+                self.defined_variables.insert(v.name.to_string(), *variable);
+                return;
             }
 
             let op_assign = v.op_assign;
@@ -1885,6 +1940,7 @@ impl JitBuilder<'_> {
                 var
             };
 
+
             let variable = self.variables.get(v.name.as_str()).unwrap();
 
             context.middle_value.push(var);
@@ -1892,6 +1948,67 @@ impl JitBuilder<'_> {
             self.defined_variables.insert(v.name.to_string(), *variable);
         } else {
             panic!("not supported assign type: {:?}", arg.get_arg());
+        }
+    }
+
+    fn load_define_var(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+        if let ArgType::Local(v) = arg.get_arg() {
+            if let Some(var_type) = &v.var_type {
+                match var_type.as_ref() {
+                    FSRSType::List(list_type, len) => {
+                        // allocate stack slot for list args
+                        let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                            StackSlotKind::ExplicitSlot,
+                            (list_type.size_of() * len) as u32,
+                            0,
+                        ));
+                        let stack_slot_addr = self.builder.ins().stack_addr(
+                            self.module.target_config().pointer_type(),
+                            slot,
+                            0,
+                        );
+                        let variable = self.variables.get(v.name.as_str()).unwrap();
+                        self.builder.def_var(*variable, stack_slot_addr);
+                        self.defined_variables.insert(v.name.to_string(), *variable);
+                        return;
+                    }
+                    FSRSType::Struct(s) => {
+                        // allocate stack slot for struct
+                        let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                            StackSlotKind::ExplicitSlot,
+                            var_type.size_of() as u32,
+                            0,
+                        ));
+                        let stack_slot_addr = self.builder.ins().stack_addr(
+                            self.module.target_config().pointer_type(),
+                            slot,
+                            0,
+                        );
+                        let variable = self.variables.get(v.name.as_str()).unwrap();
+                        self.builder.def_var(*variable, stack_slot_addr);
+                        self.defined_variables.insert(v.name.to_string(), *variable);
+                        return;
+                    }
+                    _ => panic!("LoadDefineVar only supports basic types for now"),
+                }
+                let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
+                let var_type = new_type.unwrap();
+                let mut var_id = self.var_index;
+                let new_var = declare_variable(
+                    var_type,
+                    &mut self.builder,
+                    &mut self.variables,
+                    &mut var_id,
+                    &v.name,
+                );
+                self.var_index = var_id;
+            }
+
+            let variable = self.variables.get(v.name.as_str()).unwrap();
+            let var_value = self.builder.use_var(*variable);
+            context.exp.push(var_value);
+        } else {
+            panic!("LoadDefineVar requires a Local argument");
         }
     }
 
@@ -1977,6 +2094,8 @@ impl JitBuilder<'_> {
                         context.exp.push(false_value);
                     } else if let ArgType::LoadNone = arg.get_arg() {
                         self.load_none(context);
+                    } else if let ArgType::LoadUninit = arg.get_arg() {
+                        self.load_uninit(context);
                     } else if let ArgType::CurrentFn = arg.get_arg() {
                         let fn_id = self.get_current_fn_id(context);
                         context.exp.push(fn_id);
@@ -2360,6 +2479,7 @@ impl CraneLiftJitBackend {
             //if_body_line: None,
             if_body_blocks: vec![],
             is_body_jump: false,
+            is_uninit: false,
         };
         // Since this is the entry block, add block parameters corresponding to
         // the function's parameters.

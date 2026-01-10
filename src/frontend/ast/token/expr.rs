@@ -5,6 +5,7 @@ use std::{cmp::Ordering, fmt::Display};
 
 use crate::frontend::ast::token;
 use crate::frontend::ast::token::assign::FSRAssign;
+use crate::frontend::ast::token::constant::{FSRConstType, FSROrinStr};
 use crate::frontend::ast::token::function_def::FSRFnDef;
 use crate::frontend::ast::token::list::FSRListFrontEnd;
 use crate::frontend::ast::token::slice::FSRGetter;
@@ -1424,7 +1425,34 @@ impl FSRExpr {
             let mut new_type = FSRTypeName::new(type_inner.get_name());
             new_type.subtype = Some(vec![Box::new(sub_type_inner)]);
             return new_type;
-        } else {
+        } else if let FSRToken::List(l) = type_hint {
+            // Process like [Type, len]
+            if l.get_items().len() != 2 {
+                panic!("{}: Type hint list must have 2 items", meta.to_string());
+            }
+
+            let type_token = &l.get_items()[0];
+            let len_token = &l.get_items()[1];
+            let type_t_name = Self::parse_type_hint(type_token, &meta);
+
+            if let FSRToken::Constant(c) = len_token {
+                if let FSROrinStr::Integer(n, op) = c.get_const_str() {
+                    if op.is_some() {
+                        panic!("{}: Type hint length must be a positive integer", meta.to_string());
+                    }
+
+                    let len = n.parse::<usize>().unwrap();
+                    let mut new_type = FSRTypeName::new("List");
+                    new_type.subtype = Some(vec![Box::new(type_t_name), Box::new(FSRTypeName::new(&len.to_string()))]);
+                    return new_type;
+                }
+
+            } else {
+                panic!("{}: Type hint list second item must be an integer constant", meta.to_string());
+            }
+            unimplemented!()
+        }
+        else {
             panic!("{}: Type hint must be a variable", meta.to_string());
         }
     }

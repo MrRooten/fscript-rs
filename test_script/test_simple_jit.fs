@@ -1,10 +1,7 @@
 
-@static
+@entry
 fn test(n: u64) -> u64 {
-    a: u64 = 2
-    
-    return a
+    a: [u8, 8] = uninit
+    b: u64 = 0
+    return b
 }
-
-a = test()
-println(a)
