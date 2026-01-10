@@ -2466,6 +2466,7 @@ impl CraneLiftJitBackend {
 
     pub fn compile(
         &mut self,
+        full_name: &str,
         bs_code: &Bytecode,
         code: ObjId,
         is_entry: bool,
@@ -2605,7 +2606,7 @@ impl CraneLiftJitBackend {
                 &self.ctx.func.signature,
             )
             .unwrap();
-        println!("Cranelift JIT compiled function: {}", fn_name);
+        println!("Cranelift JIT compiled function: {}", full_name);
         println!("{}", self.ctx.func.display());
         self.module.define_function(id, &mut self.ctx).unwrap();
 

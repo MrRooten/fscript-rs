@@ -834,12 +834,8 @@ impl FSRSType {
                 // ptr size
                 std::mem::size_of::<usize>()
             }
-            FSRSType::Fn(fn_call_sig) => {
-                std::mem::size_of::<usize>()
-            },
-            FSRSType::List(fsrstype, len) => {
-                fsrstype.size_of() * (*len)
-            },
+            FSRSType::Fn(fn_call_sig) => std::mem::size_of::<usize>(),
+            FSRSType::List(fsrstype, len) => fsrstype.size_of() * (*len),
         }
     }
 }
@@ -881,7 +877,7 @@ impl FSRSTypeInfo {
                 if let Some(t) = self.types.get(&search) {
                     return Some(t.clone());
                 }
-                
+
                 let new_ptr = Arc::new(FSRSType::List(sub_type, len_num));
                 self.types.insert(search, new_ptr.clone());
                 return Some(new_ptr);
@@ -1277,15 +1273,15 @@ impl<'a> Bytecode {
         name: &str,
     ) {
         //if let Some(fn_def) = context.fn_def_map.get(name) {
-            //if fn_def.is_static {
-                let op_arg = BytecodeArg {
-                    operator: BytecodeOperator::Load,
-                    arg: Box::new(ArgType::JitFunction(name.to_string())),
-                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
-                };
+        //if fn_def.is_static {
+        let op_arg = BytecodeArg {
+            operator: BytecodeOperator::Load,
+            arg: Box::new(ArgType::JitFunction(name.to_string())),
+            info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+        };
 
-                result.push(op_arg);
-            //}
+        result.push(op_arg);
+        //}
         // } else {
         //     panic!("Static function {} not found", name);
         // }
@@ -1791,8 +1787,6 @@ impl<'a> Bytecode {
             }
         }
 
-        
-
         result.push(BytecodeArg {
             operator: BytecodeOperator::SStructEndDef,
             arg: Box::new(ArgType::None),
@@ -1802,16 +1796,17 @@ impl<'a> Bytecode {
             )),
         });
 
-        
-
         const_map.type_info.types.insert(
             vec![struct_stmt.get_name().to_string()],
             Arc::new(FSRSType::Struct(Arc::new(struct_type))),
         );
-
+        const_map
+            .cur_fn_name
+            .push(struct_stmt.get_name().to_string());
         for function in struct_stmt.get_block().get_tokens() {
             if let FSRToken::FunctionDef(def) = function {
                 let v = Self::load_function(def, var_map, const_map);
+
                 let fn_type = Arc::new(FSRSType::Fn(v.2.as_ref().unwrap().clone()));
                 const_map.type_info.types.insert(
                     vec![
@@ -1829,7 +1824,8 @@ impl<'a> Bytecode {
                     FSRSType::Struct(ref mut arc_struct) => {
                         // arc_struct is &mut Arc<FSRStruct>, make_mut to get &mut FSRStruct
                         let s = Arc::make_mut(arc_struct);
-                        s.fields.insert(def.get_name().to_string(), (0, fn_type.clone()));
+                        s.fields
+                            .insert(def.get_name().to_string(), (0, fn_type.clone()));
                     }
                     _ => panic!("expected struct type when adding method to struct"),
                 }
@@ -1848,8 +1844,7 @@ impl<'a> Bytecode {
                 });
             }
         }
-
-        
+        const_map.cur_fn_name.pop();
 
         //result
     }
@@ -1960,7 +1955,7 @@ impl<'a> Bytecode {
                         panic!("Expect Attr type for attribute access.");
                     }
                     attr_id = Some(arg_type)
-                },
+                }
             }
 
             if let Some(var_type) = &v.var_type {
@@ -2010,7 +2005,12 @@ impl<'a> Bytecode {
             let mut v =
                 Self::load_list_getter(s, var_map, is_attr, is_method_call, false, const_map);
             second.append(&mut v.0);
-            return_type = Self::deduction_two_type(&mut const_map.type_info, &return_type, &v.1, expr.get_op());
+            return_type = Self::deduction_two_type(
+                &mut const_map.type_info,
+                &return_type,
+                &v.1,
+                expr.get_op(),
+            );
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 op_code.append(&mut second);

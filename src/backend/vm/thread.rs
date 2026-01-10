@@ -2040,13 +2040,14 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn compile_jit(
+        full_name: &str,
         code_obj: &FSRCode,
         code: ObjId,
         is_entry: bool,
         call_sig: Option<Arc<FnCallSig>>,
     ) -> *const u8 {
         let mut jit = CraneLiftJitBackend::new();
-        jit.compile(code_obj.get_bytecode(), code, is_entry, call_sig)
+        jit.compile(full_name, code_obj.get_bytecode(), code, is_entry, call_sig)
             .unwrap()
     }
 
@@ -3509,6 +3510,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let fn_obj = code.1.as_code();
             if fn_obj.get_bytecode().is_jit {
                 let jit = Self::compile_jit(
+                    &code.0,
                     fn_obj,
                     self.get_cur_frame().code,
                     fn_obj.get_bytecode().is_entry,

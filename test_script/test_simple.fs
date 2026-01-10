@@ -1,20 +1,26 @@
 struct Test {
     field: u64
     field2: u64
+
+    @static
+    fn __new__() {
+
+    }
 }
 
 
 
 @entry
 fn test() -> u64 {
-    simple()
+    b: u64 = simple()
     a: u64 = 1
-    return a
+    return b
 }
 
 @static
-fn simple() {
-    
+fn simple() -> u64 {
+    a: u64 = 1
+    return a
 }
 
 a = test()
