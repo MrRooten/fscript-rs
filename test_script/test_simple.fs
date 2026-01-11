@@ -4,19 +4,15 @@ struct Test {
 }
 
 @static
-fn simple(t: Ptr[Test]) -> u64 {
-    t.field += 1000
-    return t.field
+fn simple() -> Test {
+    t: Test = uninit
+    t.field = 1002
+    return t
 }
 
 @entry
 fn test() -> u64 {
-    t: Ptr[Test] = Test.alloc
-    t.field = 2
-    a: u64 = 0
-    simple(t)
-    
-
+    t: Test = simple()
     return t.field
 }
 

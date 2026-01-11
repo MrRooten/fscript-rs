@@ -973,11 +973,34 @@ impl JitBuilder<'_> {
             let fn_ptr = context.exp.pop().unwrap();
             rev_args.reverse();
             rev_args.insert(0, self.builder.block_params(context.entry_block)[0]); // insert thread runtime at the beginning
-            let null_ptr = self.builder.ins().iconst(
-                self.module.target_config().pointer_type(),
-                0 as i64,
-            );
-            rev_args.insert(1, null_ptr);
+            let null_ptr = self
+                .builder
+                .ins()
+                .iconst(self.module.target_config().pointer_type(), 0 as i64);
+            let helper_ret = if let Some(ret_type) = call_sig.as_ref().unwrap().return_type.as_ref() {
+                let v = if let FSRSType::Struct(s) = ret_type.as_ref() {
+                    // allocate stack space for struct return
+                    let struct_size = ret_type.size_of();
+                    let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        struct_size as u32,
+                        0,
+                    ));
+                    let struct_ptr = self.builder.ins().stack_addr(
+                        self.module.target_config().pointer_type(),
+                        slot,
+                        0,
+                    );
+                    struct_ptr
+                } else {
+                    null_ptr
+                };
+                v
+            } else {
+                null_ptr
+            };
+
+            rev_args.insert(1, helper_ret);
             let call_inst = self
                 .builder
                 .ins()
@@ -1953,12 +1976,7 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn list_assing(
-        &mut self,
-        context: &mut OperatorContext,
-        lvar: &LocalVar,
-        assign_value: Value,
-    ) {
+    fn list_assing(&mut self, context: &mut OperatorContext, lvar: &LocalVar, assign_value: Value) {
         let list_type = lvar.var_type.as_ref().unwrap();
         if let FSRSType::List(_, _) = list_type.as_ref() {
             let list_var = self.variables.get(lvar.name.as_str()).unwrap();
@@ -2336,25 +2354,39 @@ impl JitBuilder<'_> {
                     //self.builder.ins().nop();
                 }
                 BytecodeOperator::ReturnValue => {
-                    // let args_ptr = self
-                    //     .builder
-                    //     .use_var(*self.variables.get("#args_ptr").unwrap());
-                    // let call_args_ptr = self
-                    //     .builder
-                    //     .use_var(*self.variables.get("#call_args_ptr").unwrap());
-                    //self.load_free_arg_list(args_ptr, context, ARGS_LEN);
-                    //self.load_free_arg_list(call_args_ptr, context, CALL_ARGS_LEN);
                     if let Some(s) = context.if_exit_blocks.last_mut() {
                         s.1 = true; // Mark the last if block as having a return value
                     }
-                    if let Some(value) = context.exp.pop() {
-                        context.middle_value.push(value);
-                        self.builder.ins().return_(&[value]);
+
+                    let ret_value = if let Some(ret_type) = self.self_call_sig.return_type.as_ref() {
+                        if let FSRSType::Struct(s) = ret_type.as_ref() {
+                            // handle struct return
+                            let return_ptr = self.builder.block_params(context.entry_block)[1];
+                            let return_value = context.exp.pop().unwrap();
+                            let struct_size = ret_type.size_of() as i64;
+                            let size_value = self
+                                .builder
+                                .ins()
+                                .iconst(self.module.target_config().pointer_type(), struct_size);
+                            Self::memcpy(self, context, return_ptr, return_value, size_value);
+                            return_ptr
+                        } else {
+                            context.exp.pop().unwrap_or(self.builder.ins().iconst(types::I64, 0))
+                        }
+
                     } else {
-                        self.load_none(context);
-                        let value = context.exp.pop().unwrap();
-                        self.builder.ins().return_(&[value]);
-                    }
+                        context.exp.pop().unwrap_or(self.builder.ins().iconst(types::I64, 0))
+                    };
+                    self.builder.ins().return_(&[ret_value]);
+
+                    // if let Some(value) = context.exp.pop() {
+                    //     context.middle_value.push(value);
+                    //     self.builder.ins().return_(&[value]);
+                    // } else {
+                    //     self.load_none(context);
+                    //     let value = context.exp.pop().unwrap();
+                    //     self.builder.ins().return_(&[value]);
+                    // }
                 }
                 BytecodeOperator::IfTest => {
                     self.load_if_test(context, arg);
