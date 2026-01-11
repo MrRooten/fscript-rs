@@ -25,3 +25,4 @@ fn test() -> u64 {
 
 a = test()
 println(a)
+assert(a == 30000000002)

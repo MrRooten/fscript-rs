@@ -349,3 +349,17 @@ pub extern "C" fn load_list(
 pub extern "C" fn c_println(obj: i64) {
     println!("test_args value: {}", obj);
 }
+
+pub extern "C" fn memcpy(
+    dest: usize,
+    src: usize,
+    size: usize,
+) {
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            src as *const u8,
+            dest as *mut u8,
+            size as usize,
+        );
+    }
+}
