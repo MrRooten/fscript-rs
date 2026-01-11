@@ -90,7 +90,7 @@ impl FSRModuleFrontEnd {
         source: &[u8],
         meta: FSRPosition,
     ) -> Result<(FSRModuleFrontEnd, Vec<usize>), SyntaxError> {
-        let mut trie = FSTrie::new();
+        let mut trie = FSTrie::single();
         let mut start = 0;
         let mut length = 0;
         let mut states = ModuleStates::new();

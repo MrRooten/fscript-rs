@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::OnceLock};
 
 use crate::frontend::ast::parse::ASTParser;
 
@@ -34,11 +34,15 @@ struct Node {
 }
 
 impl Node {
-    pub fn get_node(&mut self, c: &char) -> Option<&mut Box<Node>> {
-        self.subs.get_mut(c)
+    pub fn get_node(&self, c: &char) -> Option<&Box<Node>> {
+        self.subs.get(c)
     }
 
-    pub fn get_subs(&mut self) -> &mut HashMap<char, Box<Node>> {
+    pub fn get_subs(&self) -> &HashMap<char, Box<Node>> {
+        &self.subs
+    }
+
+    pub fn get_mut_subs(&mut self) -> &mut HashMap<char, Box<Node>> {
         &mut self.subs
     }
 }
@@ -47,6 +51,9 @@ pub struct FSTrie {
     root: Box<Node>,
     self_inc: u32,
 }
+
+// Single FSTrie
+static mut SINGLE_TRIE: OnceLock<FSTrie> = OnceLock::new();
 
 impl Default for FSTrie {
     fn default() -> Self {
@@ -74,7 +81,16 @@ impl FSTrie {
         self.insert("let", NodeType::DefineVar);
     }
 
-    pub fn new() -> FSTrie {
+    pub fn single() -> &'static FSTrie {
+        unsafe {
+            SINGLE_TRIE.get_or_init(|| {
+                let mut trie = FSTrie::new();
+                trie
+            })
+        }
+    }
+
+    fn new() -> FSTrie {
         let root = Node {
             id: 0,
             value: '\0',
@@ -89,8 +105,8 @@ impl FSTrie {
         s
     }
 
-    pub fn match_token(&mut self, token: &[u8]) -> Option<&NodeType> {
-        let mut cur = &mut self.root;
+    pub fn match_token(&self, token: &[u8]) -> Option<&NodeType> {
+        let mut cur = &self.root;
 
         if token[0] == b'@' {
             return Some(&NodeType::FnState)
@@ -128,7 +144,7 @@ impl FSTrie {
         let mut cur = Some(&mut self.root);
         for c in value.chars() {
             // let node = cur.get_node(&c);
-            let subs = cur.unwrap().get_subs();
+            let subs = cur.unwrap().get_mut_subs();
             let node = subs.get(&c);
             match node {
                 Some(_) => {}
@@ -140,7 +156,7 @@ impl FSTrie {
                         end_type: NodeType::NotEnd,
                         subs: Default::default(),
                     };
-                    let node = Box::new(new_node);
+                    let mut node = Box::new(new_node);
                     subs.insert(c, node);
                     //subs.get_mut(&c).unwrap()
                 }

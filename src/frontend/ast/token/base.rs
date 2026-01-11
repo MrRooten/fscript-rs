@@ -43,6 +43,8 @@ pub enum FSRToken {
     None,
 }
 
+
+
 impl FSRToken {
     pub fn set_single_op(&mut self, op: SingleOp) {
         match self {

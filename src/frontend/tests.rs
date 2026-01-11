@@ -133,7 +133,7 @@ mod frontend_tests {
 
     #[test]
     fn test_trie() {
-        let mut t = FSTrie::new();
+        let mut t = FSTrie::single();
         let mut context = ASTContext::new_context();
         let n = t.match_token("if()".as_bytes()).unwrap();
         assert_eq!(n, &NodeType::IfState);

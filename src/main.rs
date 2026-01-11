@@ -16,7 +16,7 @@ use fscript_rs::{
 
 fn bench_compile() {
     let mut line = vec![];
-    for _ in 0..10000 {
+    for _ in 0..100000 {
         line.push(format!("a: u64 = 1"));
         line.push(r#"
         if a > 10 {
@@ -31,9 +31,12 @@ fn bench_compile() {
     let start = Instant::now();
     let meta = FSRPosition::new();
     let token = FSRModuleFrontEnd::parse(source_code.as_bytes(), meta).unwrap();
+    let end = Instant::now();
+    println!("AST Parse Time: {:?}", end - start);
+    let start = Instant::now();
     Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
     let end = Instant::now();
-    println!("Compile Time: {:?}", end - start);
+    println!("Bytecode Compile Time: {:?}", end - start);
 }
 
 fn main() {

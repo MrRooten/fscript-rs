@@ -86,7 +86,7 @@ impl FSRBlock {
         context: &mut ASTContext,
         struct_info: Option<String>, // for struct parsing
     ) -> Result<Self, SyntaxError> {
-        let mut trie = FSTrie::new();
+        let mut trie = FSTrie::single();
         let mut start = 0;
         let mut length = 0;
         let mut states = BlockStates::new();
