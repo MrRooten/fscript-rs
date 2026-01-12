@@ -39,7 +39,7 @@ use super::jit_wrapper::{
 
 const ARGS_LEN: i64 = 512;
 const CALL_ARGS_LEN: i64 = 16;
-
+const UNROLL_THRESHOLD: usize = 128;
 struct BuildContext {}
 
 pub struct CraneLiftJitBackend {
@@ -938,16 +938,20 @@ impl JitBuilder<'_> {
             let index = context.exp.pop().unwrap();
             let father_obj_id = context.exp.pop().unwrap();
             let type_info = v.as_ref().unwrap();
-            let type_size = type_info.size_of();
+            if let FSRSType::List(inner_type, l) = type_info.as_ref() {
+                let type_size = inner_type.size_of() as i64;
+                // target = father_obj_id + index * type_size
+                let index_size = self.builder.ins().imul_imm(index, type_size as i64);
+                let target_ptr = self.builder.ins().iadd(father_obj_id, index_size);
+                // trans to pointer
+                //if let FSRSType::List(l, _) = type_info.as_ref() {
+                let new_value = Self::load_ptr_data(self, inner_type, target_ptr);
+                // Self::println(self, context, new_value);
+                context.exp.push(new_value);
+            } else {
+                panic!("Getter only supports List type currently");
+            }
 
-            // target = father_obj_id + index * type_size
-            let index_size = self.builder.ins().imul_imm(index, type_size as i64);
-            let target_ptr = self.builder.ins().iadd(father_obj_id, index_size);
-            // trans to pointer
-            //if let FSRSType::List(l, _) = type_info.as_ref() {
-            let new_value = Self::load_ptr_data(self, type_info, target_ptr);
-            // Self::println(self, context, new_value);
-            context.exp.push(new_value);
             // } else {
             //     panic!("Getter only supports List type currently");
             // }
@@ -1366,6 +1370,7 @@ impl JitBuilder<'_> {
                     &mut self.variables,
                     &mut var_id,
                     &v.name,
+                    v.is_define,
                 );
                 self.var_index = var_id;
             }
@@ -1421,6 +1426,7 @@ impl JitBuilder<'_> {
                     &mut self.variables,
                     &mut var_id,
                     &v.name,
+                    true,
                 );
                 self.var_index = var_id;
             }
@@ -1631,63 +1637,77 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn load_list(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) -> Result<()> {
-        if let ArgType::LoadListNumber(len) = arg.get_arg() {
-            let arg_ptr = self
-                .builder
-                .use_var(*self.variables.get("#args_ptr").unwrap());
+    fn assign_to_addr(
+        &mut self,
+        context: &mut OperatorContext,
+        dest: Value,
+        src: Value,
+        src_type: Arc<FSRSType>,
+    ) {
+        match src_type.as_ref() {
+            FSRSType::Bool => {
+                self.builder
+                    .ins()
+                    .store(cranelift::codegen::ir::MemFlags::new(), src, dest, 0);
+            }
+            FSRSType::IInt64
+            | FSRSType::UInt64
+            | FSRSType::IInt32
+            | FSRSType::UInt32
+            | FSRSType::Float64
+            | FSRSType::Float32
+            | FSRSType::IInt16
+            | FSRSType::UInt16
+            | FSRSType::IInt8
+            | FSRSType::UInt8 => {
+                self.builder
+                    .ins()
+                    .store(cranelift::codegen::ir::MemFlags::new(), src, dest, 0);
+            }
+            FSRSType::Ptr(_) => {
+                self.builder
+                    .ins()
+                    .store(cranelift::codegen::ir::MemFlags::new(), src, dest, 0);
+            }
+            FSRSType::Struct(s) => {
+                let struct_size = src_type.size_of();
+                self.memcpy_fix(context, dest, src, struct_size);
+            }
+            _ => {
+                panic!("AssignToAddr does not support type {:?}", src_type);
+            }
+        }
+    }
 
-            let len_value = self
-                .builder
-                .ins()
-                .iconst(self.module.target_config().pointer_type(), *len as i64);
+    fn load_list(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) -> Result<()> {
+        if let ArgType::LoadListNumber(arg) = arg.get_arg() {
+            let alloc_stack_size = arg.list_len * arg.inner_type.as_ref().unwrap().size_of();
+            let stack_addr = self.assign_stack_size(context, alloc_stack_size, 4);
+            let len_value = self.builder.ins().iconst(
+                self.module.target_config().pointer_type(),
+                arg.list_len as i64,
+            );
             let mut list_args = vec![];
-            for i in 0..*len {
+            for i in 0..arg.list_len {
                 // store to arg_ptr
                 list_args.push(context.exp.pop().unwrap());
             }
 
-            for i in list_args.iter().enumerate() {
-                let offset = self
-                    .builder
-                    .ins()
-                    .iconst(types::I64, i.0 as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
-                let ptr = self.builder.ins().iadd(arg_ptr, offset);
-                self.builder
-                    .ins()
-                    .store(cranelift::codegen::ir::MemFlags::new(), *i.1, ptr, 0);
+            for index in 0..arg.list_len {
+                let base_addr = self.builder.ins().iadd_imm(
+                    stack_addr,
+                    (index * arg.inner_type.as_ref().unwrap().size_of()) as i64,
+                );
+                self.assign_to_addr(
+                    context,
+                    base_addr,
+                    list_args[index],
+                    arg.inner_type.as_ref().unwrap().clone(),
+                );
             }
 
-            // pub extern "C" fn load_list(args: *const ObjId, len: usize, thread: &mut FSRThreadRuntime) -> ObjId
-            let mut load_list_sig = self.module.make_signature();
-            load_list_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // args pointer
-            load_list_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // length of the list
-            load_list_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-            load_list_sig
-                .returns
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
-            let fn_id = self
-                .module
-                .declare_function(
-                    "load_list",
-                    cranelift_module::Linkage::Import,
-                    &load_list_sig,
-                )
-                .unwrap();
-            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            let call = self
-                .builder
-                .ins()
-                .call(func_ref, &[arg_ptr, len_value, thread_runtime]);
-            let ret = self.builder.inst_results(call)[0];
-            context.exp.push(ret);
+            context.exp.push(stack_addr);
+
             return Ok(());
         }
         unimplemented!()
@@ -1798,6 +1818,29 @@ impl JitBuilder<'_> {
         let _ret = self.builder.inst_results(call)[0];
     }
 
+    fn assign_stack_size(
+        &mut self,
+        context: &mut OperatorContext,
+        size: usize,
+        align: usize,
+    ) -> Value {
+        let size = if size % align == 0 {
+            size
+        } else {
+            size + (align - (size % align))
+        };
+        let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+            StackSlotKind::ExplicitSlot,
+            size as u32,
+            0,
+        ));
+        let stack_slot_addr =
+            self.builder
+                .ins()
+                .stack_addr(self.module.target_config().pointer_type(), slot, 0);
+        stack_slot_addr
+    }
+
     fn malloc_call_args(&mut self, context: &mut OperatorContext) {
         let var = self.variables.get("#call_args_ptr").unwrap();
         // self.builder.def_var(*var, malloc_ret);
@@ -1873,16 +1916,23 @@ impl JitBuilder<'_> {
             let value_assign = context.exp.pop().unwrap();
 
             let type_info = v.as_ref().unwrap();
-            let type_size = type_info.size_of() as i64;
+            let sub_type;
+            let type_size = if let FSRSType::List(l, _) = type_info.as_ref() {
+                sub_type = l.clone();
+                l.size_of() as i64
+            } else {
+                panic!("StoreContainer requires a List type");
+            };
             let offset = self.builder.ins().imul_imm(value_index, type_size);
             let addr = self.builder.ins().iadd(container_ptr, offset);
 
-            self.builder.ins().store(
-                cranelift::codegen::ir::MemFlags::new(),
-                value_assign,
-                addr,
-                0,
-            );
+            // self.builder.ins().store(
+            //     cranelift::codegen::ir::MemFlags::new(),
+            //     value_assign,
+            //     addr,
+            //     0,
+            // );
+            self.assign_to_addr(context, addr, value_assign, sub_type);
         } else {
             panic!("StoreContainer requires a Local argument");
         }
@@ -2039,7 +2089,7 @@ impl JitBuilder<'_> {
     }
 
     fn memcpy_fix(&mut self, context: &mut OperatorContext, dest: Value, src: Value, size: usize) {
-        if size > 64 {
+        if size > UNROLL_THRESHOLD {
             let size = self
                 .builder
                 .ins()
@@ -2086,7 +2136,13 @@ impl JitBuilder<'_> {
             //     .ins()
             //     .iconst(self.module.target_config().pointer_type(), struct_size);
             // Self::memcpy(self, context, struct_addr, assign_value, size_value);
-            Self::memcpy_fix(self, context, struct_addr, assign_value, struct_size as usize);
+            Self::memcpy_fix(
+                self,
+                context,
+                struct_addr,
+                assign_value,
+                struct_size as usize,
+            );
         } else {
             panic!("StructAssign requires a Struct type");
         }
@@ -2179,6 +2235,7 @@ impl JitBuilder<'_> {
                 &mut self.variables,
                 &mut var_id,
                 &v.name,
+                v.is_define,
             );
 
             is_first = new_var.1;
@@ -2252,66 +2309,66 @@ impl JitBuilder<'_> {
         Self::assign_routine(self, context, v);
     }
 
-    fn load_define_var(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
-        if let ArgType::Local(v) = arg.get_arg() {
-            if let Some(var_type) = &v.var_type {
-                match var_type.as_ref() {
-                    FSRSType::List(list_type, len) => {
-                        // allocate stack slot for list args
-                        let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
-                            StackSlotKind::ExplicitSlot,
-                            (list_type.size_of() * len) as u32,
-                            0,
-                        ));
-                        let stack_slot_addr = self.builder.ins().stack_addr(
-                            self.module.target_config().pointer_type(),
-                            slot,
-                            0,
-                        );
-                        let variable = self.variables.get(v.name.as_str()).unwrap();
-                        self.builder.def_var(*variable, stack_slot_addr);
-                        self.defined_variables.insert(v.name.to_string(), *variable);
-                        return;
-                    }
-                    FSRSType::Struct(s) => {
-                        // allocate stack slot for struct
-                        let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
-                            StackSlotKind::ExplicitSlot,
-                            var_type.size_of() as u32,
-                            0,
-                        ));
-                        let stack_slot_addr = self.builder.ins().stack_addr(
-                            self.module.target_config().pointer_type(),
-                            slot,
-                            0,
-                        );
-                        let variable = self.variables.get(v.name.as_str()).unwrap();
-                        self.builder.def_var(*variable, stack_slot_addr);
-                        self.defined_variables.insert(v.name.to_string(), *variable);
-                        return;
-                    }
-                    _ => panic!("LoadDefineVar only supports basic types for now"),
-                }
-                let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
-                let var_type = new_type.unwrap();
-                let mut var_id = self.var_index;
-                let new_var = declare_variable(
-                    var_type,
-                    &mut self.builder,
-                    &mut self.variables,
-                    &mut var_id,
-                    &v.name,
-                );
-                self.var_index = var_id;
-            }
+    // fn load_define_var(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
+    //     if let ArgType::Local(v) = arg.get_arg() {
+    //         if let Some(var_type) = &v.var_type {
+    //             match var_type.as_ref() {
+    //                 FSRSType::List(list_type, len) => {
+    //                     // allocate stack slot for list args
+    //                     let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+    //                         StackSlotKind::ExplicitSlot,
+    //                         (list_type.size_of() * len) as u32,
+    //                         0,
+    //                     ));
+    //                     let stack_slot_addr = self.builder.ins().stack_addr(
+    //                         self.module.target_config().pointer_type(),
+    //                         slot,
+    //                         0,
+    //                     );
+    //                     let variable = self.variables.get(v.name.as_str()).unwrap();
+    //                     self.builder.def_var(*variable, stack_slot_addr);
+    //                     self.defined_variables.insert(v.name.to_string(), *variable);
+    //                     return;
+    //                 }
+    //                 FSRSType::Struct(s) => {
+    //                     // allocate stack slot for struct
+    //                     let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+    //                         StackSlotKind::ExplicitSlot,
+    //                         var_type.size_of() as u32,
+    //                         0,
+    //                     ));
+    //                     let stack_slot_addr = self.builder.ins().stack_addr(
+    //                         self.module.target_config().pointer_type(),
+    //                         slot,
+    //                         0,
+    //                     );
+    //                     let variable = self.variables.get(v.name.as_str()).unwrap();
+    //                     self.builder.def_var(*variable, stack_slot_addr);
+    //                     self.defined_variables.insert(v.name.to_string(), *variable);
+    //                     return;
+    //                 }
+    //                 _ => panic!("LoadDefineVar only supports basic types for now"),
+    //             }
+    //             let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
+    //             let var_type = new_type.unwrap();
+    //             let mut var_id = self.var_index;
+    //             let new_var = declare_variable(
+    //                 var_type,
+    //                 &mut self.builder,
+    //                 &mut self.variables,
+    //                 &mut var_id,
+    //                 &v.name,
+    //             );
+    //             self.var_index = var_id;
+    //         }
 
-            let variable = self.variables.get(v.name.as_str()).unwrap();
-            let var_value = self.builder.use_var(*variable);
-            context.exp.push(var_value);
-        } else {
-            panic!("LoadDefineVar requires a Local argument");
-        }
-    }
+    //         let variable = self.variables.get(v.name.as_str()).unwrap();
+    //         let var_value = self.builder.use_var(*variable);
+    //         context.exp.push(var_value);
+    //     } else {
+    //         panic!("LoadDefineVar requires a Local argument");
+    //     }
+    // }
 
     fn compile_expr(
         &mut self,
@@ -2610,9 +2667,10 @@ fn declare_variable(
     variables: &mut HashMap<String, Variable>,
     index: &mut usize,
     name: &str,
+    is_defined: bool,
 ) -> (Variable, bool) {
     let var = Variable::new(*index);
-    if !variables.contains_key(name) {
+    if !variables.contains_key(name) || is_defined {
         variables.insert(name.into(), var);
         builder.declare_var(var, var_type);
         *index += 1;
@@ -2641,7 +2699,7 @@ fn declare_variables(
         let val = builder
             .ins()
             .iconst(module.target_config().pointer_type(), 0);
-        let var = declare_variable(var_type, builder, &mut variables, &mut index, name);
+        let var = declare_variable(var_type, builder, &mut variables, &mut index, name, true);
         builder.def_var(var.0, val);
     }
 

@@ -2767,10 +2767,9 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         if let ArgType::LoadListNumber(n) = bytecode.get_arg() {
-            let n = *n;
-            let mut list = Vec::with_capacity(n);
+            let mut list = Vec::with_capacity(n.list_len);
 
-            for _ in 0..n {
+            for _ in 0..n.list_len {
                 let v_id = pop_exp!(self).ok_or_else(|| {
                     FSRError::new(
                         "Failed to pop value from stack in load_list",

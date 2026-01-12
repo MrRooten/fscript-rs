@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    backend::types::base::ObjId,
+    backend::types::{base::ObjId, list},
     frontend::ast::token::{
         assign::FSRAssign,
         base::{FSRPosition, FSRToken, FSRTypeName},
@@ -403,6 +403,7 @@ pub struct LocalVar {
     pub(crate) store_to_cell: bool,
     pub(crate) op_assign: Option<OpAssign>,
     pub(crate) var_type: Option<Arc<FSRSType>>,
+    pub(crate) is_define: bool,
     pub(crate) fn_call_identity: Option<String>,
 }
 
@@ -414,6 +415,7 @@ impl LocalVar {
             store_to_cell,
             op_assign,
             var_type: None,
+            is_define: false,
             fn_call_identity: None,
         }
     }
@@ -468,6 +470,12 @@ pub struct FnArgs {
 }
 
 #[derive(Debug, Clone)]
+pub struct LoadListArg {
+    pub inner_type: Option<Arc<FSRSType>>, // Inner type of list
+    pub list_len: usize,
+}
+
+#[derive(Debug, Clone)]
 pub enum ArgType {
     Local(LocalVar),
     Global(String),
@@ -493,7 +501,7 @@ pub enum ArgType {
     CallArgsNumberWithAttr((usize, u64, String)),
     DefineFnArgs(FnArgs), // function len, args len, identify function name
     DefineClassLine(u64),
-    LoadListNumber(usize),
+    LoadListNumber(LoadListArg),
     ForEnd(i64),
     AddOffset(usize),
     ForLine(u64),
@@ -512,7 +520,7 @@ pub enum ArgType {
     DefAttr(StructAttr),          // struct id, attr name, attr type
     JitFunction(String),          // function identify name
     Alloc((String, usize)),       // type name, size
-    TypeInfo(Option<Arc<FSRSType>>),
+    TypeInfo(Option<Arc<FSRSType>>), // Contain full type information
     None,
 }
 
@@ -565,8 +573,8 @@ impl FSRByteInfo {
         }
 
         let idx = match lines.binary_search(&offset) {
-            Ok(i) => i,           // exact match
-            Err(ins) => ins - 1,  // insertion point -> previous index
+            Ok(i) => i,          // exact match
+            Err(ins) => ins - 1, // insertion point -> previous index
         };
 
         let pos = FSRPos {
@@ -1135,6 +1143,7 @@ impl<'a> Bytecode {
     ) -> (Vec<BytecodeArg>, Option<Arc<FSRSType>>) {
         let mut result = Vec::new();
         let name = getter.get_name();
+        let mut type_info = None;
         if !name.is_empty() {
             if is_attr {
                 // if !var_map.last_mut().unwrap().has_attr(name) {
@@ -1177,14 +1186,17 @@ impl<'a> Bytecode {
                         )),
                     });
                 } else {
+                    let mut var = LocalVar::new(id, name.to_string(), false, None);
+                    if const_map.is_static {
+                        let var_type = const_map
+                            .type_info
+                            .get_type(&getter.var_type.as_ref().unwrap());
+                        var.var_type = var_type;
+                        type_info = var.var_type.clone();
+                    }
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
-                        arg: Box::new(ArgType::Local(LocalVar::new(
-                            id,
-                            name.to_string(),
-                            false,
-                            None,
-                        ))),
+                        arg: Box::new(ArgType::Local(var)),
                         info: Box::new(FSRByteInfo::new(
                             &const_map.lines,
                             getter.get_meta().clone(),
@@ -1201,7 +1213,7 @@ impl<'a> Bytecode {
         if !is_assign {
             result.push(BytecodeArg {
                 operator: BytecodeOperator::Getter,
-                arg: Box::new(ArgType::TypeInfo(v.1.clone())),
+                arg: Box::new(ArgType::TypeInfo(type_info.clone())),
                 info: Box::new(FSRByteInfo::new(
                     &const_map.lines,
                     getter.get_meta().clone(),
@@ -1501,6 +1513,7 @@ impl<'a> Bytecode {
                 let mut lvar = LocalVar::new(*arg_id, var.get_name().to_string(), false, None);
                 ret_type = type_info.clone();
                 lvar.var_type = type_info;
+                //lvar.is_define = Some(var.force_type);
                 let arg = if context.variable_is_defined(var.get_name()) {
                     ArgType::Local(lvar)
                 } else {
@@ -1556,6 +1569,7 @@ impl<'a> Bytecode {
             None
         };
         v.var_type = type_info;
+        v.is_define = var.force_type;
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::AssignArgs,
             arg: Box::new(ArgType::Local(v)),
@@ -1705,10 +1719,14 @@ impl<'a> Bytecode {
             return false;
         }
 
-        let l = left.as_ref().unwrap();
-        let r = right.as_ref().unwrap();
+        // let l = left.as_ref().unwrap();
+        // let r = right.as_ref().unwrap();
 
-        l.as_ref() as *const FSRSType == r.as_ref() as *const FSRSType
+        // l.as_ref() as *const FSRSType == r.as_ref() as *const FSRSType
+
+        let left = left.as_ref().unwrap();
+        let right = right.as_ref().unwrap();
+        left.as_ref().eq(right.as_ref())
     }
 
     fn load_struct_attr(
@@ -2775,11 +2793,24 @@ impl<'a> Bytecode {
 
             result_list.append(&mut right.0[0]);
             result_list.append(&mut left.0);
-            //right.1.last_mut().unwrap().insert_var(v.get_name());
-            //let id = right.1.last_mut().unwrap().get_var(v.get_name()).unwrap();
+
+            let t = if let Some(type_name) = v.var_type.as_ref() {
+                if const_map.is_static {
+                    let type_id = const_map
+                        .type_info
+                        .get_type(type_name)
+                        .expect("Type not found for getter assignment");
+                    Some(type_id)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::AssignContainer,
-                arg: Box::new(ArgType::TypeInfo(left.1)),
+                arg: Box::new(ArgType::TypeInfo(t)),
                 info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
             });
             return Some(result_list);
@@ -2819,6 +2850,7 @@ impl<'a> Bytecode {
         let mut local_var = LocalVar::new(*id, v.get_name().to_string(), false, op_assign);
 
         local_var.var_type = type_id;
+        local_var.is_define = v.force_type;
         result_list.push(BytecodeArg {
             operator: BytecodeOperator::Assign,
             arg: Box::new(ArgType::Local(local_var)),
@@ -2944,24 +2976,53 @@ impl<'a> Bytecode {
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>) {
         let mut result_list = Vec::new();
+        let mut last_type: Option<Arc<FSRSType>> = None;
+        let mut list_type: Option<Arc<FSRSType>> = None;
         for sub_t in token.get_items().iter().rev() {
             let v = Bytecode::load_token_with_map(sub_t, var_map, const_map, false, false);
+            if const_map.is_static {
+                if let Some(t) = &last_type {
+                    let is_same = Self::is_same_two_type(&last_type, &v.1);
+                    if !is_same {
+                        panic!(
+                            "Static list item type mismatch: expected {:?}, got {:?}",
+                            t, v.1
+                        );
+                    }
+                } else {
+                    if v.1.is_none() {
+                        panic!("Static list item must have type");
+                    }
+                    last_type = v.1.clone();
+                }
+            }
             let mut expr = v.0;
             if !expr.is_empty() {
                 result_list.append(&mut expr[0]);
             } else {
                 result_list.push(BytecodeArg {
                     operator: BytecodeOperator::LoadList,
-                    arg: Box::new(ArgType::LoadListNumber(0)),
+                    arg: Box::new(ArgType::LoadListNumber(LoadListArg {
+                        inner_type: None,
+                        list_len: 0,
+                    })),
                     info: Box::new(FSRByteInfo::new(&const_map.lines, sub_t.get_meta().clone())),
                 });
                 return (result_list);
             }
         }
 
+        // if const_map.is_static {
+        //     let inner_type = last_type.clone().unwrap();
+        //     list_type = Some(Arc::new(FSRSType::List(inner_type.clone(), token.get_items().len())));
+        // }
+
         let load_list = BytecodeArg {
             operator: BytecodeOperator::LoadList,
-            arg: Box::new(ArgType::LoadListNumber(token.get_items().len())),
+            arg: Box::new(ArgType::LoadListNumber(LoadListArg {
+                inner_type: last_type,
+                list_len: token.get_items().len(),
+            })),
             info: Box::new(FSRByteInfo::new(&const_map.lines, token.get_meta().clone())),
         };
         result_list.push(load_list);

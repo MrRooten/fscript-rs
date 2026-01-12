@@ -8,10 +8,11 @@ fn simple() -> [u64, 4] {
 
 @entry
 fn test() -> u64 {
-    t: [u64, 4] = [1, 2, 3, 4]
+    t: [u64, 4] = simple()
     v: u64 = t[0]
     return v
 }
 
 a = test()
-println(a)
+println(f"a == {a}")
+assert(a == 1002)

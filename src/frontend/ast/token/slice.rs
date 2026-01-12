@@ -1,4 +1,4 @@
-use crate::{frontend::ast::parse::ASTParser, utils::error::SyntaxError};
+use crate::{frontend::ast::{parse::ASTParser, token::base::FSRTypeName}, utils::error::SyntaxError};
 
 use super::{
     base::{FSRPosition, FSRToken},
@@ -21,6 +21,7 @@ pub struct FSRGetter {
     pub(crate)single_op: Option<SingleOp>,
     meta: FSRPosition,
     pub(crate) is_defined: bool,
+    pub(crate) var_type: Option<FSRTypeName>,
 }
 
 impl FSRGetter {
@@ -101,6 +102,7 @@ impl FSRGetter {
             meta,
             getter: Box::new(getter.0),
             is_defined: false,
+            var_type: None,
         })
     }
 

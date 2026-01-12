@@ -1071,6 +1071,8 @@ impl FSRExpr {
         )
         .unwrap();
 
+        getter.var_type = context.get_var_type(getter.get_name());
+
         if context.is_variable_defined_in_curr(getter.get_name()) {
             getter.is_defined = true;
         } else {
