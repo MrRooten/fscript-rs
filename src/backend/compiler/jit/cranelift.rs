@@ -1970,6 +1970,105 @@ impl JitBuilder<'_> {
         let _ret = self.builder.inst_results(call)[0];
     }
 
+    fn unrolled_copy(&mut self, dest: Value, src: Value, size: usize) {
+        let mut offset = 0;
+
+        while size - offset >= 8 {
+            let loaded_value = self.builder.ins().load(
+                types::I64,
+                cranelift::codegen::ir::MemFlags::new(),
+                src,
+                offset as i32,
+            );
+            self.builder.ins().store(
+                cranelift::codegen::ir::MemFlags::new(),
+                loaded_value,
+                dest,
+                offset as i32,
+            );
+            offset += 8;
+        }
+
+        while size - offset >= 4 {
+            let loaded_value = self.builder.ins().load(
+                types::I32,
+                cranelift::codegen::ir::MemFlags::new(),
+                src,
+                offset as i32,
+            );
+            self.builder.ins().store(
+                cranelift::codegen::ir::MemFlags::new(),
+                loaded_value,
+                dest,
+                offset as i32,
+            );
+            offset += 4;
+        }
+
+        while size - offset >= 2 {
+            let loaded_value = self.builder.ins().load(
+                types::I16,
+                cranelift::codegen::ir::MemFlags::new(),
+                src,
+                offset as i32,
+            );
+            self.builder.ins().store(
+                cranelift::codegen::ir::MemFlags::new(),
+                loaded_value,
+                dest,
+                offset as i32,
+            );
+            offset += 2;
+        }
+
+        while size - offset >= 1 {
+            let loaded_value = self.builder.ins().load(
+                types::I8,
+                cranelift::codegen::ir::MemFlags::new(),
+                src,
+                offset as i32,
+            );
+            self.builder.ins().store(
+                cranelift::codegen::ir::MemFlags::new(),
+                loaded_value,
+                dest,
+                offset as i32,
+            );
+            offset += 1;
+        }
+    }
+
+    fn memcpy_fix(&mut self, context: &mut OperatorContext, dest: Value, src: Value, size: usize) {
+        if size > 64 {
+            let size = self
+                .builder
+                .ins()
+                .iconst(self.module.target_config().pointer_type(), size as i64);
+            let mut memcpy_sig = self.module.make_signature();
+            memcpy_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // dest
+            memcpy_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // src
+            memcpy_sig
+                .params
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // size
+            memcpy_sig
+                .returns
+                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
+            let fn_id = self
+                .module
+                .declare_function("memcpy", cranelift_module::Linkage::Import, &memcpy_sig)
+                .unwrap();
+            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            let call = self.builder.ins().call(func_ref, &[dest, src, size]);
+            let _ret = self.builder.inst_results(call)[0];
+        } else {
+            Self::unrolled_copy(self, dest, src, size);
+        }
+    }
+
     fn struct_assign(
         &mut self,
         context: &mut OperatorContext,
@@ -1982,11 +2081,12 @@ impl JitBuilder<'_> {
             let struct_addr = self.builder.use_var(*struct_var);
             // memory copy from assign_value to struct_addr
             let struct_size = struct_type.size_of() as i64;
-            let size_value = self
-                .builder
-                .ins()
-                .iconst(self.module.target_config().pointer_type(), struct_size);
-            Self::memcpy(self, context, struct_addr, assign_value, size_value);
+            // let size_value = self
+            //     .builder
+            //     .ins()
+            //     .iconst(self.module.target_config().pointer_type(), struct_size);
+            // Self::memcpy(self, context, struct_addr, assign_value, size_value);
+            Self::memcpy_fix(self, context, struct_addr, assign_value, struct_size as usize);
         } else {
             panic!("StructAssign requires a Struct type");
         }
