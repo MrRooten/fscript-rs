@@ -977,7 +977,8 @@ impl JitBuilder<'_> {
                 .builder
                 .ins()
                 .iconst(self.module.target_config().pointer_type(), 0 as i64);
-            let helper_ret = if let Some(ret_type) = call_sig.as_ref().unwrap().return_type.as_ref() {
+            let helper_ret = if let Some(ret_type) = call_sig.as_ref().unwrap().return_type.as_ref()
+            {
                 let v = if let FSRSType::Struct(s) = ret_type.as_ref() {
                     // allocate stack space for struct return
                     let struct_size = ret_type.size_of();
@@ -992,6 +993,21 @@ impl JitBuilder<'_> {
                         0,
                     );
                     struct_ptr
+                } else if let FSRSType::List(in_type, len) = ret_type.as_ref() {
+                    // allocate stack space for list return
+                    let elem_size = in_type.size_of();
+                    let total_size = elem_size * (*len as usize);
+                    let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        total_size as u32,
+                        0,
+                    ));
+                    let list_ptr = self.builder.ins().stack_addr(
+                        self.module.target_config().pointer_type(),
+                        slot,
+                        0,
+                    );
+                    list_ptr
                 } else {
                     null_ptr
                 };
@@ -2358,7 +2374,8 @@ impl JitBuilder<'_> {
                         s.1 = true; // Mark the last if block as having a return value
                     }
 
-                    let ret_value = if let Some(ret_type) = self.self_call_sig.return_type.as_ref() {
+                    let ret_value = if let Some(ret_type) = self.self_call_sig.return_type.as_ref()
+                    {
                         if let FSRSType::Struct(s) = ret_type.as_ref() {
                             // handle struct return
                             let return_ptr = self.builder.block_params(context.entry_block)[1];
@@ -2370,23 +2387,30 @@ impl JitBuilder<'_> {
                                 .iconst(self.module.target_config().pointer_type(), struct_size);
                             Self::memcpy(self, context, return_ptr, return_value, size_value);
                             return_ptr
+                        } else if let FSRSType::List(in_type, len) = ret_type.as_ref() {
+                            // handle list return
+                            let return_ptr = self.builder.block_params(context.entry_block)[1];
+                            let return_value = context.exp.pop().unwrap();
+                            let list_size = ret_type.size_of() as i64;
+                            let size_value = self
+                                .builder
+                                .ins()
+                                .iconst(self.module.target_config().pointer_type(), list_size);
+                            Self::memcpy(self, context, return_ptr, return_value, size_value);
+                            return_ptr
                         } else {
-                            context.exp.pop().unwrap_or(self.builder.ins().iconst(types::I64, 0))
+                            context
+                                .exp
+                                .pop()
+                                .unwrap_or(self.builder.ins().iconst(types::I64, 0))
                         }
-
                     } else {
-                        context.exp.pop().unwrap_or(self.builder.ins().iconst(types::I64, 0))
+                        context
+                            .exp
+                            .pop()
+                            .unwrap_or(self.builder.ins().iconst(types::I64, 0))
                     };
                     self.builder.ins().return_(&[ret_value]);
-
-                    // if let Some(value) = context.exp.pop() {
-                    //     context.middle_value.push(value);
-                    //     self.builder.ins().return_(&[value]);
-                    // } else {
-                    //     self.load_none(context);
-                    //     let value = context.exp.pop().unwrap();
-                    //     self.builder.ins().return_(&[value]);
-                    // }
                 }
                 BytecodeOperator::IfTest => {
                     self.load_if_test(context, arg);
