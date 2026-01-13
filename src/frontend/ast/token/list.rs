@@ -23,7 +23,7 @@ impl FSRListFrontEnd {
         &self.meta
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRListFrontEnd, SyntaxError> {
+    pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRListFrontEnd, SyntaxError> {
         //let tokens = ASTParser::split_by_comma(&source[1..1 + source.len() - 2], sub_meta)?;
         let expr = FSRExpr::parse(&source[1..1 + source.len() - 2], true, meta.new_offset(1), context).unwrap();
         let vs = expr.0.flatten_comma();

@@ -10,6 +10,7 @@ use super::return_def::FSRReturn;
 use super::try_expr::FSRTryBlock;
 use super::while_statement::FSRWhile;
 use super::ASTContext;
+use crate::chars_to_string;
 use crate::frontend::ast::token::assign;
 use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::token::xtruct::FSRStructFrontEnd;
@@ -81,7 +82,7 @@ impl FSRBlock {
     }
 
     pub fn parse(
-        source: &[u8],
+        source: &[char],
         meta: FSRPosition,
         context: &mut ASTContext,
         struct_info: Option<String>, // for struct parsing
@@ -121,7 +122,7 @@ impl FSRBlock {
             }
 
             if (states.peek() == &BlockState::Start || states.peek() == &BlockState::Block)
-                && ASTParser::is_blank_char_with_new_line(c as u8)
+                && ASTParser::is_blank_char_with_new_line(c)
             {
                 start += 1;
                 continue;
@@ -156,7 +157,8 @@ impl FSRBlock {
                 let sub_meta = meta.new_offset(start);
                 let l = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
                 length += l;
-                let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
+                // let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
+                let s = chars_to_string!(&source[start..start + length]);
                 let mut sub_block_meta = meta.new_offset(start);
                 let sub_block =
                     Self::parse(&source[start..start + length], sub_block_meta, context, None)?;
@@ -170,7 +172,7 @@ impl FSRBlock {
 
             if states.peek() == &BlockState::Block {
                 // Escape all blank characters
-                while ASTParser::is_blank_char_with_new_line(c as u8) {
+                while ASTParser::is_blank_char_with_new_line(c) {
                     start += 1;
                     c = source[start + length] as char;
                     continue;
@@ -291,7 +293,8 @@ mod test {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context, None).unwrap();
+        let chars = s.chars().collect::<Vec<char>>();
+        let b = FSRBlock::parse(&chars, meta, &mut context, None).unwrap();
         println!("{:#?}", b);
     }
 
@@ -302,7 +305,8 @@ mod test {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context, None).unwrap();
+        let chars = s.chars().collect::<Vec<char>>();
+        let b = FSRBlock::parse(&chars, meta, &mut context, None).unwrap();
         println!("{:#?}", b);
     }
 }

@@ -1,6 +1,5 @@
 use crate::{
-    frontend::ast::{parse::ASTParser, token::expr::FSRExpr},
-    utils::error::SyntaxError,
+    chars_to_string, frontend::ast::{parse::ASTParser, token::expr::FSRExpr}, utils::error::SyntaxError
 };
 
 use super::{
@@ -57,11 +56,12 @@ impl FSRFor {
     }
 
     pub fn parse(
-        source: &[u8],
+        source: &[char],
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {
-        let s = std::str::from_utf8(&source[0..3]).unwrap();
+        // let s = std::str::from_utf8(&source[0..3]).unwrap();
+        let s = chars_to_string!(&source[0..3]);
 
         if s != "for" {
             let sub_meta = meta.new_offset(0);
@@ -111,7 +111,8 @@ impl FSRFor {
             return Err(err);
         }
 
-        let s = std::str::from_utf8(&source[start..start + 2]).unwrap();
+        // let s = std::str::from_utf8(&source[start..start + 2]).unwrap();
+        let s = chars_to_string!(&source[start..start + 2]);
         if !s.eq("in") {
             let sub_meta = meta.new_offset(start);
             let err = SyntaxError::new(&sub_meta, "in after variable in for statement");
@@ -277,7 +278,8 @@ mod test {
         let expr = "for i in [1, 2, 3].map(|| {}) { println(i) }";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let token = FSRFor::parse(expr.as_bytes(), meta, &mut context).unwrap();
+        let expr = expr.chars().collect::<Vec<char>>();
+        let token = FSRFor::parse(&expr, meta, &mut context).unwrap();
         println!("{:#?}", token);
     }
 }

@@ -86,37 +86,37 @@ impl ASTParser {
         unimplemented!()
     }
 
-    pub fn is_blank_char_with_new_line(c: u8) -> bool {
+    pub fn is_blank_char_with_new_line(c: char) -> bool {
         c as char == ' ' || c as char == '\r' || c as char == '\t' || c as char == '\n'
     }
 
-    pub fn is_blank_char(c: u8) -> bool {
+    pub fn is_blank_char(c: char) -> bool {
         c as char == ' ' || c as char == '\r' || c as char == '\t'
     }
 
-    pub fn is_name_letter_first(c: u8) -> bool {
-        (c as char).is_lowercase() || (c as char).is_uppercase() || (c as char) == '_'
+    pub fn is_name_letter_first(c: char) -> bool {
+        c.is_lowercase() || c.is_uppercase() || c == '_'
     }
 
-    pub fn is_name_letter(c: u8) -> bool {
-        (c as char).is_lowercase()
-            || (c as char).is_uppercase()
-            || (c as char).is_ascii_digit()
-            || (c as char) == '_'
+    pub fn is_name_letter(c: char) -> bool {
+        c.is_lowercase()
+            || c.is_uppercase()
+            || c.is_ascii_digit()
+            || c == '_'
             // || (c as char) == ':'
     }
 
-    pub fn is_token_letter(c: u8) -> bool {
+    pub fn is_token_letter(c: char) -> bool {
         (c as char).is_lowercase() || (c as char).is_uppercase()
     }
 
 
-    pub fn is_end_expr(c: u8) -> bool {
+    pub fn is_end_expr(c: char) -> bool {
         (c as char) == '\n' || (c as char) == ';'
     }
 
     #[allow(unused)]
-    pub(crate) fn read_valid_expr(source: &[u8]) -> usize {
+    pub(crate) fn read_valid_expr(source: &[char]) -> usize {
         let stack: Vec<u32> = Vec::new();
         let mut index = 0;
         loop {
@@ -220,7 +220,7 @@ impl ASTParser {
         Ok(())
     }
 
-    pub fn read_valid_bracket_until_big(source: &[u8], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
+    pub fn read_valid_bracket_until_big(source: &[char], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
         let mut state = State::Continue;
         let mut pre_state = State::Continue;
         let mut len = 0;
@@ -284,7 +284,7 @@ impl ASTParser {
     }
 
 
-    pub fn read_valid_name_bracket(source: &[u8], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
+    pub fn read_valid_name_bracket(source: &[char], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut is_start = true;
         let mut len = 0;
@@ -315,7 +315,7 @@ impl ASTParser {
         Ok(len)
     }
 
-    pub fn read_valid_bracket(source: &[u8], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
+    pub fn read_valid_bracket(source: &[char], meta: FSRPosition, context: &ASTContext) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut is_start = true;
         let mut len = 0;
@@ -342,7 +342,7 @@ impl ASTParser {
         Ok(len)
     }
 
-    pub fn read_to_comma(source: &[u8], meta: &FSRPosition) -> Result<usize, SyntaxError> {
+    pub fn read_to_comma(source: &[char], meta: &FSRPosition) -> Result<usize, SyntaxError> {
         let mut states = BracketStates::new();
         let mut len = 0;
         for _c in source {
@@ -357,7 +357,7 @@ impl ASTParser {
         Ok(len)
     }
 
-    pub fn split_by_comma(source: &[u8], _meta: FSRPosition) -> Result<Vec<&[u8]>, SyntaxError> {
+    pub fn split_by_comma(source: &[char], _meta: FSRPosition) -> Result<Vec<&[char]>, SyntaxError> {
         let mut i = 0;
         let meta = FSRPosition::new();
         let mut res = vec![];

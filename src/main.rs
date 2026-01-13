@@ -30,7 +30,8 @@ fn bench_compile() {
     let source_code = line.join("\n");
     let start = Instant::now();
     let meta = FSRPosition::new();
-    let token = FSRModuleFrontEnd::parse(source_code.as_bytes(), meta).unwrap();
+    let chars = source_code.chars().collect::<Vec<char>>();
+    let token = FSRModuleFrontEnd::parse(&chars, meta).unwrap();
     let end = Instant::now();
     println!("AST Parse Time: {:?}", end - start);
     let start = Instant::now();
@@ -79,14 +80,16 @@ fn main() {
 
     if ast {
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(source_code.as_bytes(), meta).unwrap();
+        let chars = source_code.chars().collect::<Vec<char>>();
+        let token = FSRModuleFrontEnd::parse(&chars, meta).unwrap();
         println!("{:#?}", token);
         return;
     }
 
     if just_bc {
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(source_code.as_bytes(), meta).unwrap();
+        let chars = source_code.chars().collect::<Vec<char>>();
+        let token = FSRModuleFrontEnd::parse(&chars, meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
 

@@ -247,3 +247,6 @@ impl FSRTypeName {
         }
     }
 }
+
+// &[char] to string, export to use
+

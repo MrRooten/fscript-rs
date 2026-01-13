@@ -1,3 +1,4 @@
+use crate::chars_to_string;
 use crate::frontend::ast::parse::ASTParser;
 use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::expr::FSRExpr;
@@ -38,11 +39,12 @@ impl FSRWhile {
     }
 
     pub fn parse(
-        source: &[u8],
+        source: &[char],
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {
-        let s = std::str::from_utf8(&source[0..5]).unwrap();
+        // let s = std::str::from_utf8(&source[0..5]).unwrap();
+        let s = chars_to_string!(&source[0..5]);
         if source.len() < 5 {
             unimplemented!()
         }

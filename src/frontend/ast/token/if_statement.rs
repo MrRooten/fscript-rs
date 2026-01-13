@@ -1,5 +1,6 @@
 
 
+use crate::chars_to_string;
 use crate::frontend::ast::parse::ASTParser;
 use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::expr::FSRExpr;
@@ -42,8 +43,9 @@ impl FSRIf {
         &self.body
     }
 
-    pub fn parse_without_else(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
-        let s = std::str::from_utf8(&source[0..2]).unwrap();
+    pub fn parse_without_else(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
+        // let s = std::str::from_utf8(&source[0..2]).unwrap();
+        let s = chars_to_string!(&source[0..2]);
         if source.len() < 3 {
             let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
@@ -133,8 +135,9 @@ impl FSRIf {
         })
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
-        let s = std::str::from_utf8(&source[0..2]).unwrap();
+    pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
+        // let s = std::str::from_utf8(&source[0..2]).unwrap();
+        let s = chars_to_string!(&source[0..2]);
         if source.len() < 3 {
             let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
@@ -173,7 +176,8 @@ impl FSRIf {
         let mut may_else = None;
 
         if start + 4 < source.len() {
-            let may_else_token = std::str::from_utf8(&source[start..start+4]).unwrap();
+            // let may_else_token = std::str::from_utf8(&source[start..start+4]).unwrap();
+            let may_else_token = chars_to_string!(&source[start..start + 4]);
             if may_else_token.eq("else") {
                 let sub_meta = meta.new_offset(start);
                 let elses = FSRElse::parse(&source[start..], sub_meta, context)?;
@@ -212,7 +216,8 @@ mod test {
 }"#;
         let meta = super::FSRPosition::new();
         let mut context = super::ASTContext::new_context();
-        let if_token = super::FSRIf::parse(soruce.as_bytes(), meta, &mut context).unwrap();
+        let source = &soruce.chars().collect::<Vec<char>>();
+        let if_token = super::FSRIf::parse(source, meta, &mut context).unwrap();
         assert_eq!(if_token.get_len(), soruce.len());
     }
 }

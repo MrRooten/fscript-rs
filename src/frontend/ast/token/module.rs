@@ -86,7 +86,7 @@ impl FSRModuleFrontEnd {
     }
 
     pub fn parse(
-        source: &[u8],
+        source: &[char],
         meta: FSRPosition,
     ) -> Result<(FSRModuleFrontEnd, Vec<usize>), SyntaxError> {
         let trie = FSTrie::single();
@@ -108,9 +108,9 @@ impl FSRModuleFrontEnd {
                 break;
             }
 
-            let mut c = source[start + length] as char;
+            let mut c = source[start + length];
             if (states.peek() == &ModuleState::Start || states.peek() == &ModuleState::Block)
-                && ASTParser::is_blank_char_with_new_line(c as u8)
+                && ASTParser::is_blank_char_with_new_line(c)
             {
                 start += 1;
                 continue;
@@ -136,7 +136,7 @@ impl FSRModuleFrontEnd {
                 continue;
             }
 
-            while ASTParser::is_blank_char_with_new_line(c as u8) {
+            while ASTParser::is_blank_char_with_new_line(c) {
                 start += 1;
                 c = source[start + length] as char;
                 continue;
@@ -248,7 +248,7 @@ impl FSRModuleFrontEnd {
         let lines: Vec<usize> = source
             .iter()
             .enumerate()
-            .filter_map(|(i, &c)| if c == b'\n' { Some(i) } else { None })
+            .filter_map(|(i, &c)| if c == '\n' { Some(i) } else { None })
             .collect();
         Ok((module, lines))
     }

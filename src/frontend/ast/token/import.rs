@@ -1,4 +1,4 @@
-use crate::utils::error::SyntaxError;
+use crate::{chars_to_string, utils::error::SyntaxError};
 
 use super::{base::FSRPosition, ASTContext};
 use std::str;
@@ -13,16 +13,17 @@ impl FSRImport {
         &self.meta
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
-        while len < source.len() && source[len] != b'\n' {
+        while len < source.len() && source[len] != '\n' {
             if source[len] as char == '\\' {
                 len += 1;
             }
             len += 1;
         }
 
-        let sub = str::from_utf8(&source[0..len]).unwrap();
+        // let sub = str::from_utf8(&source[0..len]).unwrap();
+        let sub = chars_to_string!(&source[0..len]);
         if !sub.starts_with("import") {
             return Err(SyntaxError::new(
                 &meta.clone(),

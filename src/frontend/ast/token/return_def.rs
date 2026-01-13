@@ -1,4 +1,4 @@
-use crate::utils::error::SyntaxError;
+use crate::{chars_to_string, utils::error::SyntaxError};
 
 use super::{
     base::{FSRPosition, FSRToken},
@@ -20,10 +20,10 @@ impl FSRReturn {
         &self.expr
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
+    pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
         let mut len = 0;
         let sub = &source[0..6];
-        let first_6_char = str::from_utf8(sub).unwrap();
+        let first_6_char = chars_to_string!(sub);
         if !first_6_char.eq("return") {
             let err = SyntaxError::new(&meta, "Not a return token");
             return Err(err);

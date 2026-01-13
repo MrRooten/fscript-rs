@@ -3,6 +3,7 @@
 use std::rc::Rc;
 use std::{cmp::Ordering, fmt::Display};
 
+use crate::chars_to_string;
 use crate::frontend::ast::token;
 use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::token::constant::{FSRConstType, FSROrinStr};
@@ -340,14 +341,16 @@ impl FSRExpr {
         false
     }
 
-    pub fn is_op(op: &[u8]) -> bool {
-        let op = std::str::from_utf8(op).unwrap();
-        ASTParser::get_static_op(op).is_some()
+    pub fn is_op(op: &[char]) -> bool {
+        // let op = std::str::from_utf8(op).unwrap();
+        let op = chars_to_string!(op);
+        ASTParser::get_static_op(&op).is_some()
     }
 
     /// Convert a byte slice to a string, handling escape sequences.
-    fn bytes_to_unescaped_string(input: &[u8]) -> Result<String, std::str::Utf8Error> {
-        let s = std::str::from_utf8(input)?;
+    fn bytes_to_unescaped_string(input: &[char]) -> Result<String, std::str::Utf8Error> {
+        // let s = std::str::from_utf8(input)?;
+        let s = chars_to_string!(input);
         let mut out = String::with_capacity(s.len());
         let mut chars = s.chars().peekable();
         while let Some(c) = chars.next() {
@@ -464,7 +467,7 @@ impl FSRExpr {
 
     #[inline]
     fn double_quote_loop(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -472,7 +475,7 @@ impl FSRExpr {
         string_name: Option<&str>,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
-            let sub_meta = meta.new_offset(0);
+            let mut sub_meta = meta.new_offset(0);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{:?} can not follow string", s_op),
@@ -486,33 +489,25 @@ impl FSRExpr {
         };
 
         if is_f_string {
-            let rest_str = std::str::from_utf8(&source[ctx.start..]).unwrap();
-            let chars = rest_str.chars().collect::<Vec<char>>();
-            let len = Self::quoted_len(&chars).unwrap();
-            
-            let quote_str = Self::utf8_substr(rest_str, 0, len);
-            ctx.length = quote_str.len() - 1;
+            ctx.length = Self::quoted_len(&source[ctx.start..]).unwrap();
             ctx.start += 1;
-            //ctx.states.pop_state();
         } else {
             ctx.start += 1;
-            let mut length = 0;
-            let rest_may_str = std::str::from_utf8(&source[ctx.start..]).unwrap();
+
             loop {
-                if length >= rest_may_str.len() {
-                    let sub_meta = meta.new_offset(ctx.start);
+                if ctx.start + ctx.length >= source.len() {
+                    let mut sub_meta = meta.new_offset(ctx.start);
                     let err = SyntaxError::new_with_type(
                         &sub_meta,
-                        "Not Close for Single Quote",
+                        "Not Close for Double Quote",
                         SyntaxErrType::QuoteNotClose,
                     );
                     return Err(err);
                 }
-                let c = rest_may_str.chars().nth(length).unwrap();
+                let c = source[ctx.start + ctx.length] as char;
                 if ctx.states.eq_peek(&ExprState::EscapeChar) {
                     ctx.states.pop_state();
-                    // ctx.length += 1;
-                    length += 1;
+                    ctx.length += 1;
                     continue;
                 }
 
@@ -524,20 +519,17 @@ impl FSRExpr {
                     ctx.states.push_state(ExprState::EscapeChar);
                 }
 
-                length += 1;
+                ctx.length += 1;
             }
-            let quote_string = Self::utf8_substr(rest_may_str, 0, length);
-            let byte_length = quote_string.len();
-            ctx.length = byte_length - 1;
         }
 
         let s = &source[ctx.start..ctx.start + ctx.length];
-        let tmp_s = std::str::from_utf8(s).unwrap();
         let s = FSRExpr::bytes_to_unescaped_string(s)
             .map_err(|e| SyntaxError::new(&meta.new_offset(ctx.start), e.to_string()))?;
-        let sub_meta = meta.new_offset(ctx.start);
+        let mut sub_meta = meta.new_offset(ctx.start);
+        let chars = s.chars().collect::<Vec<char>>();
         let constant = FSRConstant::from_str(
-            s.as_bytes(),
+            &chars,
             sub_meta.clone(),
             FSRConstant::convert_str_type(string_name.unwrap_or(""), &s, sub_meta, context),
         );
@@ -548,47 +540,28 @@ impl FSRExpr {
         Ok(())
     }
 
-    fn utf8_substr(s: &str, start: usize, len: usize) -> &str {
-        let mut it = s.char_indices();
-
-        let start_byte = match it.nth(start) {
-            Some((i, _)) => i,
-            None => return "",
-        };
-
-        let end_byte = match it.nth(len) {
-            Some((i, _)) => i,
-            None => s.len(),
-        };
-
-        &s[start_byte..end_byte]
-    }
-
     #[inline]
     fn single_quote_loop(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
-        stmt_ctx: &mut StmtContext,
+        ctx: &mut StmtContext,
         context: &mut ASTContext,
         string_name: Option<&str>,
     ) -> Result<(), SyntaxError> {
-        if let Some(s_op) = stmt_ctx.single_op {
-            let sub_meta = meta.new_offset(stmt_ctx.start);
+        if let Some(s_op) = ctx.single_op {
+            let mut sub_meta = meta.new_offset(ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{:?} can not follow string", s_op),
             ));
         }
 
-        stmt_ctx.start += 1;
+        ctx.start += 1;
 
-        let rest_may_str = std::str::from_utf8(&source[stmt_ctx.start..]).unwrap();
-        let utf8_len = rest_may_str.len();
-        let mut length = 0;
         loop {
-            if length >= rest_may_str.len() {
-                let sub_meta = meta.new_offset(stmt_ctx.start);
+            if ctx.start + ctx.length >= source.len() {
+                let mut sub_meta = meta.new_offset(ctx.start);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
                     "Not Close for Single Quote",
@@ -596,11 +569,10 @@ impl FSRExpr {
                 );
                 return Err(err);
             }
-            let c = rest_may_str.chars().nth(length).unwrap();
-            if stmt_ctx.states.eq_peek(&ExprState::EscapeChar) {
-                stmt_ctx.states.pop_state();
-                // ctx.length += 1;
-                length += 1;
+            let c = source[ctx.start + ctx.length] as char;
+            if ctx.states.eq_peek(&ExprState::EscapeChar) {
+                ctx.states.pop_state();
+                ctx.length += 1;
                 continue;
             }
 
@@ -609,48 +581,48 @@ impl FSRExpr {
             }
 
             if c == '\\' {
-                stmt_ctx.states.push_state(ExprState::EscapeChar);
+                ctx.states.push_state(ExprState::EscapeChar);
             }
 
-            length += 1;
+            ctx.length += 1;
         }
-        let quote_string = Self::utf8_substr(rest_may_str, 0, length);
-        let byte_length = quote_string.len();
-        stmt_ctx.length = byte_length - 1;
 
-        let s = &source[stmt_ctx.start..stmt_ctx.start + stmt_ctx.length];
-        let sub_meta = meta.new_offset(stmt_ctx.start);
+        let s = &source[ctx.start..ctx.start + ctx.length];
+        let utf_8s = s.iter().collect::<String>();
+        let mut sub_meta = meta.new_offset(ctx.start);
         let const_type = FSRConstant::convert_str_type(
             string_name.unwrap_or(""),
-            str::from_utf8(s).unwrap(),
+            &utf_8s,
             sub_meta.clone(),
             context,
         );
         let constant = FSRConstant::from_str(s, sub_meta, const_type);
-        stmt_ctx.candidates.push(FSRToken::Constant(constant));
-        stmt_ctx.length += 1;
-        stmt_ctx.start += stmt_ctx.length;
-        stmt_ctx.length = 0;
+        ctx.candidates.push(FSRToken::Constant(constant));
+        ctx.length += 1;
+        ctx.start += ctx.length;
+        ctx.length = 0;
 
         Ok(())
     }
 
     fn end_of_operator(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
-        let mut op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+        // let mut op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+        let mut op = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
         let orig_length = ctx.length;
-        let orig_op = op;
+        let orig_op = op.clone();
 
         // Check for the longest matching operator
         while ctx.length > 0 {
-            op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-            if let Some(s) = ASTParser::get_static_op(op) {
-                op = s;
+            // op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            op = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
+            if let Some(s) = ASTParser::get_static_op(&op) {
+                op = s.to_string();
                 break;
             };
 
@@ -667,9 +639,12 @@ impl FSRExpr {
 
         // Check for single operator
         if orig_length - ctx.length > 0 {
-            let single_op =
-                str::from_utf8(&source[ctx.start + ctx.length..ctx.start + orig_length]).unwrap();
-            if !Self::is_single_op(single_op) {
+            // let single_op =
+            //     str::from_utf8(&source[ctx.start + ctx.length..ctx.start + orig_length]).unwrap();
+            let single_op = chars_to_string!(
+                &source[ctx.start + ctx.length..ctx.start + orig_length]
+            );
+            if !Self::is_single_op(&single_op) {
                 let sub_meta = meta.new_offset(ctx.start + ctx.length);
                 return Err(SyntaxError::new(
                     &sub_meta,
@@ -694,7 +669,7 @@ impl FSRExpr {
             return Ok(());
         }
 
-        if Self::is_single_op(op) && !op.eq("-") {
+        if Self::is_single_op(&op) && !op.eq("-") {
             if ctx.single_op.is_some() && (ctx.single_op.unwrap().eq(&SingleOp::Not)) {
                 ctx.single_op = None;
             } else {
@@ -707,13 +682,13 @@ impl FSRExpr {
         } else {
             if ctx.single_op.is_some()
                 && Node::get_single_op_level(ctx.single_op.as_ref().unwrap())
-                    > Node::get_op_level(op)
+                    > Node::get_op_level(&op)
             {
                 ctx.candidates[0].set_single_op(ctx.single_op.unwrap());
                 ctx.single_op = None;
             }
             ctx.operators
-                .push((ASTParser::get_static_op(op).unwrap(), ctx.start));
+                .push((ASTParser::get_static_op(&op).unwrap(), ctx.start));
             ctx.states.pop_state();
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -744,7 +719,7 @@ impl FSRExpr {
     /// and it will reset the `single_op` field of the context to None.
     #[inline]
     fn end_of_bracket(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -758,7 +733,7 @@ impl FSRExpr {
             return Ok(());
         } else {
             let _ps = &source[ctx.start..ctx.start + ctx.length];
-            let ps = str::from_utf8(_ps).unwrap();
+            let ps = chars_to_string!(_ps);
 
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -776,7 +751,7 @@ impl FSRExpr {
     }
 
     fn end_of_square_bracket(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -790,7 +765,8 @@ impl FSRExpr {
             return Ok(());
         } else {
             let _ps = &source[ctx.start..ctx.start + ctx.length];
-            let ps = str::from_utf8(_ps).unwrap();
+            // let ps = str::from_utf8(_ps).unwrap();
+            let ps = chars_to_string!(_ps);
 
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -825,7 +801,7 @@ impl FSRExpr {
     }
 
     fn _variable_process(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -836,7 +812,8 @@ impl FSRExpr {
                 &$source[ctx.start..ctx.start + ctx.length]
             };
         }
-        let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
+        // let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
+        let name = chars_to_string!(cur_str!(source));
         if Self::is_logic_keyword(&name) {
             if name.eq("not") {
                 ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
@@ -872,7 +849,7 @@ impl FSRExpr {
 
     #[inline]
     fn variable_process(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -884,7 +861,7 @@ impl FSRExpr {
                 break;
             }
             let c = source[ctx.start + ctx.length] as char;
-            if !ASTParser::is_name_letter(c as u8) {
+            if !ASTParser::is_name_letter(c) {
                 break;
             }
 
@@ -907,45 +884,48 @@ impl FSRExpr {
             };
         }
 
-        if cur_byte!(source) == b'\'' {
+        if cur_byte!(source) == '\'' {
             // Process like f'user: "{name}"'
-            let string_name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            // let string_name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            let string_name = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
             ctx.start += ctx.length;
             ctx.length = 0;
             // process situations like f'user: "{name}"' or f"user: '{name}'"
             // pop 'f' variable state
             ctx.states.pop_state();
             //ctx.states.push_state(ExprState::SingleString);
-            Self::single_quote_loop(source, ignore_nline, meta, ctx, context, Some(string_name))?;
+            Self::single_quote_loop(source, ignore_nline, meta, ctx, context, Some(&string_name))?;
             return Ok(());
         }
 
-        if cur_byte!(source) == b'\"' {
+        if cur_byte!(source) == '\"' {
             // Process like f"user: '{name}'"
             // Process like f'user: "{name}"'
-            let string_name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            // let string_name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            let string_name = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
             ctx.start += ctx.length;
             ctx.length = 0;
             // process situations like f'user: "{name}"' or f"user: '{name}'"
             // pop 'f' variable state
             ctx.states.pop_state();
-            ctx.states.push_state(ExprState::SingleString);
-            Self::double_quote_loop(source, ignore_nline, meta, ctx, context, Some(string_name))?;
+            //ctx.states.push_state(ExprState::SingleString);
+            Self::double_quote_loop(source, ignore_nline, meta, ctx, context, Some(&string_name))?;
             return Ok(());
         }
 
         if ctx.start + ctx.length >= source.len()
-            || (cur_byte!(source) != b'(' && cur_byte!(source) != b'[')
+            || (cur_byte!(source) != '(' && cur_byte!(source) != '[')
         {
             let mut index_checker = 0;
-            let name = std::str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            // let name = std::str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+            let name = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
             while ctx.start + ctx.length + index_checker < source.len()
                 && ASTParser::is_blank_char(source[ctx.start + ctx.length + index_checker])
             {
                 index_checker += 1;
             }
 
-            if Self::is_logic_keyword(name) {
+            if Self::is_logic_keyword(&name) {
                 return Self::_variable_process(source, ignore_nline, meta, ctx, context);
             }
 
@@ -954,7 +934,7 @@ impl FSRExpr {
             }
 
             let char_skipped = source[ctx.start + ctx.length + index_checker];
-            if char_skipped == b'(' || char_skipped == b'[' {
+            if char_skipped == '(' || char_skipped == '[' {
                 ctx.length += index_checker;
                 return Ok(());
             }
@@ -966,7 +946,7 @@ impl FSRExpr {
 
     #[inline]
     fn number_process3(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -979,7 +959,7 @@ impl FSRExpr {
         // 检查进制前缀
         let mut base = 10;
         let mut prefix_len = 0;
-        if start + 2 < source.len() && source[start] == b'0' {
+        if start + 2 < source.len() && source[start] == '0' {
             match source[start + 1] as char {
                 'x' | 'X' => {
                     base = 16;
@@ -1014,7 +994,7 @@ impl FSRExpr {
             if base == 10 {
                 if c.eq(&'.') {
                     if ctx.start + ctx.length + 1 < source.len()
-                        && source[ctx.start + ctx.length + 1] == b'.'
+                        && source[ctx.start + ctx.length + 1] == '.'
                     {
                         break;
                     }
@@ -1067,17 +1047,18 @@ impl FSRExpr {
             ctx.length += 1;
         }
 
-        let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
+        // let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
+        let ps = chars_to_string!(&source[ctx.start..(ctx.start + ctx.length)]);
         let sub_meta = meta.new_offset(ctx.start);
         let c = if is_float && base == 10 {
-            FSRConstant::from_float(sub_meta, ps, ctx.single_op)
+            FSRConstant::from_float(sub_meta, &ps, ctx.single_op)
         } else {
             let digits = if prefix_len > 0 {
                 &ps[prefix_len..]
             } else {
-                ps
+                &ps
             };
-            FSRConstant::from_int(sub_meta, ps, ctx.single_op)
+            FSRConstant::from_int(sub_meta, &ps, ctx.single_op)
         };
 
         ctx.single_op = None;
@@ -1089,7 +1070,7 @@ impl FSRExpr {
     }
 
     fn getter_helper(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -1141,7 +1122,7 @@ impl FSRExpr {
     }
 
     fn call_helper(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -1198,7 +1179,7 @@ impl FSRExpr {
 
     #[inline]
     fn stmt_loop(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: &FSRPosition,
         ctx: &mut StmtContext,
@@ -1232,7 +1213,7 @@ impl FSRExpr {
                 }
 
                 while ctx.start + ctx.length < source.len()
-                    && source[ctx.start + ctx.length] != b'\n'
+                    && source[ctx.start + ctx.length] != '\n'
                 {
                     ctx.start += 1;
                 }
@@ -1253,7 +1234,7 @@ impl FSRExpr {
                     }
 
                     while ctx.start + ctx.length < source.len()
-                        && source[ctx.start + ctx.length] != b'\n'
+                        && source[ctx.start + ctx.length] != '\n'
                     {
                         ctx.start += 1;
                     }
@@ -1408,9 +1389,10 @@ impl FSRExpr {
                         continue;
                     }
                 }
-                let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+                // let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
+                let name = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
 
-                if Self::is_logic_keyword(name) {
+                if Self::is_logic_keyword(&name) {
                     if name.eq("not") {
                         ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
                     }
@@ -1419,7 +1401,7 @@ impl FSRExpr {
                 }
 
                 let sub_meta = meta.new_offset(ctx.start);
-                let mut variable = FSRVariable::parse(name, sub_meta, None).unwrap();
+                let mut variable = FSRVariable::parse(&name, sub_meta, None).unwrap();
                 if context.is_variable_defined_in_curr(variable.get_name()) {
                     variable.is_defined = true;
                 } else {
@@ -1512,7 +1494,7 @@ impl FSRExpr {
     }
 
     pub fn parse(
-        source: &[u8],
+        source: &[char],
         ignore_nline: bool,
         meta: FSRPosition,
         context: &mut ASTContext,
@@ -1743,9 +1725,10 @@ mod test {
     #[test]
     fn test_inner_type() {
         let source = "a: List[int]";
+        let source = source.chars().collect::<Vec<char>>();
         let mut context = ASTContext::new_context();
         let expr =
-            FSRExpr::parse(source.as_bytes(), false, FSRPosition::new(), &mut context).unwrap();
+            FSRExpr::parse(&source, false, FSRPosition::new(), &mut context).unwrap();
         println!("expr: {:?}", expr.0);
     }
 }

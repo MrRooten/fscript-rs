@@ -31,7 +31,7 @@ pub mod tests {
         l = b.len()
         ";
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&expr.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
@@ -43,7 +43,7 @@ pub mod tests {
         println(type(a))
         ";
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&expr.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
@@ -54,7 +54,7 @@ pub mod tests {
         not b
         ";
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&expr.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
@@ -65,7 +65,7 @@ pub mod tests {
         print(true)
         ";
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&expr.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
@@ -75,7 +75,7 @@ pub mod tests {
         let s = "a.abc(1)\n";
 
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
@@ -90,7 +90,7 @@ pub mod tests {
         a = 1 + abc()
         ";
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&expr.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
@@ -107,7 +107,7 @@ pub mod tests {
         }
         ";
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&expr.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
@@ -124,7 +124,7 @@ pub mod tests {
         Abc::test()
         ";
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&expr.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }
@@ -152,7 +152,7 @@ pub mod tests {
         [1, 2, 3, \"abc\"]
         ";
         let meta = FSRPosition::new();
-        let token = FSRModuleFrontEnd::parse(expr.as_bytes(), meta).unwrap();
+        let token = FSRModuleFrontEnd::parse(&expr.chars().collect::<Vec<char>>(), meta).unwrap();
         let v = Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
         println!("{:#?}", v);
     }

@@ -1,7 +1,6 @@
 
 use crate::{
-    frontend::ast::{parse::ASTParser, token::block::FSRBlock},
-    utils::error::SyntaxError,
+    chars_to_string, frontend::ast::{parse::ASTParser, token::block::FSRBlock}, utils::error::SyntaxError
 };
 
 use super::{base::FSRPosition, ASTContext};
@@ -26,8 +25,9 @@ impl FSRClassFrontEnd {
         &self.meta
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
-        let start_token = str::from_utf8(&source[0..5]).unwrap();
+    pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
+        // let start_token = str::from_utf8(&source[0..5]).unwrap();
+        let start_token = chars_to_string!(&source[0..5]);
         if !start_token.eq("class") {
             unimplemented!()
         }
@@ -55,7 +55,8 @@ impl FSRClassFrontEnd {
             length += 1;
         }
         length -= 1;
-        let name = str::from_utf8(&source[start..start + length]).unwrap();
+        // let name = str::from_utf8(&source[start..start + length]).unwrap();
+        let name = chars_to_string!(&source[start..start + length]);
         start += length;
 
         while start < source.len() && ASTParser::is_blank_char(source[start]) {
@@ -69,7 +70,7 @@ impl FSRClassFrontEnd {
         let len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
         let sub_meta = meta.new_offset(start);
         let block = FSRBlock::parse(&source[start..start + len], sub_meta, context, Some(name.to_string()))?;
-        context.add_variable(name, None);
+        context.add_variable(&name, None);
         Ok((Self { name: name.to_string(), block, meta }, start + len))
     }
 }

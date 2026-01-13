@@ -22,7 +22,8 @@ mod frontend_tests {
         let s = "a + b + c\n";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let expr = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let s = &s.chars().collect::<Vec<char>>();
+        let expr = FSRExpr::parse(&s, false, meta, &mut context).unwrap();
 
         println!("{:#?}", expr);
     }
@@ -33,7 +34,8 @@ mod frontend_tests {
 
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let expr = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let s = &s.chars().collect::<Vec<char>>();
+        let expr = FSRExpr::parse(&s, false, meta, &mut context).unwrap();
 
         println!("{:#?}", expr);
     }
@@ -43,7 +45,8 @@ mod frontend_tests {
         let s = "not not not c\n";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let expr = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let s = &s.chars().collect::<Vec<char>>();
+        let expr = FSRExpr::parse(&s, false, meta, &mut context).unwrap();
 
         println!("{:#?}", expr);
     }
@@ -53,7 +56,8 @@ mod frontend_tests {
         let s = "( )\n";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let expr = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let s = &s.chars().collect::<Vec<char>>();
+        let expr = FSRExpr::parse(&s, false, meta, &mut context).unwrap();
         if let FSRToken::EmptyExpr(_) = expr.0 {
             //let e: FSRExpr = e.try_into().unwrap();
         } else {
@@ -66,7 +70,7 @@ mod frontend_tests {
         let s = "abc.name(abc, ddc)\n";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let expr = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let expr = FSRExpr::parse(&s.chars().collect::<Vec<char>>(), false, meta, &mut context).unwrap();
 
         println!("{:#?}", expr)
     }
@@ -76,7 +80,7 @@ mod frontend_tests {
         let s = "a = 1 > 3 && 1 < 3";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let expr = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let expr = FSRExpr::parse(&s.chars().collect::<Vec<char>>(), false, meta, &mut context).unwrap();
         if let FSRToken::Assign(e) = expr.0 {
             // let e: FSRExpr = e.try_into().unwrap();
             println!("{:?}", e)
@@ -90,13 +94,13 @@ mod frontend_tests {
         let s = "(abcd['abc'])";
         let meta = FSRPosition::new();
         let context = ASTContext::new_context();
-        let v = ASTParser::read_valid_bracket(s.as_bytes(), meta, &context).unwrap();
+        let v = ASTParser::read_valid_bracket(&s.chars().collect::<Vec<char>>(), meta, &context).unwrap();
         assert_eq!(v, s.len());
 
         let s = "abc(abcd['abc'])";
         let meta = FSRPosition::new();
         let context = ASTContext::new_context();
-        let v = ASTParser::read_valid_name_bracket(s.as_bytes(), meta, &context).unwrap();
+        let v = ASTParser::read_valid_name_bracket(&s.chars().collect::<Vec<char>>(), meta, &context).unwrap();
         assert_eq!(v, s.len());
     }
 
@@ -113,7 +117,7 @@ mod frontend_tests {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let b = FSRBlock::parse(s.as_bytes(), meta, &mut context, None).unwrap();
+        let b = FSRBlock::parse(&s.chars().collect::<Vec<char>>(), meta, &mut context, None).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.get_len(), s.len());
     }
@@ -125,7 +129,7 @@ mod frontend_tests {
         println(l)
         ";
         let meta = FSRPosition::new();
-        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let b = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
     }
@@ -133,7 +137,7 @@ mod frontend_tests {
     #[test]
     fn test_trie() {
         let t = FSTrie::single();
-        let n = t.match_token("if()".as_bytes()).unwrap();
+        let n = t.match_token(&"if()".chars().collect::<Vec<char>>()).unwrap();
         assert_eq!(n, &NodeType::IfState);
     }
 
@@ -148,7 +152,7 @@ mod frontend_tests {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let i = FSRWhile::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let i = FSRWhile::parse(&s.chars().collect::<Vec<char>>(), meta, &mut context).unwrap();
         println!("{:#?}", i);
     }
 
@@ -163,7 +167,7 @@ mod frontend_tests {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let i = FSRIf::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let i = FSRIf::parse(&s.chars().collect::<Vec<char>>(), meta, &mut context).unwrap();
         println!("{:#?}", i);
     }
 
@@ -180,7 +184,7 @@ mod frontend_tests {
         }";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let i = FSRFnDef::parse(s.as_bytes(), meta, &mut context, None).unwrap();
+        let i = FSRFnDef::parse(&s.chars().collect::<Vec<char>>(), meta, &mut context, None).unwrap();
         println!("{:#?}", i);
         assert_eq!(s.len(), i.get_len())
     }
@@ -190,7 +194,7 @@ mod frontend_tests {
         let s = "('abc',123, dfds, (abc, 123))";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let d = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let d = FSRExpr::parse(&s.chars().collect::<Vec<char>>(), false, meta, &mut context).unwrap();
         println!("{:#?}", d);
     }
 
@@ -198,7 +202,8 @@ mod frontend_tests {
     fn read_comma() {
         let s = "abc(123,123)";
         let meta = FSRPosition::new();
-        let s = ASTParser::split_by_comma(s.as_bytes(), meta).expect("TODO: panic message");
+        let chars = s.chars().collect::<Vec<char>>();
+        let s = ASTParser::split_by_comma(&chars, meta).expect("TODO: panic message");
         println!("abc: {:?}", s)
     }
 
@@ -207,7 +212,7 @@ mod frontend_tests {
         let s = "a = [(1+1),2,3,4]";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let s = FSRExpr::parse(&s.chars().collect::<Vec<char>>(), false, meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -216,7 +221,7 @@ mod frontend_tests {
         let s = "a == [(1+1),2,3,4]";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let s = FSRExpr::parse(&s.chars().collect::<Vec<char>>(), false, meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -225,7 +230,7 @@ mod frontend_tests {
         let s = "path::test('adf')";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let s = FSRExpr::parse(&s.chars().collect::<Vec<char>>(), false, meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -240,7 +245,7 @@ mod frontend_tests {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRClassFrontEnd::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let s = FSRClassFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -255,7 +260,7 @@ mod frontend_tests {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let s = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", s);
     }
 
@@ -264,7 +269,7 @@ mod frontend_tests {
         let s = "a > 3 && b < 4";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let s = FSRExpr::parse(&s.chars().collect::<Vec<char>>(), false, meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -276,7 +281,7 @@ mod frontend_tests {
         ";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRFor::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let s = FSRFor::parse(&s.chars().collect::<Vec<char>>(), meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -285,7 +290,7 @@ mod frontend_tests {
         let s = "import abc.def";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRImport::parse(s.as_bytes(), meta, &mut context).unwrap();
+        let s = FSRImport::parse(&s.chars().collect::<Vec<char>>(), meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -294,7 +299,8 @@ mod frontend_tests {
         let a = "p(\"a(e) \")";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let s = FSRExpr::parse(a.as_bytes(), false, meta, &mut context).unwrap();
+        let chars = a.chars().collect::<Vec<char>>();
+        let s = FSRExpr::parse(&chars, false, meta, &mut context).unwrap();
         println!("{:#?}", s);
     }
 
@@ -314,7 +320,7 @@ while i < b { # while test
 } # test
 ";
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
         assert_eq!(s.len(), i.0.get_len())
     }
@@ -324,7 +330,8 @@ while i < b { # while test
         let s = "a = -1";
         let meta = FSRPosition::new();
         let mut context = ASTContext::new_context();
-        let expr = FSRExpr::parse(s.as_bytes(), false, meta, &mut context).unwrap();
+        let chars = s.chars().collect::<Vec<char>>();
+        let expr = FSRExpr::parse(&chars, false, meta, &mut context).unwrap();
 
         println!("{:#?}", expr);
     }
@@ -342,7 +349,7 @@ try {
 "#;
 
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
         assert_eq!(s.len(), i.0.get_len())
     }
@@ -351,7 +358,8 @@ try {
     fn test_try_expr() {
         let code = "try { a = 1 + 1 } catch {}";
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        let chars = code.chars().collect::<Vec<char>>();
+        let i = FSRModuleFrontEnd::parse(&chars, meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -364,7 +372,8 @@ try {
             }
         }";
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        let chars = code.chars().collect::<Vec<char>>();
+        let i = FSRModuleFrontEnd::parse(&chars, meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -416,7 +425,7 @@ try {
         println(a)
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&code.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -438,7 +447,7 @@ try {
         a = abc()
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&code.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -456,7 +465,7 @@ try {
     println(result)
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(code.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&code.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -464,7 +473,8 @@ try {
     fn test_expr() {
         let c = r#"b = 10 + -1 * 10"#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -472,7 +482,7 @@ try {
     fn test_assign2() {
         let c = r#"a[0] = 1"#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -480,7 +490,7 @@ try {
     fn test_class_getter() {
         let c = r#"fs::File.open"#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -488,7 +498,7 @@ try {
     fn test_call() {
         let c = r#"|x| {},1"#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -496,7 +506,7 @@ try {
     fn not_attr() {
         let c = r#"1 + -1"#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -504,7 +514,7 @@ try {
     fn test_reminder() {
         let c = r#"a = 1 % 2"#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -512,7 +522,7 @@ try {
     fn test_typehint() {
         let c = r#"a: Abc"#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -520,7 +530,7 @@ try {
     fn test_typehint2() {
         let c = r#"a: Abc = 123 * 123"#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -532,7 +542,7 @@ try {
         }
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -546,7 +556,7 @@ try {
         a = abc(1, 2)
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -558,7 +568,7 @@ try {
         c = b
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -570,7 +580,7 @@ try {
         }
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -584,7 +594,7 @@ try {
         }
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let i = FSRModuleFrontEnd::parse(&c.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -597,7 +607,8 @@ try {
         }
         "#;
         let meta = FSRPosition::new();
-        let i = FSRModuleFrontEnd::parse(c.as_bytes(), meta).unwrap();
+        let chars = c.chars().collect::<Vec<char>>();
+        let i = FSRModuleFrontEnd::parse(&chars, meta).unwrap();
         println!("{:#?}", i);
     }
 
@@ -608,7 +619,7 @@ try {
         ";
         let meta = FSRPosition::new();
         let context = ASTContext::new_context();
-        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let b = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
     }
@@ -618,7 +629,7 @@ try {
         let s = "t.value[0][0]";
         let meta = FSRPosition::new();
         let context = ASTContext::new_context();
-        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let b = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
     }
@@ -628,7 +639,7 @@ try {
         let s = r#"f"hello {"abc"}""#;
         let meta = FSRPosition::new();
         let context = ASTContext::new_context();
-        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let b = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
     }
@@ -638,7 +649,7 @@ try {
         let s = "abc";
         let meta = FSRPosition::new();
         let context = ASTContext::new_context();
-        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let b = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
     }
@@ -648,7 +659,7 @@ try {
         let s = "a += 1";
         let meta = FSRPosition::new();
         let context = ASTContext::new_context();
-        let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
+        let b = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", b);
     }
 }

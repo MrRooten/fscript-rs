@@ -1,4 +1,4 @@
-use crate::{frontend::ast::{parse::ASTParser, token::base::FSRTypeName}, utils::error::SyntaxError};
+use crate::{chars_to_string, frontend::ast::{parse::ASTParser, token::base::FSRTypeName}, utils::error::SyntaxError};
 
 use super::{
     base::{FSRPosition, FSRToken},
@@ -41,13 +41,14 @@ impl FSRGetter {
         &self.getter
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
+    pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<Self, SyntaxError> {
         let mut state = GetterState::Start;
         let mut start = 0;
         let mut length = 0;
         let mut name;
-        if source[start] == b'[' {
-            name = std::str::from_utf8(&source[start..start + length]).unwrap();
+        if source[start] == '[' {
+            // name = std::str::from_utf8(&source[start..start + length]).unwrap();
+            name = chars_to_string!(&source[start..start + length]);
         } else {
             loop {
                 let i = source[start];
@@ -68,27 +69,34 @@ impl FSRGetter {
                 }
 
                 if state == GetterState::Name && !ASTParser::is_name_letter(t_i) {
-                    name = std::str::from_utf8(&source[start..start + length]).unwrap();
+                    // name = std::str::from_utf8(&source[start..start + length]).unwrap();
+                    name = chars_to_string!(&source[start..start + length]);
                     let mut blank_length = 0;
                     while ASTParser::is_blank_char(source[start + length + blank_length]) {
                         blank_length += 1;
                     }
 
                     if state == GetterState::Name && source[blank_length + start + length] as char == '[' {
-                        name = std::str::from_utf8(&source[start..start + length]).unwrap();
+                        // name = std::str::from_utf8(&source[start..start + length]).unwrap();
+                        name = chars_to_string!(&source[start..start + length]);
                         start += length + blank_length;
                         break;
                     }
                 }
 
+                // return Err(SyntaxError::new(
+                //     &meta.clone(),
+                //     format!("Invalid getter name: {}", std::str::from_utf8(&source[start..start + length]).unwrap())
+                // ));
                 return Err(SyntaxError::new(
                     &meta.clone(),
-                    format!("Invalid getter name: {}", std::str::from_utf8(&source[start..start + length]).unwrap())
+                    format!("Invalid getter name: {}", chars_to_string!(&source[start..start + length])),
                 ));
             }
         }
 
-        let s = std::str::from_utf8(source).unwrap();
+        // let s = std::str::from_utf8(source).unwrap();
+        let s = chars_to_string!(source);
         // The '[' and ']' positions is granted by outer caller
         let first = s.find('[').unwrap();
         let last = s.rfind(']').unwrap();

@@ -10,7 +10,7 @@ use super::{
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum FSRConstantType {
-    String(Vec<u8>),
+    String(Vec<char>),
     Integer(String),
     Float(String),
 }
@@ -100,14 +100,14 @@ impl FSRConstant {
         }
     }
 
-    pub fn from_str(s: &[u8], meta: FSRPosition, const_type: FSRConstType) -> Self {
+    pub fn from_str(s: &[char], meta: FSRPosition, const_type: FSRConstType) -> Self {
         FSRConstant {
             constant: FSRConstantType::String(s.to_vec()),
             len: 0,
             const_type,
             single_op: None,
             meta,
-            const_str: FSROrinStr::String(unsafe { std::str::from_utf8_unchecked(s) }.to_string()),
+            const_str: FSROrinStr::String(s.iter().collect()),
         }
     }
 
@@ -286,8 +286,9 @@ impl FSRFormatStringInst {
         for expr in extracted {
             // Here we would normally parse the expression into an FSRToken
             // For demonstration, we will just create a placeholder FSRToken
+            let chars = expr.content.chars().collect::<Vec<char>>();
             let token = FSRExpr::parse(
-                expr.content.as_bytes(),
+                &chars,
                 true,
                 meta.new_offset(expr.start),
                 context,

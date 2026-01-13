@@ -1,4 +1,4 @@
-use crate::{frontend::ast::{parse::ASTParser, token::ASTContext}, utils::error::SyntaxError};
+use crate::{chars_to_string, frontend::ast::{parse::ASTParser, token::ASTContext}, utils::error::SyntaxError};
 
 use super::base::FSRPosition;
 
@@ -14,7 +14,7 @@ impl FSRTell {
     // @abc
     // @static
     // contains multiple lines
-    pub fn parse(source: &[u8], position: FSRPosition) -> Result<FSRTell, SyntaxError> {
+    pub fn parse(source: &[char], position: FSRPosition) -> Result<FSRTell, SyntaxError> {
         let mut start = 0;
         let mut len = 0;
         let mut res = vec![];
@@ -43,7 +43,7 @@ impl FSRTell {
 
             start += len;
             len = 0;
-            while start + len < source.len() && source[start + len] != b'\n' {
+            while start + len < source.len() && source[start + len] != '\n' {
                 len += 1; 
             }
 
@@ -55,9 +55,11 @@ impl FSRTell {
                 ));
             }
 
-            let may_attr = std::str::from_utf8(&source[start..start + len])
-                .unwrap()
-                .trim();
+            // let may_attr = std::str::from_utf8(&source[start..start + len])
+            //     .unwrap()
+            //     .trim();
+            let may_attr = chars_to_string!(&source[start..start + len]);
+            let may_attr = may_attr.trim();
             if !may_attr.starts_with("@") {
                 break;
             }
@@ -85,6 +87,8 @@ impl FSRTell {
 }
 
 mod test {
+    use crate::chars_to_string;
+
     
 
     #[test]
@@ -94,8 +98,8 @@ mod test {
         @async
         @static
         ";
-
-        let tell = FSRTell::parse(a.as_bytes(), FSRPosition::new());
+        let a = a.chars().collect::<Vec<char>>();
+        let tell = FSRTell::parse(&a, FSRPosition::new());
         if tell.is_ok() {
             assert!(false, "not a valid tell, should be error")
         }

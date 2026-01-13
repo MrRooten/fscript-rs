@@ -1,6 +1,5 @@
 use crate::{
-    frontend::ast::{parse::ASTParser, token::if_statement::FSRIf},
-    utils::error::SyntaxError,
+    chars_to_string, frontend::ast::{parse::ASTParser, token::if_statement::FSRIf}, utils::error::SyntaxError
 };
 
 use super::{
@@ -51,9 +50,10 @@ impl FSRElse {
     }
 
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRElse, SyntaxError> {
+    pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRElse, SyntaxError> {
         let mut else_ifs = vec![];
-        let mut s = std::str::from_utf8(&source[0..4]).unwrap();
+        // let mut s = std::str::from_utf8(&source[0..4]).unwrap();
+        let mut s = chars_to_string!(&source[0..4]);
         let mut start = 0;
         while s.eq("else") {
             start += 4;
@@ -61,7 +61,8 @@ impl FSRElse {
                 start += 1;
             }
 
-            let may_if_token = std::str::from_utf8(&source[start..start + 2]).unwrap();
+            // let may_if_token = std::str::from_utf8(&source[start..start + 2]).unwrap();
+            let may_if_token = chars_to_string!(&source[start..start + 2]);
             if may_if_token.eq("if") {
                 let sub_meta = meta.new_offset(start);
                 let if_block = FSRIf::parse_without_else(&source[start..], sub_meta, context)?;
@@ -94,7 +95,7 @@ impl FSRElse {
             if start + 4 >= source.len() {
                 break;
             }
-            s = std::str::from_utf8(&source[start..start + 4]).unwrap();
+            // s = std::str::from_utf8(&source[start..start + 4]).unwrap();
             
         }
 

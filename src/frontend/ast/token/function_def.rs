@@ -3,11 +3,10 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    frontend::ast::{
+    chars_to_string, frontend::ast::{
         parse::ASTParser,
         token::{block::FSRBlock, call::FSRCall, expr::FSRExpr, variable::FSRVariable},
-    },
-    utils::error::SyntaxError,
+    }, utils::error::SyntaxError
 };
 
 use super::{
@@ -98,12 +97,12 @@ impl FSRFnDef {
     }
 
     pub fn parse_lambda(
-        source: &[u8],
+        source: &[char],
         meta: FSRPosition,
         name: &str,
         context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {
-        if source[0] != b'|' {
+        if source[0] != '|' {
             let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "Invalid lambda function");
             return Err(err);
@@ -111,7 +110,7 @@ impl FSRFnDef {
         let mut args_len = 1;
 
         while args_len < source.len() {
-            if source[args_len] == b'|' {
+            if source[args_len] == '|' {
                 break;
             }
 
@@ -126,7 +125,8 @@ impl FSRFnDef {
 
         let args = &source[1..args_len];
 
-        let args_s = std::str::from_utf8(args).unwrap();
+        // let args_s = std::str::from_utf8(args).unwrap();
+        let args_s = chars_to_string!(args);
         let mut arg_collect = if args_s.trim().is_empty() {
             vec![]
         } else {
@@ -139,14 +139,14 @@ impl FSRFnDef {
             let mut arg_collect = vec![];
             // check arg is valid variable name
             for pos_arg in args_define {
-                let arg = pos_arg.1.trim();
+                let arg = pos_arg.1.trim().chars().collect::<Vec<char>>();
                 if arg.is_empty() {
                     let sub_meta = meta.new_offset(1 + pos_arg.0);
                     let err = SyntaxError::new(&sub_meta, "Invalid lambda function, empty arg");
                     return Err(err);
                 }
 
-                let b_arg = arg.as_bytes();
+                let b_arg = &arg;
 
                 let mut i = 0;
                 if ASTParser::is_name_letter_first(b_arg[0]) {
@@ -167,8 +167,9 @@ impl FSRFnDef {
 
                     i += 1;
                 }
+                let chars = chars_to_string!(arg);
                 let mut variable = FSRVariable::parse(
-                    arg,
+                    &chars,
                     meta.new_offset(1 + pos_arg.0),
                     Some(FSRTypeName::new("Function")),
                 )?;
@@ -179,7 +180,7 @@ impl FSRFnDef {
             arg_collect
         };
 
-        while source[args_len] != b'{' {
+        while source[args_len] != '{' {
             args_len += 1;
         }
 
@@ -222,11 +223,12 @@ impl FSRFnDef {
     }
 
     fn parse_ret_type(
-        source: &[u8],
+        source: &[char],
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<Option<FSRTypeName>, SyntaxError> {
-        let process_str = std::str::from_utf8(source).unwrap();
+        //let process_str = std::str::from_utf8(source).unwrap();
+        let mut process_str = chars_to_string!(source);
         let process_str = process_str.trim();
 
         if process_str.is_empty() {
@@ -236,7 +238,7 @@ impl FSRFnDef {
         if process_str.starts_with("->") {
             let mut start = 2;
             while start < process_str.len()
-                && ASTParser::is_blank_char(process_str.as_bytes()[start])
+                && ASTParser::is_blank_char(process_str.as_bytes()[start] as char)
             {
                 start += 1;
             }
@@ -247,8 +249,9 @@ impl FSRFnDef {
             if type_name.is_empty() {
                 return Ok(None);
             }
+            let type_name = &type_name.chars().collect::<Vec<char>>();
 
-            let type_hint_expr = FSRExpr::parse(type_name.as_bytes(), false, meta.clone(), context)?.0;
+            let type_hint_expr = FSRExpr::parse(type_name, false, meta.clone(), context)?.0;
             let type_name = FSRExpr::parse_type_hint(&type_hint_expr, &meta);
             //let type_name = FSRTypeName::new(type_name);
             return Ok(Some(type_name));
@@ -260,7 +263,7 @@ impl FSRFnDef {
         ))
     }
 
-    fn count_line(source: &[u8], len: usize, context: &mut ASTContext) {
+    fn count_line(source: &[char], len: usize, context: &mut ASTContext) {
         let mut i = 0;
         while i < len {
             i += 1;
@@ -268,12 +271,12 @@ impl FSRFnDef {
     }
 
     fn teller_parse(
-        source: &[u8],
+        source: &[char],
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<(Option<FSRTell>, usize), SyntaxError> {
         let mut start = 0;
-        let teller = if source[0] == b'@' {
+        let teller = if source[0] == '@' {
             let teller = FSRTell::parse(source, meta.new_offset(0))?;
             Self::count_line(source, teller.len, context);
             start += teller.len;
@@ -289,7 +292,7 @@ impl FSRFnDef {
         Ok((teller, start))
     }
 
-    fn get_parse_len(source: &[u8], meta: FSRPosition, start: usize) -> Result<usize, SyntaxError> {
+    fn get_parse_len(source: &[char], meta: FSRPosition, start: usize) -> Result<usize, SyntaxError> {
         let mut state = State::Continue;
         let mut pre_state = State::Continue;
         let mut len = 0;
@@ -342,7 +345,7 @@ impl FSRFnDef {
     }
 
     pub fn parse(
-        source: &[u8],
+        source: &[char],
         meta: FSRPosition,
         context: &mut ASTContext,
         struct_info: Option<String>,
@@ -350,7 +353,8 @@ impl FSRFnDef {
         let (teller, start) = Self::teller_parse(&source, meta.clone(), context)?;
 
         let source = &source[start..];
-        let s = std::str::from_utf8(&source[0..FN_IDENTIFY.len()]).unwrap();
+        // let s = std::str::from_utf8(&source[0..FN_IDENTIFY.len()]).unwrap();
+        let s = chars_to_string!(&source[0..FN_IDENTIFY.len()]);
 
         if source.len() < 3 {
             let sub_meta = meta.new_offset(start);
@@ -398,7 +402,7 @@ impl FSRFnDef {
 
         let mut gap_call_len = 0;
         while call_len + gap_call_len + 1 < len
-            && source[start_fn_name + call_len + gap_call_len + 1] != b'{'
+            && source[start_fn_name + call_len + gap_call_len + 1] != '{'
         {
             gap_call_len += 1;
         }
@@ -478,6 +482,7 @@ mod test {
         let source = b"|a,b|{a+b}";
         let meta = FSRPosition::new();
         let mut context = super::ASTContext::new_context();
+        let source = &source.iter().map(|&c| c as char).collect::<Vec<char>>();
         let result = super::FSRFnDef::parse_lambda(source, meta, "lambda_xxxx", &mut context);
         assert!(result.is_ok());
         println!("{:#?}", result.unwrap());
