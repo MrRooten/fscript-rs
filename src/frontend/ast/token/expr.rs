@@ -45,7 +45,7 @@ impl Display for FSRExpr {
     }
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 enum ExprState {
     ExprStart,
     EscapeNewline,
@@ -66,6 +66,7 @@ enum ExprState {
     Comment,
 }
 
+#[derive(Debug)]
 struct ExprStates {
     states: Vec<ExprState>,
 }
@@ -381,16 +382,16 @@ impl FSRExpr {
         Ok(out)
     }
 
-    pub fn quoted_len(s: &[u8]) -> Option<usize> {
+    pub fn quoted_len(s: &[char]) -> Option<usize> {
         let bytes = s;
         let n = bytes.len();
 
         // helper: count consecutive backslashes immediately before position `pos`
-        fn backslash_count_before(bytes: &[u8], pos: usize) -> usize {
+        fn backslash_count_before(bytes: &[char], pos: usize) -> usize {
             let mut cnt = 0usize;
             let mut i = pos;
             while i > 0 {
-                if bytes[i - 1] == b'\\' {
+                if bytes[i - 1] == '\\' {
                     cnt += 1;
                     i -= 1;
                 } else {
@@ -403,7 +404,7 @@ impl FSRExpr {
         // find first unescaped double quote
         let mut start_byte_idx: Option<usize> = None;
         for i in 0..n {
-            if bytes[i] == b'"' {
+            if bytes[i] == '"' {
                 let bs = backslash_count_before(bytes, i);
                 if bs % 2 == 0 {
                     start_byte_idx = Some(i + 1); // content starts after this quote
@@ -418,7 +419,7 @@ impl FSRExpr {
         let mut i = start;
         while i < n {
             match bytes[i] {
-                b'\\' => {
+                '\\' => {
                     // skip escaped byte (if any) — an escaped byte cannot start a quote/bracket
                     // But still we must advance by 2 if possible.
                     i += 1; // move to escaped char
@@ -426,7 +427,7 @@ impl FSRExpr {
                         i += 1;
                     } // skip it
                 }
-                b'{' => {
+                '{' => {
                     // if not escaped, increase depth
                     let bs = backslash_count_before(bytes, i);
                     if bs % 2 == 0 {
@@ -434,14 +435,14 @@ impl FSRExpr {
                     }
                     i += 1;
                 }
-                b'}' => {
+                '}' => {
                     let bs = backslash_count_before(bytes, i);
                     if bs % 2 == 0 && brace_depth > 0 {
                         brace_depth -= 1;
                     }
                     i += 1;
                 }
-                b'"' => {
+                '"' => {
                     let bs = backslash_count_before(bytes, i);
                     if bs % 2 == 0 && brace_depth == 0 {
                         // found closing top-level quote
@@ -485,25 +486,33 @@ impl FSRExpr {
         };
 
         if is_f_string {
-            ctx.length = Self::quoted_len(&source[ctx.start..]).unwrap();
+            let rest_str = std::str::from_utf8(&source[ctx.start..]).unwrap();
+            let chars = rest_str.chars().collect::<Vec<char>>();
+            let len = Self::quoted_len(&chars).unwrap();
+            
+            let quote_str = Self::utf8_substr(rest_str, 0, len);
+            ctx.length = quote_str.as_bytes().len() - 1;
             ctx.start += 1;
+            //ctx.states.pop_state();
         } else {
             ctx.start += 1;
-
+            let mut length = 0;
+            let rest_may_str = std::str::from_utf8(&source[ctx.start..]).unwrap();
             loop {
-                if ctx.start + ctx.length >= source.len() {
+                if length >= rest_may_str.len() {
                     let mut sub_meta = meta.new_offset(ctx.start);
                     let err = SyntaxError::new_with_type(
                         &sub_meta,
-                        "Not Close for Double Quote",
+                        "Not Close for Single Quote",
                         SyntaxErrType::QuoteNotClose,
                     );
                     return Err(err);
                 }
-                let c = source[ctx.start + ctx.length] as char;
+                let c = rest_may_str.chars().nth(length).unwrap();
                 if ctx.states.eq_peek(&ExprState::EscapeChar) {
                     ctx.states.pop_state();
-                    ctx.length += 1;
+                    // ctx.length += 1;
+                    length += 1;
                     continue;
                 }
 
@@ -515,11 +524,15 @@ impl FSRExpr {
                     ctx.states.push_state(ExprState::EscapeChar);
                 }
 
-                ctx.length += 1;
+                length += 1;
             }
+            let quote_string = Self::utf8_substr(rest_may_str, 0, length);
+            let byte_length = quote_string.as_bytes().len();
+            ctx.length = byte_length - 1;
         }
 
         let s = &source[ctx.start..ctx.start + ctx.length];
+        let tmp_s = std::str::from_utf8(s).unwrap();
         let s = FSRExpr::bytes_to_unescaped_string(s)
             .map_err(|e| SyntaxError::new(&meta.new_offset(ctx.start), e.to_string()))?;
         let mut sub_meta = meta.new_offset(ctx.start);
@@ -533,6 +546,22 @@ impl FSRExpr {
         ctx.start += ctx.length;
         ctx.length = 0;
         Ok(())
+    }
+
+    fn utf8_substr(s: &str, start: usize, len: usize) -> &str {
+        let mut it = s.char_indices();
+
+        let start_byte = match it.nth(start) {
+            Some((i, _)) => i,
+            None => return "",
+        };
+
+        let end_byte = match it.nth(len) {
+            Some((i, _)) => i,
+            None => s.len(),
+        };
+
+        &s[start_byte..end_byte]
     }
 
     #[inline]
@@ -554,8 +583,11 @@ impl FSRExpr {
 
         ctx.start += 1;
 
+        let rest_may_str = std::str::from_utf8(&source[ctx.start..]).unwrap();
+        let utf8_len = rest_may_str.len();
+        let mut length = 0;
         loop {
-            if ctx.start + ctx.length >= source.len() {
+            if length >= rest_may_str.len() {
                 let mut sub_meta = meta.new_offset(ctx.start);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
@@ -564,10 +596,11 @@ impl FSRExpr {
                 );
                 return Err(err);
             }
-            let c = source[ctx.start + ctx.length] as char;
+            let c = rest_may_str.chars().nth(length).unwrap();
             if ctx.states.eq_peek(&ExprState::EscapeChar) {
                 ctx.states.pop_state();
-                ctx.length += 1;
+                // ctx.length += 1;
+                length += 1;
                 continue;
             }
 
@@ -579,8 +612,11 @@ impl FSRExpr {
                 ctx.states.push_state(ExprState::EscapeChar);
             }
 
-            ctx.length += 1;
+            length += 1;
         }
+        let quote_string = Self::utf8_substr(rest_may_str, 0, length);
+        let byte_length = quote_string.as_bytes().len();
+        ctx.length = byte_length - 1;
 
         let s = &source[ctx.start..ctx.start + ctx.length];
         let mut sub_meta = meta.new_offset(ctx.start);
@@ -879,7 +915,7 @@ impl FSRExpr {
             // process situations like f'user: "{name}"' or f"user: '{name}'"
             // pop 'f' variable state
             ctx.states.pop_state();
-            ctx.states.push_state(ExprState::SingleString);
+            //ctx.states.push_state(ExprState::SingleString);
             Self::single_quote_loop(source, ignore_nline, meta, ctx, context, Some(string_name))?;
             return Ok(());
         }
@@ -1314,11 +1350,13 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && c == '\'' {
+                //ctx.states.push_state(ExprState::SingleString);
                 Self::single_quote_loop(source, ignore_nline, meta, ctx, context, None)?;
                 continue;
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && c == '\"' {
+                //ctx.states.push_state(ExprState::DoubleString);
                 Self::double_quote_loop(source, ignore_nline, meta, ctx, context, None)?;
                 continue;
             }
@@ -1400,6 +1438,13 @@ impl FSRExpr {
             if ctx.states.eq_peek(&ExprState::Slice) && !FSRGetter::is_valid_char(t_c as u8) {
                 unimplemented!()
             }
+
+            panic!(
+                "{}: Unknown syntax at char '{}', states: {:?}",
+                meta.new_offset(ctx.start),
+                t_c,
+                ctx.states
+            );
         }
 
         if let Some(s_op) = ctx.single_op {
@@ -1440,21 +1485,28 @@ impl FSRExpr {
             if let FSRToken::Constant(c) = len_token {
                 if let FSROrinStr::Integer(n, op) = c.get_const_str() {
                     if op.is_some() {
-                        panic!("{}: Type hint length must be a positive integer", meta.to_string());
+                        panic!(
+                            "{}: Type hint length must be a positive integer",
+                            meta.to_string()
+                        );
                     }
 
                     let len = n.parse::<usize>().unwrap();
                     let mut new_type = FSRTypeName::new("List");
-                    new_type.subtype = Some(vec![Box::new(type_t_name), Box::new(FSRTypeName::new(&len.to_string()))]);
+                    new_type.subtype = Some(vec![
+                        Box::new(type_t_name),
+                        Box::new(FSRTypeName::new(&len.to_string())),
+                    ]);
                     return new_type;
                 }
-
             } else {
-                panic!("{}: Type hint list second item must be an integer constant", meta.to_string());
+                panic!(
+                    "{}: Type hint list second item must be an integer constant",
+                    meta.to_string()
+                );
             }
             unimplemented!()
-        }
-        else {
+        } else {
             panic!("{}: Type hint must be a variable", meta.to_string());
         }
     }

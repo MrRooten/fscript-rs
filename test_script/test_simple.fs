@@ -1,17 +1,2 @@
-@static
-fn simple() -> [u64, 4] {
-    a: u64 = 0
-    t: [u64, 4] = uninit
-    t[0] = 1002
-    return t
-}
-
-@entry
-fn test() -> u64 {
-    t: [u64, 4] = [1, 2, 3, 4]
-    v: u64 = t[0]
-    return v
-}
-
-a = test()
+a = f"你好, 世界!, 1234, 😊, sdfsdfsdf {"'this is inner msg'"}"+ f"知道了"
 println(a)
