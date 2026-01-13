@@ -2,14 +2,9 @@ use core::panic;
 
 use crate::frontend::ast::parse::ASTParser;
 use crate::frontend::ast::token::block::FSRBlock;
-use crate::frontend::ast::token::expr::FSRExpr;
 use crate::utils::error::SyntaxError;
 
 use super::base::FSRPosition;
-use super::base::FSRToken;
-use super::r#else::FSRElse;
-use super::statement::ASTTokenEnum;
-use super::statement::ASTTokenInterface;
 use super::ASTContext;
 
 #[derive(PartialEq, Clone)]
@@ -29,7 +24,11 @@ pub struct FSRCatch {
 }
 
 impl FSRCatch {
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRCatch, SyntaxError> {
+    pub fn parse(
+        source: &[u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<FSRCatch, SyntaxError> {
         let s = std::str::from_utf8(&source[0..5]).unwrap();
         if source.len() < 5 {
             let sub_meta = meta.new_offset(0);
@@ -53,9 +52,9 @@ impl FSRCatch {
             start += 1;
         }
 
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context, None)?;
 
         start += b_len;
@@ -91,7 +90,11 @@ impl FSRTryBlock {
         &self.body
     }
 
-    pub fn parse(source: &[u8], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRTryBlock, SyntaxError> {
+    pub fn parse(
+        source: &[u8],
+        meta: FSRPosition,
+        context: &mut ASTContext,
+    ) -> Result<FSRTryBlock, SyntaxError> {
         let s = std::str::from_utf8(&source[0..3]).unwrap();
         if source.len() < 3 {
             let sub_meta = meta.new_offset(0);
@@ -121,9 +124,9 @@ impl FSRTryBlock {
         let len = ASTParser::read_valid_bracket_until_big(&source[start..], sub_meta, context)?;
 
         let mut start = start + len;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context, None)?;
 
         start += b_len;
@@ -166,12 +169,8 @@ mod test {
     #[test]
     fn test_try_expr() {
         use crate::frontend::ast::token::base::FSRPosition;
-        use crate::frontend::ast::token::block::FSRBlock;
-        use crate::frontend::ast::token::expr::FSRExpr;
-        use crate::frontend::ast::token::r#else::FSRElse;
-        use crate::frontend::ast::token::try_expr::FSRCatch;
+
         use crate::frontend::ast::token::try_expr::FSRTryBlock;
-        use crate::utils::error::SyntaxError;
 
         let source = r#"try { 
     a = 1

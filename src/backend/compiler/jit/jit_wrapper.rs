@@ -3,17 +3,15 @@ use std::{ops::Range, sync::atomic::Ordering};
 use crate::{
     backend::{
         compiler::bytecode::{BinaryOffset, CompareOperator},
-        memory::GarbageCollector,
         types::{
             base::{FSRObject, FSRValue, GlobalObj, ObjId},
-            ext,
             iterator::next_obj,
             list::FSRList,
             range::FSRRange,
             string::FSRString,
         },
         vm::{
-            thread::{CallFrame, FSRThreadRuntime, GcState},
+            thread::{CallFrame, FSRThreadRuntime},
             virtual_machine::gid,
         },
     },

@@ -2,13 +2,12 @@ use std::collections::HashMap;
 
 use crate::{
     backend::{
-        memory::GarbageCollector,
         types::{
-            base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
-            fn_def::FSRFn, list::FSRList, module::FSRModule,
+            base::{FSRObject, FSRRetValue, FSRValue, ObjId},
+            fn_def::FSRFn, module::FSRModule,
         },
         vm::thread::FSRThreadRuntime,
-    }, register_class, register_fn, to_rs_list, utils::error::FSRError
+    }, register_fn, to_rs_list, utils::error::FSRError
 };
 
 
@@ -17,7 +16,6 @@ pub fn fn_gc_info(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = to_rs_list!(args, len);
     // thread.garbage_collect.init_size();
     println!("{:#?}", thread.garbage_collect.tracker);
     println!(
@@ -34,7 +32,6 @@ pub fn fn_gc_collect(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = to_rs_list!(args, len);
     thread.garbage_collect.clear_marks();
     thread.set_ref_objects_mark(true, &[]);
     thread.collect_gc(true);
@@ -46,7 +43,6 @@ pub fn fn_minjor_gc_collect(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = to_rs_list!(args, len);
     thread.garbage_collect.clear_marks();
     thread.set_ref_objects_mark(false, &[]);
     thread.collect_gc(false);
@@ -58,7 +54,6 @@ pub fn fn_gc_shrink(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
-    let args = to_rs_list!(args, len);
     thread.garbage_collect.shrink();
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }

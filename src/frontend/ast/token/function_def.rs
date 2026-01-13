@@ -104,7 +104,7 @@ impl FSRFnDef {
         context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {
         if source[0] != b'|' {
-            let mut sub_meta = meta.new_offset(0);
+            let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "Invalid lambda function");
             return Err(err);
         }
@@ -119,7 +119,7 @@ impl FSRFnDef {
         }
 
         if args_len == source.len() {
-            let mut sub_meta = meta.new_offset(1);
+            let sub_meta = meta.new_offset(1);
             let err = SyntaxError::new(&sub_meta, "Invalid lambda function, args not closed");
             return Err(err);
         }
@@ -141,7 +141,7 @@ impl FSRFnDef {
             for pos_arg in args_define {
                 let arg = pos_arg.1.trim();
                 if arg.is_empty() {
-                    let mut sub_meta = meta.new_offset(1 + pos_arg.0);
+                    let sub_meta = meta.new_offset(1 + pos_arg.0);
                     let err = SyntaxError::new(&sub_meta, "Invalid lambda function, empty arg");
                     return Err(err);
                 }
@@ -152,14 +152,14 @@ impl FSRFnDef {
                 if ASTParser::is_name_letter_first(b_arg[0]) {
                     i += 1;
                 } else {
-                    let mut sub_meta = meta.new_offset(1 + pos_arg.0);
+                    let sub_meta = meta.new_offset(1 + pos_arg.0);
                     let err = SyntaxError::new(&sub_meta, "Invalid lambda function, invalid arg");
                     return Err(err);
                 }
 
                 while i < b_arg.len() {
                     if !ASTParser::is_name_letter(b_arg[i]) {
-                        let mut sub_meta = meta.new_offset(1 + pos_arg.0);
+                        let sub_meta = meta.new_offset(1 + pos_arg.0);
                         let err =
                             SyntaxError::new(&sub_meta, "Invalid lambda function, invalid arg");
                         return Err(err);
@@ -193,12 +193,12 @@ impl FSRFnDef {
         }
         // check is end of source
         if args_len == source.len() {
-            let mut sub_meta = meta.new_offset(1);
+            let sub_meta = meta.new_offset(1);
             let err = SyntaxError::new(&sub_meta, "Invalid lambda function, body not found");
             return Err(err);
         }
 
-        let mut sub_meta = meta.new_offset(args_len);
+        let sub_meta = meta.new_offset(args_len);
         let fn_block_len =
             ASTParser::read_valid_bracket(&source[args_len..], sub_meta.clone(), context)?;
         let fn_block = FSRBlock::parse(
@@ -302,7 +302,7 @@ impl FSRFnDef {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.new_offset(start);
+                let sub_meta = meta.new_offset(start);
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -353,19 +353,19 @@ impl FSRFnDef {
         let s = std::str::from_utf8(&source[0..FN_IDENTIFY.len()]).unwrap();
 
         if source.len() < 3 {
-            let mut sub_meta = meta.new_offset(start);
+            let sub_meta = meta.new_offset(start);
             let err = SyntaxError::new(&sub_meta, "fn define body length too small");
             return Err(err);
         }
         if s != FN_IDENTIFY {
-            let mut sub_meta = meta.new_offset(start);
+            let sub_meta = meta.new_offset(start);
             let err = SyntaxError::new(&sub_meta, "not fn token");
             return Err(err);
         }
 
         // if source[2] as char != ' ' {
         if !ASTParser::is_blank_char(source[FN_IDENTIFY.len()]) {
-            let mut sub_meta = meta.new_offset(start);
+            let sub_meta = meta.new_offset(start);
             let err = SyntaxError::new(&sub_meta, "not a valid fn delemiter");
             return Err(err);
         }
@@ -378,7 +378,7 @@ impl FSRFnDef {
         }
 
         if !ASTParser::is_name_letter_first(source[FN_IDENTIFY.len()..][start_fn_name]) {
-            let mut sub_meta = meta.new_offset(2 + start_fn_name);
+            let sub_meta = meta.new_offset(2 + start_fn_name);
             let err = SyntaxError::new(&sub_meta, "Invalid function name");
             return Err(err);
         }
@@ -389,7 +389,7 @@ impl FSRFnDef {
         }
 
         let fn_args = &source[start_fn_name..start_fn_name + len];
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
 
         context.push_scope();
         let mut fn_call = FSRCall::parse(fn_args, sub_meta, context, true)?;
@@ -411,7 +411,7 @@ impl FSRFnDef {
             context,
         )?;
 
-        context.add_variable_prev_one(&name, None);
+        context.add_var_prev_define(&name, None);
 
         let fn_block_start = start_fn_name + len;
 

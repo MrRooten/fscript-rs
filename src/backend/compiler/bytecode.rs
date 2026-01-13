@@ -1,15 +1,12 @@
 use core::panic;
 use std::{
-    cell::Cell,
-    collections::HashMap,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
+    cell::Cell, collections::HashMap, str::FromStr, sync::{
+        Arc, atomic::{AtomicU64, Ordering}
+    }
 };
 
 use crate::{
-    backend::types::{base::ObjId, list},
+    backend::types::base::ObjId,
     frontend::ast::token::{
         assign::FSRAssign,
         base::{FSRPosition, FSRToken, FSRTypeName},
@@ -367,17 +364,22 @@ pub enum OpAssign {
     Reminder,
 }
 
-impl OpAssign {
-    pub fn from_str(op: &str) -> Option<Self> {
-        match op {
-            "+=" => Some(OpAssign::Add),
-            "-=" => Some(OpAssign::Sub),
-            "*=" => Some(OpAssign::Mul),
-            "/=" => Some(OpAssign::Div),
-            "%=" => Some(OpAssign::Reminder),
-            _ => None,
+impl FromStr for OpAssign {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "+=" => Ok(OpAssign::Add),
+            "-=" => Ok(OpAssign::Sub),
+            "*=" => Ok(OpAssign::Mul),
+            "/=" => Ok(OpAssign::Div),
+            "%=" => Ok(OpAssign::Reminder),
+            _ => Err(()),
         }
     }
+}
+
+impl OpAssign {
 
     pub fn get_offset(&self) -> BinaryOffset {
         match self {
@@ -411,7 +413,7 @@ impl LocalVar {
     pub fn new(id: u64, name: String, store_to_cell: bool, op_assign: Option<OpAssign>) -> Self {
         Self {
             id,
-            name: name,
+            name,
             store_to_cell,
             op_assign,
             var_type: None,
@@ -718,7 +720,7 @@ impl BytecodeOperator {
                 operator: BytecodeOperator::CompareTest,
                 arg: Box::new(ArgType::Compare(
                     CompareOperator::new_from_str(op)
-                        .expect(&format!("Invalid compare operator: {}", op)),
+                        .unwrap_or_else(|| panic!("Invalid compare operator: {}", op)),
                 )),
                 info,
             });
@@ -828,7 +830,7 @@ impl FSRSType {
             FSRSType::String => std::mem::size_of::<String>(),
             FSRSType::Struct(s) => {
                 let mut size = 0;
-                for (_, (offset, attr_type)) in &s.fields {
+                for (offset, attr_type) in s.fields.values() {
                     size += attr_type.size_of();
                 }
                 let align = std::mem::align_of::<usize>();
@@ -861,7 +863,7 @@ impl FSRSTypeInfo {
         search.push(name.clone());
         match name.as_str() {
             "Ptr" => {
-                let sub_type_name = type_name.subtype.as_ref().unwrap().get(0).unwrap();
+                let sub_type_name = type_name.subtype.as_ref().unwrap().first().unwrap();
                 let sub_type = self.get_type(sub_type_name).unwrap();
                 search.push(sub_type_name.name.clone());
                 if let Some(t) = self.types.get(&search) {
@@ -872,7 +874,7 @@ impl FSRSTypeInfo {
                 return Some(new_ptr);
             }
             "List" => {
-                let sub_type_name = type_name.subtype.as_ref().unwrap().get(0).unwrap();
+                let sub_type_name = type_name.subtype.as_ref().unwrap().first().unwrap();
                 let sub_type = self.get_type(sub_type_name).unwrap();
                 search.push(sub_type_name.name.clone());
                 let len = type_name.subtype.as_ref().unwrap().get(1).unwrap();
@@ -893,7 +895,7 @@ impl FSRSTypeInfo {
         };
         self.types.get(&search).cloned()
     }
-
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let mut types = HashMap::new();
         for name in [
@@ -1025,7 +1027,7 @@ impl BytecodeContext {
 
     pub fn variable_is_defined(&self, name: &str) -> bool {
         if let Some(ref_map) = self.ref_map_stack.last() {
-            if let Some(_) = ref_map.get(name) {
+            if ref_map.get(name).is_some() {
                 return true;
             }
         }
@@ -1190,7 +1192,7 @@ impl<'a> Bytecode {
                     if const_map.is_static {
                         let var_type = const_map
                             .type_info
-                            .get_type(&getter.var_type.as_ref().unwrap());
+                            .get_type(getter.var_type.as_ref().unwrap());
                         var.var_type = var_type;
                         type_info = var.var_type.clone();
                     }
@@ -1308,8 +1310,6 @@ impl<'a> Bytecode {
         let mut result = Vec::new();
 
         let name = call.get_name();
-        let mut is_var = false;
-        let mut var_id = 0;
         let mut attr_id_arg = None;
         if !name.is_empty() {
             if context.is_static {
@@ -1408,7 +1408,7 @@ impl<'a> Bytecode {
         if context.is_static {
             if let Some(s) = context
                 .type_info
-                .get_type(&&FSRTypeName::new(var.get_name()))
+                .get_type(&FSRTypeName::new(var.get_name()))
             {
                 if let FSRSType::Struct(_) = s.as_ref() {
                     return BytecodeArg {
@@ -1477,7 +1477,6 @@ impl<'a> Bytecode {
                     let attr_var = AttrVar::new(*arg_id, var.get_name().to_string(), None);
                     if context.is_static {
                         let type_hint = var.get_type_hint();
-                        let type_info = type_hint.and_then(|x| context.type_info.get_type(&x));
                     }
                     return (AttrIdOrCode::AttrId(ArgType::Attr(attr_var)), None);
                 }
@@ -1488,7 +1487,7 @@ impl<'a> Bytecode {
 
             return (AttrIdOrCode::Bytecode(ans), None);
         }
-        let mut ret_type = None;
+        let mut ret_type ;
         let op_arg = match is_attr {
             true => {
                 let arg_id = var_map
@@ -1976,7 +1975,7 @@ impl<'a> Bytecode {
             }
 
             if let Some(var_type) = &v.var_type {
-                let tmp = const_map.type_info.get_type(&var_type);
+                let tmp = const_map.type_info.get_type(var_type);
 
                 return_type = Self::deduction_two_type(
                     &mut const_map.type_info,
@@ -2182,21 +2181,6 @@ impl<'a> Bytecode {
         (vs)
     }
 
-    fn get_pos(meta: FSRPosition, lines: &[usize]) -> FSRPos {
-        let offset = meta.get_offset();
-        for line in lines.iter().enumerate() {
-            let line_number = line.0;
-            let line_offset = line.1;
-            if offset >= *line_offset {
-                return FSRPos {
-                    line: line_number,
-                    column: offset - *line_offset + 1,
-                };
-            }
-        }
-
-        panic!("Position not found for offset: {}", offset);
-    }
 
     fn load_try_def(
         try_def: &'a FSRTryBlock,
@@ -2449,7 +2433,7 @@ impl<'a> Bytecode {
         };
         vs.extend(block_items);
         vs.push(vec![end]);
-        (vs)
+        vs
     }
 
     fn load_break(info: Box<FSRByteInfo>) -> Vec<BytecodeArg> {
@@ -2722,7 +2706,8 @@ impl<'a> Bytecode {
             let mut attr_var = AttrVar::new(
                 attr_id,
                 attr_name.to_string(),
-                OpAssign::from_str(&token.op_assign),
+                // error to option
+                OpAssign::from_str(&token.op_assign).ok(),
             );
 
             Self::is_static_type_process(&left.1, attr_name, &mut attr_var, const_map);
@@ -2838,7 +2823,7 @@ impl<'a> Bytecode {
                     arg: Box::new(ArgType::ClosureVar((
                         *id,
                         v.get_name().to_string(),
-                        OpAssign::from_str(&token.op_assign),
+                        OpAssign::from_str(&token.op_assign).ok(),
                     ))),
                     info: Box::new(FSRByteInfo::new(&bc_map.lines, v.get_meta().clone())),
                 });
@@ -2847,7 +2832,7 @@ impl<'a> Bytecode {
             }
         }
         let op_assign = OpAssign::from_str(&token.op_assign);
-        let mut local_var = LocalVar::new(*id, v.get_name().to_string(), false, op_assign);
+        let mut local_var = LocalVar::new(*id, v.get_name().to_string(), false, op_assign.ok());
 
         local_var.var_type = type_id;
         local_var.is_define = v.force_type;
@@ -3008,7 +2993,7 @@ impl<'a> Bytecode {
                     })),
                     info: Box::new(FSRByteInfo::new(&const_map.lines, sub_t.get_meta().clone())),
                 });
-                return (result_list);
+                return result_list;
             }
         }
 
@@ -3026,7 +3011,7 @@ impl<'a> Bytecode {
             info: Box::new(FSRByteInfo::new(&const_map.lines, token.get_meta().clone())),
         };
         result_list.push(load_list);
-        (result_list)
+        result_list
     }
 
     fn check_ret_type(v: &Option<Arc<FSRSType>>, const_map: &BytecodeContext) {
@@ -3133,7 +3118,6 @@ impl<'a> Bytecode {
             params: vec![],
             return_type: None,
         };
-        let mut is_first = true;
         for arg in args {
             if let FSRToken::Variable(v) = arg {
                 let mut a = Self::load_assign_arg(v, var_map, bytecontext);
@@ -3153,7 +3137,6 @@ impl<'a> Bytecode {
                         );
                     }
                 }
-                is_first = false;
             } else {
                 panic!("Function argument must be a variable");
             }
@@ -3162,13 +3145,11 @@ impl<'a> Bytecode {
         //let mut fn_var_map_ref = &mut fn_var_map;
 
         let mut define_fn = Vec::new();
-        let mut arg_len = 0;
         let mut args_save = vec![];
 
         for arg in args {
             if let FSRToken::Variable(v) = arg {
                 args_save.push(v.get_name().to_string());
-                arg_len += 1;
             }
         }
 
@@ -3180,7 +3161,6 @@ impl<'a> Bytecode {
         let mut call_sig_maybe = None;
         if bytecontext.is_static {
             if let Some(type_hint) = ret_type {
-                let type_name = type_hint.name.as_str();
                 let type_id = bytecontext
                     .type_info
                     .get_type(type_hint)

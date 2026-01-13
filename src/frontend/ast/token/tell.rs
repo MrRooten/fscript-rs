@@ -14,13 +14,12 @@ impl FSRTell {
     // @abc
     // @static
     // contains multiple lines
-    pub fn parse(source: &[u8], mut position: FSRPosition) -> Result<FSRTell, SyntaxError> {
+    pub fn parse(source: &[u8], position: FSRPosition) -> Result<FSRTell, SyntaxError> {
         let mut start = 0;
         let mut len = 0;
         let mut res = vec![];
         loop {
             if start + len >= source.len() {
-                start += len;
                 return Err(SyntaxError::new_with_type(
                     &position,
                     "attribute must follow more token",
@@ -35,7 +34,6 @@ impl FSRTell {
             }
 
             if start + len >= source.len() {
-                start += len;
                 return Err(SyntaxError::new_with_type(
                     &position,
                     "attribute must follow more token",
@@ -50,7 +48,6 @@ impl FSRTell {
             }
 
             if start + len >= source.len() {
-                start += len;
                 return Err(SyntaxError::new_with_type(
                     &position,
                     "attribute must follow more token",
@@ -88,10 +85,11 @@ impl FSRTell {
 }
 
 mod test {
-    use crate::frontend::ast::token::{base::FSRPosition, tell::FSRTell};
+    
 
     #[test]
     fn test() {
+        use crate::frontend::ast::token::{base::FSRPosition, tell::FSRTell};
         let a = "
         @async
         @static

@@ -244,7 +244,7 @@ impl ASTParser {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.new_offset(0);
+                let sub_meta = meta.new_offset(0);
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }

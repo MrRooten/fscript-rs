@@ -406,7 +406,7 @@ impl FSRExpr {
         for i in 0..n {
             if bytes[i] == '"' {
                 let bs = backslash_count_before(bytes, i);
-                if bs % 2 == 0 {
+                if bs.is_multiple_of(2) {
                     start_byte_idx = Some(i + 1); // content starts after this quote
                     break;
                 }
@@ -430,21 +430,21 @@ impl FSRExpr {
                 '{' => {
                     // if not escaped, increase depth
                     let bs = backslash_count_before(bytes, i);
-                    if bs % 2 == 0 {
+                    if bs.is_multiple_of(2) {
                         brace_depth += 1;
                     }
                     i += 1;
                 }
                 '}' => {
                     let bs = backslash_count_before(bytes, i);
-                    if bs % 2 == 0 && brace_depth > 0 {
+                    if bs.is_multiple_of(2) && brace_depth > 0 {
                         brace_depth -= 1;
                     }
                     i += 1;
                 }
                 '"' => {
                     let bs = backslash_count_before(bytes, i);
-                    if bs % 2 == 0 && brace_depth == 0 {
+                    if bs.is_multiple_of(2) && brace_depth == 0 {
                         // found closing top-level quote
                         let content = &s[start..i]; // safe: start and i are byte indices at char boundaries because they came from original bytes
                         return Some(content.len());
@@ -472,7 +472,7 @@ impl FSRExpr {
         string_name: Option<&str>,
     ) -> Result<(), SyntaxError> {
         if let Some(s_op) = ctx.single_op {
-            let mut sub_meta = meta.new_offset(0);
+            let sub_meta = meta.new_offset(0);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{:?} can not follow string", s_op),
@@ -491,7 +491,7 @@ impl FSRExpr {
             let len = Self::quoted_len(&chars).unwrap();
             
             let quote_str = Self::utf8_substr(rest_str, 0, len);
-            ctx.length = quote_str.as_bytes().len() - 1;
+            ctx.length = quote_str.len() - 1;
             ctx.start += 1;
             //ctx.states.pop_state();
         } else {
@@ -500,7 +500,7 @@ impl FSRExpr {
             let rest_may_str = std::str::from_utf8(&source[ctx.start..]).unwrap();
             loop {
                 if length >= rest_may_str.len() {
-                    let mut sub_meta = meta.new_offset(ctx.start);
+                    let sub_meta = meta.new_offset(ctx.start);
                     let err = SyntaxError::new_with_type(
                         &sub_meta,
                         "Not Close for Single Quote",
@@ -527,7 +527,7 @@ impl FSRExpr {
                 length += 1;
             }
             let quote_string = Self::utf8_substr(rest_may_str, 0, length);
-            let byte_length = quote_string.as_bytes().len();
+            let byte_length = quote_string.len();
             ctx.length = byte_length - 1;
         }
 
@@ -535,7 +535,7 @@ impl FSRExpr {
         let tmp_s = std::str::from_utf8(s).unwrap();
         let s = FSRExpr::bytes_to_unescaped_string(s)
             .map_err(|e| SyntaxError::new(&meta.new_offset(ctx.start), e.to_string()))?;
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let sub_meta = meta.new_offset(ctx.start);
         let constant = FSRConstant::from_str(
             s.as_bytes(),
             sub_meta.clone(),
@@ -569,26 +569,26 @@ impl FSRExpr {
         source: &[u8],
         ignore_nline: bool,
         meta: &FSRPosition,
-        ctx: &mut StmtContext,
+        stmt_ctx: &mut StmtContext,
         context: &mut ASTContext,
         string_name: Option<&str>,
     ) -> Result<(), SyntaxError> {
-        if let Some(s_op) = ctx.single_op {
-            let mut sub_meta = meta.new_offset(ctx.start);
+        if let Some(s_op) = stmt_ctx.single_op {
+            let sub_meta = meta.new_offset(stmt_ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{:?} can not follow string", s_op),
             ));
         }
 
-        ctx.start += 1;
+        stmt_ctx.start += 1;
 
-        let rest_may_str = std::str::from_utf8(&source[ctx.start..]).unwrap();
+        let rest_may_str = std::str::from_utf8(&source[stmt_ctx.start..]).unwrap();
         let utf8_len = rest_may_str.len();
         let mut length = 0;
         loop {
             if length >= rest_may_str.len() {
-                let mut sub_meta = meta.new_offset(ctx.start);
+                let sub_meta = meta.new_offset(stmt_ctx.start);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
                     "Not Close for Single Quote",
@@ -597,8 +597,8 @@ impl FSRExpr {
                 return Err(err);
             }
             let c = rest_may_str.chars().nth(length).unwrap();
-            if ctx.states.eq_peek(&ExprState::EscapeChar) {
-                ctx.states.pop_state();
+            if stmt_ctx.states.eq_peek(&ExprState::EscapeChar) {
+                stmt_ctx.states.pop_state();
                 // ctx.length += 1;
                 length += 1;
                 continue;
@@ -609,17 +609,17 @@ impl FSRExpr {
             }
 
             if c == '\\' {
-                ctx.states.push_state(ExprState::EscapeChar);
+                stmt_ctx.states.push_state(ExprState::EscapeChar);
             }
 
             length += 1;
         }
         let quote_string = Self::utf8_substr(rest_may_str, 0, length);
-        let byte_length = quote_string.as_bytes().len();
-        ctx.length = byte_length - 1;
+        let byte_length = quote_string.len();
+        stmt_ctx.length = byte_length - 1;
 
-        let s = &source[ctx.start..ctx.start + ctx.length];
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let s = &source[stmt_ctx.start..stmt_ctx.start + stmt_ctx.length];
+        let sub_meta = meta.new_offset(stmt_ctx.start);
         let const_type = FSRConstant::convert_str_type(
             string_name.unwrap_or(""),
             str::from_utf8(s).unwrap(),
@@ -627,10 +627,10 @@ impl FSRExpr {
             context,
         );
         let constant = FSRConstant::from_str(s, sub_meta, const_type);
-        ctx.candidates.push(FSRToken::Constant(constant));
-        ctx.length += 1;
-        ctx.start += ctx.length;
-        ctx.length = 0;
+        stmt_ctx.candidates.push(FSRToken::Constant(constant));
+        stmt_ctx.length += 1;
+        stmt_ctx.start += stmt_ctx.length;
+        stmt_ctx.length = 0;
 
         Ok(())
     }
@@ -658,7 +658,7 @@ impl FSRExpr {
         }
 
         if ctx.length == 0 {
-            let mut sub_meta = meta.new_offset(ctx.start);
+            let sub_meta = meta.new_offset(ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{:?}: Invalid operator {}", sub_meta, orig_op),
@@ -670,7 +670,7 @@ impl FSRExpr {
             let single_op =
                 str::from_utf8(&source[ctx.start + ctx.length..ctx.start + orig_length]).unwrap();
             if !Self::is_single_op(single_op) {
-                let mut sub_meta = meta.new_offset(ctx.start + ctx.length);
+                let sub_meta = meta.new_offset(ctx.start + ctx.length);
                 return Err(SyntaxError::new(
                     &sub_meta,
                     format!("{}: Invalid operator '{}'", sub_meta, single_op),
@@ -679,7 +679,7 @@ impl FSRExpr {
         }
 
         if ctx.start + ctx.length >= source.len() {
-            let mut sub_meta = meta.new_offset(ctx.start);
+            let sub_meta = meta.new_offset(ctx.start);
             return Err(SyntaxError::new(
                 &sub_meta,
                 format!("{} must follow a expr or variable", op),
@@ -849,7 +849,7 @@ impl FSRExpr {
             Self::end_of_operator(source, ignore_nline, meta, ctx, context)?;
             return Ok(());
         }
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let sub_meta = meta.new_offset(ctx.start);
         let fsr_type = context.get_var_type(&name);
         let mut variable = FSRVariable::parse(&name, sub_meta, fsr_type).unwrap();
         if context.is_variable_defined_in_curr(variable.get_name()) {
@@ -945,7 +945,7 @@ impl FSRExpr {
                 index_checker += 1;
             }
 
-            if Self::is_logic_keyword(&name) {
+            if Self::is_logic_keyword(name) {
                 return Self::_variable_process(source, ignore_nline, meta, ctx, context);
             }
 
@@ -1068,7 +1068,7 @@ impl FSRExpr {
         }
 
         let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let sub_meta = meta.new_offset(ctx.start);
         let c = if is_float && base == 10 {
             FSRConstant::from_float(sub_meta, ps, ctx.single_op)
         } else {
@@ -1095,11 +1095,11 @@ impl FSRExpr {
         ctx: &mut StmtContext,
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let sub_meta = meta.new_offset(ctx.start);
         let len =
             ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta, context)?;
         ctx.length += len;
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let sub_meta = meta.new_offset(ctx.start);
         let mut getter = FSRGetter::parse(
             &source[ctx.start..ctx.start + ctx.length],
             sub_meta,
@@ -1147,11 +1147,11 @@ impl FSRExpr {
         ctx: &mut StmtContext,
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let sub_meta = meta.new_offset(ctx.start);
         let len =
             ASTParser::read_valid_bracket(&source[ctx.start + ctx.length..], sub_meta, context)?;
         ctx.length += len;
-        let mut sub_meta = meta.new_offset(ctx.start);
+        let sub_meta = meta.new_offset(ctx.start);
         let mut call = FSRCall::parse(
             &source[ctx.start..ctx.start + ctx.length],
             sub_meta,
@@ -1367,7 +1367,7 @@ impl FSRExpr {
             }
 
             if ctx.states.eq_peek(&ExprState::WaitToken) && t_c == '[' {
-                let mut sub_meta = meta.new_offset(ctx.start);
+                let sub_meta = meta.new_offset(ctx.start);
                 let len =
                     ASTParser::read_valid_bracket(&source[ctx.start..], sub_meta.clone(), context)?;
                 assert!(len >= 2);
@@ -1410,7 +1410,7 @@ impl FSRExpr {
                 }
                 let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
 
-                if Self::is_logic_keyword(&name) {
+                if Self::is_logic_keyword(name) {
                     if name.eq("not") {
                         ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
                     }
@@ -1418,7 +1418,7 @@ impl FSRExpr {
                     continue;
                 }
 
-                let mut sub_meta = meta.new_offset(ctx.start);
+                let sub_meta = meta.new_offset(ctx.start);
                 let mut variable = FSRVariable::parse(name, sub_meta, None).unwrap();
                 if context.is_variable_defined_in_curr(variable.get_name()) {
                     variable.is_defined = true;
@@ -1465,29 +1465,29 @@ impl FSRExpr {
 
     pub fn parse_type_hint(type_hint: &FSRToken, meta: &FSRPosition) -> FSRTypeName {
         if let FSRToken::Variable(type_name) = type_hint {
-            return FSRTypeName::new(type_name.get_name());
+            FSRTypeName::new(type_name.get_name())
         } else if let FSRToken::Getter(type_inner) = type_hint {
             let sub_type = type_inner.get_getter();
-            let sub_type_inner = Self::parse_type_hint(sub_type, &meta);
+            let sub_type_inner = Self::parse_type_hint(sub_type, meta);
             let mut new_type = FSRTypeName::new(type_inner.get_name());
             new_type.subtype = Some(vec![Box::new(sub_type_inner)]);
-            return new_type;
+            new_type
         } else if let FSRToken::List(l) = type_hint {
             // Process like [Type, len]
             if l.get_items().len() != 2 {
-                panic!("{}: Type hint list must have 2 items", meta.to_string());
+                panic!("{}: Type hint list must have 2 items", meta);
             }
 
             let type_token = &l.get_items()[0];
             let len_token = &l.get_items()[1];
-            let type_t_name = Self::parse_type_hint(type_token, &meta);
+            let type_t_name = Self::parse_type_hint(type_token, meta);
 
             if let FSRToken::Constant(c) = len_token {
                 if let FSROrinStr::Integer(n, op) = c.get_const_str() {
                     if op.is_some() {
                         panic!(
                             "{}: Type hint length must be a positive integer",
-                            meta.to_string()
+                            meta
                         );
                     }
 
@@ -1502,12 +1502,12 @@ impl FSRExpr {
             } else {
                 panic!(
                     "{}: Type hint list second item must be an integer constant",
-                    meta.to_string()
+                    meta
                 );
             }
             unimplemented!()
         } else {
-            panic!("{}: Type hint must be a variable", meta.to_string());
+            panic!("{}: Type hint must be a variable", meta);
         }
     }
 
@@ -1592,7 +1592,7 @@ impl FSRExpr {
             if op.eq(":") {
                 if let FSRToken::Variable(name) = &left {
                     let name = name.get_name();
-                    let type_hint = Self::parse_type_hint(&right, &right.get_meta());
+                    let type_hint = Self::parse_type_hint(&right, right.get_meta());
                     //if let FSRToken::Variable(type_name) = &right {
                     let mut var =
                         FSRVariable::parse(name, left.get_meta().clone(), Some(type_hint)).unwrap();
@@ -1621,7 +1621,7 @@ impl FSRExpr {
 
         if ctx.candidates.len().eq(&1) {
             if !ctx.operators.is_empty() {
-                let mut sub_meta = meta.new_offset(ctx.start);
+                let sub_meta = meta.new_offset(ctx.start);
                 let err = SyntaxError::new_with_type(
                     &sub_meta,
                     format!(
@@ -1650,10 +1650,10 @@ impl FSRExpr {
 
         let split_offset = operator.1;
 
-        let mut sub_meta = meta.new_offset(0);
+        let sub_meta = meta.new_offset(0);
         let left = FSRExpr::parse(&source[0..split_offset], ignore_nline, sub_meta, context)?.0;
 
-        let mut sub_meta = meta.new_offset(split_offset);
+        let sub_meta = meta.new_offset(split_offset);
         let right = FSRExpr::parse(
             &source[split_offset + operator.0.len()..],
             ignore_nline,

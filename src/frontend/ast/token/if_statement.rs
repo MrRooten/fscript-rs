@@ -8,8 +8,6 @@ use crate::utils::error::SyntaxError;
 use super::base::FSRPosition;
 use super::base::FSRToken;
 use super::r#else::FSRElse;
-use super::statement::ASTTokenEnum;
-use super::statement::ASTTokenInterface;
 use super::ASTContext;
 
 #[derive(Debug, Clone)]
@@ -77,7 +75,7 @@ impl FSRIf {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.new_offset(pos);
+                let sub_meta = meta.new_offset(pos);
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -114,13 +112,13 @@ impl FSRIf {
         }
 
         let test = &source[2..2 + len];
-        let mut sub_meta = meta.new_offset(2);
+        let sub_meta = meta.new_offset(2);
         let test_expr = FSRExpr::parse(test, false, sub_meta, context)?.0;
 
         let mut start = 2 + len;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context, None)?;
 
         start += b_len;
@@ -157,13 +155,13 @@ impl FSRIf {
         let len = ASTParser::read_valid_bracket_until_big(&source[2..], sub_meta, context)?;
 
         let test = &source[2..2 + len];
-        let mut sub_meta = meta.new_offset(2);
+        let sub_meta = meta.new_offset(2);
         let test_expr = FSRExpr::parse(test, false, sub_meta, context)?.0;
 
         let mut start = 2 + len;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let mut b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context, None)?;
 
         start += b_len;

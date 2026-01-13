@@ -92,7 +92,7 @@ impl FSRConstant {
         match type_str {
             "f" => {
                 let mut format_inst = FSRFormatStringInst::new(content.to_string());
-                format_inst.parse(meta, context);
+                format_inst.parse(meta, context).unwrap();
                 FSRConstType::FormatString(format_inst)
             }
             "r" => FSRConstType::RegexString,

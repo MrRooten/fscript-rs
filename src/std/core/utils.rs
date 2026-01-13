@@ -1,8 +1,7 @@
-use std::{collections::HashMap, ops::Range, time::Duration};
+use std::{collections::HashMap, ops::Range};
 
 use crate::{
     backend::{
-        memory::GarbageCollector,
         types::{
             base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             fn_def::FSRFn,

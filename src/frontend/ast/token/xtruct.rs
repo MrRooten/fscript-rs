@@ -1,6 +1,6 @@
 
 use crate::{
-    frontend::ast::{parse::ASTParser, token::{base::FSRToken, block::FSRBlock, expr::FSRExpr, for_statement::FSRFor, function_def::FSRFnDef, if_statement::FSRIf, import::FSRImport, return_def::FSRReturn, try_expr::FSRTryBlock, while_statement::FSRWhile}, utils::automaton::NodeType},
+    frontend::ast::{parse::ASTParser, token::{block::FSRBlock}},
     utils::error::SyntaxError,
 };
 
@@ -77,46 +77,5 @@ impl FSRStructFrontEnd {
         }
         context.add_variable(name, None);
         Ok((Self { name: name.to_string(), block, meta }, start + len))
-    }
-}
-
-#[derive(PartialEq)]
-enum BlockState {
-    Start,
-    Block,
-}
-
-struct BlockStates {
-    states: Vec<BlockState>,
-}
-
-impl BlockStates {
-    pub fn new() -> Self {
-        Self { states: vec![] }
-    }
-
-    pub fn set_up_state(&mut self, new_state: BlockState) {
-        self.states.pop();
-        self.states.push(new_state);
-    }
-
-    pub fn push_state(&mut self, state: BlockState) {
-        self.states.push(state);
-    }
-
-    pub fn pop_state(&mut self) {
-        self.states.pop();
-    }
-
-    pub fn peek(&self) -> &BlockState {
-        &self.states[self.states.len() - 1]
-    }
-
-    pub fn eq_peek(&self, state: &BlockState) -> bool {
-        self.peek().eq(state)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.states.len() == 0
     }
 }

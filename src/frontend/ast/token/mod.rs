@@ -1,12 +1,11 @@
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     rc::Rc,
 };
 
 use base::{FSRToken, FSRTypeName};
 
-use crate::frontend::ast::token::base::FSRPosition;
 
 pub mod assign;
 pub mod base;
@@ -110,7 +109,7 @@ impl ASTContext {
         None
     }
 
-    pub fn add_variable_prev_one(&self, name: &str, token: Option<FSRToken>) {
+    pub fn add_var_prev_define(&self, name: &str, token: Option<FSRToken>) {
         if let Some(s) = self.variable_define.get(self.variable_define.len() - 2) {
             if s.borrow().contains_key(name) {
                 // variable already defined, keep closure ref
@@ -171,38 +170,3 @@ impl ASTContext {
     }
 }
 
-pub struct FSRSourceChar {
-    char: u8,
-    pub(crate) line: usize,
-    pub(crate) column: usize
-}
-
-pub struct FSRSourceBytes {
-    pub(crate) source: Vec<u8>,
-    lines: Vec<usize>,
-}
-
-impl FSRSourceBytes {
-    pub fn new(source: Vec<u8>) -> Self {
-        let mut lines = vec![0];
-        for (i, &byte) in source.iter().enumerate() {
-            if byte == b'\n' {
-                lines.push(i + 1);
-            }
-        }
-        Self { source, lines }
-    }
-
-    pub fn get_char_at(&self, pos: usize) -> Option<FSRSourceChar> {
-        if pos >= self.source.len() {
-            return None;
-        }
-        let line = self.lines.iter().position(|&x| x > pos).unwrap_or(self.lines.len() - 1);
-        let column = pos % line;
-        Some(FSRSourceChar {
-            char: self.source[pos],
-            line,
-            column
-        })
-    }
-}

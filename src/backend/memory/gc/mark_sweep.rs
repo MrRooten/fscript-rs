@@ -1,14 +1,13 @@
 #![allow(clippy::vec_box)]
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 
 use crate::backend::types::base::{Area, GlobalObj};
 
-use crate::backend::types::class::FSRClass;
 use crate::backend::types::string::FSRInnerString;
 use crate::backend::vm::virtual_machine::gid;
 use crate::backend::{
-    memory::{size_alloc::FSRObjectAllocator, GarbageCollector},
+    memory::size_alloc::FSRObjectAllocator,
     types::base::{FSRObject, FSRValue, ObjId},
 };
 

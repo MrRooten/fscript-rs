@@ -1,5 +1,5 @@
 use core::panic;
-use std::{collections::HashMap, os::unix::thread, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Ok, Result};
 use cranelift::{
@@ -26,9 +26,8 @@ use crate::{
             },
         },
         types::base::{FSRObject, ObjId},
-        vm::thread::FSRThreadRuntime,
     },
-    frontend::ast::token::{call, constant::FSROrinStr2, expr::SingleOp, variable},
+    frontend::ast::token::expr::SingleOp,
 };
 
 use super::jit_wrapper::{
@@ -37,10 +36,8 @@ use super::jit_wrapper::{
     malloc,
 };
 
-const ARGS_LEN: i64 = 512;
 const CALL_ARGS_LEN: i64 = 16;
 const UNROLL_THRESHOLD: usize = 128;
-struct BuildContext {}
 
 pub struct CraneLiftJitBackend {
     ctx: codegen::Context,
@@ -50,10 +47,8 @@ pub struct CraneLiftJitBackend {
 }
 
 struct JitBuilder<'a> {
-    int: types::Type,
     builder: FunctionBuilder<'a>,
     variables: HashMap<String, Variable>,
-    constans: HashMap<u64, Variable>,
     defined_variables: HashMap<String, Variable>,
     module: &'a mut JITModule,
     var_index: usize,
@@ -64,7 +59,6 @@ struct OperatorContext {
     exp: Vec<Value>,
     is_uninit: bool,
     middle_value: Vec<Value>, // used to store intermediate values during operator processing, clear line
-    operator: &'static str,
     loop_blocks: Vec<Block>,
     loop_exit_blocks: Vec<Block>,
     if_header_blocks: Vec<Block>,
@@ -598,61 +592,6 @@ impl JitBuilder<'_> {
         //self.builder.ins().iconst(self.int, 0);
     }
 
-    fn load_if_body_end(&mut self, context: &mut OperatorContext) {
-        // if context.if_exit_blocks.last().unwrap().1 {
-        // } else {
-        //     let params = self.builder.block_params(context.if_exit_blocks.last().unwrap().0)[0];
-        //     self.builder
-        //         .ins()
-        //         .jump(context.if_exit_blocks.last().unwrap().clone().0, &[params]);
-        // }
-
-        // //self.builder.ins().nop();
-
-        // //context.is_while = false;
-        // let v = context.if_blocks.pop().unwrap();
-        // let exit_block = *context.if_exit_blocks.last().unwrap();
-        // self.builder.seal_block(v);
-        // self.builder.switch_to_block(exit_block.0);
-        // self.builder.seal_block(exit_block.0);
-        // context.ins_check_gc = true;
-        //self.builder.ins().iconst(self.int, 0);
-    }
-
-    fn load_make_arg_list(&mut self, context: &mut OperatorContext, len: usize) -> Value {
-        let size = self
-            .builder
-            .ins()
-            .iconst(self.module.target_config().pointer_type(), len as i64);
-        // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
-        // let malloc_ret = self.builder.inst_results(malloc_call)[0];
-        let malloc_ret = self
-            .builder
-            .use_var(*self.variables.get("#call_args_ptr").unwrap());
-        let mut rev_args = vec![];
-        for i in 0..len {
-            // Assuming we have a way to get the next argument value
-            let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
-            context.middle_value.push(arg_value);
-            rev_args.push(arg_value);
-        }
-
-        rev_args.reverse();
-
-        for (i, arg) in rev_args.into_iter().enumerate() {
-            let offset = self
-                .builder
-                .ins()
-                .iconst(types::I64, i as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
-            let ptr = self.builder.ins().iadd(malloc_ret, offset);
-            self.builder
-                .ins()
-                .store(cranelift::codegen::ir::MemFlags::new(), arg, ptr, 0);
-        }
-
-        malloc_ret
-    }
-
     fn load_make_method_arg_list(&mut self, context: &mut OperatorContext, len: usize) -> Value {
         let size = self
             .builder
@@ -715,28 +654,6 @@ impl JitBuilder<'_> {
         malloc_ret
     }
 
-    fn load_free_arg_list(&mut self, list_ptr: Value, context: &mut OperatorContext, len: i64) {
-        // pub extern "C" fn free(ptr: *mut Vec<ObjId>, size: usize)
-        let mut free_sig = self.module.make_signature();
-        free_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // pointer to the list
-        free_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // size of the list
-                                                                              //free_sig.returns.push(AbiParam::new(types::I32)); // return type (void)
-        let free_id = self
-            .module
-            .declare_function("free", cranelift_module::Linkage::Import, &free_sig)
-            .unwrap();
-        let free_func_ref = self.module.declare_func_in_func(free_id, self.builder.func);
-        let size = self
-            .builder
-            .ins()
-            .iconst(self.module.target_config().pointer_type(), len);
-        let free_call = self.builder.ins().call(free_func_ref, &[list_ptr, size]);
-        let _ = self.builder.inst_results(free_call); // We don't need the return value, just ensure the call is made
-    }
 
     fn load_gc_collect(&mut self, context: &mut OperatorContext) {
         let ptr_type = self.module.target_config().pointer_type();
@@ -900,10 +817,10 @@ impl JitBuilder<'_> {
             FSRSType::Float32 => types::F32,
             FSRSType::Float64 => types::F64,
             FSRSType::String => todo!(),
-            FSRSType::Struct(fsrstruct) => ptr,
-            FSRSType::Ptr(fsrstype) => ptr,
-            FSRSType::Fn(fn_call_sig) => ptr,
-            FSRSType::List(fsrstype, _) => ptr,
+            FSRSType::Struct(_) => ptr,
+            FSRSType::Ptr(_) => ptr,
+            FSRSType::Fn(_) => ptr,
+            FSRSType::List(_, _) => ptr,
         }
     }
 
@@ -941,7 +858,7 @@ impl JitBuilder<'_> {
             if let FSRSType::List(inner_type, l) = type_info.as_ref() {
                 let type_size = inner_type.size_of() as i64;
                 // target = father_obj_id + index * type_size
-                let index_size = self.builder.ins().imul_imm(index, type_size as i64);
+                let index_size = self.builder.ins().imul_imm(index, type_size);
                 let target_ptr = self.builder.ins().iadd(father_obj_id, index_size);
                 // trans to pointer
                 //if let FSRSType::List(l, _) = type_info.as_ref() {
@@ -968,7 +885,7 @@ impl JitBuilder<'_> {
             let call_fn_sig_ref = self.builder.import_signature(call_fn_sig.clone());
             let mut rev_args = vec![];
 
-            for i in 0..*len {
+            for _ in 0..*len {
                 // Assuming we have a way to get the next argument value
                 let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
                 context.middle_value.push(arg_value);
@@ -980,7 +897,7 @@ impl JitBuilder<'_> {
             let null_ptr = self
                 .builder
                 .ins()
-                .iconst(self.module.target_config().pointer_type(), 0 as i64);
+                .iconst(self.module.target_config().pointer_type(), 0);
             let helper_ret = if let Some(ret_type) = call_sig.as_ref().unwrap().return_type.as_ref()
             {
                 let v = if let FSRSType::Struct(s) = ret_type.as_ref() {
@@ -1000,7 +917,7 @@ impl JitBuilder<'_> {
                 } else if let FSRSType::List(in_type, len) = ret_type.as_ref() {
                     // allocate stack space for list return
                     let elem_size = in_type.size_of();
-                    let total_size = elem_size * (*len as usize);
+                    let total_size = elem_size * *len;
                     let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
                         StackSlotKind::ExplicitSlot,
                         total_size as u32,
@@ -1775,33 +1692,6 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn malloc_args(&mut self, context: &mut OperatorContext) {
-        let mut malloc_sig = self.module.make_signature();
-        malloc_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // size
-        malloc_sig
-            .returns
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
-        let malloc_id = self
-            .module
-            .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
-            .unwrap();
-        let malloc_func_ref = self
-            .module
-            .declare_func_in_func(malloc_id, self.builder.func);
-
-        let size = self
-            .builder
-            .ins()
-            .iconst(self.module.target_config().pointer_type(), ARGS_LEN);
-        let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
-        let malloc_ret = self.builder.inst_results(malloc_call)[0];
-
-        let var = self.variables.get("#args_ptr").unwrap();
-        self.builder.def_var(*var, malloc_ret);
-    }
-
     fn println(&mut self, context: &mut OperatorContext, value: Value) {
         // pub extern "C" fn c_println(obj: i64) {
         let mut println_sig = self.module.make_signature();
@@ -2226,7 +2116,7 @@ impl JitBuilder<'_> {
         };
 
         if let Some(var_type) = &v.var_type {
-            let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
+            let new_type = self.get_var_type(v.var_type.as_ref().unwrap());
             let var_type = new_type.unwrap();
             let mut var_id = self.var_index;
             let new_var = declare_variable(
@@ -2455,11 +2345,11 @@ impl JitBuilder<'_> {
                         self.load_global_name(name_ptr, name_len, context);
                     } else if let ArgType::LoadTrue = arg.get_arg() {
                         //let true_id = FSRObject::true_id();
-                        let true_value = self.builder.ins().iconst(types::I8, 1 as i64);
+                        let true_value = self.builder.ins().iconst(types::I8, 1);
                         context.exp.push(true_value);
                     } else if let ArgType::LoadFalse = arg.get_arg() {
                         //let false_id = FSRObject::false_id();
-                        let false_value = self.builder.ins().iconst(types::I8, 0 as i64);
+                        let false_value = self.builder.ins().iconst(types::I8, 0);
                         context.exp.push(false_value);
                     } else if let ArgType::LoadNone = arg.get_arg() {
                         self.load_none(context);
@@ -2514,7 +2404,7 @@ impl JitBuilder<'_> {
                     self.load_while(context);
                 }
                 BytecodeOperator::WhileBlockEnd => {
-                    self.load_while_end(context);
+                    self.load_while_end(context).unwrap();
                 }
                 BytecodeOperator::Call => {
                     self.load_call(arg, context);
@@ -2533,7 +2423,7 @@ impl JitBuilder<'_> {
 
                     let ret_value = if let Some(ret_type) = self.self_call_sig.return_type.as_ref()
                     {
-                        if let FSRSType::Struct(s) = ret_type.as_ref() {
+                        if let FSRSType::Struct(_) = ret_type.as_ref() {
                             // handle struct return
                             let return_ptr = self.builder.block_params(context.entry_block)[1];
                             let return_value = context.exp.pop().unwrap();
@@ -2544,7 +2434,7 @@ impl JitBuilder<'_> {
                                 .iconst(self.module.target_config().pointer_type(), struct_size);
                             Self::memcpy(self, context, return_ptr, return_value, size_value);
                             return_ptr
-                        } else if let FSRSType::List(in_type, len) = ret_type.as_ref() {
+                        } else if let FSRSType::List(_, _) = ret_type.as_ref() {
                             // handle list return
                             let return_ptr = self.builder.block_params(context.entry_block)[1];
                             let return_value = context.exp.pop().unwrap();
@@ -2606,7 +2496,7 @@ impl JitBuilder<'_> {
                     self.load_or_jump(context, arg);
                 }
                 BytecodeOperator::AndJump => {
-                    self.load_and_jump(context, arg);
+                    self.load_and_jump(context, arg).unwrap();
                 }
                 BytecodeOperator::BinaryDot => {
                     self.binary_dot_process(context, arg);
@@ -2615,13 +2505,13 @@ impl JitBuilder<'_> {
                     self.load_call_method(arg, context);
                 }
                 BytecodeOperator::LoadList => {
-                    self.load_list(context, arg);
+                    self.load_list(context, arg).unwrap();
                 }
                 BytecodeOperator::Continue => {
-                    self.load_continue(context);
+                    self.load_continue(context).unwrap();
                 }
                 BytecodeOperator::Break => {
-                    self.load_break(context);
+                    self.load_break(context).unwrap();
                 }
                 BytecodeOperator::SAlloc => {
                     self.struct_alloc(context, arg);
@@ -2687,12 +2577,11 @@ fn declare_variables(
     params: &[String],
     //the_return: &str,
     //stmts: &[Expr],
-    entry_block: Block,
 ) -> (HashMap<String, Variable>, usize) {
     let mut variables = HashMap::new();
     let mut index = 0;
 
-    for (i, name) in params.iter().enumerate() {
+    for (_, name) in params.iter().enumerate() {
         // TODO: cranelift_frontend should really have an API to make it easy to set
         // up param variables.
         // let val = builder.block_params(entry_block)[i];
@@ -2703,7 +2592,6 @@ fn declare_variables(
         builder.def_var(var.0, val);
     }
 
-    let zero = builder.ins().iconst(var_type, 0);
     // let return_variable = declare_variable(
     //     int,
     //     builder,
@@ -2719,20 +2607,6 @@ fn declare_variables(
     (variables, index)
 }
 
-fn declare_constants(
-    int: types::Type,
-    builder: &mut FunctionBuilder,
-    constants: &HashMap<u64, Variable>,
-) -> HashMap<u64, Variable> {
-    let mut constans = HashMap::new();
-    for (c, variable) in constants {
-        if !constans.contains_key(c) {
-            constans.insert(*c, *variable);
-            builder.declare_var(*variable, int);
-        }
-    }
-    constans
-}
 
 impl CraneLiftJitBackend {
     fn init_builder(builder: &mut JITBuilder) {
@@ -2864,7 +2738,6 @@ impl CraneLiftJitBackend {
 
         let mut context = OperatorContext {
             exp: vec![],
-            operator: "",
             loop_blocks: vec![],
             loop_exit_blocks: vec![],
             entry_block,
@@ -2895,15 +2768,13 @@ impl CraneLiftJitBackend {
         // predecessors. Since it's the entry block, it won't have any
         // predecessors.
         builder.seal_block(entry_block);
-        let variables = declare_variables(&self.module, ptr, &mut builder, &variables, entry_block);
+        let variables = declare_variables(&self.module, ptr, &mut builder, &variables);
 
         let mut trans = JitBuilder {
-            int: ptr,
             builder,
             variables: variables.0,
             module: &mut self.module,
             defined_variables: HashMap::new(),
-            constans: HashMap::new(),
             var_index: variables.1,
             self_call_sig: call_sig.unwrap(),
         };

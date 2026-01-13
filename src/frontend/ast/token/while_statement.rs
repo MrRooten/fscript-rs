@@ -47,14 +47,14 @@ impl FSRWhile {
             unimplemented!()
         }
         if s != "while" {
-            let mut sub_meta = meta.new_offset(0);
+            let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "not while token");
             return Err(err);
         }
 
 
         if source[5] as char != ' ' && source[5] as char != '(' {
-            let mut sub_meta = meta.new_offset(5);
+            let sub_meta = meta.new_offset(5);
             let err = SyntaxError::new(&sub_meta, "not a valid while delemiter");
             return Err(err);
         }
@@ -72,7 +72,7 @@ impl FSRWhile {
             }
 
             if c == '\n' {
-                let mut sub_meta = meta.new_offset(pos);
+                let sub_meta = meta.new_offset(pos);
                 let err = SyntaxError::new(&sub_meta, "Invalid If statement");
                 return Err(err);
             }
@@ -114,9 +114,9 @@ impl FSRWhile {
         let test_expr = FSRExpr::parse(test, false, test_meta, context)?.0;
 
         let start = 5 + len;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let b_len = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
-        let mut sub_meta = meta.new_offset(start);
+        let sub_meta = meta.new_offset(start);
         let body = FSRBlock::parse(&source[start..start + b_len], sub_meta, context, None)?;
 
         Ok(Self {

@@ -89,13 +89,13 @@ mod frontend_tests {
     fn test_bracket() {
         let s = "(abcd['abc'])";
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new_context();
+        let context = ASTContext::new_context();
         let v = ASTParser::read_valid_bracket(s.as_bytes(), meta, &context).unwrap();
         assert_eq!(v, s.len());
 
         let s = "abc(abcd['abc'])";
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new_context();
+        let context = ASTContext::new_context();
         let v = ASTParser::read_valid_name_bracket(s.as_bytes(), meta, &context).unwrap();
         assert_eq!(v, s.len());
     }
@@ -125,7 +125,6 @@ mod frontend_tests {
         println(l)
         ";
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
@@ -133,8 +132,7 @@ mod frontend_tests {
 
     #[test]
     fn test_trie() {
-        let mut t = FSTrie::single();
-        let mut context = ASTContext::new_context();
+        let t = FSTrie::single();
         let n = t.match_token("if()".as_bytes()).unwrap();
         assert_eq!(n, &NodeType::IfState);
     }
@@ -609,7 +607,7 @@ try {
         l = b.len()
         ";
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new_context();
+        let context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
@@ -619,7 +617,7 @@ try {
     fn test_simple() {
         let s = "t.value[0][0]";
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new_context();
+        let context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
@@ -629,7 +627,7 @@ try {
     fn test_format_string() {
         let s = r#"f"hello {"abc"}""#;
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new_context();
+        let context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
@@ -639,7 +637,7 @@ try {
     fn test_variable() {
         let s = "abc";
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new_context();
+        let context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
         assert_eq!(b.0.get_len(), s.len());
@@ -649,7 +647,7 @@ try {
     fn test_op_assign() {
         let s = "a += 1";
         let meta = FSRPosition::new();
-        let mut context = ASTContext::new_context();
+        let context = ASTContext::new_context();
         let b = FSRModuleFrontEnd::parse(s.as_bytes(), meta).unwrap();
         println!("{:#?}", b);
     }

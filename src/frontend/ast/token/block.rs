@@ -153,7 +153,7 @@ impl FSRBlock {
                 start += length;
                 length = 0;
 
-                let mut sub_meta = meta.new_offset(start);
+                let sub_meta = meta.new_offset(start);
                 let l = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
                 length += l;
                 let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
@@ -179,7 +179,7 @@ impl FSRBlock {
                 let t = match trie.match_token(&source[start..]) {
                     Some(s) => s,
                     None => {
-                        let mut sub_meta = meta.new_offset(start);
+                        let sub_meta = meta.new_offset(start);
                         let expr = FSRExpr::parse(&source[start..], false, sub_meta, context)?;
                         length += expr.1;
                         block.tokens.push(expr.0);
@@ -190,28 +190,28 @@ impl FSRBlock {
                 };
 
                 if t == &NodeType::IfState {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
                     let if_block = FSRIf::parse(&source[start..], sub_meta, context)?;
                     length += if_block.get_len();
                     block.tokens.push(FSRToken::IfExp(if_block));
                     start += length;
                     length = 0;
                 } else if t == &NodeType::WhileState {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
                     let while_block = FSRWhile::parse(&source[start..], sub_meta, context)?;
                     length += while_block.get_len();
                     block.tokens.push(FSRToken::WhileExp(while_block));
                     start += length;
                     length = 0;
                 } else if t == &NodeType::FnState {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
                     let fn_def = FSRFnDef::parse(&source[start..], sub_meta, context, struct_info.clone())?;
                     length += fn_def.get_len();
                     block.tokens.push(FSRToken::FunctionDef(fn_def));
                     start += length;
                     length = 0;
                 } else if t == &NodeType::ReturnState {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
                     let ret_expr = FSRReturn::parse(&source[start..], sub_meta, context)?;
                     length += ret_expr.1;
                     block.tokens.push(FSRToken::Return(ret_expr.0));
@@ -220,18 +220,18 @@ impl FSRBlock {
                 } else if t == &NodeType::Else {
                     // not support else without if
                     return Err(SyntaxError::new(&meta.new_offset(start), "else without if"));
-                    // let mut sub_meta = meta.new_offset(start);
+                    // let sub_meta = meta.new_offset(start);
                     // let else_expr = FSRElse::parse(&source[start..], sub_meta, context)?;
                 } else if t == &NodeType::Break {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
                     block.tokens.push(FSRToken::Break(sub_meta));
                     start += "break".len();
                 } else if t == &NodeType::Continue {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
                     block.tokens.push(FSRToken::Continue(sub_meta));
                     start += "continue".len();
                 } else if t == &NodeType::ForState {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
 
                     let for_def = FSRFor::parse(&source[start..], sub_meta, context)?;
                     length += for_def.get_len();
@@ -239,7 +239,7 @@ impl FSRBlock {
                     start += length;
                     length = 0;
                 } else if t == &NodeType::Try {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
 
                     let try_def = FSRTryBlock::parse(&source[start..], sub_meta, context)?;
                     length += try_def.get_len();
@@ -247,7 +247,7 @@ impl FSRBlock {
                     start += length;
                     length = 0;
                 } else if t == &NodeType::Import {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
 
                     let import_def = FSRImport::parse(&source[start..], sub_meta, context)?;
                     length += import_def.1;
@@ -255,14 +255,14 @@ impl FSRBlock {
                     start += length;
                     length = 0;
                 } else if t == &NodeType::Root {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
                     let expr = FSRExpr::parse(&source[start..], false, sub_meta, context)?;
                     length += expr.1;
                     block.tokens.push(expr.0);
                     start += length;
                     length = 0;
                 } else if t == &NodeType::Struct {
-                    let mut sub_meta = meta.new_offset(start);
+                    let sub_meta = meta.new_offset(start);
                     let struct_def = FSRStructFrontEnd::parse(&source[start..], sub_meta, context)?;
                     length += struct_def.1;
                     block.tokens.push(FSRToken::Struct(struct_def.0));

@@ -1515,7 +1515,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRValue::Integer(res as i64),
                 gid(GlobalObj::IntegerCls) as ObjId,
             );
-            return Ok(id);
+            Ok(id)
         }
         if let Some(call_sig) = call_sig {
             if let Some(ret_type) = &call_sig.return_type {
