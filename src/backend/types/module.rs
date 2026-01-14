@@ -44,6 +44,12 @@ impl<'a> FSRModule<'a> {
                 if st1.eq(st2) && fn_name == name {
                     return Some(addr);
                 }
+
+                if let FSRSType::Ptr(inner) = st2.as_ref() {
+                    if st1.eq(inner) && fn_name == name {
+                        return Some(addr);
+                    }
+                }
             }
         }
         None

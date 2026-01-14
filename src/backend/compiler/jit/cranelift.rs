@@ -996,7 +996,81 @@ impl JitBuilder<'_> {
 
     fn load_call_method(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
         if let ArgType::CallArgsNumber(v) = arg.get_arg() {
-            panic!("CallMethod is not implemented yet in Cranelift JIT backend");
+            let call_sig = v.1.clone();
+            let len = v.0;
+            let call_fn_sig = self.make_inner_call_fn(call_sig.as_ref().unwrap());
+
+            // generate SigRef from Signature
+            let call_fn_sig_ref = self.builder.import_signature(call_fn_sig.clone());
+            let mut rev_args = vec![];
+
+            for _ in 0..len {
+                // Assuming we have a way to get the next argument value
+                let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
+                context.middle_value.push(arg_value);
+                rev_args.push(arg_value);
+            }
+            let fn_ptr = context.exp.pop().unwrap();
+            let father_obj = context.exp.pop().unwrap();
+            rev_args.reverse();
+            rev_args.insert(0, father_obj);
+            rev_args.insert(0, self.builder.block_params(context.entry_block)[0]); // insert thread runtime at the beginning
+            let null_ptr = self
+                .builder
+                .ins()
+                .iconst(self.module.target_config().pointer_type(), 0);
+            let helper_ret = if let Some(ret_type) = call_sig.as_ref().unwrap().return_type.as_ref()
+            {
+                let v = if let FSRSType::Struct(s) = ret_type.as_ref() {
+                    // allocate stack space for struct return
+                    let struct_size = ret_type.size_of();
+                    let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        struct_size as u32,
+                        0,
+                    ));
+                    let struct_ptr = self.builder.ins().stack_addr(
+                        self.module.target_config().pointer_type(),
+                        slot,
+                        0,
+                    );
+                    struct_ptr
+                } else if let FSRSType::List(in_type, len) = ret_type.as_ref() {
+                    // allocate stack space for list return
+                    let elem_size = in_type.size_of();
+                    let total_size = elem_size * *len;
+                    let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        total_size as u32,
+                        0,
+                    ));
+                    let list_ptr = self.builder.ins().stack_addr(
+                        self.module.target_config().pointer_type(),
+                        slot,
+                        0,
+                    );
+                    list_ptr
+                } else {
+                    null_ptr
+                };
+                v
+            } else {
+                null_ptr
+            };
+
+            rev_args.insert(1, helper_ret);
+            let call_inst = self
+                .builder
+                .ins()
+                .call_indirect(call_fn_sig_ref, fn_ptr, &rev_args);
+            let ret = self.builder.inst_results(call_inst)[0];
+
+            // Free the argument list after the call
+            //self.load_free_arg_list(list_ptr, context, *v as i64);
+
+            context.exp.push(ret);
+            context.middle_value.push(ret);
+            //panic!("CallMethod is not implemented yet in Cranelift JIT backend");
             // let father_obj_id = *context.exp.last().unwrap();
             // let fn_obj_id = self.get_obj_method(father_obj_id, v.2.as_str());
 

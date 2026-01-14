@@ -15,4 +15,5 @@ fn test() -> u64 {
 }
 
 a = test()
-println(a)
+println(f"a: {a}")
+assert(a == 44444, "test_simple: testcase1: a should be 44444")

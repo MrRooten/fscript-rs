@@ -791,7 +791,6 @@ pub struct FnDef {
     fn_type: Option<Arc<FnCallSig>>,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FSRStruct {
     pub name: String,
@@ -1307,7 +1306,7 @@ impl<'a> Bytecode {
         result: &mut Vec<BytecodeArg>,
         context: &mut BytecodeContext,
         name: &str,
-        father_type: Option<Arc<FSRSType>>
+        father_type: Option<Arc<FSRSType>>,
     ) {
         //if let Some(fn_def) = context.fn_def_map.get(name) {
         //if fn_def.is_static {
@@ -1366,7 +1365,8 @@ impl<'a> Bytecode {
 
         let arg = if is_method_call {
             let method_fn_sig = if context.is_static {
-                let obj_type = father_type.expect("Object type is required for static method calls");
+                let obj_type =
+                    father_type.expect("Object type is required for static method calls");
                 if let FSRSType::Ptr(t) = obj_type.as_ref() {
                     if let FSRSType::Struct(s) = t.as_ref() {
                         let method = s.fields.get(call.get_name()).unwrap();
@@ -1927,9 +1927,6 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) {
-        if !const_map.is_pre_compile {
-            return;
-        }
         let mut result = Vec::new();
         let mut struct_type = FSRStruct {
             name: struct_stmt.get_name().to_string(),
@@ -1958,6 +1955,9 @@ impl<'a> Bytecode {
         let mut offset = 0;
         for variable in struct_stmt.get_block().get_tokens() {
             if let FSRToken::Variable(v) = variable {
+                if !const_map.is_pre_compile {
+                    continue;
+                }
                 Self::load_struct_attr(v, &mut offset, &mut struct_type, &mut result, const_map);
             } else if variable.is_function() {
                 continue;
@@ -1974,42 +1974,47 @@ impl<'a> Bytecode {
                 struct_stmt.get_meta().clone(),
             )),
         });
+        if const_map.is_pre_compile {
+            const_map.type_info.types.insert(
+                vec![struct_stmt.get_name().to_string()],
+                Arc::new(FSRSType::Struct(Arc::new(struct_type))),
+            );
+        }
 
-        const_map.type_info.types.insert(
-            vec![struct_stmt.get_name().to_string()],
-            Arc::new(FSRSType::Struct(Arc::new(struct_type))),
-        );
         const_map
             .cur_fn_name
             .push(struct_stmt.get_name().to_string());
         for function in struct_stmt.get_block().get_tokens() {
             if let FSRToken::FunctionDef(def) = function {
                 let v = Self::load_function(def, var_map, const_map);
+                if const_map.is_pre_compile {
+                    let fn_type = Arc::new(FSRSType::Fn(v.2.as_ref().unwrap().clone()));
+                    const_map.type_info.types.insert(
+                        vec![
+                            struct_stmt.get_name().to_string(),
+                            def.get_name().to_string(),
+                        ],
+                        fn_type.clone(),
+                    );
 
-                let fn_type = Arc::new(FSRSType::Fn(v.2.as_ref().unwrap().clone()));
-                const_map.type_info.types.insert(
-                    vec![
-                        struct_stmt.get_name().to_string(),
-                        def.get_name().to_string(),
-                    ],
-                    fn_type.clone(),
-                );
-                // take the Arc out of the map so we can mutate its contents (clone-on-write
-                // if there are other references)
-                let key = vec![struct_stmt.get_name().to_string()];
-                let mut m_type = const_map.type_info.types.remove(&key).unwrap();
-                // get mutable access to the outer FSRSType (may clone if necessary)
-                match Arc::make_mut(&mut m_type) {
-                    FSRSType::Struct(ref mut arc_struct) => {
-                        // arc_struct is &mut Arc<FSRStruct>, make_mut to get &mut FSRStruct
-                        let s = Arc::make_mut(arc_struct);
-                        s.fields
-                            .insert(def.get_name().to_string(), (0, fn_type.clone()));
+                    // take the Arc out of the map so we can mutate its contents (clone-on-write
+                    // if there are other references)
+                    let key = vec![struct_stmt.get_name().to_string()];
+                    let mut m_type = const_map.type_info.types.remove(&key).unwrap();
+                    // get mutable access to the outer FSRSType (may clone if necessary)
+                    match Arc::make_mut(&mut m_type) {
+                        FSRSType::Struct(ref mut arc_struct) => {
+                            // arc_struct is &mut Arc<FSRStruct>, make_mut to get &mut FSRStruct
+                            let s = Arc::make_mut(arc_struct);
+                            s.fields
+                                .insert(def.get_name().to_string(), (0, fn_type.clone()));
+                        }
+                        _ => panic!("expected struct type when adding method to struct"),
                     }
-                    _ => panic!("expected struct type when adding method to struct"),
+                    // put the (possibly cloned/modified) Arc back into the map
+                    const_map.type_info.types.insert(key, m_type);
                 }
-                // put the (possibly cloned/modified) Arc back into the map
-                const_map.type_info.types.insert(key, m_type);
+
                 var_map.last_mut().unwrap().sub_fn_def.push(Bytecode {
                     name: def.get_name().to_string(),
                     context: BytecodeContext::new(vec![]),
@@ -2758,7 +2763,7 @@ impl<'a> Bytecode {
                 return (vec![result], None);
             }
             if byte_context.is_pre_compile {
-                return (vec![], None)
+                return (vec![], None);
             }
             let v = Self::load_function(fn_def, var_map, byte_context);
             return (v.0, None);
@@ -2779,7 +2784,7 @@ impl<'a> Bytecode {
             return (vec![v], None);
         } else if let FSRToken::ForBlock(b) = token {
             if byte_context.is_pre_compile {
-                return (vec![], None)
+                return (vec![], None);
             }
             let v = Self::load_for_def(b, var_map, byte_context);
             return (v, None);
@@ -3604,7 +3609,11 @@ impl<'a> Bytecode {
         const_table
     }
 
-    pub fn load_ast(name: &str, token: FSRToken, lines: Vec<usize>) -> (HashMap<String, Bytecode>, FSRSTypeInfo) {
+    pub fn load_ast(
+        name: &str,
+        token: FSRToken,
+        lines: Vec<usize>,
+    ) -> (HashMap<String, Bytecode>, FSRSTypeInfo) {
         let type_info = Self::pre_load_ast(name, &token, lines.clone());
         let type_info = type_info.type_info;
         let mut const_table = BytecodeContext::new(lines);
@@ -3666,7 +3675,7 @@ impl<'a> Bytecode {
             },
         );
 
-        let codes = const_table.fn_def_map;;
+        let codes = const_table.fn_def_map;
 
         for code in codes {
             let bytecode = Bytecode {
