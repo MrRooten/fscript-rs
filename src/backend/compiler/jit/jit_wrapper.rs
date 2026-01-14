@@ -75,13 +75,10 @@ pub extern "C" fn malloc(size: usize) -> *mut ObjId {
     }
 }
 
-pub extern "C" fn free(ptr: *mut ObjId, size: usize) {
-    // Convert the raw pointer back to a Box and drop it
-    if !ptr.is_null() {
-        let layout = std::alloc::Layout::array::<ObjId>(size).unwrap();
-        unsafe {
-            std::alloc::dealloc(ptr as *mut u8, layout);
-        }
+pub extern "C" fn free(ptr: usize) {
+    let layout = std::alloc::Layout::for_value(unsafe { &*(ptr as *const ObjId) });
+    unsafe {
+        std::alloc::dealloc(ptr as *mut u8, layout);
     }
 }
 

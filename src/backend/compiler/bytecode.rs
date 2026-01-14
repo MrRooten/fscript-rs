@@ -267,6 +267,7 @@ pub enum BytecodeOperator {
     SStructDef = 60,
     SStructEndDef = 61,
     SAlloc = 62,
+    SFree = 63,
     Load = 254,
 }
 
@@ -1681,7 +1682,17 @@ impl<'a> Bytecode {
                 }]),
                 None,
             );
-        } else if var.get_name().eq("alloc") {
+        } else if var.get_name().eq("free") {
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::SFree,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                }]),
+                None,
+            );
+        }
+        else if var.get_name().eq("alloc") {
             let type_name = if let FSRToken::Variable(v) = father {
                 v.get_name()
             } else {

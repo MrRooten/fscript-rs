@@ -1751,7 +1751,24 @@ impl JitBuilder<'_> {
         self.builder.def_var(*var, stack_slot_addr);
     }
 
-    fn struct_alloc(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
+    fn pointer_free(&mut self, context: &mut OperatorContext) {
+        let ptr = context.exp.pop().unwrap();
+        let mut free_sig = self.module.make_signature();
+        free_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // pointer to free
+        free_sig.returns.push(AbiParam::new(types::I32)); // return type
+        let free_id = self
+            .module
+            .declare_function("free", cranelift_module::Linkage::Import, &free_sig)
+            .unwrap();
+        let free_func_ref = self.module.declare_func_in_func(free_id, self.builder.func);
+
+        let free_call = self.builder.ins().call(free_func_ref, &[ptr]);
+        let _free_ret = self.builder.inst_results(free_call)[0];
+    }
+
+    fn pointer_alloc(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         let size_value = if let ArgType::Alloc((_, size, is_array)) = arg.get_arg() {
             if *is_array {
                 let num = context.exp.pop().unwrap();
@@ -2461,7 +2478,10 @@ impl JitBuilder<'_> {
                     self.load_break(context).unwrap();
                 }
                 BytecodeOperator::SAlloc => {
-                    self.struct_alloc(context, arg);
+                    self.pointer_alloc(context, arg);
+                }
+                BytecodeOperator::SFree => {
+                    self.pointer_free(context);
                 }
                 BytecodeOperator::AssignAttr => {
                     self.store_attr(context, arg);
