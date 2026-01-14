@@ -1,6 +1,7 @@
 struct Test {
     field: u64
 
+    @static
     fn init(self: Ptr[Test]) {
         self.field = 44444
     }
@@ -8,7 +9,7 @@ struct Test {
 
 @entry
 fn test() -> u64 {
-    t: Ptr[u64] = Test.alloc(3)
+    t: Ptr[Test] = Test.alloc
     t.init()
     b: u64 = 42
     t.free

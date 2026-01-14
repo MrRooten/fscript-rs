@@ -24,20 +24,20 @@ use crate::{
         },
         memory::{gc::mark_sweep::MarkSweepGarbageCollector, size_alloc::FSRObjectAllocator},
         types::{
-            asynclib::future::{poll_future, FSRFuture},
+            asynclib::future::{FSRFuture, poll_future},
             base::{Area, AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
             class_inst::FSRClassInst,
             code::FSRCode,
             fn_def::{FSRFn, FSRFnInner, FSRnE, FnDesc},
-            list::FSRList,
+            list::{FSRList, push},
             module::FSRModule,
             range::FSRRange,
             string::FSRString,
         },
         vm::debugger::debug::FSRDebugger,
     },
-    frontend::ast::token::{constant::FSROrinStr2, expr::SingleOp},
+    frontend::ast::token::{base::FSRTypeName, constant::FSROrinStr2, expr::SingleOp},
     utils::error::{FSRErrCode, FSRError},
 };
 
@@ -2132,10 +2132,11 @@ impl<'a> FSRThreadRuntime<'a> {
         // };
 
         let fn_code_id = FSRObject::obj_to_id(fn_code);
-        let code = module
-            .jit_code_map
-            .get(&fn_args.fn_identify_name)
-            .map(|x| x.load(Ordering::Relaxed) as *const u8);
+        // let code = module
+        //     .jit_code_map
+        //     .get(&fn_args.fn_identify_name)
+        //     .map(|x| x.load(Ordering::Relaxed) as *const u8);
+        let code = module.get_jit_code_map(None, &fn_args.fn_identify_name).map(|x| x.load(Ordering::Relaxed) as *const u8);
         let fn_obj = FSRFn::from_fsr_fn(
             fn_args.name.as_str(),
             FnDesc {
@@ -3495,10 +3496,22 @@ impl<'a> FSRThreadRuntime<'a> {
                 v.push(code.0.to_string());
             }
         }
-
+        let type_info_ref = &mut FSRObject::id_to_mut_obj(module).unwrap().as_mut_module().type_info;
         for fn_name in v {
             let mut mut_module = FSRObject::id_to_mut_obj(module).unwrap().as_mut_module();
-            mut_module.jit_code_map.insert(fn_name, AtomicUsize::new(0));
+
+            let code_name = fn_name.split("::").collect::<Vec<&str>>();
+            if code_name.len() == 1 {
+                mut_module.jit_code_map.push((None, code_name[0].to_string(), AtomicUsize::new(0)));
+            } else {
+                let struct_name = code_name[0];
+                let father_type = type_info_ref.get_type(&FSRTypeName::new(struct_name)).unwrap();
+                mut_module.jit_code_map.push((
+                    Some(father_type),
+                    code_name[1].to_string(),
+                    AtomicUsize::new(0),
+                ));
+            }
         }
 
         for code in FSRObject::id_to_obj(module).as_module().iter_fn() {
@@ -3519,13 +3532,25 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
+        
+
         for code in h {
             let mut mut_module = FSRObject::id_to_mut_obj(module).unwrap().as_mut_module();
-            mut_module
-                .jit_code_map
-                .get(&code.0)
-                .unwrap()
-                .store(code.1 as usize, Ordering::Relaxed);
+            let code_name = code.0.split("::").collect::<Vec<&str>>();
+            if code_name.len() == 1 {
+                mut_module.get_jit_code_map(None, code_name[0]).unwrap().store(
+                    code.1 as usize,
+                    Ordering::Relaxed,
+                );
+            } else {
+                let struct_name = code_name[0];
+                let father_type = type_info_ref.get_type(&FSRTypeName::new(struct_name)).unwrap();
+                mut_module.get_jit_code_map(Some(father_type), code_name[1]).unwrap().store(
+                    code.1 as usize,
+                    Ordering::Relaxed,
+                );
+            }
+            
         }
     }
 

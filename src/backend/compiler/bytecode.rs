@@ -504,7 +504,7 @@ pub enum ArgType {
     FnLines(usize),
     CallArgsNumber((usize, Option<Arc<FnCallSig>>)), // number size, return type
     CallArgsNumberWithVar((usize, u64, String, bool)), // number size, Variable
-    CallArgsNumberWithAttr((usize, u64, String)),
+    CallArgsNumberWithAttr((usize, u64, String, Option<Arc<FnCallSig>>)),
     DefineFnArgs(FnArgs), // function len, args len, identify function name
     DefineClassLine(u64),
     LoadListNumber(LoadListArg),
@@ -521,12 +521,12 @@ pub enum ArgType {
     LoadFalse,
     LoadNone,
     LoadUninit,
-    FormatStringLen(u64, String),    // length, format string
-    CreateStruct(u64, String),       // struct id, struct name
-    DefAttr(StructAttr),             // struct id, attr name, attr type
-    JitFunction(String),             // function identify name
-    Alloc((String, usize, bool)),    // type name, size
-    TypeInfo(Option<Arc<FSRSType>>), // Contain full type information
+    FormatStringLen(u64, String),               // length, format string
+    CreateStruct(u64, String),                  // struct id, struct name
+    DefAttr(StructAttr),                        // struct id, attr name, attr type
+    JitFunction(Option<Arc<FSRSType>>, String), //father struct name, function identify name
+    Alloc((String, usize, bool)),               // type name, size
+    TypeInfo(Option<Arc<FSRSType>>),            // Contain full type information
     None,
 }
 
@@ -791,6 +791,7 @@ pub struct FnDef {
     fn_type: Option<Arc<FnCallSig>>,
 }
 
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FSRStruct {
     pub name: String,
@@ -861,7 +862,7 @@ pub struct FSRSTypeInfo {
 }
 
 impl FSRSTypeInfo {
-    pub fn get_type(&mut self, type_name: &FSRTypeName) -> Option<Arc<FSRSType>> {
+    pub fn get_type(&self, type_name: &FSRTypeName) -> Option<Arc<FSRSType>> {
         let mut search = vec![];
         let name = &type_name.name;
         search.push(name.clone());
@@ -874,7 +875,7 @@ impl FSRSTypeInfo {
                     return Some(t.clone());
                 }
                 let new_ptr = Arc::new(FSRSType::Ptr(sub_type));
-                self.types.insert(search, new_ptr.clone());
+                //self.types.insert(search, new_ptr.clone());
                 return Some(new_ptr);
             }
             "List" => {
@@ -892,7 +893,7 @@ impl FSRSTypeInfo {
                 }
 
                 let new_ptr = Arc::new(FSRSType::List(sub_type, len_num));
-                self.types.insert(search, new_ptr.clone());
+                //self.types.insert(search, new_ptr.clone());
                 return Some(new_ptr);
             }
             _ => {}
@@ -946,6 +947,7 @@ pub struct BytecodeContext {
     pub(crate) is_static: bool,
     pub(crate) type_info: FSRSTypeInfo,
     pub(crate) def_fn_ret: Vec<Option<Arc<FSRSType>>>,
+    pub(crate) is_pre_compile: bool,
 }
 
 #[allow(clippy::new_without_default)]
@@ -967,6 +969,7 @@ impl BytecodeContext {
             is_static: false,
             type_info: FSRSTypeInfo::new(),
             def_fn_ret: vec![],
+            is_pre_compile: false,
         }
     }
 
@@ -1304,12 +1307,13 @@ impl<'a> Bytecode {
         result: &mut Vec<BytecodeArg>,
         context: &mut BytecodeContext,
         name: &str,
+        father_type: Option<Arc<FSRSType>>
     ) {
         //if let Some(fn_def) = context.fn_def_map.get(name) {
         //if fn_def.is_static {
         let op_arg = BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: Box::new(ArgType::JitFunction(name.to_string())),
+            arg: Box::new(ArgType::JitFunction(father_type, name.to_string())),
             info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
         };
 
@@ -1326,6 +1330,7 @@ impl<'a> Bytecode {
         is_attr: bool,
         is_method_call: bool,
         context: &mut BytecodeContext,
+        father_type: Option<Arc<FSRSType>>,
     ) -> (Vec<BytecodeArg>) {
         let mut result = Vec::new();
 
@@ -1333,7 +1338,7 @@ impl<'a> Bytecode {
         let mut attr_id_arg = None;
         if !name.is_empty() {
             if context.is_static {
-                Self::load_call_static(call, &mut result, context, name);
+                Self::load_call_static(call, &mut result, context, name, father_type.clone());
             } else {
                 Self::call_helper(
                     call,
@@ -1360,11 +1365,37 @@ impl<'a> Bytecode {
         };
 
         let arg = if is_method_call {
-            ArgType::CallArgsNumberWithAttr((
-                call.get_args().len(),
-                attr_id_arg.as_ref().unwrap().0,
-                attr_id_arg.unwrap().1,
-            ))
+            let method_fn_sig = if context.is_static {
+                let obj_type = father_type.expect("Object type is required for static method calls");
+                if let FSRSType::Ptr(t) = obj_type.as_ref() {
+                    if let FSRSType::Struct(s) = t.as_ref() {
+                        let method = s.fields.get(call.get_name()).unwrap();
+                        let method = if let FSRSType::Fn(f) = method.1.as_ref() {
+                            f.clone()
+                        } else {
+                            panic!("Method {} is not a function", call.get_name());
+                        };
+                        Some(method)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            if context.is_static {
+                ArgType::CallArgsNumber((call.get_args().len(), method_fn_sig))
+            } else {
+                ArgType::CallArgsNumberWithAttr((
+                    call.get_args().len(),
+                    attr_id_arg.as_ref().unwrap().0,
+                    attr_id_arg.unwrap().1,
+                    method_fn_sig,
+                ))
+            }
         } else {
             let call_sig = context.type_info.fn_call_sig_map.get(name).cloned();
             ArgType::CallArgsNumber((call.get_args().len(), call_sig))
@@ -1691,8 +1722,7 @@ impl<'a> Bytecode {
                 }]),
                 None,
             );
-        }
-        else if var.get_name().eq("alloc") {
+        } else if var.get_name().eq("alloc") {
             let type_name = if let FSRToken::Variable(v) = father {
                 v.get_name()
             } else {
@@ -1897,6 +1927,9 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) {
+        if !const_map.is_pre_compile {
+            return;
+        }
         let mut result = Vec::new();
         let mut struct_type = FSRStruct {
             name: struct_stmt.get_name().to_string(),
@@ -2018,6 +2051,9 @@ impl<'a> Bytecode {
         var_map: &mut Vec<VarMap>,
         const_map: &mut BytecodeContext,
     ) -> (Vec<BytecodeArg>, Option<Arc<FSRSType>>) {
+        if const_map.is_pre_compile {
+            return (Vec::new(), None);
+        }
         let mut op_code = Vec::new();
         let mut return_type = None;
         if let FSRToken::Expr(sub_expr) = expr.get_left() {
@@ -2038,7 +2074,7 @@ impl<'a> Bytecode {
                 return_type = tmp;
             }
         } else if let FSRToken::Call(c) = expr.get_left() {
-            let mut v = Self::load_call(c, var_map, false, false, const_map);
+            let mut v = Self::load_call(c, var_map, false, false, const_map, None);
             op_code.append(&mut v);
         } else if let FSRToken::Getter(s) = expr.get_left() {
             let mut v = Self::load_getter(s, var_map, false, false, false, const_map);
@@ -2136,7 +2172,14 @@ impl<'a> Bytecode {
 
             //println!("call: {:#?}", expr);
 
-            let mut v = Self::load_call(c, var_map, is_attr, is_method_call, const_map);
+            let mut v = Self::load_call(
+                c,
+                var_map,
+                is_attr,
+                is_method_call,
+                const_map,
+                return_type.clone(),
+            );
             second.append(&mut v);
 
             //call special process
@@ -2662,7 +2705,7 @@ impl<'a> Bytecode {
             let v = Self::load_block(block, var_map, byte_context);
             return (v, None);
         } else if let FSRToken::Call(call) = token {
-            let v = Self::load_call(call, var_map, is_attr, is_method_call, byte_context);
+            let v = Self::load_call(call, var_map, is_attr, is_method_call, byte_context, None);
             return (vec![v], None);
         } else if let FSRToken::Getter(getter) = token {
             let v = Self::load_getter(
@@ -2714,7 +2757,9 @@ impl<'a> Bytecode {
                 }];
                 return (vec![result], None);
             }
-
+            if byte_context.is_pre_compile {
+                return (vec![], None)
+            }
             let v = Self::load_function(fn_def, var_map, byte_context);
             return (v.0, None);
         } else if let FSRToken::Class(cls) = token {
@@ -2733,6 +2778,9 @@ impl<'a> Bytecode {
             let v = Self::load_continue(Box::new(FSRByteInfo::new(&byte_context.lines, c.clone())));
             return (vec![v], None);
         } else if let FSRToken::ForBlock(b) = token {
+            if byte_context.is_pre_compile {
+                return (vec![], None)
+            }
             let v = Self::load_for_def(b, var_map, byte_context);
             return (v, None);
         } else if let FSRToken::Import(import) = token {
@@ -3513,6 +3561,7 @@ impl<'a> Bytecode {
 
     fn pre_load_ast(_name: &str, token: &FSRToken, lines: Vec<usize>) -> BytecodeContext {
         let mut const_table = BytecodeContext::new(lines);
+        const_table.is_pre_compile = true;
         let vs = Self::load_isolate_block(&token, &mut const_table);
         let mut result = vec![];
         for v in vs.0 {
@@ -3555,7 +3604,7 @@ impl<'a> Bytecode {
         const_table
     }
 
-    pub fn load_ast(name: &str, token: FSRToken, lines: Vec<usize>) -> HashMap<String, Bytecode> {
+    pub fn load_ast(name: &str, token: FSRToken, lines: Vec<usize>) -> (HashMap<String, Bytecode>, FSRSTypeInfo) {
         let type_info = Self::pre_load_ast(name, &token, lines.clone());
         let type_info = type_info.type_info;
         let mut const_table = BytecodeContext::new(lines);
@@ -3617,7 +3666,7 @@ impl<'a> Bytecode {
             },
         );
 
-        let codes = const_table.fn_def_map;
+        let codes = const_table.fn_def_map;;
 
         for code in codes {
             let bytecode = Bytecode {
@@ -3635,10 +3684,10 @@ impl<'a> Bytecode {
             res.insert(code.0.to_string(), bytecode);
         }
 
-        res
+        (res, const_table.type_info)
     }
 
-    pub fn compile(name: &str, code: &str) -> HashMap<String, Bytecode> {
+    pub fn compile(name: &str, code: &str) -> (HashMap<String, Bytecode>, FSRSTypeInfo) {
         let meta = FSRPosition::new();
         let chars = code.chars().collect::<Vec<char>>();
         let token = FSRModuleFrontEnd::parse(&chars, meta).unwrap();

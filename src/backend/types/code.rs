@@ -11,7 +11,7 @@ use std::{
 use ahash::AHashMap;
 
 use crate::{
-    backend::{compiler::bytecode::{Bytecode, BytecodeArg}, vm::virtual_machine::gid},
+    backend::{compiler::bytecode::{Bytecode, BytecodeArg, FSRSTypeInfo}, vm::virtual_machine::gid},
     utils::error::FSRError,
 };
 
@@ -56,10 +56,10 @@ impl FSRCode {
         unimplemented!()
     }
 
-    pub fn from_code<'a>(name: &str, code: &str, module: ObjId) -> Result<HashMap<String, FSRObject<'a>>, FSRError> {
+    pub fn from_code<'a>(name: &str, code: &str, module: ObjId) -> Result<(HashMap<String, FSRObject<'a>>, FSRSTypeInfo), FSRError> {
         let bytecode = Bytecode::compile(name, code);
         let mut res = HashMap::new();
-        for code in bytecode {
+        for code in bytecode.0 {
             let code = Self {
                 name: code.0.to_string(),
                 bytecode: code.1,
@@ -74,7 +74,7 @@ impl FSRCode {
             object.set_cls(gid(GlobalObj::CodeCls));
             res.insert(tmp.to_string(), object);
         }
-        Ok(res)
+        Ok((res, bytecode.1))
     }
 
     

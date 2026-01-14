@@ -1,8 +1,8 @@
-use std::{collections::HashMap, fmt::Debug, ptr::addr_of, sync::atomic::AtomicUsize};
+use std::{collections::HashMap, fmt::Debug, ptr::addr_of, sync::{Arc, atomic::AtomicUsize}};
 
 use ahash::AHashMap;
 
-use crate::backend::{compiler::bytecode::FnCallSig, vm::{thread::FSRThreadRuntime, virtual_machine::gid}};
+use crate::backend::{compiler::bytecode::{FSRSType, FSRSTypeInfo, FSRStruct, FnCallSig}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}};
 
 use super::{base::{AtomicObjId, GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
@@ -13,7 +13,8 @@ pub struct FSRModule<'a> {
     name: String,
     fn_map: HashMap<String, FSRObject<'a>>,
     pub(crate) object_map: AHashMap<String, AtomicObjId>,
-    pub(crate) jit_code_map: AHashMap<String, AtomicUsize>, // JITed code address map
+    pub(crate) jit_code_map: Vec<(Option<Arc<FSRSType>>, String, AtomicUsize)>, // JITed code address map
+    pub(crate) type_info: FSRSTypeInfo
     // pub(crate) const_table: Vec<Option<ObjId>>,
 }
 
@@ -33,16 +34,35 @@ impl Debug for FSRModule<'_> {
 }
 
 impl<'a> FSRModule<'a> {
+
+    pub fn get_jit_code_map(&self, s: Option<Arc<FSRSType>>, name: &str) -> Option<&AtomicUsize> {
+        for (struct_opt, fn_name, addr) in &self.jit_code_map {
+            if struct_opt.is_none() && s.is_none() && fn_name == name {
+                return Some(addr);
+            }
+            if let (Some(st1), Some(st2)) = (struct_opt, &s) {
+                if st1.eq(st2) && fn_name == name {
+                    return Some(addr);
+                }
+            }
+        }
+        None
+    }
+
     /// Get the JITed function address pointer by name
     /// # Arguments
     /// * `name` - The name of the function
     /// # Returns
     /// * `Option<usize>` - The address pointer of the JITed function
-    pub fn get_fn_addr_ptr(&self, name: &str) -> usize {
+    pub fn get_fn_addr_ptr(&self, s: Option<Arc<FSRSType>>, name: &str) -> usize {
         // Use for lazy JIT function address retrieval
-        let v = self.jit_code_map.get(name).and_then(|x| Some(x as *const AtomicUsize as usize));
-        match v {
-            Some(addr) => addr,
+        // let v = self.jit_code_map.get(name).and_then(|x| Some(x as *const AtomicUsize as usize));
+        // match v {
+        //     Some(addr) => addr,
+        //     None => 0,
+        // }
+        match self.get_jit_code_map(s, name) {
+            Some(addr) => addr as *const AtomicUsize as usize,
             None => 0,
         }
         
@@ -61,7 +81,8 @@ impl<'a> FSRModule<'a> {
             name: name.to_string(),
             fn_map: HashMap::new(),
             object_map: AHashMap::new(),
-            jit_code_map: AHashMap::new(),
+            jit_code_map: vec![],
+            type_info: FSRSTypeInfo::new(),
             // const_table: vec![],
         };
         let mut object = FSRObject::new();
@@ -75,14 +96,16 @@ impl<'a> FSRModule<'a> {
             name: name.to_string(),
             fn_map: HashMap::new(),
             object_map: AHashMap::new(),
-            jit_code_map: AHashMap::new(),
+            jit_code_map: vec![],
+            type_info: FSRSTypeInfo::new(),
             // const_table: vec![],
         }
     }
     
 
-    pub fn init_fn_map(&mut self, fn_map: HashMap<String, FSRObject<'a>>) {
-        self.fn_map = fn_map;
+    pub fn init_fn_map(&mut self, fn_map: (HashMap<String, FSRObject<'a>>, FSRSTypeInfo)) {
+        self.fn_map = fn_map.0;
+        self.type_info = fn_map.1;
     }
 
     pub fn get_class() -> FSRClass {

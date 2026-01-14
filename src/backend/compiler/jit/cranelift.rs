@@ -995,32 +995,33 @@ impl JitBuilder<'_> {
     }
 
     fn load_call_method(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
-        if let ArgType::CallArgsNumberWithAttr(v) = arg.get_arg() {
-            let father_obj_id = *context.exp.last().unwrap();
-            let fn_obj_id = self.get_obj_method(father_obj_id, v.2.as_str());
+        if let ArgType::CallArgsNumber(v) = arg.get_arg() {
+            panic!("CallMethod is not implemented yet in Cranelift JIT backend");
+            // let father_obj_id = *context.exp.last().unwrap();
+            // let fn_obj_id = self.get_obj_method(father_obj_id, v.2.as_str());
 
-            let call_fn_sig = self.make_call_fn();
-            let fn_id = self
-                .module
-                .declare_function("call_fn", cranelift_module::Linkage::Import, &call_fn_sig)
-                .unwrap();
-            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            let list_ptr = self.load_make_method_arg_list(context, v.0);
-            let len = self.builder.ins().iconst(types::I64, v.0 as i64 + 1);
-            let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            let code_object = self.builder.block_params(context.entry_block)[1];
+            // let call_fn_sig = self.make_call_fn();
+            // let fn_id = self
+            //     .module
+            //     .declare_function("call_fn", cranelift_module::Linkage::Import, &call_fn_sig)
+            //     .unwrap();
+            // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+            // let list_ptr = self.load_make_method_arg_list(context, v.0);
+            // let len = self.builder.ins().iconst(types::I64, v.0 as i64 + 1);
+            // let thread_runtime = self.builder.block_params(context.entry_block)[0];
+            // let code_object = self.builder.block_params(context.entry_block)[1];
 
-            //self.save_middle_value(context);
-            // self.save_object_to_exp(context);
-            let call = self.builder.ins().call(
-                func_ref,
-                &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
-            );
+            // //self.save_middle_value(context);
+            // // self.save_object_to_exp(context);
+            // let call = self.builder.ins().call(
+            //     func_ref,
+            //     &[list_ptr, len, fn_obj_id, thread_runtime, code_object],
+            // );
 
-            let ret = self.builder.inst_results(call)[0];
+            // let ret = self.builder.inst_results(call)[0];
 
-            context.exp.push(ret);
-            context.middle_value.push(ret);
+            // context.exp.push(ret);
+            // context.middle_value.push(ret);
         } else {
             unimplemented!()
         }
@@ -2279,10 +2280,10 @@ impl JitBuilder<'_> {
                         // context.left = Some(self.builder.use_var(*variable));
                         let value = self.builder.use_var(*variable);
                         context.exp.push(value);
-                    } else if let ArgType::JitFunction(f_name) = arg.get_arg() {
+                    } else if let ArgType::JitFunction(father_struct, f_name) = arg.get_arg() {
                         let module = FSRObject::id_to_obj(code).as_code().module;
                         let module_obj = FSRObject::id_to_obj(module).as_module();
-                        let target_fn_ptr = module_obj.get_fn_addr_ptr(f_name);
+                        let target_fn_ptr = module_obj.get_fn_addr_ptr(father_struct.clone(), f_name);
                         let target_fn_value = self.builder.ins().iconst(
                             self.module.target_config().pointer_type(),
                             target_fn_ptr as i64,
