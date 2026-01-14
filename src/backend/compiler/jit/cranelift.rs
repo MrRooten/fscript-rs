@@ -654,7 +654,6 @@ impl JitBuilder<'_> {
         malloc_ret
     }
 
-
     fn load_gc_collect(&mut self, context: &mut OperatorContext) {
         let ptr_type = self.module.target_config().pointer_type();
         let var_count =
@@ -864,6 +863,12 @@ impl JitBuilder<'_> {
                 //if let FSRSType::List(l, _) = type_info.as_ref() {
                 let new_value = Self::load_ptr_data(self, inner_type, target_ptr);
                 // Self::println(self, context, new_value);
+                context.exp.push(new_value);
+            } else if let FSRSType::Ptr(pointer_inner) = type_info.as_ref() {
+                let type_size = pointer_inner.size_of() as i64;
+                let index_size = self.builder.ins().imul_imm(index, type_size);
+                let target_ptr = self.builder.ins().iadd(father_obj_id, index_size);
+                let new_value = Self::load_ptr_data(self, pointer_inner, target_ptr);
                 context.exp.push(new_value);
             } else {
                 panic!("Getter only supports List type currently");
@@ -1747,8 +1752,21 @@ impl JitBuilder<'_> {
     }
 
     fn struct_alloc(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
-        let size = if let ArgType::Alloc((_, size)) = arg.get_arg() {
-            *size as i64
+        let size_value = if let ArgType::Alloc((_, size, is_array)) = arg.get_arg() {
+            if *is_array {
+                let num = context.exp.pop().unwrap();
+                let size_value = self
+                    .builder
+                    .ins()
+                    .iconst(self.module.target_config().pointer_type(), *size as i64);
+                let mul_size = self.builder.ins().imul(num, size_value);
+                mul_size
+            } else {
+                self.builder.ins().iconst(
+                    self.module.target_config().pointer_type(),
+                    *size as i64,
+                )
+            }
         } else {
             panic!("StructAlloc requires a StructSize argument");
         };
@@ -1767,10 +1785,6 @@ impl JitBuilder<'_> {
             .module
             .declare_func_in_func(malloc_id, self.builder.func);
 
-        let size_value = self
-            .builder
-            .ins()
-            .iconst(self.module.target_config().pointer_type(), size);
         let malloc_call = self.builder.ins().call(malloc_func_ref, &[size_value]);
         let malloc_ret = self.builder.inst_results(malloc_call)[0];
 
@@ -1808,6 +1822,9 @@ impl JitBuilder<'_> {
             let type_info = v.as_ref().unwrap();
             let sub_type;
             let type_size = if let FSRSType::List(l, _) = type_info.as_ref() {
+                sub_type = l.clone();
+                l.size_of() as i64
+            } else if let FSRSType::Ptr(l) = type_info.as_ref() {
                 sub_type = l.clone();
                 l.size_of() as i64
             } else {
@@ -2199,67 +2216,6 @@ impl JitBuilder<'_> {
         Self::assign_routine(self, context, v);
     }
 
-    // fn load_define_var(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
-    //     if let ArgType::Local(v) = arg.get_arg() {
-    //         if let Some(var_type) = &v.var_type {
-    //             match var_type.as_ref() {
-    //                 FSRSType::List(list_type, len) => {
-    //                     // allocate stack slot for list args
-    //                     let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
-    //                         StackSlotKind::ExplicitSlot,
-    //                         (list_type.size_of() * len) as u32,
-    //                         0,
-    //                     ));
-    //                     let stack_slot_addr = self.builder.ins().stack_addr(
-    //                         self.module.target_config().pointer_type(),
-    //                         slot,
-    //                         0,
-    //                     );
-    //                     let variable = self.variables.get(v.name.as_str()).unwrap();
-    //                     self.builder.def_var(*variable, stack_slot_addr);
-    //                     self.defined_variables.insert(v.name.to_string(), *variable);
-    //                     return;
-    //                 }
-    //                 FSRSType::Struct(s) => {
-    //                     // allocate stack slot for struct
-    //                     let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
-    //                         StackSlotKind::ExplicitSlot,
-    //                         var_type.size_of() as u32,
-    //                         0,
-    //                     ));
-    //                     let stack_slot_addr = self.builder.ins().stack_addr(
-    //                         self.module.target_config().pointer_type(),
-    //                         slot,
-    //                         0,
-    //                     );
-    //                     let variable = self.variables.get(v.name.as_str()).unwrap();
-    //                     self.builder.def_var(*variable, stack_slot_addr);
-    //                     self.defined_variables.insert(v.name.to_string(), *variable);
-    //                     return;
-    //                 }
-    //                 _ => panic!("LoadDefineVar only supports basic types for now"),
-    //             }
-    //             let new_type = self.get_var_type(&v.var_type.as_ref().unwrap());
-    //             let var_type = new_type.unwrap();
-    //             let mut var_id = self.var_index;
-    //             let new_var = declare_variable(
-    //                 var_type,
-    //                 &mut self.builder,
-    //                 &mut self.variables,
-    //                 &mut var_id,
-    //                 &v.name,
-    //             );
-    //             self.var_index = var_id;
-    //         }
-
-    //         let variable = self.variables.get(v.name.as_str()).unwrap();
-    //         let var_value = self.builder.use_var(*variable);
-    //         context.exp.push(var_value);
-    //     } else {
-    //         panic!("LoadDefineVar requires a Local argument");
-    //     }
-    // }
-
     fn compile_expr(
         &mut self,
         expr: &[BytecodeArg],
@@ -2309,11 +2265,6 @@ impl JitBuilder<'_> {
                     } else if let ArgType::JitFunction(f_name) = arg.get_arg() {
                         let module = FSRObject::id_to_obj(code).as_code().module;
                         let module_obj = FSRObject::id_to_obj(module).as_module();
-                        // let target_fn = module_obj
-                        //     .jit_code_map
-                        //     .get(f_name)
-                        //     .and_then(|x| x.clone())
-                        //     .expect("Not found jit");
                         let target_fn_ptr = module_obj.get_fn_addr_ptr(f_name);
                         let target_fn_value = self.builder.ins().iconst(
                             self.module.target_config().pointer_type(),
@@ -2325,10 +2276,6 @@ impl JitBuilder<'_> {
                             target_fn_value,
                             0,
                         );
-                        // let fn_value = self
-                        //     .builder
-                        //     .ins()
-                        //     .iconst(self.module.target_config().pointer_type(), target_fn as i64);
                         context.exp.push(target_fn);
                         //self.load_jit_function(f_name, context);
                     } else if let ArgType::Const(c) = arg.get_arg() {
@@ -2606,7 +2553,6 @@ fn declare_variables(
 
     (variables, index)
 }
-
 
 impl CraneLiftJitBackend {
     fn init_builder(builder: &mut JITBuilder) {

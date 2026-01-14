@@ -10,4 +10,5 @@ fn test() -> u64 {
 }
 
 a = test()
-println(a)
+println(f"a: {a}")
+assert(a == 42, "alloc_array: testcase1: a should be 42")

@@ -1,8 +1,12 @@
 use core::panic;
 use std::{
-    cell::Cell, collections::HashMap, str::FromStr, sync::{
-        Arc, atomic::{AtomicU64, Ordering}
-    }
+    cell::Cell,
+    collections::HashMap,
+    str::FromStr,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
 
 use crate::{
@@ -380,7 +384,6 @@ impl FromStr for OpAssign {
 }
 
 impl OpAssign {
-
     pub fn get_offset(&self) -> BinaryOffset {
         match self {
             OpAssign::Add => BinaryOffset::Add,
@@ -517,11 +520,11 @@ pub enum ArgType {
     LoadFalse,
     LoadNone,
     LoadUninit,
-    FormatStringLen(u64, String), // length, format string
-    CreateStruct(u64, String),    // struct id, struct name
-    DefAttr(StructAttr),          // struct id, attr name, attr type
-    JitFunction(String),          // function identify name
-    Alloc((String, usize)),       // type name, size
+    FormatStringLen(u64, String),    // length, format string
+    CreateStruct(u64, String),       // struct id, struct name
+    DefAttr(StructAttr),             // struct id, attr name, attr type
+    JitFunction(String),             // function identify name
+    Alloc((String, usize, bool)),    // type name, size
     TypeInfo(Option<Arc<FSRSType>>), // Contain full type information
     None,
 }
@@ -1135,7 +1138,7 @@ impl<'a> Bytecode {
         None
     }
 
-    fn load_list_getter(
+    fn load_getter(
         getter: &FSRGetter,
         var_map: &mut Vec<VarMap>,
         is_attr: bool,
@@ -1192,8 +1195,16 @@ impl<'a> Bytecode {
                     if const_map.is_static {
                         let var_type = const_map
                             .type_info
-                            .get_type(getter.var_type.as_ref().unwrap());
-                        var.var_type = var_type;
+                            .get_type(getter.var_type.as_ref().unwrap())
+                            .unwrap();
+                        let inner_type = if let FSRSType::Ptr(t) = &*var_type {
+                            Some(t.clone())
+                        } else if let FSRSType::List(t, _) = &*var_type {
+                            Some(t.clone())
+                        } else {
+                            None
+                        };
+                        var.var_type = inner_type;
                         type_info = var.var_type.clone();
                     }
                     result.push(BytecodeArg {
@@ -1212,10 +1223,18 @@ impl<'a> Bytecode {
             Self::load_token_with_map(getter.get_getter(), var_map, const_map, false, false);
         result.append(&mut v.0[0]);
 
+        let type_info_full = if const_map.is_static {
+            let var_type = const_map
+                .type_info
+                .get_type(getter.var_type.as_ref().unwrap());
+            var_type
+        } else {
+            None
+        };
         if !is_assign {
             result.push(BytecodeArg {
                 operator: BytecodeOperator::Getter,
-                arg: Box::new(ArgType::TypeInfo(type_info.clone())),
+                arg: Box::new(ArgType::TypeInfo(type_info_full.clone())),
                 info: Box::new(FSRByteInfo::new(
                     &const_map.lines,
                     getter.get_meta().clone(),
@@ -1223,7 +1242,7 @@ impl<'a> Bytecode {
             });
         }
 
-        (result, v.1.clone())
+        (result, type_info)
     }
 
     fn call_helper(
@@ -1487,7 +1506,7 @@ impl<'a> Bytecode {
 
             return (AttrIdOrCode::Bytecode(ans), None);
         }
-        let mut ret_type ;
+        let mut ret_type;
         let op_arg = match is_attr {
             true => {
                 let arg_id = var_map
@@ -1676,11 +1695,111 @@ impl<'a> Bytecode {
             return (
                 Some(vec![BytecodeArg {
                     operator: BytecodeOperator::SAlloc,
-                    arg: Box::new(ArgType::Alloc((var.get_name().to_string(), struct_size))),
+                    arg: Box::new(ArgType::Alloc((
+                        var.get_name().to_string(),
+                        struct_size,
+                        false,
+                    ))),
                     info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
                 }]),
                 None,
             );
+        }
+        (None, None)
+    }
+
+    fn special_fn_trigger(
+        father: &FSRToken,
+        call: &FSRCall,
+        context: &mut BytecodeContext,
+        var_map: &mut Vec<VarMap>,
+    ) -> (Option<Vec<BytecodeArg>>, Option<Arc<FSRSType>>) {
+        let mut result = Vec::new();
+        for arg in call.get_args() {
+            println!("Special function arg: {:?}", arg);
+            let mut v = Self::load_token_with_map(arg, var_map, context, false, false);
+            if v.0.len() != 1 {
+                panic!("Special function arguments must be single value");
+            }
+
+            result.append(&mut v.0[0]);
+        }
+        if call.get_name().eq("try") {
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::TryException,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                }]),
+                None,
+            );
+        } else if call.get_name().eq("await") {
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::Await,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                }]),
+                None,
+            );
+        } else if call.get_name().eq("yield") {
+            return (
+                Some(vec![
+                    BytecodeArg {
+                        operator: BytecodeOperator::Yield,
+                        arg: Box::new(ArgType::None),
+                        info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                    },
+                    BytecodeArg {
+                        operator: BytecodeOperator::LoadYield,
+                        arg: Box::new(ArgType::None),
+                        info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                    },
+                ]),
+                None,
+            );
+        } else if call.get_name().eq("delegate") {
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::Delegate,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                }]),
+                None,
+            );
+        } else if call.get_name().eq("ref") {
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::SLoadRef,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+                }]),
+                None,
+            );
+        } else if call.get_name().eq("alloc") {
+            let type_name = if let FSRToken::Variable(v) = father {
+                v.get_name()
+            } else {
+                panic!("Alloc must be a Struct name");
+            };
+            let var_type = context
+                .type_info
+                .get_type(&FSRTypeName::new(type_name))
+                .unwrap();
+            let struct_size = var_type.size_of();
+            if call.get_args().len() != 1 {
+                panic!("Alloc must have exactly one argument for heap allocation");
+            }
+            result.push(BytecodeArg {
+                operator: BytecodeOperator::SAlloc,
+                arg: Box::new(ArgType::Alloc((
+                    call.get_name().to_string(),
+                    struct_size,
+                    true,
+                ))),
+                info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
+            });
+            return (Some(result), None);
         }
         (None, None)
     }
@@ -1911,7 +2030,7 @@ impl<'a> Bytecode {
             let mut v = Self::load_call(c, var_map, false, false, const_map);
             op_code.append(&mut v);
         } else if let FSRToken::Getter(s) = expr.get_left() {
-            let mut v = Self::load_list_getter(s, var_map, false, false, false, const_map);
+            let mut v = Self::load_getter(s, var_map, false, false, false, const_map);
             op_code.append(&mut v.0);
             return_type = v.1;
         } else if let FSRToken::Constant(c) = expr.get_left() {
@@ -1991,6 +2110,13 @@ impl<'a> Bytecode {
             let mut is_method_call = false;
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 is_attr = true;
+
+                let v = Self::special_fn_trigger(expr.get_left(), c, const_map, var_map);
+                if let Some(op_arg) = v.0 {
+                    second.extend(op_arg);
+                    op_code.append(&mut second);
+                    return (op_code, v.1.clone());
+                }
             }
 
             if expr.get_op().eq(".") {
@@ -2018,8 +2144,7 @@ impl<'a> Bytecode {
             if expr.get_op().eq("::") {
                 is_method_call = false;
             }
-            let mut v =
-                Self::load_list_getter(s, var_map, is_attr, is_method_call, false, const_map);
+            let mut v = Self::load_getter(s, var_map, is_attr, is_method_call, false, const_map);
             second.append(&mut v.0);
             return_type = Self::deduction_two_type(
                 &mut const_map.type_info,
@@ -2180,7 +2305,6 @@ impl<'a> Bytecode {
 
         (vs)
     }
-
 
     fn load_try_def(
         try_def: &'a FSRTryBlock,
@@ -2530,7 +2654,7 @@ impl<'a> Bytecode {
             let v = Self::load_call(call, var_map, is_attr, is_method_call, byte_context);
             return (vec![v], None);
         } else if let FSRToken::Getter(getter) = token {
-            let v = Self::load_list_getter(
+            let v = Self::load_getter(
                 getter,
                 var_map,
                 is_attr,
@@ -2766,7 +2890,7 @@ impl<'a> Bytecode {
     ) -> Option<(Vec<BytecodeArg>)> {
         let mut result_list = Vec::new();
         if let FSRToken::Getter(v) = &**token.get_left() {
-            let mut left = Self::load_list_getter(v, var_map, false, false, true, const_map);
+            let mut left = Self::load_getter(v, var_map, false, false, true, const_map);
 
             let mut right = Self::load_token_with_map(
                 token.get_assign_expr(),
