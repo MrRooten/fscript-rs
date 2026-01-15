@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+use anyhow::Result;
 use core::panic;
 use std::{
     cell::Cell,
@@ -1323,6 +1325,34 @@ impl<'a> Bytecode {
         // }
     }
 
+    fn get_method_sig(
+        call: &FSRCall,
+        context: &mut BytecodeContext,
+        father_type: Option<Arc<FSRSType>>,
+    ) -> Option<Arc<FnCallSig>> {
+        let method_fn_sig = if context.is_static {
+            let obj_type = father_type.expect("Object type is required for static method calls");
+            if let FSRSType::Ptr(t) = obj_type.as_ref() {
+                if let FSRSType::Struct(s) = t.as_ref() {
+                    let method = s.fields.get(call.get_name()).unwrap();
+                    let method = if let FSRSType::Fn(f) = method.1.as_ref() {
+                        f.clone()
+                    } else {
+                        panic!("Method {} is not a function", call.get_name());
+                    };
+                    Some(method)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        method_fn_sig
+    }
+
     fn load_call(
         call: &FSRCall,
         var_map: &mut Vec<VarMap>,
@@ -1330,7 +1360,10 @@ impl<'a> Bytecode {
         is_method_call: bool,
         context: &mut BytecodeContext,
         father_type: Option<Arc<FSRSType>>,
-    ) -> (Vec<BytecodeArg>) {
+    ) -> (Vec<BytecodeArg>, Option<Arc<FSRSType>>) {
+        if context.is_pre_compile {
+            return (vec![], None);
+        }
         let mut result = Vec::new();
 
         let name = call.get_name();
@@ -1363,29 +1396,10 @@ impl<'a> Bytecode {
             BytecodeOperator::Call
         };
 
-        let arg = if is_method_call {
-            let method_fn_sig = if context.is_static {
-                let obj_type =
-                    father_type.expect("Object type is required for static method calls");
-                if let FSRSType::Ptr(t) = obj_type.as_ref() {
-                    if let FSRSType::Struct(s) = t.as_ref() {
-                        let method = s.fields.get(call.get_name()).unwrap();
-                        let method = if let FSRSType::Fn(f) = method.1.as_ref() {
-                            f.clone()
-                        } else {
-                            panic!("Method {} is not a function", call.get_name());
-                        };
-                        Some(method)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
+        let mut ret_type = None;
 
+        let arg = if is_method_call {
+            let method_fn_sig = Self::get_method_sig(call, context, father_type.clone());
             if context.is_static {
                 ArgType::CallArgsNumber((call.get_args().len(), method_fn_sig))
             } else {
@@ -1398,24 +1412,21 @@ impl<'a> Bytecode {
             }
         } else {
             let call_sig = context.type_info.fn_call_sig_map.get(name).cloned();
+            if context.is_static {
+                if let Some(sig) = &call_sig {
+                    ret_type = sig.return_type.clone();
+                }
+            }
             ArgType::CallArgsNumber((call.get_args().len(), call_sig))
         };
 
-        // if is_var {
         result.push(BytecodeArg {
             operator: call_or_callmethod,
             arg: Box::new(arg),
             info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
         });
-        // } else {
-        //     result.push(BytecodeArg {
-        //         operator: call_or_callmethod,
-        //         arg: ArgType::CallArgsNumber(call.get_args().len()),
-        //         info: FSRByteInfo::new(&context.lines,call.get_meta().clone()),
-        //     });
-        // }
 
-        (result)
+        (result, ret_type)
     }
 
     fn single_op_match(
@@ -1593,7 +1604,8 @@ impl<'a> Bytecode {
         }
 
         if let Some(ref_map) = context.ref_map_stack.last() {
-            if ref_map.get(var.get_name()).cloned().unwrap_or(false) {
+            let is_defined_in_ref = ref_map.get(var.get_name()).cloned().unwrap_or(false);
+            if is_defined_in_ref {
                 let arg_id = var_map.last_mut().unwrap().get_var(var.get_name()).unwrap();
                 let op_arg: BytecodeArg = BytecodeArg {
                     operator: BytecodeOperator::AssignArgs,
@@ -2080,7 +2092,8 @@ impl<'a> Bytecode {
             }
         } else if let FSRToken::Call(c) = expr.get_left() {
             let mut v = Self::load_call(c, var_map, false, false, const_map, None);
-            op_code.append(&mut v);
+            return_type = v.1;
+            op_code.append(&mut v.0);
         } else if let FSRToken::Getter(s) = expr.get_left() {
             let mut v = Self::load_getter(s, var_map, false, false, false, const_map);
             op_code.append(&mut v.0);
@@ -2183,9 +2196,19 @@ impl<'a> Bytecode {
                 is_attr,
                 is_method_call,
                 const_map,
-                return_type.clone(),
+                if is_method_call {
+                    return_type.clone()
+                } else {
+                    None
+                },
             );
-            second.append(&mut v);
+            second.append(&mut v.0);
+            return_type = Self::deduction_two_type(
+                &mut const_map.type_info,
+                &return_type,
+                &v.1,
+                expr.get_op(),
+            );
 
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
@@ -2235,20 +2258,8 @@ impl<'a> Bytecode {
             second.append(&mut v);
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 op_code.append(&mut second);
-                if let Some(single_op) = expr.get_single_op() {
-                    if single_op.eq(&SingleOp::Not) {
-                        op_code.push(BytecodeArg {
-                            operator: BytecodeOperator::NotOperator,
-                            arg: Box::new(ArgType::None),
-                            info: Box::new(FSRByteInfo::new(
-                                &const_map.lines,
-                                expr.get_meta().clone(),
-                            )),
-                        });
-                    } else {
-                        panic!("not support this single op: {:?}", single_op);
-                    }
-                }
+
+                Self::single_op_expr(expr, &mut op_code, const_map);
                 return (op_code, return_type);
             }
 
@@ -2711,7 +2722,7 @@ impl<'a> Bytecode {
             return (v, None);
         } else if let FSRToken::Call(call) = token {
             let v = Self::load_call(call, var_map, is_attr, is_method_call, byte_context, None);
-            return (vec![v], None);
+            return (vec![v.0], v.1);
         } else if let FSRToken::Getter(getter) = token {
             let v = Self::load_getter(
                 getter,
@@ -2812,43 +2823,47 @@ impl<'a> Bytecode {
         attr_name: &str,
         attr_var: &mut AttrVar,
         const_map: &BytecodeContext,
-    ) {
+    ) -> Result<()> {
         if const_map.is_static {
             let father_type = &left_type;
             if let Some(f_type) = father_type {
                 if let FSRSType::Struct(father_struct) = f_type.as_ref() {
-                    if let Some(attr_type) = father_struct.fields.get(attr_name) {
-                        attr_var.attr_type = Some(attr_type.1.clone());
-                        attr_var.offset = Some(attr_type.0);
-                        //return_type = Some(type_id);
-                    } else {
-                        panic!(
+                    let attr_type = father_struct.fields.get(attr_name).ok_or_else(|| {
+                        anyhow!(
                             "Static attribute assignment: struct {} has no attribute {}",
-                            father_struct.name, attr_name
-                        );
-                    }
+                            father_struct.name,
+                            attr_name
+                        )
+                    })?;
+
+                    attr_var.attr_type = Some(attr_type.1.clone());
+                    attr_var.offset = Some(attr_type.0);
                 } else if let FSRSType::Ptr(ptr) = f_type.as_ref() {
                     if let FSRSType::Struct(father_struct) = ptr.as_ref() {
-                        if let Some(attr_type) = father_struct.fields.get(attr_name) {
-                            attr_var.attr_type = Some(attr_type.1.clone());
-                            attr_var.offset = Some(attr_type.0);
-                            //return_type = Some(type_id);
-                        } else {
-                            panic!(
+                        let attr_type = father_struct.fields.get(attr_name).ok_or_else(|| {
+                            anyhow!(
                                 "Static attribute assignment: struct {} has no attribute {}",
-                                father_struct.name, attr_name
-                            );
-                        }
+                                father_struct.name,
+                                attr_name
+                            )
+                        })?;
+                        attr_var.attr_type = Some(attr_type.1.clone());
+                        attr_var.offset = Some(attr_type.0);
                     } else {
-                        panic!("Static attribute assignment father must be struct type");
+                        return Err(anyhow!(
+                            "Static attribute assignment father must be struct type"
+                        ));
                     }
                 } else {
-                    panic!("Static attribute assignment father must be struct type");
+                    return Err(anyhow!(
+                        "Static attribute assignment father must be struct type"
+                    ));
                 }
             } else {
-                panic!("Static attribute assignment must have father type");
+                return Err(anyhow!("Static attribute assignment must have father type"));
             }
-        }
+        };
+        Ok(())
     }
 
     fn load_dot_assign(
@@ -2867,14 +2882,7 @@ impl<'a> Bytecode {
                 return None;
             };
 
-            let attr_id = {
-                if !var_map.last_mut().unwrap().has_attr(attr_name) {
-                    var_map.last_mut().unwrap().insert_attr(attr_name);
-                }
-
-                let attr_id = var_map.last_mut().unwrap().get_attr(attr_name).unwrap();
-                *attr_id
-            };
+            let attr_id = ensure_attr_id!(var_map, attr_name);
 
             let mut left =
                 Self::load_token_with_map(v.get_left(), var_map, const_map, false, false);
@@ -2899,43 +2907,6 @@ impl<'a> Bytecode {
             );
 
             Self::is_static_type_process(&left.1, attr_name, &mut attr_var, const_map);
-
-            // if const_map.is_static {
-            //     let father_type = left.1;
-            //     if let Some(f_type) = father_type {
-            //         if let FSRSType::Struct(father_struct) = f_type.as_ref() {
-            //             if let Some(attr_type) = father_struct.fields.get(attr_name) {
-            //                 attr_var.attr_type = Some(attr_type.1.clone());
-            //                 attr_var.offset = Some(attr_type.0);
-            //                 //return_type = Some(type_id);
-            //             } else {
-            //                 panic!(
-            //                     "Static attribute assignment: struct {} has no attribute {}",
-            //                     father_struct.name, attr_name
-            //                 );
-            //             }
-            //         } else if let FSRSType::Ptr(ptr) = f_type.as_ref() {
-            //             if let FSRSType::Struct(father_struct) = ptr.as_ref() {
-            //                 if let Some(attr_type) = father_struct.fields.get(attr_name) {
-            //                     attr_var.attr_type = Some(attr_type.1.clone());
-            //                     attr_var.offset = Some(attr_type.0);
-            //                     //return_type = Some(type_id);
-            //                 } else {
-            //                     panic!(
-            //                         "Static attribute assignment: struct {} has no attribute {}",
-            //                         father_struct.name, attr_name
-            //                     );
-            //                 }
-            //             } else {
-            //                 panic!("Static attribute assignment father must be struct type");
-            //             }
-            //         } else {
-            //             panic!("Static attribute assignment father must be struct type");
-            //         }
-            //     } else {
-            //         panic!("Static attribute assignment must have father type");
-            //     }
-            // }
 
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::AssignAttr,

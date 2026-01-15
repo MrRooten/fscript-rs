@@ -2358,6 +2358,12 @@ impl JitBuilder<'_> {
                         let module = FSRObject::id_to_obj(code).as_code().module;
                         let module_obj = FSRObject::id_to_obj(module).as_module();
                         let target_fn_ptr = module_obj.get_fn_addr_ptr(father_struct.clone(), f_name);
+                        if target_fn_ptr == 0 {
+                            panic!(
+                                "JIT function {} not found in struct {:?}",
+                                f_name, father_struct
+                            );
+                        }
                         let target_fn_value = self.builder.ins().iconst(
                             self.module.target_config().pointer_type(),
                             target_fn_ptr as i64,
