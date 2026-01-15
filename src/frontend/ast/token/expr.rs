@@ -3,7 +3,7 @@
 use std::rc::Rc;
 use std::{cmp::Ordering, fmt::Display};
 
-use crate::chars_to_string;
+use crate::chrs2str;
 use crate::frontend::ast::token;
 use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::token::constant::{FSRConstType, FSROrinStr};
@@ -343,14 +343,14 @@ impl FSRExpr {
 
     pub fn is_op(op: &[char]) -> bool {
         // let op = std::str::from_utf8(op).unwrap();
-        let op = chars_to_string!(op);
+        let op = chrs2str!(op);
         ASTParser::get_static_op(&op).is_some()
     }
 
     /// Convert a byte slice to a string, handling escape sequences.
     fn bytes_to_unescaped_string(input: &[char]) -> Result<String, std::str::Utf8Error> {
         // let s = std::str::from_utf8(input)?;
-        let s = chars_to_string!(input);
+        let s = chrs2str!(input);
         let mut out = String::with_capacity(s.len());
         let mut chars = s.chars().peekable();
         while let Some(c) = chars.next() {
@@ -613,14 +613,14 @@ impl FSRExpr {
         context: &mut ASTContext,
     ) -> Result<(), SyntaxError> {
         // let mut op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-        let mut op = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
+        let mut op = chrs2str!(&source[ctx.start..ctx.start + ctx.length]);
         let orig_length = ctx.length;
         let orig_op = op.clone();
 
         // Check for the longest matching operator
         while ctx.length > 0 {
             // op = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-            op = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
+            op = chrs2str!(&source[ctx.start..ctx.start + ctx.length]);
             if let Some(s) = ASTParser::get_static_op(&op) {
                 op = s.to_string();
                 break;
@@ -641,7 +641,7 @@ impl FSRExpr {
         if orig_length - ctx.length > 0 {
             // let single_op =
             //     str::from_utf8(&source[ctx.start + ctx.length..ctx.start + orig_length]).unwrap();
-            let single_op = chars_to_string!(
+            let single_op = chrs2str!(
                 &source[ctx.start + ctx.length..ctx.start + orig_length]
             );
             if !Self::is_single_op(&single_op) {
@@ -733,7 +733,7 @@ impl FSRExpr {
             return Ok(());
         } else {
             let _ps = &source[ctx.start..ctx.start + ctx.length];
-            let ps = chars_to_string!(_ps);
+            let ps = chrs2str!(_ps);
 
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -766,7 +766,7 @@ impl FSRExpr {
         } else {
             let _ps = &source[ctx.start..ctx.start + ctx.length];
             // let ps = str::from_utf8(_ps).unwrap();
-            let ps = chars_to_string!(_ps);
+            let ps = chrs2str!(_ps);
 
             ctx.start += ctx.length;
             ctx.length = 0;
@@ -813,7 +813,7 @@ impl FSRExpr {
             };
         }
         // let name = str::from_utf8(cur_str!(source)).unwrap().to_string();
-        let name = chars_to_string!(cur_str!(source));
+        let name = chrs2str!(cur_str!(source));
         if Self::is_logic_keyword(&name) {
             if name.eq("not") {
                 ctx.single_op_level = Some(Node::get_single_op_level(&SingleOp::Not));
@@ -887,7 +887,7 @@ impl FSRExpr {
         if cur_byte!(source) == '\'' {
             // Process like f'user: "{name}"'
             // let string_name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-            let string_name = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
+            let string_name = chrs2str!(&source[ctx.start..ctx.start + ctx.length]);
             ctx.start += ctx.length;
             ctx.length = 0;
             // process situations like f'user: "{name}"' or f"user: '{name}'"
@@ -902,7 +902,7 @@ impl FSRExpr {
             // Process like f"user: '{name}'"
             // Process like f'user: "{name}"'
             // let string_name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-            let string_name = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
+            let string_name = chrs2str!(&source[ctx.start..ctx.start + ctx.length]);
             ctx.start += ctx.length;
             ctx.length = 0;
             // process situations like f'user: "{name}"' or f"user: '{name}'"
@@ -918,7 +918,7 @@ impl FSRExpr {
         {
             let mut index_checker = 0;
             // let name = std::str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-            let name = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
+            let name = chrs2str!(&source[ctx.start..ctx.start + ctx.length]);
             while ctx.start + ctx.length + index_checker < source.len()
                 && ASTParser::is_blank_char(source[ctx.start + ctx.length + index_checker])
             {
@@ -1048,7 +1048,7 @@ impl FSRExpr {
         }
 
         // let ps = str::from_utf8(&source[ctx.start..(ctx.start + ctx.length)]).unwrap();
-        let ps = chars_to_string!(&source[ctx.start..(ctx.start + ctx.length)]);
+        let ps = chrs2str!(&source[ctx.start..(ctx.start + ctx.length)]);
         let sub_meta = meta.new_offset(ctx.start);
         let c = if is_float && base == 10 {
             FSRConstant::from_float(sub_meta, &ps, ctx.single_op)
@@ -1390,7 +1390,7 @@ impl FSRExpr {
                     }
                 }
                 // let name = str::from_utf8(&source[ctx.start..ctx.start + ctx.length]).unwrap();
-                let name = chars_to_string!(&source[ctx.start..ctx.start + ctx.length]);
+                let name = chrs2str!(&source[ctx.start..ctx.start + ctx.length]);
 
                 if Self::is_logic_keyword(&name) {
                     if name.eq("not") {

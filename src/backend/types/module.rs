@@ -60,7 +60,7 @@ impl<'a> FSRModule<'a> {
     /// * `name` - The name of the function
     /// # Returns
     /// * `Option<usize>` - The address pointer of the JITed function
-    pub fn get_fn_addr_ptr(&self, s: Option<Arc<FSRSType>>, name: &str) -> usize {
+    pub fn get_fn_addr_ptr(&self, s: Option<Arc<FSRSType>>, name: &str) -> Option<usize> {
         // Use for lazy JIT function address retrieval
         // let v = self.jit_code_map.get(name).and_then(|x| Some(x as *const AtomicUsize as usize));
         // match v {
@@ -68,8 +68,8 @@ impl<'a> FSRModule<'a> {
         //     None => 0,
         // }
         match self.get_jit_code_map(s, name) {
-            Some(addr) => addr as *const AtomicUsize as usize,
-            None => 0,
+            Some(addr) => Some(addr as *const AtomicUsize as usize),
+            None => None,
         }
         
     }

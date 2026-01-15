@@ -1854,10 +1854,9 @@ impl JitBuilder<'_> {
                 let mul_size = self.builder.ins().imul(num, size_value);
                 mul_size
             } else {
-                self.builder.ins().iconst(
-                    self.module.target_config().pointer_type(),
-                    *size as i64,
-                )
+                self.builder
+                    .ins()
+                    .iconst(self.module.target_config().pointer_type(), *size as i64)
             }
         } else {
             panic!("StructAlloc requires a StructSize argument");
@@ -2308,6 +2307,71 @@ impl JitBuilder<'_> {
         Self::assign_routine(self, context, v);
     }
 
+    fn load_process(&mut self, arg: &BytecodeArg, context: &mut OperatorContext, code: ObjId) {
+        if let ArgType::Local(v) = arg.get_arg() {
+            let variable = self.variables.get(v.name.as_str()).unwrap();
+            // context.left = Some(self.builder.use_var(*variable));
+            let value = self.builder.use_var(*variable);
+            context.exp.push(value);
+        } else if let ArgType::JitFunction(father_struct, f_name) = arg.get_arg() {
+            let module = FSRObject::id_to_obj(code).as_code().module;
+            let module_obj = FSRObject::id_to_obj(module).as_module();
+            let target_fn_ptr = module_obj.get_fn_addr_ptr(father_struct.clone(), f_name);
+            if target_fn_ptr.is_none() {
+                panic!(
+                    "JIT function {} not found in struct {:?}",
+                    f_name, father_struct
+                );
+            }
+            let target_fn_value = self.builder.ins().iconst(
+                self.module.target_config().pointer_type(),
+                target_fn_ptr.unwrap() as i64,
+            );
+            let target_fn = self.builder.ins().load(
+                self.module.target_config().pointer_type(),
+                cranelift::codegen::ir::MemFlags::new(),
+                target_fn_value,
+                0,
+            );
+            context.exp.push(target_fn);
+            //self.load_jit_function(f_name, context);
+        } else if let ArgType::Const(c) = arg.get_arg() {
+            self.load_constant(*c, context);
+        } else if let ArgType::Global(name) = arg.get_arg() {
+            let name_ptr = self.builder.ins().iconst(
+                self.module.target_config().pointer_type(),
+                name.as_ptr() as i64,
+            );
+            let name_len = self.builder.ins().iconst(
+                self.module.target_config().pointer_type(),
+                name.len() as i64,
+            );
+            self.load_global_name(name_ptr, name_len, context);
+        } else if let ArgType::LoadTrue = arg.get_arg() {
+            //let true_id = FSRObject::true_id();
+            let true_value = self.builder.ins().iconst(types::I8, 1);
+            context.exp.push(true_value);
+        } else if let ArgType::LoadFalse = arg.get_arg() {
+            //let false_id = FSRObject::false_id();
+            let false_value = self.builder.ins().iconst(types::I8, 0);
+            context.exp.push(false_value);
+        } else if let ArgType::LoadNone = arg.get_arg() {
+            self.load_none(context);
+        } else if let ArgType::LoadUninit = arg.get_arg() {
+            self.load_uninit(context);
+        } else if let ArgType::CurrentFn = arg.get_arg() {
+            let fn_id = self.get_current_fn_id(context);
+            context.exp.push(fn_id);
+        } else if let ArgType::ClosureVar(v) = arg.get_arg() {
+            let variable = self.variables.get(v.1.as_str()).unwrap();
+            // context.left = Some(self.builder.use_var(*variable));
+            let value = self.builder.use_var(*variable);
+            context.exp.push(value);
+        } else {
+            panic!("Load requires a variable or constant argument");
+        }
+    }
+
     fn compile_expr(
         &mut self,
         expr: &[BytecodeArg],
@@ -2349,69 +2413,7 @@ impl JitBuilder<'_> {
         for arg in expr {
             match arg.get_operator() {
                 BytecodeOperator::Load => {
-                    if let ArgType::Local(v) = arg.get_arg() {
-                        let variable = self.variables.get(v.name.as_str()).unwrap();
-                        // context.left = Some(self.builder.use_var(*variable));
-                        let value = self.builder.use_var(*variable);
-                        context.exp.push(value);
-                    } else if let ArgType::JitFunction(father_struct, f_name) = arg.get_arg() {
-                        let module = FSRObject::id_to_obj(code).as_code().module;
-                        let module_obj = FSRObject::id_to_obj(module).as_module();
-                        let target_fn_ptr = module_obj.get_fn_addr_ptr(father_struct.clone(), f_name);
-                        if target_fn_ptr == 0 {
-                            panic!(
-                                "JIT function {} not found in struct {:?}",
-                                f_name, father_struct
-                            );
-                        }
-                        let target_fn_value = self.builder.ins().iconst(
-                            self.module.target_config().pointer_type(),
-                            target_fn_ptr as i64,
-                        );
-                        let target_fn = self.builder.ins().load(
-                            self.module.target_config().pointer_type(),
-                            cranelift::codegen::ir::MemFlags::new(),
-                            target_fn_value,
-                            0,
-                        );
-                        context.exp.push(target_fn);
-                        //self.load_jit_function(f_name, context);
-                    } else if let ArgType::Const(c) = arg.get_arg() {
-                        self.load_constant(*c, context);
-                    } else if let ArgType::Global(name) = arg.get_arg() {
-                        let name_ptr = self.builder.ins().iconst(
-                            self.module.target_config().pointer_type(),
-                            name.as_ptr() as i64,
-                        );
-                        let name_len = self.builder.ins().iconst(
-                            self.module.target_config().pointer_type(),
-                            name.len() as i64,
-                        );
-                        self.load_global_name(name_ptr, name_len, context);
-                    } else if let ArgType::LoadTrue = arg.get_arg() {
-                        //let true_id = FSRObject::true_id();
-                        let true_value = self.builder.ins().iconst(types::I8, 1);
-                        context.exp.push(true_value);
-                    } else if let ArgType::LoadFalse = arg.get_arg() {
-                        //let false_id = FSRObject::false_id();
-                        let false_value = self.builder.ins().iconst(types::I8, 0);
-                        context.exp.push(false_value);
-                    } else if let ArgType::LoadNone = arg.get_arg() {
-                        self.load_none(context);
-                    } else if let ArgType::LoadUninit = arg.get_arg() {
-                        self.load_uninit(context);
-                    } else if let ArgType::CurrentFn = arg.get_arg() {
-                        let fn_id = self.get_current_fn_id(context);
-                        context.exp.push(fn_id);
-                    } else if let ArgType::ClosureVar(v) = arg.get_arg() {
-                        let variable = self.variables.get(v.1.as_str()).unwrap();
-                        // context.left = Some(self.builder.use_var(*variable));
-                        let value = self.builder.use_var(*variable);
-                        context.exp.push(value);
-                    } else {
-                        panic!("Load requires a variable or constant argument");
-                    }
-
+                    self.load_process(arg, context, code);
                     //unimplemented!()
                 }
                 BytecodeOperator::Assign => {

@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::chars_to_string;
+use crate::chrs2str;
 use crate::frontend::ast::parse::ASTParser;
 use crate::frontend::ast::token::block::FSRBlock;
 use crate::utils::error::SyntaxError;
@@ -30,7 +30,7 @@ impl FSRCatch {
         meta: FSRPosition,
         context: &mut ASTContext,
     ) -> Result<FSRCatch, SyntaxError> {
-        let s = chars_to_string!(&source[0..5]);
+        let s = chrs2str!(&source[0..5]);
         if source.len() < 5 {
             let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
@@ -97,7 +97,7 @@ impl FSRTryBlock {
         context: &mut ASTContext,
     ) -> Result<FSRTryBlock, SyntaxError> {
         //let s = std::str::from_utf8(&source[0..3]).unwrap();
-        let s = chars_to_string!(&source[0..3]);
+        let s = chrs2str!(&source[0..3]);
         if source.len() < 3 {
             let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "try define body length too small");
@@ -139,7 +139,7 @@ impl FSRTryBlock {
 
         let catches = if start + 5 < source.len() {
             // let may_else_token = std::str::from_utf8(&source[start..start + 5]).unwrap();
-            let may_else_token = chars_to_string!(&source[start..start + 5]);
+            let may_else_token = chrs2str!(&source[start..start + 5]);
             if may_else_token.eq("catch") {
                 let sub_meta = meta.new_offset(start);
                 let catches = FSRCatch::parse(&source[start..], sub_meta, context)?;

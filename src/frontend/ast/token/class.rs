@@ -1,6 +1,6 @@
 
 use crate::{
-    chars_to_string, frontend::ast::{parse::ASTParser, token::block::FSRBlock}, utils::error::SyntaxError
+    chrs2str, frontend::ast::{parse::ASTParser, token::block::FSRBlock}, utils::error::SyntaxError
 };
 
 use super::{base::FSRPosition, ASTContext};
@@ -27,7 +27,7 @@ impl FSRClassFrontEnd {
 
     pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<(Self, usize), SyntaxError> {
         // let start_token = str::from_utf8(&source[0..5]).unwrap();
-        let start_token = chars_to_string!(&source[0..5]);
+        let start_token = chrs2str!(&source[0..5]);
         if !start_token.eq("class") {
             unimplemented!()
         }
@@ -56,7 +56,7 @@ impl FSRClassFrontEnd {
         }
         length -= 1;
         // let name = str::from_utf8(&source[start..start + length]).unwrap();
-        let name = chars_to_string!(&source[start..start + length]);
+        let name = chrs2str!(&source[start..start + length]);
         start += length;
 
         while start < source.len() && ASTParser::is_blank_char(source[start]) {

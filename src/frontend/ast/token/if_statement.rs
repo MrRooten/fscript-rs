@@ -1,6 +1,6 @@
 
 
-use crate::chars_to_string;
+use crate::chrs2str;
 use crate::frontend::ast::parse::ASTParser;
 use crate::frontend::ast::token::block::FSRBlock;
 use crate::frontend::ast::token::expr::FSRExpr;
@@ -45,7 +45,7 @@ impl FSRIf {
 
     pub fn parse_without_else(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
         // let s = std::str::from_utf8(&source[0..2]).unwrap();
-        let s = chars_to_string!(&source[0..2]);
+        let s = chrs2str!(&source[0..2]);
         if source.len() < 3 {
             let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
@@ -137,7 +137,7 @@ impl FSRIf {
 
     pub fn parse(source: &[char], meta: FSRPosition, context: &mut ASTContext) -> Result<FSRIf, SyntaxError> {
         // let s = std::str::from_utf8(&source[0..2]).unwrap();
-        let s = chars_to_string!(&source[0..2]);
+        let s = chrs2str!(&source[0..2]);
         if source.len() < 3 {
             let sub_meta = meta.new_offset(0);
             let err = SyntaxError::new(&sub_meta, "if define body length too small");
@@ -177,7 +177,7 @@ impl FSRIf {
 
         if start + 4 < source.len() {
             // let may_else_token = std::str::from_utf8(&source[start..start+4]).unwrap();
-            let may_else_token = chars_to_string!(&source[start..start + 4]);
+            let may_else_token = chrs2str!(&source[start..start + 4]);
             if may_else_token.eq("else") {
                 let sub_meta = meta.new_offset(start);
                 let elses = FSRElse::parse(&source[start..], sub_meta, context)?;

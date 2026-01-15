@@ -3,7 +3,7 @@ use super::{
     expr::{FSRExpr, SingleOp},
     ASTContext,
 };
-use crate::{chars_to_string, frontend::ast::parse::ASTParser, utils::error::SyntaxError};
+use crate::{chrs2str, frontend::ast::parse::ASTParser, utils::error::SyntaxError};
 use std::str;
 
 #[derive(Debug, Clone)]
@@ -76,7 +76,7 @@ impl FSRCall {
 
                 if state == CallState::Name && !ASTParser::is_name_letter(t_i) {
                     // name = str::from_utf8(&source[start..start + length]).unwrap();
-                    name = chars_to_string!(&source[start..start + length]);
+                    name = chrs2str!(&source[start..start + length]);
                     let mut blank_length = 0;
                     while ASTParser::is_blank_char(source[start + length + blank_length]) {
                         blank_length += 1;
@@ -84,7 +84,7 @@ impl FSRCall {
 
                     if state == CallState::Name && source[blank_length + start + length] as char == '(' {
                         // name = str::from_utf8(&source[start..start + length]).unwrap();
-                        name = chars_to_string!(&source[start..start + length]);
+                        name = chrs2str!(&source[start..start + length]);
                         start += length + blank_length;
                         break;
                     }

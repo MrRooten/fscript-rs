@@ -1,5 +1,5 @@
 use crate::{
-    chars_to_string, frontend::ast::{parse::ASTParser, token::expr::FSRExpr}, utils::error::SyntaxError
+    chrs2str, frontend::ast::{parse::ASTParser, token::expr::FSRExpr}, utils::error::SyntaxError
 };
 
 use super::{
@@ -61,7 +61,7 @@ impl FSRFor {
         context: &mut ASTContext,
     ) -> Result<Self, SyntaxError> {
         // let s = std::str::from_utf8(&source[0..3]).unwrap();
-        let s = chars_to_string!(&source[0..3]);
+        let s = chrs2str!(&source[0..3]);
 
         if s != "for" {
             let sub_meta = meta.new_offset(0);
@@ -112,7 +112,7 @@ impl FSRFor {
         }
 
         // let s = std::str::from_utf8(&source[start..start + 2]).unwrap();
-        let s = chars_to_string!(&source[start..start + 2]);
+        let s = chrs2str!(&source[start..start + 2]);
         if !s.eq("in") {
             let sub_meta = meta.new_offset(start);
             let err = SyntaxError::new(&sub_meta, "in after variable in for statement");

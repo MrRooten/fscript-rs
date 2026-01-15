@@ -1,4 +1,4 @@
-use crate::{chars_to_string, utils::error::SyntaxError};
+use crate::{chrs2str, utils::error::SyntaxError};
 
 use super::{base::FSRPosition, ASTContext};
 use std::str;
@@ -23,7 +23,7 @@ impl FSRImport {
         }
 
         // let sub = str::from_utf8(&source[0..len]).unwrap();
-        let sub = chars_to_string!(&source[0..len]);
+        let sub = chrs2str!(&source[0..len]);
         if !sub.starts_with("import") {
             return Err(SyntaxError::new(
                 &meta.clone(),

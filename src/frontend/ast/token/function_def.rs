@@ -3,7 +3,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    chars_to_string, frontend::ast::{
+    chrs2str, frontend::ast::{
         parse::ASTParser,
         token::{block::FSRBlock, call::FSRCall, expr::FSRExpr, variable::FSRVariable},
     }, utils::error::SyntaxError
@@ -126,7 +126,7 @@ impl FSRFnDef {
         let args = &source[1..args_len];
 
         // let args_s = std::str::from_utf8(args).unwrap();
-        let args_s = chars_to_string!(args);
+        let args_s = chrs2str!(args);
         let mut arg_collect = if args_s.trim().is_empty() {
             vec![]
         } else {
@@ -167,7 +167,7 @@ impl FSRFnDef {
 
                     i += 1;
                 }
-                let chars = chars_to_string!(arg);
+                let chars = chrs2str!(arg);
                 let mut variable = FSRVariable::parse(
                     &chars,
                     meta.new_offset(1 + pos_arg.0),
@@ -228,7 +228,7 @@ impl FSRFnDef {
         context: &mut ASTContext,
     ) -> Result<Option<FSRTypeName>, SyntaxError> {
         //let process_str = std::str::from_utf8(source).unwrap();
-        let mut process_str = chars_to_string!(source);
+        let mut process_str = chrs2str!(source);
         let process_str = process_str.trim();
 
         if process_str.is_empty() {
@@ -354,7 +354,7 @@ impl FSRFnDef {
 
         let source = &source[start..];
         // let s = std::str::from_utf8(&source[0..FN_IDENTIFY.len()]).unwrap();
-        let s = chars_to_string!(&source[0..FN_IDENTIFY.len()]);
+        let s = chrs2str!(&source[0..FN_IDENTIFY.len()]);
 
         if source.len() < 3 {
             let sub_meta = meta.new_offset(start);

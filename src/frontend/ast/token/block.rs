@@ -10,7 +10,7 @@ use super::return_def::FSRReturn;
 use super::try_expr::FSRTryBlock;
 use super::while_statement::FSRWhile;
 use super::ASTContext;
-use crate::chars_to_string;
+use crate::chrs2str;
 use crate::frontend::ast::token::assign;
 use crate::frontend::ast::token::assign::FSRAssign;
 use crate::frontend::ast::token::xtruct::FSRStructFrontEnd;
@@ -158,7 +158,7 @@ impl FSRBlock {
                 let l = ASTParser::read_valid_bracket(&source[start..], sub_meta, context)?;
                 length += l;
                 // let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
-                let s = chars_to_string!(&source[start..start + length]);
+                let s = chrs2str!(&source[start..start + length]);
                 let mut sub_block_meta = meta.new_offset(start);
                 let sub_block =
                     Self::parse(&source[start..start + length], sub_block_meta, context, None)?;

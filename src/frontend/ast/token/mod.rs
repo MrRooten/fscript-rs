@@ -171,7 +171,7 @@ impl ASTContext {
 }
 
 #[macro_export]
-macro_rules! chars_to_string {
+macro_rules! chrs2str {
     ($chars:expr) => {
         $chars.iter().collect::<String>()
     };

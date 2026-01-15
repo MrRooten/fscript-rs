@@ -1,4 +1,4 @@
-use crate::{chars_to_string, frontend::ast::{parse::ASTParser, token::ASTContext}, utils::error::SyntaxError};
+use crate::{chrs2str, frontend::ast::{parse::ASTParser, token::ASTContext}, utils::error::SyntaxError};
 
 use super::base::FSRPosition;
 
@@ -58,7 +58,7 @@ impl FSRTell {
             // let may_attr = std::str::from_utf8(&source[start..start + len])
             //     .unwrap()
             //     .trim();
-            let may_attr = chars_to_string!(&source[start..start + len]);
+            let may_attr = chrs2str!(&source[start..start + len]);
             let may_attr = may_attr.trim();
             if !may_attr.starts_with("@") {
                 break;
@@ -87,7 +87,7 @@ impl FSRTell {
 }
 
 mod test {
-    use crate::chars_to_string;
+    use crate::chrs2str;
 
     
 

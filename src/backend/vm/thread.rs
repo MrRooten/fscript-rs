@@ -6,11 +6,11 @@ use std::{
     path::PathBuf,
     str::FromStr,
     sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Condvar, Mutex,
-    },
+        Arc, Condvar, Mutex, atomic::{AtomicUsize, Ordering}
+    }, time::Instant,
 };
 
+use cranelift::codegen::ir::Inst;
 use smallvec::SmallVec;
 
 use crate::{
@@ -3513,7 +3513,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         }
-
+        let mut start = Instant::now();
         for code in FSRObject::id_to_obj(module).as_module().iter_fn() {
             if code.0 == MAIN_FN {
                 continue;
@@ -3531,7 +3531,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 h.insert(code.0.to_string(), jit);
             }
         }
-
+        println!("JIT compile time: {:?}", start.elapsed());
         
 
         for code in h {
