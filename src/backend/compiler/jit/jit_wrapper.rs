@@ -361,8 +361,15 @@ pub extern "C" fn ret_process(
 ) -> usize {
     match var_type {
         FSRSType::IInt64 => {
-            let ret_ptr = ptr as *const u64;
+            let ret_ptr = ptr as *const i64;
             let v = unsafe { *ret_ptr as usize };
+            let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            v
+        },
+        FSRSType::UInt8 => {
+            let ret_ptr = ptr as *const u8;
+            let v = unsafe { *ret_ptr as u8 };
+            // let v = FSRValue::Integer(v as i64);
             let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
             v
         },

@@ -1,9 +1,11 @@
 
+
 @entry
-fn test() -> u32 {
-    a: u32 = 10
+fn test() -> u8 {
+    t: Ptr[u8] = "abcd"
+    a: u8 = t[0]
     return a
 }
 
 a = test()
-println(a)
+println(f"a == {a}")
