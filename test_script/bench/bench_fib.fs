@@ -6,7 +6,7 @@ fn abc() {
             return fib(n - 1) + fib(n - 2)
         }
     }
-    result = fib(29)
+    result = fib(30)
     println(result)
     gc_info()
 }

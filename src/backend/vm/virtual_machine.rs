@@ -155,6 +155,7 @@ impl<'a> FSRVM<'a> {
         unsafe { VM.as_ref().unwrap().clone() }
     }
 
+    /// **Warning**:: This function is not a rusty style function, use with caution
     pub fn get_thread(&self, thread_id: usize) -> Option<&mut FSRThreadRuntime<'a>> {
         let threads = self.threads.lock().unwrap();
         if thread_id >= threads.len() {

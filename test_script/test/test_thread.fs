@@ -34,5 +34,4 @@ println("main")
 print("main thread id: ")
 println(id)
 println("sleep 10s")
-sleep(10000)
 

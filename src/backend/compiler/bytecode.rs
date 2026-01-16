@@ -264,7 +264,7 @@ pub enum BytecodeOperator {
     Delegate = 55,
     LoadYield = 56,
     OpAssign = 57,
-    SLoadRef = 58, //jit used only
+    SLoadPtr = 58, //jit used only
     SDefAttr = 59,
     SStructDef = 60,
     SStructEndDef = 61,
@@ -1716,10 +1716,15 @@ impl<'a> Bytecode {
                 }]),
                 None,
             );
-        } else if var.get_name().eq("ref") {
+        } else if var.get_name().eq("ptr") {
+            if let FSRToken::Variable(v) = father {
+
+            } else {
+                panic!("Ptr must be a Variable name, meta: {:?}", var.get_meta());
+            }
             return (
                 Some(vec![BytecodeArg {
-                    operator: BytecodeOperator::SLoadRef,
+                    operator: BytecodeOperator::SLoadPtr,
                     arg: Box::new(ArgType::None),
                     info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
                 }]),
@@ -1769,7 +1774,7 @@ impl<'a> Bytecode {
     ) -> (Option<Vec<BytecodeArg>>, Option<Arc<FSRSType>>) {
         let mut result = Vec::new();
         for arg in call.get_args() {
-            println!("Special function arg: {:?}", arg);
+            // println!("Special function arg: {:?}", arg);
             let mut v = Self::load_token_with_map(arg, var_map, context, false, false);
             if v.0.len() != 1 {
                 panic!("Special function arguments must be single value");
@@ -1823,7 +1828,7 @@ impl<'a> Bytecode {
         } else if call.get_name().eq("ref") {
             return (
                 Some(vec![BytecodeArg {
-                    operator: BytecodeOperator::SLoadRef,
+                    operator: BytecodeOperator::SLoadPtr,
                     arg: Box::new(ArgType::None),
                     info: Box::new(FSRByteInfo::new(&context.lines, call.get_meta().clone())),
                 }]),

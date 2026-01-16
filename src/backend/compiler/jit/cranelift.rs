@@ -49,7 +49,6 @@ pub struct CraneLiftJitBackend {
 struct JitBuilder<'a> {
     builder: FunctionBuilder<'a>,
     variables: HashMap<String, Variable>,
-    defined_variables: HashMap<String, Variable>,
     module: &'a mut JITModule,
     var_index: usize,
     self_call_sig: Arc<FnCallSig>,
@@ -58,7 +57,6 @@ struct JitBuilder<'a> {
 struct OperatorContext {
     exp: Vec<Value>,
     is_uninit: bool,
-    middle_value: Vec<Value>, // used to store intermediate values during operator processing, clear line
     loop_blocks: Vec<Block>,
     loop_exit_blocks: Vec<Block>,
     if_header_blocks: Vec<Block>,
@@ -394,8 +392,6 @@ impl JitBuilder<'_> {
         if let ArgType::Local(var) = arg.get_arg() {
             let variable = self.variables.get(&var.name).unwrap();
             self.builder.def_var(*variable, next_obj_value);
-            self.defined_variables
-                .insert(var.name.to_string(), *variable);
 
             let v = self.builder.use_var(*variable);
             let condition = self.is_none(v, context);
@@ -592,196 +588,135 @@ impl JitBuilder<'_> {
         //self.builder.ins().iconst(self.int, 0);
     }
 
-    fn load_make_method_arg_list(&mut self, context: &mut OperatorContext, len: usize) -> Value {
-        let size = self
-            .builder
-            .ins()
-            .iconst(self.module.target_config().pointer_type(), len as i64);
-        // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
-        // let malloc_ret = self.builder.inst_results(malloc_call)[0];
-        let malloc_ret = self
-            .builder
-            .use_var(*self.variables.get("#call_args_ptr").unwrap());
-        let mut rev_args = vec![];
-        for i in 0..len {
-            // Assuming we have a way to get the next argument value
-            let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
-            context.middle_value.push(arg_value);
-            rev_args.push(arg_value);
-        }
 
-        rev_args.push(context.exp.pop().unwrap()); // Add the method object as the last argument
+    // fn load_gc_collect(&mut self, context: &mut OperatorContext) {
+    //     let ptr_type = self.module.target_config().pointer_type();
+    //     let var_count =
+    //         self.defined_variables.len() + context.for_iter_obj.len() + context.for_obj.len();
+    //     let size = self.builder.ins().iconst(ptr_type, var_count as i64); // usize
 
-        rev_args.reverse();
+    //     // let mut malloc_sig = self.module.make_signature();
+    //     // malloc_sig.params.push(AbiParam::new(types::I64));
+    //     // malloc_sig.returns.push(AbiParam::new(ptr_type));
+    //     // let malloc_id = self
+    //     //     .module
+    //     //     .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
+    //     //     .unwrap();
+    //     // let malloc_func_ref = self
+    //     //     .module
+    //     //     .declare_func_in_func(malloc_id, self.builder.func);
+    //     // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
+    //     // let arr_ptr = self.builder.inst_results(malloc_call)[0];
+    //     let arr_ptr = self
+    //         .builder
+    //         .use_var(*self.variables.get("#args_ptr").unwrap());
+    //     let mut i = 0;
+    //     for var in self.defined_variables.values() {
+    //         let value = self.builder.use_var(*var);
+    //         let offset = self
+    //             .builder
+    //             .ins()
+    //             .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+    //         let ptr = self.builder.ins().iadd(arr_ptr, offset);
+    //         self.builder
+    //             .ins()
+    //             .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+    //         i += 1;
+    //     }
 
-        for (i, arg) in rev_args.into_iter().enumerate() {
-            let offset = self
-                .builder
-                .ins()
-                .iconst(types::I64, i as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
-            let ptr = self.builder.ins().iadd(malloc_ret, offset);
-            self.builder
-                .ins()
-                .store(cranelift::codegen::ir::MemFlags::new(), arg, ptr, 0);
-        }
+    //     for var in &context.for_iter_obj {
+    //         let value = *var;
+    //         let offset = self
+    //             .builder
+    //             .ins()
+    //             .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+    //         let ptr = self.builder.ins().iadd(arr_ptr, offset);
+    //         self.builder
+    //             .ins()
+    //             .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+    //         i += 1;
+    //     }
 
-        malloc_ret
-    }
+    //     for var in &context.for_obj {
+    //         let value = *var;
+    //         let offset = self
+    //             .builder
+    //             .ins()
+    //             .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
+    //         let ptr = self.builder.ins().iadd(arr_ptr, offset);
+    //         self.builder
+    //             .ins()
+    //             .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
+    //         i += 1;
+    //     }
 
-    fn load_make_middle_v_list_save(&mut self, context: &mut OperatorContext) -> Value {
-        let mut malloc_ret = self
-            .builder
-            .use_var(*self.variables.get("#args_ptr").unwrap());
-        let mut rev_args = vec![];
-        for i in &context.middle_value {
-            // Assuming we have a way to get the next argument value
-            rev_args.push(*i);
-        }
+    //     let mut gc_collect_sig = self.module.make_signature();
+    //     // pub extern "C" fn gc_collect(thread: &mut FSRThreadRuntime, list_obj: *const ObjId, len: usize)
+    //     gc_collect_sig
+    //         .params
+    //         .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+    //     gc_collect_sig
+    //         .params
+    //         .push(AbiParam::new(self.module.target_config().pointer_type())); // list pointer
+    //     gc_collect_sig.params.push(AbiParam::new(types::I64)); // length of the list
 
-        rev_args.reverse();
+    //     gc_collect_sig
+    //         .returns
+    //         .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (void)
+    //     let gc_collect_id = self
+    //         .module
+    //         .declare_function(
+    //             "gc_collect",
+    //             cranelift_module::Linkage::Import,
+    //             &gc_collect_sig,
+    //         )
+    //         .unwrap();
 
-        for (i, arg) in rev_args.into_iter().enumerate() {
-            let offset = self
-                .builder
-                .ins()
-                .iconst(types::I64, i as i64 * std::mem::size_of::<ObjId>() as i64); // Replace with actual offset calculation
-            let ptr = self.builder.ins().iadd(malloc_ret, offset);
-            self.builder
-                .ins()
-                .store(cranelift::codegen::ir::MemFlags::new(), arg, ptr, 0);
-        }
+    //     let gc_collect_func_ref = self
+    //         .module
+    //         .declare_func_in_func(gc_collect_id, self.builder.func);
+    //     let thread_runtime = self.builder.block_params(context.entry_block)[0];
+    //     let len = self.builder.ins().iconst(types::I64, var_count as i64);
 
-        malloc_ret
-    }
+    //     let gc_call = self
+    //         .builder
+    //         .ins()
+    //         .call(gc_collect_func_ref, &[thread_runtime, arr_ptr, len]);
+    //     let _ = self.builder.inst_results(gc_call)[0]; // We don't need the return value, just ensure the call is made
+    //                                                    // Free the allocated array after the GC call
+    //                                                    //self.load_free_arg_list(arr_ptr, context, var_count as i64);
+    // }
 
-    fn load_gc_collect(&mut self, context: &mut OperatorContext) {
-        let ptr_type = self.module.target_config().pointer_type();
-        let var_count =
-            self.defined_variables.len() + context.for_iter_obj.len() + context.for_obj.len();
-        let size = self.builder.ins().iconst(ptr_type, var_count as i64); // usize
+    // fn load_check_gc(&mut self, context: &mut OperatorContext) -> Value {
+    //     let mut check_gc_sig = self.module.make_signature();
+    //     check_gc_sig
+    //         .params
+    //         .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
+    //     check_gc_sig.returns.push(AbiParam::new(types::I8)); // return type (boolean)
 
-        // let mut malloc_sig = self.module.make_signature();
-        // malloc_sig.params.push(AbiParam::new(types::I64));
-        // malloc_sig.returns.push(AbiParam::new(ptr_type));
-        // let malloc_id = self
-        //     .module
-        //     .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
-        //     .unwrap();
-        // let malloc_func_ref = self
-        //     .module
-        //     .declare_func_in_func(malloc_id, self.builder.func);
-        // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
-        // let arr_ptr = self.builder.inst_results(malloc_call)[0];
-        let arr_ptr = self
-            .builder
-            .use_var(*self.variables.get("#args_ptr").unwrap());
-        let mut i = 0;
-        for var in self.defined_variables.values() {
-            let value = self.builder.use_var(*var);
-            let offset = self
-                .builder
-                .ins()
-                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
-            let ptr = self.builder.ins().iadd(arr_ptr, offset);
-            self.builder
-                .ins()
-                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
-            i += 1;
-        }
+    //     let fn_id = self
+    //         .module
+    //         .declare_function("check_gc", cranelift_module::Linkage::Import, &check_gc_sig)
+    //         .unwrap();
+    //     let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+    //     let thread_runtime = self.builder.block_params(context.entry_block)[0];
+    //     let ret = self.builder.ins().call(func_ref, &[thread_runtime]);
+    //     let condition = self.builder.inst_results(ret)[0];
 
-        for var in &context.for_iter_obj {
-            let value = *var;
-            let offset = self
-                .builder
-                .ins()
-                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
-            let ptr = self.builder.ins().iadd(arr_ptr, offset);
-            self.builder
-                .ins()
-                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
-            i += 1;
-        }
+    //     let then_block = self.builder.create_block();
+    //     let else_block = self.builder.create_block();
+    //     self.builder
+    //         .ins()
+    //         .brif(condition, then_block, &[], else_block, &[]);
 
-        for var in &context.for_obj {
-            let value = *var;
-            let offset = self
-                .builder
-                .ins()
-                .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
-            let ptr = self.builder.ins().iadd(arr_ptr, offset);
-            self.builder
-                .ins()
-                .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
-            i += 1;
-        }
-
-        let mut gc_collect_sig = self.module.make_signature();
-        // pub extern "C" fn gc_collect(thread: &mut FSRThreadRuntime, list_obj: *const ObjId, len: usize)
-        gc_collect_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-        gc_collect_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // list pointer
-        gc_collect_sig.params.push(AbiParam::new(types::I64)); // length of the list
-
-        gc_collect_sig
-            .returns
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (void)
-        let gc_collect_id = self
-            .module
-            .declare_function(
-                "gc_collect",
-                cranelift_module::Linkage::Import,
-                &gc_collect_sig,
-            )
-            .unwrap();
-
-        let gc_collect_func_ref = self
-            .module
-            .declare_func_in_func(gc_collect_id, self.builder.func);
-        let thread_runtime = self.builder.block_params(context.entry_block)[0];
-        let len = self.builder.ins().iconst(types::I64, var_count as i64);
-
-        let gc_call = self
-            .builder
-            .ins()
-            .call(gc_collect_func_ref, &[thread_runtime, arr_ptr, len]);
-        let _ = self.builder.inst_results(gc_call)[0]; // We don't need the return value, just ensure the call is made
-                                                       // Free the allocated array after the GC call
-                                                       //self.load_free_arg_list(arr_ptr, context, var_count as i64);
-    }
-
-    fn load_check_gc(&mut self, context: &mut OperatorContext) -> Value {
-        let mut check_gc_sig = self.module.make_signature();
-        check_gc_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-        check_gc_sig.returns.push(AbiParam::new(types::I8)); // return type (boolean)
-
-        let fn_id = self
-            .module
-            .declare_function("check_gc", cranelift_module::Linkage::Import, &check_gc_sig)
-            .unwrap();
-        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        let thread_runtime = self.builder.block_params(context.entry_block)[0];
-        let ret = self.builder.ins().call(func_ref, &[thread_runtime]);
-        let condition = self.builder.inst_results(ret)[0];
-
-        let then_block = self.builder.create_block();
-        let else_block = self.builder.create_block();
-        self.builder
-            .ins()
-            .brif(condition, then_block, &[], else_block, &[]);
-
-        self.builder.switch_to_block(then_block);
-        self.builder.seal_block(then_block);
-        self.load_gc_collect(context);
-        self.builder.ins().jump(else_block, &[]);
-        self.builder.switch_to_block(else_block);
-        self.builder.seal_block(else_block);
-        condition
-    }
+    //     self.builder.switch_to_block(then_block);
+    //     self.builder.seal_block(then_block);
+    //     self.load_gc_collect(context);
+    //     self.builder.ins().jump(else_block, &[]);
+    //     self.builder.switch_to_block(else_block);
+    //     self.builder.seal_block(else_block);
+    //     condition
+    // }
 
     fn make_call_fn(&self) -> Signature {
         let mut call_fn_sig = self.module.make_signature();
@@ -893,7 +828,6 @@ impl JitBuilder<'_> {
             for _ in 0..*len {
                 // Assuming we have a way to get the next argument value
                 let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
-                context.middle_value.push(arg_value);
                 rev_args.push(arg_value);
             }
             let fn_ptr = context.exp.pop().unwrap();
@@ -953,7 +887,6 @@ impl JitBuilder<'_> {
             //self.load_free_arg_list(list_ptr, context, *v as i64);
 
             context.exp.push(ret);
-            context.middle_value.push(ret);
         } else {
             unimplemented!()
         }
@@ -1007,7 +940,6 @@ impl JitBuilder<'_> {
             for _ in 0..len {
                 // Assuming we have a way to get the next argument value
                 let arg_value = context.exp.pop().unwrap(); // This should be replaced with actual argument retrieval logic
-                context.middle_value.push(arg_value);
                 rev_args.push(arg_value);
             }
             let fn_ptr = context.exp.pop().unwrap();
@@ -1069,7 +1001,6 @@ impl JitBuilder<'_> {
             //self.load_free_arg_list(list_ptr, context, *v as i64);
 
             context.exp.push(ret);
-            context.middle_value.push(ret);
             //panic!("CallMethod is not implemented yet in Cranelift JIT backend");
             // let father_obj_id = *context.exp.last().unwrap();
             // let fn_obj_id = self.get_obj_method(father_obj_id, v.2.as_str());
@@ -1177,41 +1108,6 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn save_middle_value(&mut self, context: &mut OperatorContext) {
-        let mut save_to_exp_sig = self.module.make_signature();
-        save_to_exp_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // args pointer
-        save_to_exp_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // length of the args
-        save_to_exp_sig
-            .params
-            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-
-        let fn_id = self
-            .module
-            .declare_function(
-                "save_to_exp",
-                cranelift_module::Linkage::Import,
-                &save_to_exp_sig,
-            )
-            .unwrap();
-        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-        let list_ptr = self.load_make_middle_v_list_save(context);
-        let len = self
-            .builder
-            .ins()
-            .iconst(types::I64, context.middle_value.len() as i64);
-        let thread_runtime = self.builder.block_params(context.entry_block)[0];
-        let call = self
-            .builder
-            .ins()
-            .call(func_ref, &[list_ptr, len, thread_runtime]);
-
-        //self.load_free_arg_list(list_ptr, context, context.middle_value.len() as i64);
-    }
-
     fn clear_middle_value(&mut self, context: &mut OperatorContext) {
         // pub extern "C" fn clear_exp(thread: &mut FSRThreadRuntime)
         let mut clear_exp_sig = self.module.make_signature();
@@ -1265,9 +1161,6 @@ impl JitBuilder<'_> {
                 .call(func_ref, &[left, right, thread_runtime]);
             let ret = self.builder.inst_results(call)[0];
             context.exp.push(ret);
-            context.middle_value.push(ret);
-            context.middle_value.push(right);
-            context.middle_value.push(left);
         } else {
             panic!("BinaryRange requires both left and right operands");
         }
@@ -1376,7 +1269,6 @@ impl JitBuilder<'_> {
             let variable = self.variables.get(v.name.as_str()).unwrap();
 
             self.builder.def_var(*variable, data);
-            self.defined_variables.insert(v.name.to_string(), *variable);
         } else {
             panic!("GetArgs requires a Local argument");
         }
@@ -1433,7 +1325,6 @@ impl JitBuilder<'_> {
             let variable = self.variables.get(v.name.as_str()).unwrap();
 
             self.builder.def_var(*variable, trans_data);
-            self.defined_variables.insert(v.name.to_string(), *variable);
         } else {
             panic!("GetArgs requires a Local argument");
         }
@@ -1524,7 +1415,6 @@ impl JitBuilder<'_> {
 
             let variable = self.variables.get(&name).unwrap();
             self.builder.def_var(*variable, ret);
-            self.defined_variables.insert(name.to_string(), *variable);
         } else {
             return Err(anyhow::anyhow!("Expected ConstInteger argument"));
         }
@@ -1570,7 +1460,6 @@ impl JitBuilder<'_> {
 
             let variable = self.variables.get(&name).unwrap();
             self.builder.def_var(*variable, ret);
-            self.defined_variables.insert(name.to_string(), *variable);
         }
     }
 
@@ -1620,7 +1509,6 @@ impl JitBuilder<'_> {
             let name = format!("{}_constant", id);
             let variable = self.variables.get(&name).unwrap();
             self.builder.def_var(*variable, ret);
-            self.defined_variables.insert(name.to_string(), *variable);
         }
     }
 
@@ -1811,20 +1699,20 @@ impl JitBuilder<'_> {
         stack_slot_addr
     }
 
-    fn malloc_call_args(&mut self, context: &mut OperatorContext) {
-        let var = self.variables.get("#call_args_ptr").unwrap();
-        // self.builder.def_var(*var, malloc_ret);
-        let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
-            StackSlotKind::ExplicitSlot,
-            CALL_ARGS_LEN as u32,
-            0,
-        ));
-        let stack_slot_addr =
-            self.builder
-                .ins()
-                .stack_addr(self.module.target_config().pointer_type(), slot, 0);
-        self.builder.def_var(*var, stack_slot_addr);
-    }
+    // fn malloc_call_args(&mut self, context: &mut OperatorContext) {
+    //     let var = self.variables.get("#call_args_ptr").unwrap();
+    //     // self.builder.def_var(*var, malloc_ret);
+    //     let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+    //         StackSlotKind::ExplicitSlot,
+    //         CALL_ARGS_LEN as u32,
+    //         0,
+    //     ));
+    //     let stack_slot_addr =
+    //         self.builder
+    //             .ins()
+    //             .stack_addr(self.module.target_config().pointer_type(), slot, 0);
+    //     self.builder.def_var(*var, stack_slot_addr);
+    // }
 
     fn pointer_free(&mut self, context: &mut OperatorContext) {
         let ptr = context.exp.pop().unwrap();
@@ -2210,9 +2098,7 @@ impl JitBuilder<'_> {
 
         let variable = self.variables.get(v.name.as_str()).unwrap();
 
-        context.middle_value.push(var);
         self.builder.def_var(*variable, var);
-        self.defined_variables.insert(v.name.to_string(), *variable);
     }
 
     fn assign_process(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
@@ -2293,9 +2179,7 @@ impl JitBuilder<'_> {
             if is_first {
                 let variable = self.variables.get(v.name.as_str()).unwrap();
 
-                context.middle_value.push(stack_addr);
                 self.builder.def_var(*variable, stack_addr);
-                self.defined_variables.insert(v.name.to_string(), *variable);
             }
 
             if context.is_uninit {
@@ -2777,11 +2661,7 @@ impl CraneLiftJitBackend {
             .map(|x| format!("{}_constant", x))
             .collect::<Vec<_>>();
 
-        let args_ptr = "#args_ptr";
-        let call_args_ptr = "#call_args_ptr";
         variables.extend(constans);
-        variables.push(args_ptr.to_string());
-        variables.push(call_args_ptr.to_string());
 
         let entry_block = builder.create_block();
 
@@ -2798,7 +2678,6 @@ impl CraneLiftJitBackend {
             for_iter_obj: vec![],
             logic_end_block: None,
             logic_rest_bytecode_count: None,
-            middle_value: vec![],
             //if_body_line: None,
             if_body_blocks: vec![],
             is_body_jump: false,
@@ -2823,13 +2702,12 @@ impl CraneLiftJitBackend {
             builder,
             variables: variables.0,
             module: &mut self.module,
-            defined_variables: HashMap::new(),
             var_index: variables.1,
             self_call_sig: call_sig.unwrap(),
         };
 
         //trans.malloc_args(&mut context);
-        trans.malloc_call_args(&mut context);
+        // trans.malloc_call_args(&mut context);
         for (i, expr) in bs_code.bytecode.iter().enumerate() {
             // if i % 20 == 0 || context.ins_check_gc {
             //     trans.load_check_gc(&mut context);
@@ -2838,7 +2716,6 @@ impl CraneLiftJitBackend {
 
             trans.compile_expr(expr, &mut context, code, is_entry);
             context.exp.clear();
-            context.middle_value.clear();
         }
 
         trans.builder.finalize();

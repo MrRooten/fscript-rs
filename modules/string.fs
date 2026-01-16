@@ -3,10 +3,13 @@ struct String {
     len: u64
 
     @static
-    fn new() -> Ptr[String] {
-        s: Ptr[String] = String.alloc
-        s.chars = null
-        s.len = 0
-        return s
-    }   
+    fn init(self: Ptr[String]) {
+        self.chars = u8.alloc(100)
+        self.len = 0
+    }
+}
+
+@entry
+fn test() -> u64 {
+    
 }
