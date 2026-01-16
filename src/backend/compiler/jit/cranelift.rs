@@ -22,12 +22,12 @@ use crate::{
             },
             jit::jit_wrapper::{
                 binary_dot_getter, c_println, clear_exp, get_current_fn_id, get_obj_method,
-                load_list, memcpy, save_to_exp,
+                load_list, memcpy, ret_process, save_to_exp,
             },
         },
         types::base::{FSRObject, ObjId},
     },
-    frontend::ast::token::{expr::SingleOp, variable},
+    frontend::ast::token::{constant::FSROrinStr2, expr::SingleOp, variable},
 };
 
 use super::jit_wrapper::{
@@ -52,6 +52,7 @@ struct JitBuilder<'a> {
     module: &'a mut JITModule,
     var_index: usize,
     self_call_sig: Arc<FnCallSig>,
+    ret_slot: Option<Value>,
 }
 
 struct OperatorContext {
@@ -74,10 +75,88 @@ struct OperatorContext {
 }
 
 impl JitBuilder<'_> {
-    fn load_constant(&mut self, c: u64, context: &mut OperatorContext) {
-        let value = self.variables.get(&format!("{}_constant", c)).unwrap();
-        let ret = self.builder.use_var(*value);
-        context.exp.push(ret);
+    fn process_integer(ps: &str) -> Result<i64> {
+        //let new_ps = ps.replace("_", "");
+        let s = ps;
+        let (s, base) = if s.starts_with("0x") || s.starts_with("0X") {
+            (&s[2..], 16)
+        } else if s.starts_with("0b") || s.starts_with("0B") {
+            (&s[2..], 2)
+        } else if s.starts_with("0o") || s.starts_with("0O") {
+            (&s[2..], 8)
+        } else {
+            (s, 10)
+        };
+
+        let int_value: i64 = i64::from_str_radix(s, base)
+            .with_context(|| format!("Failed to parse integer from string: {}", s))?;
+        Ok(int_value)
+    }
+
+    fn process_float(ps: &str) -> Result<f64> {
+        let s = ps;
+        let float_value: f64 = s
+            .parse()
+            .with_context(|| format!("Failed to parse float from string: {}", s))?;
+        Ok(float_value)
+    }
+
+    fn load_constant(&mut self, c: u64, context: &mut OperatorContext, orig_str: &FSROrinStr2) {
+        // let value = self.variables.get(&format!("{}_constant", c)).unwrap();
+        // let ret = self.builder.use_var(*value);
+        // context.exp.push(ret);
+        match orig_str {
+            FSROrinStr2::Integer(i, single_op) => {
+                let int_value = Self::process_integer(i).unwrap();
+                let int_value = if let Some(op) = single_op {
+                    match op {
+                        SingleOp::Minus => {
+                            let negated_value = -int_value;
+                            negated_value
+                        }
+                        SingleOp::Not => todo!(),
+                        SingleOp::Reverse => todo!(),
+                    }
+                } else {
+                    int_value
+                };
+                let const_value = self
+                    .builder
+                    .ins()
+                    .iconst(self.module.target_config().pointer_type(), int_value);
+                context.exp.push(const_value);
+            }
+            FSROrinStr2::Float(f, single_op) => {
+                let float_value = Self::process_float(f).unwrap();
+                let float_value = if let Some(op) = single_op {
+                    match op {
+                        SingleOp::Minus => {
+                            let negated_value = -float_value;
+                            negated_value
+                        }
+                        SingleOp::Not => todo!(),
+                        SingleOp::Reverse => todo!(),
+                    }
+                } else {
+                    float_value
+                };
+                let float_bits = float_value.to_bits() as i64;
+                let const_value = self
+                    .builder
+                    .ins()
+                    .iconst(self.module.target_config().pointer_type(), float_bits);
+                context.exp.push(const_value);
+            }
+            FSROrinStr2::String(s) => {
+                let str_bytes = s.as_bytes();
+                let str_len = str_bytes.len() as i64;
+                let str_ptr = self.builder.ins().iconst(
+                    self.module.target_config().pointer_type(),
+                    str_bytes.as_ptr() as i64,
+                );
+                context.exp.push(str_ptr);
+            }
+        }
     }
 
     fn load_global_name(&mut self, name: Value, name_len: Value, context: &mut OperatorContext) {
@@ -796,13 +875,13 @@ impl JitBuilder<'_> {
                 // trans to pointer
                 //if let FSRSType::List(l, _) = type_info.as_ref() {
                 let new_value = Self::load_ptr_data(self, inner_type, target_ptr);
-                // Self::println(self, context, new_value);
                 context.exp.push(new_value);
             } else if let FSRSType::Ptr(pointer_inner) = type_info.as_ref() {
                 let type_size = pointer_inner.size_of() as i64;
                 let index_size = self.builder.ins().imul_imm(index, type_size);
                 let target_ptr = self.builder.ins().iadd(father_obj_id, index_size);
-                let new_value = Self::load_ptr_data(self, pointer_inner, target_ptr);
+                //let tmp_ptr = Arc::new(FSRSType::Ptr(pointer_inner.clone()));
+                let new_value = Self::load_ptr_data(self, &pointer_inner, target_ptr);
                 context.exp.push(new_value);
             } else {
                 panic!("Getter only supports List type currently");
@@ -1523,13 +1602,13 @@ impl JitBuilder<'_> {
     }
 
     fn load_init_constants(&mut self, arg: &BytecodeArg, context: &mut OperatorContext) {
-        if let ArgType::ConstInteger(id, s, op) = arg.get_arg() {
-            self.load_init_integer(arg, context);
-        } else if let ArgType::ConstFloat(id, f, op) = arg.get_arg() {
-            self.load_init_float(arg, context);
-        } else if let ArgType::ConstString(id, s) = arg.get_arg() {
-            self.load_init_string(arg, context);
-        }
+        // if let ArgType::ConstInteger(id, s, op) = arg.get_arg() {
+        //     self.load_init_integer(arg, context);
+        // } else if let ArgType::ConstFloat(id, f, op) = arg.get_arg() {
+        //     self.load_init_float(arg, context);
+        // } else if let ArgType::ConstString(id, s) = arg.get_arg() {
+        //     self.load_init_string(arg, context);
+        // }
     }
 
     fn assign_to_addr(
@@ -1643,13 +1722,24 @@ impl JitBuilder<'_> {
                     0,
                 )
             }
+            FSRSType::UInt32 => self.builder.ins().load(
+                types::I32,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
             FSRSType::IInt64 => self.builder.ins().load(
                 types::I64,
                 cranelift::codegen::ir::MemFlags::new(),
                 value,
                 0,
             ),
-
+            FSRSType::UInt8 => self.builder.ins().load(
+                types::I8,
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
             FSRSType::Ptr(fsrstype) => self.builder.ins().load(
                 self.module.target_config().pointer_type(),
                 cranelift::codegen::ir::MemFlags::new(),
@@ -1658,7 +1748,8 @@ impl JitBuilder<'_> {
             ),
             FSRSType::List(l, _) => value,
             FSRSType::Struct(s) => value,
-            _ => panic!("load_ptr_data expects a Ptr type"),
+            FSRSType::String => value,
+            _ => panic!("load_ptr_data expects a Ptr type: {:?}", var_type),
         }
     }
 
@@ -2179,7 +2270,12 @@ impl JitBuilder<'_> {
         panic!("Assign routine does not support type {:?}", v.var_type);
     }
 
-    fn init_get_stack_addr(&mut self, v: &LocalVar, var_type: &Arc<FSRSType>, is_define: bool) -> Value {
+    fn init_get_stack_addr(
+        &mut self,
+        v: &LocalVar,
+        var_type: &Arc<FSRSType>,
+        is_define: bool,
+    ) -> Value {
         let stack_addr = match var_type.as_ref() {
             FSRSType::List(list_type, len) => {
                 let stack_slot_addr = if is_define {
@@ -2227,12 +2323,15 @@ impl JitBuilder<'_> {
             | FSRSType::IInt32
             | FSRSType::IInt64
             | FSRSType::Bool
-            | FSRSType::Float64 => {
+            | FSRSType::Float64
+            | FSRSType::UInt32
+            | FSRSType::UInt8 => {
                 let stack_slot_addr = if is_define {
                     // allocate stack slot for u64
+                    let size_alloc = var_type.size_of();
                     let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
                         StackSlotKind::ExplicitSlot,
-                        8,
+                        size_alloc as u32,
                         0,
                     ));
                     let stack_slot_addr = self.builder.ins().stack_addr(
@@ -2283,8 +2382,9 @@ impl JitBuilder<'_> {
         };
 
         if let Some(var_type) = &v.var_type {
-            let new_type = self.get_var_type(v.var_type.as_ref().unwrap());
-            let var_type = new_type.unwrap();
+            // let new_type = self.get_var_type(v.var_type.as_ref().unwrap());
+            let new_type = self.module.target_config().pointer_type();
+            let var_type = new_type;
             let mut var_id = self.var_index;
             let new_var = declare_variable(
                 var_type,
@@ -2347,8 +2447,8 @@ impl JitBuilder<'_> {
             );
             context.exp.push(target_fn);
             //self.load_jit_function(f_name, context);
-        } else if let ArgType::Const(c) = arg.get_arg() {
-            self.load_constant(*c, context);
+        } else if let ArgType::Const(c, orig_str) = arg.get_arg() {
+            self.load_constant(*c, context, orig_str);
         } else if let ArgType::Global(name) = arg.get_arg() {
             let name_ptr = self.builder.ins().iconst(
                 self.module.target_config().pointer_type(),
@@ -2381,6 +2481,75 @@ impl JitBuilder<'_> {
             context.exp.push(value);
         } else {
             panic!("Load requires a variable or constant argument");
+        }
+    }
+
+    fn entry_ret_process(&mut self, value: Value, var_type: &FSRSType) -> Value {
+        // pub extern "C" fn ret_process(
+        //     ptr: usize,
+        //     var_type: &FSRSType
+        // ) -> usize {
+        // }
+        let mut ret_process_sig = self.module.make_signature();
+        ret_process_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // ptr
+        ret_process_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // var_type
+        ret_process_sig
+            .returns
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // return type
+        let fn_id = self
+            .module
+            .declare_function(
+                "ret_process",
+                cranelift_module::Linkage::Import,
+                &ret_process_sig,
+            )
+            .unwrap();
+        let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
+        let type_ptr = self.builder.ins().iconst(
+            self.module.target_config().pointer_type(),
+            var_type as *const FSRSType as i64,
+        );
+        let call = self.builder.ins().call(func_ref, &[value, type_ptr]);
+        let ret = self.builder.inst_results(call)[0];
+        ret
+    }
+
+    fn mv_to_ret(&mut self, context: &mut OperatorContext, ret_type: &FSRSType, ret_value: Value) {
+        let ret_stack = self.ret_slot.unwrap();
+        match ret_type {
+            FSRSType::Bool
+            | FSRSType::IInt8
+            | FSRSType::UInt8
+            | FSRSType::IInt16
+            | FSRSType::UInt16
+            | FSRSType::IInt32
+            | FSRSType::UInt32
+            | FSRSType::IInt64
+            | FSRSType::UInt64
+            | FSRSType::Float32
+            | FSRSType::Float64 => {
+                self.builder.ins().store(
+                    cranelift::codegen::ir::MemFlags::new(),
+                    ret_value,
+                    ret_stack,
+                    0,
+                );
+            }
+            FSRSType::Struct(_) | FSRSType::List(_, _) => {
+                let type_size = ret_type.size_of() as i64;
+                let size_value = self
+                    .builder
+                    .ins()
+                    .iconst(self.module.target_config().pointer_type(), type_size);
+                Self::memcpy(self, context, ret_stack, ret_value, size_value);
+            }
+            _ => {
+                panic!("Return value move does not support type {:?}", ret_type);
+            }
         }
     }
 
@@ -2516,6 +2685,16 @@ impl JitBuilder<'_> {
                             .pop()
                             .unwrap_or(self.builder.ins().iconst(types::I64, 0))
                     };
+
+                    let ret_value = if is_entry {
+                        let ret_type = self.self_call_sig.return_type.as_ref().unwrap().clone();
+                        Self::mv_to_ret(self, context, ret_type.as_ref(), ret_value);
+                        let ret_type = self.self_call_sig.return_type.as_ref().unwrap().clone();
+                        let ret_slot = self.ret_slot.unwrap();
+                        Self::entry_ret_process(self, ret_slot, ret_type.as_ref())
+                    } else {
+                        ret_value
+                    };
                     self.builder.ins().return_(&[ret_value]);
                 }
                 BytecodeOperator::IfTest => {
@@ -2534,7 +2713,7 @@ impl JitBuilder<'_> {
                     self.load_if_end(context);
                 }
                 BytecodeOperator::LoadConst => {
-                    self.load_init_constants(arg, context);
+                    // self.load_init_constants(arg, context);
                 }
                 BytecodeOperator::ForBlockRefAdd => {
                     context.for_obj.push(context.exp.pop().unwrap());
@@ -2695,6 +2874,7 @@ impl CraneLiftJitBackend {
         builder.symbol("load_list", load_list as *const u8);
         builder.symbol("c_println", c_println as *const u8);
         builder.symbol("memcpy", memcpy as *const u8);
+        builder.symbol("ret_process", ret_process as *const u8);
     }
 
     pub fn new() -> Self {
@@ -2825,14 +3005,34 @@ impl CraneLiftJitBackend {
         // predecessors.
         builder.seal_block(entry_block);
         let variables = declare_variables(&self.module, ptr, &mut builder, &variables);
-
+        let ret_size = call_sig
+            .as_ref()
+            .and_then(|s| s.return_type.as_ref())
+            .map(|r| r.size_of())
+            .unwrap_or(8);
         let mut trans = JitBuilder {
             builder,
             variables: variables.0,
             module: &mut self.module,
             var_index: variables.1,
             self_call_sig: call_sig.unwrap(),
+            ret_slot: None,
         };
+
+        if is_entry {
+            // allocate ret slot pointer for entry function
+            let slot = trans.builder.create_sized_stack_slot(StackSlotData::new(
+                StackSlotKind::ExplicitSlot,
+                ret_size as u32,
+                0,
+            ));
+            let stack_slot_addr = trans.builder.ins().stack_addr(
+                trans.module.target_config().pointer_type(),
+                slot,
+                0,
+            );
+            trans.ret_slot = Some(stack_slot_addr);
+        }
 
         //trans.malloc_args(&mut context);
         // trans.malloc_call_args(&mut context);

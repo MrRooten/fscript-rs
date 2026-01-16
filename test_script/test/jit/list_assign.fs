@@ -2,7 +2,7 @@
 fn simple() -> [u64, 4] {
     a: u64 = 0
     t: [u64, 4] = uninit
-    t[0] = 1002
+    t[0] = 13
     return t
 }
 
@@ -15,4 +15,4 @@ fn test() -> u64 {
 
 a = test()
 println(f"a == {a}")
-assert(a == 1002)
+assert(a == 13)

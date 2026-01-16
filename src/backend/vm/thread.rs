@@ -1586,7 +1586,9 @@ impl<'a> FSRThreadRuntime<'a> {
             )
         };
         let res = call_fn(self, self.get_cur_frame().code);
-        let res = Self::ret_type_process(res, call_sig, self)?;
+        // let res = Self::ret_type_process(res, call_sig, self)?;
+        // let ptr = res as *const u32;
+        // println!("JIT call result id: 0x{:?}", unsafe { ptr });
         let v = self.pop_frame();
         self.frame_free_list.free(v);
         push_exp!(self, res);
@@ -3230,7 +3232,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 };
                 push_exp!(self, id);
             }
-            ArgType::Const(index) => {
+            ArgType::Const(index, _) => {
                 let obj = self
                     .get_cur_frame()
                     .get_const(index)

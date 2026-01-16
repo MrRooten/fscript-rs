@@ -11,6 +11,7 @@ use std::{
     },
 };
 
+use crate::frontend::ast::token::constant::FSROrinStr;
 use crate::{
     backend::types::base::ObjId,
     frontend::ast::token::{
@@ -495,7 +496,7 @@ pub enum ArgType {
     ConstInteger(u64, i64, Option<SingleOp>),
     ConstFloat(u64, String, Option<SingleOp>),
     ConstString(u64, String),
-    Const(u64),
+    Const(u64, FSROrinStr2),
     Attr(AttrVar),
     BinaryOperator(BinaryOffset),
     IfTestNext((u64, u64)), // first u64 for if line, second for count else if /else
@@ -1072,22 +1073,6 @@ impl VarMap {
         self.var_map.insert(var.to_owned(), v);
     }
 
-    // pub fn has_const(&self, c: &FSROrinStr2) -> bool {
-    //     self.const_map.contains_key(c)
-    // }
-
-    // pub fn get_const(&self, c: &FSROrinStr2) -> Option<u64> {
-    //     self.const_map.get(c).copied()
-    // }
-
-    // pub fn insert_const(&mut self, c: &FSROrinStr2) {
-    //     if self.has_const(c) {
-    //         return;
-    //     }
-    //     let v = self.const_id.fetch_add(1, Ordering::Acquire);
-    //     self.const_map.insert(*c, v);
-    // }
-
     pub fn insert_attr(&mut self, attr: &str) {
         let v = self.attr_id.fetch_add(1, Ordering::Acquire);
         self.attr_map.insert(attr.to_owned(), v);
@@ -1247,7 +1232,20 @@ impl<'a> Bytecode {
             });
         }
 
-        (result, type_info)
+        let ret_type = if let Some(t) = type_info_full {
+            if let FSRSType::Ptr(inner) = t.as_ref() {
+                Some(inner.clone())
+            } else if let FSRSType::List(inner, _) = t.as_ref() {
+                Some(inner.clone())
+            }
+            else {
+                Some(t.clone())
+            }
+        } else {
+            None
+        };
+
+        (result, ret_type)
     }
 
     fn call_helper(
@@ -3112,7 +3110,7 @@ impl<'a> Bytecode {
 
         let mut result_list = vec![BytecodeArg {
             operator: BytecodeOperator::Load,
-            arg: Box::new(ArgType::Const(id)),
+            arg: Box::new(ArgType::Const(id, c.to_2())),
             info: Box::new(FSRByteInfo::new(&const_map.lines, token.get_meta().clone())),
         }];
 

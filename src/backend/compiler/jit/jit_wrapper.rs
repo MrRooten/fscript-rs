@@ -2,17 +2,13 @@ use std::{ops::Range, sync::atomic::Ordering};
 
 use crate::{
     backend::{
-        compiler::bytecode::{BinaryOffset, CompareOperator},
+        compiler::bytecode::{BinaryOffset, CompareOperator, FSRSType},
         types::{
-            base::{FSRObject, FSRValue, GlobalObj, ObjId},
-            iterator::next_obj,
-            list::FSRList,
-            range::FSRRange,
-            string::FSRString,
+            base::{FSRObject, FSRValue, GlobalObj, ObjId}, integer::FSRInteger, iterator::next_obj, list::FSRList, range::FSRRange, string::FSRString
         },
         vm::{
             thread::{CallFrame, FSRThreadRuntime},
-            virtual_machine::gid,
+            virtual_machine::{FSRVM, gid},
         },
     },
     to_rs_list,
@@ -356,5 +352,36 @@ pub extern "C" fn memcpy(
             dest as *mut u8,
             size as usize,
         );
+    }
+}
+
+pub extern "C" fn ret_process(
+    ptr: usize,
+    var_type: &FSRSType
+) -> usize {
+    match var_type {
+        FSRSType::IInt64 => {
+            let ret_ptr = ptr as *const u64;
+            let v = unsafe { *ret_ptr as usize };
+            let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            v
+        },
+        FSRSType::UInt32 => {
+            let ret_ptr = ptr as *const u32;
+            let v = unsafe { *ret_ptr as u32 };
+            // let v = FSRValue::Integer(v as i64);
+            let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            v
+        },
+        FSRSType::UInt64 => {
+            let ret_ptr = ptr as *const u64;
+            let v = unsafe { *ret_ptr as u64 };
+            // let v = FSRValue::Integer(v as i64);
+            let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            v
+        },
+        _ => {
+            unimplemented!("ret_process not support for {:?}", var_type);
+        }
     }
 }
