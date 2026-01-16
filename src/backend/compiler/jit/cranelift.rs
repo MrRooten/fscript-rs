@@ -27,7 +27,7 @@ use crate::{
         },
         types::base::{FSRObject, ObjId},
     },
-    frontend::ast::token::expr::SingleOp,
+    frontend::ast::token::{expr::SingleOp, variable},
 };
 
 use super::jit_wrapper::{
@@ -587,7 +587,6 @@ impl JitBuilder<'_> {
         //context.ins_check_gc = true;
         //self.builder.ins().iconst(self.int, 0);
     }
-
 
     // fn load_gc_collect(&mut self, context: &mut OperatorContext) {
     //     let ptr_type = self.module.target_config().pointer_type();
@@ -1266,9 +1265,15 @@ impl JitBuilder<'_> {
             }
 
             let data = self.builder.block_params(context.entry_block)[base + index];
-            let variable = self.variables.get(v.name.as_str()).unwrap();
-
-            self.builder.def_var(*variable, data);
+            let variable = *self.variables.get(v.name.as_str()).unwrap();
+            let var_type = &v.var_type.as_ref().unwrap();
+            let type_size = var_type.size_of();
+            let stack_addr = Self::init_get_stack_addr(self, v, var_type, true);
+            let stack_addr_value = self.builder.use_var(variable);
+            // let data = self.load_data(v.var_type.as_ref().unwrap(), stack_addr_value);
+            self.builder.def_var(variable, stack_addr);
+            context.exp.push(data);
+            Self::assign_routine(self, context, v);
         } else {
             panic!("GetArgs requires a Local argument");
         }
@@ -1321,10 +1326,15 @@ impl JitBuilder<'_> {
             }
 
             let trans_data = Self::load_data(self, v.var_type.as_ref().unwrap(), ret);
-            Self::println(self, context, trans_data);
-            let variable = self.variables.get(v.name.as_str()).unwrap();
-
-            self.builder.def_var(*variable, trans_data);
+            let variable = *self.variables.get(v.name.as_str()).unwrap();
+            let var_type = &v.var_type.as_ref().unwrap();
+            let type_size = var_type.size_of();
+            let stack_addr = Self::init_get_stack_addr(self, v, var_type, true);
+            let stack_addr_value = self.builder.use_var(variable);
+            // let data = self.load_data(v.var_type.as_ref().unwrap(), stack_addr_value);
+            self.builder.def_var(variable, stack_addr);
+            context.exp.push(trans_data);
+            Self::assign_routine(self, context, v);
         } else {
             panic!("GetArgs requires a Local argument");
         }
@@ -1640,8 +1650,14 @@ impl JitBuilder<'_> {
                 0,
             ),
 
-            FSRSType::Ptr(fsrstype) => value,
+            FSRSType::Ptr(fsrstype) => self.builder.ins().load(
+                self.module.target_config().pointer_type(),
+                cranelift::codegen::ir::MemFlags::new(),
+                value,
+                0,
+            ),
             FSRSType::List(l, _) => value,
+            FSRSType::Struct(s) => value,
             _ => panic!("load_ptr_data expects a Ptr type"),
         }
     }
@@ -2053,11 +2069,13 @@ impl JitBuilder<'_> {
 
     fn assign_routine(&mut self, context: &mut OperatorContext, v: &LocalVar) {
         let op_assign = v.op_assign;
-        let var = context.exp.pop().unwrap();
+        //let var = context.exp.pop().unwrap();
         let var = if let Some(op) = op_assign {
             // load the current value
             let variable = self.variables.get(v.name.as_str()).unwrap();
-            let current_value = self.builder.use_var(*variable);
+            let current_value_addr = self.builder.use_var(*variable);
+            let current_value =
+                Self::load_data(self, v.var_type.as_ref().unwrap(), current_value_addr);
             let assign_value = context.exp.pop().unwrap();
             // the value to assign is already on the stack
             let result = match op {
@@ -2084,25 +2102,180 @@ impl JitBuilder<'_> {
             };
             result
         } else {
-            //let var = context.exp.pop().unwrap();
+            let var = context.exp.pop().unwrap();
             var
         };
 
-        if let FSRSType::Struct(_) = v.var_type.as_ref().unwrap().as_ref() {
-            self.struct_assign(context, v, var);
-            return;
-        } else if let FSRSType::List(in_type, len) = v.var_type.as_ref().unwrap().as_ref() {
-            self.list_assing(context, v, var);
-            return;
+        // if let FSRSType::Struct(_) = v.var_type.as_ref().unwrap().as_ref() {
+        //     self.struct_assign(context, v, var);
+        //     return;
+        // } else if let FSRSType::List(in_type, len) = v.var_type.as_ref().unwrap().as_ref() {
+        //     self.list_assing(context, v, var);
+        //     return;
+        // } else if let FSRSType::UInt64 = v.var_type.as_ref().unwrap().as_ref() {
+        //     // for u64, we need to store the value to the stack slot
+        //     let variable = self.variables.get(v.name.as_str()).unwrap();
+        //     let stack_addr = self.builder.use_var(*variable);
+        //     self.builder.ins().store(
+        //         cranelift::codegen::ir::MemFlags::new(),
+        //         var,
+        //         stack_addr,
+        //         0,
+        //     );
+        //     return;
+        // }
+
+        match v.var_type.as_ref().unwrap().as_ref() {
+            FSRSType::Bool
+            | FSRSType::IInt8
+            | FSRSType::UInt8
+            | FSRSType::IInt16
+            | FSRSType::UInt16
+            | FSRSType::IInt32
+            | FSRSType::UInt32
+            | FSRSType::IInt64
+            | FSRSType::UInt64
+            | FSRSType::Float32
+            | FSRSType::Float64 => {
+                let variable = self.variables.get(v.name.as_str()).unwrap();
+                let stack_addr = self.builder.use_var(*variable);
+                self.builder.ins().store(
+                    cranelift::codegen::ir::MemFlags::new(),
+                    var,
+                    stack_addr,
+                    0,
+                );
+                return;
+            }
+            FSRSType::Ptr(_) | FSRSType::String => {
+                let variable = self.variables.get(v.name.as_str()).unwrap();
+
+                let stack_addr = self.builder.use_var(*variable);
+                self.builder.ins().store(
+                    cranelift::codegen::ir::MemFlags::new(),
+                    var,
+                    stack_addr,
+                    0,
+                );
+
+                return;
+            }
+            FSRSType::Struct(_) => {
+                self.struct_assign(context, v, var);
+                return;
+            }
+            FSRSType::List(_, _) => {
+                self.list_assing(context, v, var);
+                return;
+            }
+            _ => {
+                panic!("Assign routine does not support type {:?}", v.var_type);
+            }
         }
 
-        let variable = self.variables.get(v.name.as_str()).unwrap();
+        // let variable = self.variables.get(v.name.as_str()).unwrap();
 
-        self.builder.def_var(*variable, var);
+        // self.builder.def_var(*variable, var);
+        panic!("Assign routine does not support type {:?}", v.var_type);
+    }
+
+    fn init_get_stack_addr(&mut self, v: &LocalVar, var_type: &Arc<FSRSType>, is_define: bool) -> Value {
+        let stack_addr = match var_type.as_ref() {
+            FSRSType::List(list_type, len) => {
+                let stack_slot_addr = if is_define {
+                    // allocate stack slot for list args
+                    let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        (list_type.size_of() * len) as u32,
+                        0,
+                    ));
+                    let stack_slot_addr = self.builder.ins().stack_addr(
+                        self.module.target_config().pointer_type(),
+                        slot,
+                        0,
+                    );
+                    stack_slot_addr
+                } else {
+                    let variable = self.variables.get(v.name.as_str()).unwrap();
+                    self.builder.use_var(*variable)
+                };
+
+                stack_slot_addr
+            }
+            FSRSType::Struct(s) => {
+                let stack_slot_addr = if is_define {
+                    // allocate stack slot for struct
+                    let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        var_type.size_of() as u32,
+                        0,
+                    ));
+                    let stack_slot_addr = self.builder.ins().stack_addr(
+                        self.module.target_config().pointer_type(),
+                        slot,
+                        0,
+                    );
+                    stack_slot_addr
+                } else {
+                    let variable = self.variables.get(v.name.as_str()).unwrap();
+                    self.builder.use_var(*variable)
+                };
+                stack_slot_addr
+            }
+            FSRSType::UInt64
+            | FSRSType::Float32
+            | FSRSType::IInt32
+            | FSRSType::IInt64
+            | FSRSType::Bool
+            | FSRSType::Float64 => {
+                let stack_slot_addr = if is_define {
+                    // allocate stack slot for u64
+                    let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        8,
+                        0,
+                    ));
+                    let stack_slot_addr = self.builder.ins().stack_addr(
+                        self.module.target_config().pointer_type(),
+                        slot,
+                        0,
+                    );
+                    stack_slot_addr
+                } else {
+                    let variable = self.variables.get(v.name.as_str()).unwrap();
+                    self.builder.use_var(*variable)
+                };
+                stack_slot_addr
+            }
+            FSRSType::Ptr(_) => {
+                let stack_slot_addr = if is_define {
+                    // allocate stack slot for ptr
+                    let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        self.module.target_config().pointer_type().bytes() as u32,
+                        0,
+                    ));
+                    let stack_slot_addr = self.builder.ins().stack_addr(
+                        self.module.target_config().pointer_type(),
+                        slot,
+                        0,
+                    );
+                    stack_slot_addr
+                } else {
+                    let variable = self.variables.get(v.name.as_str()).unwrap();
+                    self.builder.use_var(*variable)
+                };
+                stack_slot_addr
+            }
+            _ => {
+                panic!("Assign process does not support type {:?}", var_type);
+            }
+        };
+        stack_addr
     }
 
     fn assign_process(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
-        let mut is_first = false;
+        let mut is_define = false;
         let v = if let ArgType::Local(v) = arg.get_arg() {
             v
         } else {
@@ -2122,64 +2295,18 @@ impl JitBuilder<'_> {
                 v.is_define,
             );
 
-            is_first = new_var.1;
+            is_define = new_var.1;
 
             self.var_index = var_id;
         }
 
         if let Some(var_type) = &v.var_type {
-            let stack_addr = match var_type.as_ref() {
-                FSRSType::List(list_type, len) => {
-                    let stack_slot_addr = if is_first {
-                        // allocate stack slot for list args
-                        let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
-                            StackSlotKind::ExplicitSlot,
-                            (list_type.size_of() * len) as u32,
-                            0,
-                        ));
-                        let stack_slot_addr = self.builder.ins().stack_addr(
-                            self.module.target_config().pointer_type(),
-                            slot,
-                            0,
-                        );
-                        stack_slot_addr
-                    } else {
-                        let variable = self.variables.get(v.name.as_str()).unwrap();
-                        self.builder.use_var(*variable)
-                    };
+            let type_size = var_type.size_of();
 
-                    stack_slot_addr
-                }
-                FSRSType::Struct(s) => {
-                    let stack_slot_addr = if is_first {
-                        // allocate stack slot for struct
-                        let slot = self.builder.create_sized_stack_slot(StackSlotData::new(
-                            StackSlotKind::ExplicitSlot,
-                            var_type.size_of() as u32,
-                            0,
-                        ));
-                        let stack_slot_addr = self.builder.ins().stack_addr(
-                            self.module.target_config().pointer_type(),
-                            slot,
-                            0,
-                        );
-                        stack_slot_addr
-                    } else {
-                        let variable = self.variables.get(v.name.as_str()).unwrap();
-                        self.builder.use_var(*variable)
-                    };
-                    stack_slot_addr
-                }
-                _ => {
-                    Self::assign_routine(self, context, v);
-                    return;
-                }
-            };
-
-            if is_first {
-                let variable = self.variables.get(v.name.as_str()).unwrap();
-
-                self.builder.def_var(*variable, stack_addr);
+            if is_define {
+                let variable = *self.variables.get(v.name.as_str()).unwrap();
+                let stack_addr = Self::init_get_stack_addr(self, v, var_type, is_define);
+                self.builder.def_var(variable, stack_addr);
             }
 
             if context.is_uninit {
@@ -2195,7 +2322,8 @@ impl JitBuilder<'_> {
         if let ArgType::Local(v) = arg.get_arg() {
             let variable = self.variables.get(v.name.as_str()).unwrap();
             // context.left = Some(self.builder.use_var(*variable));
-            let value = self.builder.use_var(*variable);
+            let stack_addr = self.builder.use_var(*variable);
+            let value = Self::load_ptr_data(self, v.var_type.as_ref().unwrap(), stack_addr);
             context.exp.push(value);
         } else if let ArgType::JitFunction(father_struct, f_name) = arg.get_arg() {
             let module = FSRObject::id_to_obj(code).as_code().module;

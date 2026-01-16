@@ -1209,7 +1209,7 @@ impl<'a> Bytecode {
                         } else {
                             None
                         };
-                        var.var_type = inner_type;
+                        var.var_type = Some(var_type);
                         type_info = var.var_type.clone();
                     }
                     result.push(BytecodeArg {

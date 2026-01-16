@@ -12,7 +12,7 @@ fn simple() -> [u64, 4] {
 
 @entry
 fn test() -> u64 {
-    t: [u64, 4] = simple()
+    t: [u64, 4] = uninit
     v: u64 = t[0]
     return v
 }
