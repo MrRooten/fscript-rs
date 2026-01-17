@@ -356,6 +356,7 @@ pub extern "C" fn memcpy(
 }
 
 pub extern "C" fn ret_process(
+    thread_runtime: &mut FSRThreadRuntime,
     ptr: usize,
     var_type: &FSRSType
 ) -> usize {
@@ -363,28 +364,44 @@ pub extern "C" fn ret_process(
         FSRSType::IInt64 => {
             let ret_ptr = ptr as *const i64;
             let v = unsafe { *ret_ptr as usize };
-            let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            // let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            let v = thread_runtime.garbage_collect.new_object(
+                FSRValue::Integer(v as i64),
+                gid(GlobalObj::IntegerCls)
+            );
             v
         },
         FSRSType::UInt8 => {
             let ret_ptr = ptr as *const u8;
             let v = unsafe { *ret_ptr as u8 };
             // let v = FSRValue::Integer(v as i64);
-            let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            // let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            let v = thread_runtime.garbage_collect.new_object(
+                FSRValue::Integer(v as i64),
+                gid(GlobalObj::IntegerCls)
+            );
             v
         },
         FSRSType::UInt32 => {
             let ret_ptr = ptr as *const u32;
             let v = unsafe { *ret_ptr as u32 };
             // let v = FSRValue::Integer(v as i64);
-            let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            // let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            let v = thread_runtime.garbage_collect.new_object(
+                FSRValue::Integer(v as i64),
+                gid(GlobalObj::IntegerCls)
+            );
             v
         },
         FSRSType::UInt64 => {
             let ret_ptr = ptr as *const u64;
             let v = unsafe { *ret_ptr as u64 };
             // let v = FSRValue::Integer(v as i64);
-            let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            // let v = FSRVM::leak_object(Box::new(FSRInteger::new_inst(v as i64)));
+            let v = thread_runtime.garbage_collect.new_object(
+                FSRValue::Integer(v as i64),
+                gid(GlobalObj::IntegerCls)
+            );
             v
         },
         _ => {

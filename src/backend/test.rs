@@ -205,6 +205,39 @@ pub mod tests {
             println!("{:?}", end - start);
         }
     }
+    #[test]
+    fn test_jit_script() {
+        FSRVM::single();
+        let vs = vec![
+            "test_script/test/jit/alloc_array.fs",
+            "test_script/test/jit/fib_test.fs",
+            "test_script/test/jit/list_assign.fs",
+            "test_script/test/jit/list_item_assign.fs",
+            "test_script/test/jit/method_call.fs",
+            "test_script/test/jit/test_ct_assign.fs",
+            "test_script/test/jit/test_struct.fs",
+        ];
+        for i in vs {
+            println!("Running script: {}", i);
+            let file = i;
+            let mut f = std::fs::File::open(file).unwrap();
+            let mut source_code = String::new();
+            f.read_to_string(&mut source_code).unwrap();
+            let mut obj: Box<FSRObject<'_>> = Box::new(FSRModule::new_object("main"));
+            let obj_id = FSRVM::leak_object(obj);
+            let v = FSRCode::from_code("main", &source_code, obj_id).unwrap();
+            let obj = FSRObject::id_to_mut_obj(obj_id).unwrap();
+            obj.as_mut_module().init_fn_map(v);
+            let mut runtime = FSRThreadRuntime::new_runtime();
+
+            let start = Instant::now();
+            //runtime.start(&v, &mut vm).unwrap();
+
+            runtime.start(obj_id, false).unwrap();
+            let end = Instant::now();
+            println!("{:?}", end - start);
+        }
+    }
 
     #[test]
     fn test_obj_size() {

@@ -1,13 +1,16 @@
 use core::panic;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, os::unix::thread, sync::Arc};
 
 use anyhow::{Context, Ok, Result};
 use cranelift::{
-    codegen::{self, ir},
+    codegen::{
+        self,
+        ir::{self, BlockArg},
+    },
     prelude::{
-        settings, types, AbiParam, Block, Configurable, EntityRef, FunctionBuilder,
-        FunctionBuilderContext, InstBuilder, Signature, StackSlotData, StackSlotKind, Type, Value,
-        Variable,
+        AbiParam, Block, Configurable, EntityRef, FunctionBuilder, FunctionBuilderContext,
+        InstBuilder, Signature, StackSlotData, StackSlotKind, Type, Value, Variable, settings,
+        types,
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -420,7 +423,8 @@ impl JitBuilder<'_> {
         let loop_var = self
             .builder
             .append_block_param(header_block, self.module.target_config().pointer_type());
-        self.builder.ins().jump(header_block, &[iter_obj_value]);
+        let block_arg = BlockArg::Value(iter_obj_value);
+        self.builder.ins().jump(header_block, &[block_arg]);
         self.builder.switch_to_block(header_block);
         context.loop_blocks.push(header_block);
         context.for_iter_obj.push(iter_obj_value);
@@ -490,10 +494,10 @@ impl JitBuilder<'_> {
     }
 
     fn load_for_end(&mut self, context: &mut OperatorContext) {
-        self.builder.ins().jump(
-            *context.loop_blocks.last().unwrap(),
-            &[*context.for_iter_obj.last().unwrap()],
-        );
+        let block_arg = BlockArg::Value(*context.for_iter_obj.last().unwrap());
+        self.builder
+            .ins()
+            .jump(*context.loop_blocks.last().unwrap(), &[block_arg]);
 
         //context.is_while = false;
         let v = context.loop_blocks.pop().unwrap();
@@ -516,9 +520,10 @@ impl JitBuilder<'_> {
         let is_true = self.load_is_true(context);
         let condition = is_true;
         let not_condition = self.builder.ins().bnot(condition);
+        let not_cond_barg = BlockArg::Value(not_condition);
         self.builder
             .ins()
-            .brif(condition, body_block, &[], exit_block.0, &[not_condition]);
+            .brif(condition, body_block, &[], exit_block.0, &[not_cond_barg]);
 
         self.builder.switch_to_block(body_block);
         self.builder.seal_block(body_block);
@@ -537,9 +542,10 @@ impl JitBuilder<'_> {
         if context.if_exit_blocks.last().unwrap().1 || context.is_body_jump {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
+            let block_arg = BlockArg::Value(false_value);
             self.builder
                 .ins()
-                .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
+                .jump(context.if_exit_blocks.last().unwrap().0, &[block_arg]);
         }
 
         context.is_body_jump = false;
@@ -559,13 +565,13 @@ impl JitBuilder<'_> {
         let end_block = self.builder.create_block();
         self.builder.append_block_param(end_block, types::I8);
         let false_value = self.builder.ins().iconst(types::I8, 0);
-
+        let false_barg = BlockArg::Value(false_value);
         self.builder.ins().brif(
             call_be_test,
             header_test_block,
             &[],
             end_block,
-            &[false_value],
+            &[false_barg],
         );
 
         //self.builder.seal_block(header_test_block);
@@ -584,9 +590,14 @@ impl JitBuilder<'_> {
         let is_true = self.load_is_true(context);
         let condition = is_true;
         let not_condition = self.builder.ins().bnot(condition);
-        self.builder
-            .ins()
-            .brif(condition, body_block, &[], exit_block.0, &[not_condition]);
+        let not_condition_barg = BlockArg::Value(not_condition);
+        self.builder.ins().brif(
+            condition,
+            body_block,
+            &[],
+            exit_block.0,
+            &[not_condition_barg],
+        );
 
         self.builder.switch_to_block(body_block);
         self.builder.seal_block(body_block);
@@ -605,9 +616,10 @@ impl JitBuilder<'_> {
         if context.if_exit_blocks.last().unwrap().1 || context.is_body_jump {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
+            let block_arg = BlockArg::Value(false_value);
             self.builder
                 .ins()
-                .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
+                .jump(context.if_exit_blocks.last().unwrap().0, &[block_arg]);
         }
 
         context.is_body_jump = false;
@@ -627,13 +639,13 @@ impl JitBuilder<'_> {
         let end_block = self.builder.create_block();
         self.builder.append_block_param(end_block, types::I8);
         let false_value = self.builder.ins().iconst(types::I8, 0);
-
+        let block_arg = BlockArg::Value(false_value);
         self.builder.ins().brif(
             call_be_test,
             header_test_block,
             &[],
             end_block,
-            &[false_value],
+            &[block_arg],
         );
 
         //self.builder.seal_block(header_test_block);
@@ -647,9 +659,10 @@ impl JitBuilder<'_> {
         if context.if_exit_blocks.last().unwrap().1 || context.is_body_jump {
         } else {
             let false_value = self.builder.ins().iconst(types::I8, 0);
+            let block_arg = BlockArg::Value(false_value);
             self.builder
                 .ins()
-                .jump(context.if_exit_blocks.last().unwrap().0, &[false_value]);
+                .jump(context.if_exit_blocks.last().unwrap().0, &[block_arg]);
         }
 
         context.is_body_jump = false;
@@ -666,135 +679,6 @@ impl JitBuilder<'_> {
         //context.ins_check_gc = true;
         //self.builder.ins().iconst(self.int, 0);
     }
-
-    // fn load_gc_collect(&mut self, context: &mut OperatorContext) {
-    //     let ptr_type = self.module.target_config().pointer_type();
-    //     let var_count =
-    //         self.defined_variables.len() + context.for_iter_obj.len() + context.for_obj.len();
-    //     let size = self.builder.ins().iconst(ptr_type, var_count as i64); // usize
-
-    //     // let mut malloc_sig = self.module.make_signature();
-    //     // malloc_sig.params.push(AbiParam::new(types::I64));
-    //     // malloc_sig.returns.push(AbiParam::new(ptr_type));
-    //     // let malloc_id = self
-    //     //     .module
-    //     //     .declare_function("malloc", cranelift_module::Linkage::Import, &malloc_sig)
-    //     //     .unwrap();
-    //     // let malloc_func_ref = self
-    //     //     .module
-    //     //     .declare_func_in_func(malloc_id, self.builder.func);
-    //     // let malloc_call = self.builder.ins().call(malloc_func_ref, &[size]);
-    //     // let arr_ptr = self.builder.inst_results(malloc_call)[0];
-    //     let arr_ptr = self
-    //         .builder
-    //         .use_var(*self.variables.get("#args_ptr").unwrap());
-    //     let mut i = 0;
-    //     for var in self.defined_variables.values() {
-    //         let value = self.builder.use_var(*var);
-    //         let offset = self
-    //             .builder
-    //             .ins()
-    //             .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
-    //         let ptr = self.builder.ins().iadd(arr_ptr, offset);
-    //         self.builder
-    //             .ins()
-    //             .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
-    //         i += 1;
-    //     }
-
-    //     for var in &context.for_iter_obj {
-    //         let value = *var;
-    //         let offset = self
-    //             .builder
-    //             .ins()
-    //             .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
-    //         let ptr = self.builder.ins().iadd(arr_ptr, offset);
-    //         self.builder
-    //             .ins()
-    //             .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
-    //         i += 1;
-    //     }
-
-    //     for var in &context.for_obj {
-    //         let value = *var;
-    //         let offset = self
-    //             .builder
-    //             .ins()
-    //             .iconst(types::I64, (i * std::mem::size_of::<ObjId>()) as i64);
-    //         let ptr = self.builder.ins().iadd(arr_ptr, offset);
-    //         self.builder
-    //             .ins()
-    //             .store(cranelift::codegen::ir::MemFlags::new(), value, ptr, 0);
-    //         i += 1;
-    //     }
-
-    //     let mut gc_collect_sig = self.module.make_signature();
-    //     // pub extern "C" fn gc_collect(thread: &mut FSRThreadRuntime, list_obj: *const ObjId, len: usize)
-    //     gc_collect_sig
-    //         .params
-    //         .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-    //     gc_collect_sig
-    //         .params
-    //         .push(AbiParam::new(self.module.target_config().pointer_type())); // list pointer
-    //     gc_collect_sig.params.push(AbiParam::new(types::I64)); // length of the list
-
-    //     gc_collect_sig
-    //         .returns
-    //         .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (void)
-    //     let gc_collect_id = self
-    //         .module
-    //         .declare_function(
-    //             "gc_collect",
-    //             cranelift_module::Linkage::Import,
-    //             &gc_collect_sig,
-    //         )
-    //         .unwrap();
-
-    //     let gc_collect_func_ref = self
-    //         .module
-    //         .declare_func_in_func(gc_collect_id, self.builder.func);
-    //     let thread_runtime = self.builder.block_params(context.entry_block)[0];
-    //     let len = self.builder.ins().iconst(types::I64, var_count as i64);
-
-    //     let gc_call = self
-    //         .builder
-    //         .ins()
-    //         .call(gc_collect_func_ref, &[thread_runtime, arr_ptr, len]);
-    //     let _ = self.builder.inst_results(gc_call)[0]; // We don't need the return value, just ensure the call is made
-    //                                                    // Free the allocated array after the GC call
-    //                                                    //self.load_free_arg_list(arr_ptr, context, var_count as i64);
-    // }
-
-    // fn load_check_gc(&mut self, context: &mut OperatorContext) -> Value {
-    //     let mut check_gc_sig = self.module.make_signature();
-    //     check_gc_sig
-    //         .params
-    //         .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-    //     check_gc_sig.returns.push(AbiParam::new(types::I8)); // return type (boolean)
-
-    //     let fn_id = self
-    //         .module
-    //         .declare_function("check_gc", cranelift_module::Linkage::Import, &check_gc_sig)
-    //         .unwrap();
-    //     let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-    //     let thread_runtime = self.builder.block_params(context.entry_block)[0];
-    //     let ret = self.builder.ins().call(func_ref, &[thread_runtime]);
-    //     let condition = self.builder.inst_results(ret)[0];
-
-    //     let then_block = self.builder.create_block();
-    //     let else_block = self.builder.create_block();
-    //     self.builder
-    //         .ins()
-    //         .brif(condition, then_block, &[], else_block, &[]);
-
-    //     self.builder.switch_to_block(then_block);
-    //     self.builder.seal_block(then_block);
-    //     self.load_gc_collect(context);
-    //     self.builder.ins().jump(else_block, &[]);
-    //     self.builder.switch_to_block(else_block);
-    //     self.builder.seal_block(else_block);
-    //     condition
-    // }
 
     fn make_call_fn(&self) -> Signature {
         let mut call_fn_sig = self.module.make_signature();
@@ -874,14 +758,14 @@ impl JitBuilder<'_> {
                 let target_ptr = self.builder.ins().iadd(father_obj_id, index_size);
                 // trans to pointer
                 //if let FSRSType::List(l, _) = type_info.as_ref() {
-                let new_value = Self::load_ptr_data(self, inner_type, target_ptr);
+                let new_value = Self::load_ptr_data(self, inner_type, target_ptr, 0);
                 context.exp.push(new_value);
             } else if let FSRSType::Ptr(pointer_inner) = type_info.as_ref() {
                 let type_size = pointer_inner.size_of() as i64;
                 let index_size = self.builder.ins().imul_imm(index, type_size);
                 let target_ptr = self.builder.ins().iadd(father_obj_id, index_size);
                 //let tmp_ptr = Arc::new(FSRSType::Ptr(pointer_inner.clone()));
-                let new_value = Self::load_ptr_data(self, &pointer_inner, target_ptr);
+                let new_value = Self::load_ptr_data(self, &pointer_inner, target_ptr, 0);
                 context.exp.push(new_value);
             } else {
                 panic!("Getter only supports List type currently");
@@ -1133,10 +1017,10 @@ impl JitBuilder<'_> {
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // right value
         binary_op_sig.params.push(AbiParam::new(types::I32)); // operator type
-                                                              // operator_name_sig
-                                                              //     .params
-                                                              //     .push(AbiParam::new(self.module.target_config().pointer_type())); // runtime context
-                                                              // code: ObjId,
+        // operator_name_sig
+        //     .params
+        //     .push(AbiParam::new(self.module.target_config().pointer_type())); // runtime context
+        // code: ObjId,
         binary_op_sig
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // code object
@@ -1431,13 +1315,10 @@ impl JitBuilder<'_> {
         // add param for end block
         self.builder
             .append_block_param(end_block, self.module.target_config().pointer_type());
-        self.builder.ins().brif(
-            last_ssa_value,
-            end_block,
-            &[*context.exp.last().unwrap()],
-            b_block,
-            &[],
-        );
+        let block_arg = BlockArg::Value(*context.exp.last().unwrap());
+        self.builder
+            .ins()
+            .brif(last_ssa_value, end_block, &[block_arg], b_block, &[]);
 
         self.builder.switch_to_block(b_block);
         self.builder.seal_block(b_block);
@@ -1458,13 +1339,10 @@ impl JitBuilder<'_> {
         // add param for end block
         self.builder
             .append_block_param(end_block, self.module.target_config().pointer_type());
-        self.builder.ins().brif(
-            last_ssa_value,
-            end_block,
-            &[*context.exp.last().unwrap()],
-            b_block,
-            &[],
-        );
+        let block_arg = BlockArg::Value(*context.exp.last().unwrap());
+        self.builder
+            .ins()
+            .brif(last_ssa_value, end_block, &[block_arg], b_block, &[]);
 
         self.builder.switch_to_block(b_block);
         self.builder.seal_block(b_block);
@@ -1654,37 +1532,41 @@ impl JitBuilder<'_> {
     }
 
     fn load_list(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) -> Result<()> {
-        if let ArgType::LoadListNumber(arg) = arg.get_arg() {
-            let alloc_stack_size = arg.list_len * arg.inner_type.as_ref().unwrap().size_of();
-            let stack_addr = self.assign_stack_size(context, alloc_stack_size, 4);
-            let len_value = self.builder.ins().iconst(
-                self.module.target_config().pointer_type(),
-                arg.list_len as i64,
-            );
-            let mut list_args = vec![];
-            for i in 0..arg.list_len {
-                // store to arg_ptr
-                list_args.push(context.exp.pop().unwrap());
-            }
-
-            for index in 0..arg.list_len {
-                let base_addr = self.builder.ins().iadd_imm(
-                    stack_addr,
-                    (index * arg.inner_type.as_ref().unwrap().size_of()) as i64,
-                );
-                self.assign_to_addr(
-                    context,
-                    base_addr,
-                    list_args[index],
-                    arg.inner_type.as_ref().unwrap().clone(),
-                );
-            }
-
-            context.exp.push(stack_addr);
-
-            return Ok(());
+        let arg = if let ArgType::LoadListNumber(arg) = arg.get_arg() {
+            arg
+        } else {
+            return Err(anyhow::anyhow!(
+                "LoadList requires a LoadListNumber argument"
+            ));
+        };
+        let alloc_stack_size = arg.list_len * arg.inner_type.as_ref().unwrap().size_of();
+        let stack_addr = self.assign_stack_size(context, alloc_stack_size, 4);
+        let len_value = self.builder.ins().iconst(
+            self.module.target_config().pointer_type(),
+            arg.list_len as i64,
+        );
+        let mut list_args = vec![];
+        for i in 0..arg.list_len {
+            // store to arg_ptr
+            list_args.push(context.exp.pop().unwrap());
         }
-        unimplemented!()
+
+        for index in 0..arg.list_len {
+            let base_addr = self.builder.ins().iadd_imm(
+                stack_addr,
+                (index * arg.inner_type.as_ref().unwrap().size_of()) as i64,
+            );
+            self.assign_to_addr(
+                context,
+                base_addr,
+                list_args[index],
+                arg.inner_type.as_ref().unwrap().clone(),
+            );
+        }
+
+        context.exp.push(stack_addr);
+
+        return Ok(());
     }
 
     fn get_current_fn_id(&mut self, context: &mut OperatorContext) -> Value {
@@ -1710,7 +1592,7 @@ impl JitBuilder<'_> {
         self.builder.inst_results(call)[0]
     }
 
-    fn load_ptr_data(&mut self, var_type: &Arc<FSRSType>, value: Value) -> Value {
+    fn load_ptr_data(&mut self, var_type: &Arc<FSRSType>, value: Value, offset: usize) -> Value {
         // input a data ptr to get value
         match var_type.as_ref() {
             FSRSType::UInt64 => {
@@ -1719,36 +1601,48 @@ impl JitBuilder<'_> {
                     types::I64,
                     cranelift::codegen::ir::MemFlags::new(),
                     value,
-                    0,
+                    offset as i32,
                 )
             }
             FSRSType::UInt32 => self.builder.ins().load(
                 types::I32,
                 cranelift::codegen::ir::MemFlags::new(),
                 value,
-                0,
+                offset as i32,
             ),
             FSRSType::IInt64 => self.builder.ins().load(
                 types::I64,
                 cranelift::codegen::ir::MemFlags::new(),
                 value,
-                0,
+                offset as i32,
             ),
             FSRSType::UInt8 => self.builder.ins().load(
                 types::I8,
                 cranelift::codegen::ir::MemFlags::new(),
                 value,
-                0,
+                offset as i32,
             ),
             FSRSType::Ptr(fsrstype) => self.builder.ins().load(
                 self.module.target_config().pointer_type(),
                 cranelift::codegen::ir::MemFlags::new(),
                 value,
-                0,
+                offset as i32,
             ),
-            FSRSType::List(l, _) => value,
-            FSRSType::Struct(s) => value,
-            FSRSType::String => value,
+            FSRSType::List(l, _) => {
+                // add value and offset
+                let addr = self.builder.ins().iadd_imm(value, offset as i64);
+                addr
+            }
+            FSRSType::Struct(s) => {
+                // add value and offset
+                let addr = self.builder.ins().iadd_imm(value, offset as i64);
+                addr
+            }
+            FSRSType::String => {
+                // add value and offset
+                let addr = self.builder.ins().iadd_imm(value, offset as i64);
+                addr
+            }
             _ => panic!("load_ptr_data expects a Ptr type: {:?}", var_type),
         }
     }
@@ -1759,8 +1653,9 @@ impl JitBuilder<'_> {
             let offset = attr_var.offset.unwrap();
             let father_value = *context.exp.last().unwrap();
 
-            let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
-            let data = Self::load_ptr_data(self, &attr_type, addr);
+            // let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
+            let addr = father_value;
+            let data = Self::load_ptr_data(self, &attr_type, addr, offset);
             context.exp.push(data);
         } else {
             panic!("BinaryDot requires an Attr argument");
@@ -1956,12 +1851,13 @@ impl JitBuilder<'_> {
                 value_to_store
             };
 
-            let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
+            //let addr = self.builder.ins().iadd_imm(father_value, offset as i64);
+            let addr = father_value;
             self.builder.ins().store(
                 cranelift::codegen::ir::MemFlags::new(),
                 value_to_store,
                 addr,
-                0,
+                offset as i32,
             );
         } else {
             panic!("StoreAttr requires an Attr argument");
@@ -2423,7 +2319,7 @@ impl JitBuilder<'_> {
             let variable = self.variables.get(v.name.as_str()).unwrap();
             // context.left = Some(self.builder.use_var(*variable));
             let stack_addr = self.builder.use_var(*variable);
-            let value = Self::load_ptr_data(self, v.var_type.as_ref().unwrap(), stack_addr);
+            let value = Self::load_ptr_data(self, v.var_type.as_ref().unwrap(), stack_addr, 0);
             context.exp.push(value);
         } else if let ArgType::JitFunction(father_struct, f_name) = arg.get_arg() {
             let module = FSRObject::id_to_obj(code).as_code().module;
@@ -2484,13 +2380,22 @@ impl JitBuilder<'_> {
         }
     }
 
-    fn entry_ret_process(&mut self, value: Value, var_type: &FSRSType) -> Value {
+    fn entry_ret_process(
+        &mut self,
+        context: &mut OperatorContext,
+        value: Value,
+        var_type: &FSRSType,
+    ) -> Value {
         // pub extern "C" fn ret_process(
+        //     thread_runtime: &mut FSRThreadRuntime,
         //     ptr: usize,
         //     var_type: &FSRSType
         // ) -> usize {
         // }
         let mut ret_process_sig = self.module.make_signature();
+        ret_process_sig
+            .params
+            .push(AbiParam::new(self.module.target_config().pointer_type())); // thread_runtime
         ret_process_sig
             .params
             .push(AbiParam::new(self.module.target_config().pointer_type())); // ptr
@@ -2513,7 +2418,11 @@ impl JitBuilder<'_> {
             self.module.target_config().pointer_type(),
             var_type as *const FSRSType as i64,
         );
-        let call = self.builder.ins().call(func_ref, &[value, type_ptr]);
+        let thread_runtime = self.builder.block_params(context.entry_block)[0];
+        let call = self
+            .builder
+            .ins()
+            .call(func_ref, &[thread_runtime, value, type_ptr]);
         let ret = self.builder.inst_results(call)[0];
         ret
     }
@@ -2551,6 +2460,59 @@ impl JitBuilder<'_> {
                 panic!("Return value move does not support type {:?}", ret_type);
             }
         }
+    }
+
+    fn ret_process(&mut self, context: &mut OperatorContext, is_entry: bool) {
+        if let Some(s) = context.if_exit_blocks.last_mut() {
+            s.1 = true; // Mark the last if block as having a return value
+        }
+
+        let ret_value = if let Some(ret_type) = self.self_call_sig.return_type.as_ref() {
+            if let FSRSType::Struct(_) = ret_type.as_ref() {
+                // handle struct return
+                let return_ptr = self.builder.block_params(context.entry_block)[1];
+                let return_value = context.exp.pop().unwrap();
+                let struct_size = ret_type.size_of() as i64;
+                let size_value = self
+                    .builder
+                    .ins()
+                    .iconst(self.module.target_config().pointer_type(), struct_size);
+                Self::memcpy(self, context, return_ptr, return_value, size_value);
+                return_ptr
+            } else if let FSRSType::List(_, _) = ret_type.as_ref() {
+                // handle list return
+                let return_ptr = self.builder.block_params(context.entry_block)[1];
+                let return_value = context.exp.pop().unwrap();
+                let list_size = ret_type.size_of() as i64;
+                let size_value = self
+                    .builder
+                    .ins()
+                    .iconst(self.module.target_config().pointer_type(), list_size);
+                Self::memcpy(self, context, return_ptr, return_value, size_value);
+                return_ptr
+            } else {
+                context
+                    .exp
+                    .pop()
+                    .unwrap_or(self.builder.ins().iconst(types::I64, 0))
+            }
+        } else {
+            context
+                .exp
+                .pop()
+                .unwrap_or(self.builder.ins().iconst(types::I64, 0))
+        };
+
+        let ret_value = if is_entry {
+            let ret_type = self.self_call_sig.return_type.as_ref().unwrap().clone();
+            Self::mv_to_ret(self, context, ret_type.as_ref(), ret_value);
+            let ret_type = self.self_call_sig.return_type.as_ref().unwrap().clone();
+            let ret_slot = self.ret_slot.unwrap();
+            Self::entry_ret_process(self, context, ret_slot, ret_type.as_ref())
+        } else {
+            ret_value
+        };
+        self.builder.ins().return_(&[ret_value]);
     }
 
     fn compile_expr(
@@ -2645,57 +2607,7 @@ impl JitBuilder<'_> {
                     //self.builder.ins().nop();
                 }
                 BytecodeOperator::ReturnValue => {
-                    if let Some(s) = context.if_exit_blocks.last_mut() {
-                        s.1 = true; // Mark the last if block as having a return value
-                    }
-
-                    let ret_value = if let Some(ret_type) = self.self_call_sig.return_type.as_ref()
-                    {
-                        if let FSRSType::Struct(_) = ret_type.as_ref() {
-                            // handle struct return
-                            let return_ptr = self.builder.block_params(context.entry_block)[1];
-                            let return_value = context.exp.pop().unwrap();
-                            let struct_size = ret_type.size_of() as i64;
-                            let size_value = self
-                                .builder
-                                .ins()
-                                .iconst(self.module.target_config().pointer_type(), struct_size);
-                            Self::memcpy(self, context, return_ptr, return_value, size_value);
-                            return_ptr
-                        } else if let FSRSType::List(_, _) = ret_type.as_ref() {
-                            // handle list return
-                            let return_ptr = self.builder.block_params(context.entry_block)[1];
-                            let return_value = context.exp.pop().unwrap();
-                            let list_size = ret_type.size_of() as i64;
-                            let size_value = self
-                                .builder
-                                .ins()
-                                .iconst(self.module.target_config().pointer_type(), list_size);
-                            Self::memcpy(self, context, return_ptr, return_value, size_value);
-                            return_ptr
-                        } else {
-                            context
-                                .exp
-                                .pop()
-                                .unwrap_or(self.builder.ins().iconst(types::I64, 0))
-                        }
-                    } else {
-                        context
-                            .exp
-                            .pop()
-                            .unwrap_or(self.builder.ins().iconst(types::I64, 0))
-                    };
-
-                    let ret_value = if is_entry {
-                        let ret_type = self.self_call_sig.return_type.as_ref().unwrap().clone();
-                        Self::mv_to_ret(self, context, ret_type.as_ref(), ret_value);
-                        let ret_type = self.self_call_sig.return_type.as_ref().unwrap().clone();
-                        let ret_slot = self.ret_slot.unwrap();
-                        Self::entry_ret_process(self, ret_slot, ret_type.as_ref())
-                    } else {
-                        ret_value
-                    };
-                    self.builder.ins().return_(&[ret_value]);
+                    self.ret_process(context, is_entry);
                 }
                 BytecodeOperator::IfTest => {
                     self.load_if_test(context, arg);
@@ -2776,7 +2688,7 @@ impl JitBuilder<'_> {
                     if let Some(end_block) = context.logic_end_block.take() {
                         self.builder
                             .ins()
-                            .jump(end_block, &[context.exp.pop().unwrap()]);
+                            .jump(end_block, &[BlockArg::Value(context.exp.pop().unwrap())]);
                         self.builder.switch_to_block(end_block);
                         self.builder.seal_block(end_block);
                         context.exp.push(self.builder.block_params(end_block)[0]);
@@ -2803,8 +2715,9 @@ fn declare_variable(
     let var = Variable::new(*index);
     if !variables.contains_key(name) || is_defined {
         variables.insert(name.into(), var);
-        builder.declare_var(var, var_type);
-        *index += 1;
+        //builder.declare_var(var, var_type);
+        let mut var = builder.declare_var(var_type);
+        *index = var.index() + 1;
 
         return (var, true);
     }
@@ -2914,12 +2827,12 @@ impl CraneLiftJitBackend {
         if is_entry {
             self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the thread runtime.
             self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for the code object.
-                                                                     // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
-                                                                     // self.ctx
-                                                                     //     .func
-                                                                     //     .signature
-                                                                     //     .params
-                                                                     //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
+            // self.ctx.func.signature.params.push(AbiParam::new(ptr)); // Add a parameter for list of arguments.
+            // self.ctx
+            //     .func
+            //     .signature
+            //     .params
+            //     .push(AbiParam::new(types::I32)); // Add a parameter for the number of arguments.
             self.ctx.func.signature.returns.push(AbiParam::new(ptr)); // Add a return type for the function.
         } else {
             self.ctx

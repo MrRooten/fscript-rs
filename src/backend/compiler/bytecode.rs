@@ -2018,7 +2018,7 @@ impl<'a> Bytecode {
                     let mut m_type = const_map.type_info.types.remove(&key).unwrap();
                     // get mutable access to the outer FSRSType (may clone if necessary)
                     match Arc::make_mut(&mut m_type) {
-                        FSRSType::Struct(ref mut arc_struct) => {
+                        FSRSType::Struct(arc_struct) => {
                             // arc_struct is &mut Arc<FSRStruct>, make_mut to get &mut FSRStruct
                             let s = Arc::make_mut(arc_struct);
                             s.fields

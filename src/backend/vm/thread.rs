@@ -6,8 +6,10 @@ use std::{
     path::PathBuf,
     str::FromStr,
     sync::{
-        Arc, Condvar, Mutex, atomic::{AtomicUsize, Ordering}
-    }, time::Instant,
+        Arc, Condvar, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::Instant,
 };
 
 use cranelift::codegen::ir::Inst;
@@ -44,7 +46,7 @@ use crate::{
 use super::{
     free_list::FrameFreeList,
     // quick_op::Ops,
-    virtual_machine::{gid, FSRVM, VM},
+    virtual_machine::{FSRVM, VM, gid},
 };
 
 macro_rules! obj_cls {
@@ -1251,7 +1253,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     return Err(FSRError::new(
                         format!("not have this attr: `{}`", name),
                         FSRErrCode::NoSuchObject,
-                    ))
+                    ));
                 }
             };
 
@@ -1517,38 +1519,38 @@ impl<'a> FSRThreadRuntime<'a> {
             );
             Ok(id)
         }
-        if let Some(call_sig) = call_sig {
-            if let Some(ret_type) = &call_sig.return_type {
-                match ret_type.as_ref() {
-                    FSRSType::Bool => {
-                        if res == 0 {
-                            return Ok(FSRObject::false_id());
-                        } else {
-                            return Ok(FSRObject::true_id());
-                        }
+        if let Some(call_sig) = call_sig
+            && let Some(ret_type) = &call_sig.return_type
+        {
+            match ret_type.as_ref() {
+                FSRSType::Bool => {
+                    if res == 0 {
+                        return Ok(FSRObject::false_id());
+                    } else {
+                        return Ok(FSRObject::true_id());
                     }
-                    FSRSType::UInt8 => {
-                        return to_integer(thread, res);
-                    }
-                    FSRSType::UInt16
-                    | FSRSType::UInt32
-                    | FSRSType::UInt64
-                    | FSRSType::IInt8
-                    | FSRSType::IInt16
-                    | FSRSType::IInt32
-                    | FSRSType::IInt64 => {
-                        return to_integer(thread, res);
-                    }
-                    FSRSType::Float32 => todo!(),
-                    FSRSType::Float64 => todo!(),
-                    FSRSType::String => todo!(),
-                    FSRSType::Struct(fsrstruct) => todo!(),
-                    FSRSType::Ptr(fsrstype) => {
-                        return to_integer(thread, res);
-                    }
-                    FSRSType::Fn(fn_call_sig) => return to_integer(thread, res),
-                    FSRSType::List(fsrstype, _) => todo!(),
                 }
+                FSRSType::UInt8 => {
+                    return to_integer(thread, res);
+                }
+                FSRSType::UInt16
+                | FSRSType::UInt32
+                | FSRSType::UInt64
+                | FSRSType::IInt8
+                | FSRSType::IInt16
+                | FSRSType::IInt32
+                | FSRSType::IInt64 => {
+                    return to_integer(thread, res);
+                }
+                FSRSType::Float32 => todo!(),
+                FSRSType::Float64 => todo!(),
+                FSRSType::String => todo!(),
+                FSRSType::Struct(fsrstruct) => todo!(),
+                FSRSType::Ptr(fsrstype) => {
+                    return to_integer(thread, res);
+                }
+                FSRSType::Fn(fn_call_sig) => return to_integer(thread, res),
+                FSRSType::List(fsrstype, _) => todo!(),
             }
         }
 
@@ -1759,7 +1761,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 return Err(FSRError::new(
                     "not a try catch line",
                     FSRErrCode::NotValidArgs,
-                ))
+                ));
             }
         };
         let ip_0 = self.get_cur_frame().ip.0;
@@ -2138,7 +2140,9 @@ impl<'a> FSRThreadRuntime<'a> {
         //     .jit_code_map
         //     .get(&fn_args.fn_identify_name)
         //     .map(|x| x.load(Ordering::Relaxed) as *const u8);
-        let code = module.get_jit_code_map(None, &fn_args.fn_identify_name).map(|x| x.load(Ordering::Relaxed) as *const u8);
+        let code = module
+            .get_jit_code_map(None, &fn_args.fn_identify_name)
+            .map(|x| x.load(Ordering::Relaxed) as *const u8);
         let fn_obj = FSRFn::from_fsr_fn(
             fn_args.name.as_str(),
             FnDesc {
@@ -2457,11 +2461,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .filter_map(|r| {
                 let start = r.start.max(main.start);
                 let end = r.end.min(main.end);
-                if start <= end {
-                    Some(start..end)
-                } else {
-                    None
-                }
+                if start <= end { Some(start..end) } else { None }
             })
             .collect();
 
@@ -3498,16 +3498,23 @@ impl<'a> FSRThreadRuntime<'a> {
                 v.push(code.0.to_string());
             }
         }
-        let type_info_ref = &mut FSRObject::id_to_mut_obj(module).unwrap().as_mut_module().type_info;
+        let type_info_ref = &mut FSRObject::id_to_mut_obj(module)
+            .unwrap()
+            .as_mut_module()
+            .type_info;
         for fn_name in v {
             let mut mut_module = FSRObject::id_to_mut_obj(module).unwrap().as_mut_module();
 
             let code_name = fn_name.split("::").collect::<Vec<&str>>();
             if code_name.len() == 1 {
-                mut_module.jit_code_map.push((None, code_name[0].to_string(), AtomicUsize::new(0)));
+                mut_module
+                    .jit_code_map
+                    .push((None, code_name[0].to_string(), AtomicUsize::new(0)));
             } else {
                 let struct_name = code_name[0];
-                let father_type = type_info_ref.get_type(&FSRTypeName::new(struct_name)).unwrap();
+                let father_type = type_info_ref
+                    .get_type(&FSRTypeName::new(struct_name))
+                    .unwrap();
                 mut_module.jit_code_map.push((
                     Some(father_type),
                     code_name[1].to_string(),
@@ -3534,25 +3541,25 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
         println!("JIT compile time: {:?}", start.elapsed());
-        
 
         for code in h {
             let mut mut_module = FSRObject::id_to_mut_obj(module).unwrap().as_mut_module();
             let code_name = code.0.split("::").collect::<Vec<&str>>();
             if code_name.len() == 1 {
-                mut_module.get_jit_code_map(None, code_name[0]).unwrap().store(
-                    code.1 as usize,
-                    Ordering::Relaxed,
-                );
+                mut_module
+                    .get_jit_code_map(None, code_name[0])
+                    .unwrap()
+                    .store(code.1 as usize, Ordering::Relaxed);
             } else {
                 let struct_name = code_name[0];
-                let father_type = type_info_ref.get_type(&FSRTypeName::new(struct_name)).unwrap();
-                mut_module.get_jit_code_map(Some(father_type), code_name[1]).unwrap().store(
-                    code.1 as usize,
-                    Ordering::Relaxed,
-                );
+                let father_type = type_info_ref
+                    .get_type(&FSRTypeName::new(struct_name))
+                    .unwrap();
+                mut_module
+                    .get_jit_code_map(Some(father_type), code_name[1])
+                    .unwrap()
+                    .store(code.1 as usize, Ordering::Relaxed);
             }
-            
         }
     }
 
@@ -3572,8 +3579,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 continue;
             }
         }
-
-        
 
         let base_fn = FSRFn::new_empty();
         let base_fn_id = FSRObject::new_inst(base_fn, gid(GlobalObj::FnCls));
