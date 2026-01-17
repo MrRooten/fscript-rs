@@ -1507,56 +1507,6 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    fn ret_type_process(
-        res: usize,
-        call_sig: &Option<Arc<FnCallSig>>,
-        thread: &mut FSRThreadRuntime,
-    ) -> Result<ObjId, FSRError> {
-        fn to_integer(thread: &mut FSRThreadRuntime, res: usize) -> Result<ObjId, FSRError> {
-            let id = thread.garbage_collect.new_object(
-                FSRValue::Integer(res as i64),
-                gid(GlobalObj::IntegerCls) as ObjId,
-            );
-            Ok(id)
-        }
-        if let Some(call_sig) = call_sig
-            && let Some(ret_type) = &call_sig.return_type
-        {
-            match ret_type.as_ref() {
-                FSRSType::Bool => {
-                    if res == 0 {
-                        return Ok(FSRObject::false_id());
-                    } else {
-                        return Ok(FSRObject::true_id());
-                    }
-                }
-                FSRSType::UInt8 => {
-                    return to_integer(thread, res);
-                }
-                FSRSType::UInt16
-                | FSRSType::UInt32
-                | FSRSType::UInt64
-                | FSRSType::IInt8
-                | FSRSType::IInt16
-                | FSRSType::IInt32
-                | FSRSType::IInt64 => {
-                    return to_integer(thread, res);
-                }
-                FSRSType::Float32 => todo!(),
-                FSRSType::Float64 => todo!(),
-                FSRSType::String => todo!(),
-                FSRSType::Struct(fsrstruct) => todo!(),
-                FSRSType::Ptr(fsrstype) => {
-                    return to_integer(thread, res);
-                }
-                FSRSType::Fn(fn_call_sig) => return to_integer(thread, res),
-                FSRSType::List(fsrstype, _) => todo!(),
-            }
-        }
-
-        Ok(FSRObject::none_id())
-    }
-
     #[allow(clippy::missing_transmute_annotations)]
     fn jit_call(
         &mut self,
@@ -1588,9 +1538,6 @@ impl<'a> FSRThreadRuntime<'a> {
             )
         };
         let res = call_fn(self, self.get_cur_frame().code);
-        // let res = Self::ret_type_process(res, call_sig, self)?;
-        // let ptr = res as *const u32;
-        // println!("JIT call result id: 0x{:?}", unsafe { ptr });
         let v = self.pop_frame();
         self.frame_free_list.free(v);
         push_exp!(self, res);

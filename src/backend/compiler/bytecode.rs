@@ -1,13 +1,13 @@
-use anyhow::anyhow;
 use anyhow::Result;
+use anyhow::anyhow;
 use core::panic;
 use std::{
     cell::Cell,
     collections::HashMap,
     str::FromStr,
     sync::{
-        atomic::{AtomicU64, Ordering},
         Arc,
+        atomic::{AtomicU64, Ordering},
     },
 };
 
@@ -1128,6 +1128,23 @@ impl<'a> Bytecode {
         None
     }
 
+    fn static_getter_inner(
+        name: &str,
+        offset: &mut Option<usize>,
+        father_type: Option<Arc<FSRSType>>,
+    ) -> Option<Arc<FSRSType>> {
+        if let Some(t) = father_type.as_ref()
+            && let FSRSType::Struct(s) = t.as_ref()
+        {
+            s.fields.get(name).map(|(inn_offset, t)| {
+                *offset = Some(*inn_offset);
+                t.clone()
+            })
+        } else {
+            None
+        }
+    }
+
     fn load_getter(
         getter: &FSRGetter,
         var_map: &mut Vec<VarMap>,
@@ -1135,21 +1152,26 @@ impl<'a> Bytecode {
         is_method_call: bool,
         is_assign: bool,
         const_map: &mut BytecodeContext,
+        father_type: Option<Arc<FSRSType>>,
     ) -> (Vec<BytecodeArg>, Option<Arc<FSRSType>>) {
         let mut result = Vec::new();
         let name = getter.get_name();
-        let mut type_info = None;
+        let mut offset = None;
+        let mut from_type = None;
+        if const_map.is_static {
+            from_type = Self::static_getter_inner(name, &mut offset, father_type.clone());
+        }
+
+        //let mut type_info = None;
         if !name.is_empty() {
             if is_attr {
-                // if !var_map.last_mut().unwrap().has_attr(name) {
-                //     let v = name;
-                //     var_map.last_mut().unwrap().insert_attr(v);
-                // }
                 ensure_attr_id!(var_map, name);
                 let id = var_map.last_mut().unwrap().get_attr(name).unwrap();
 
                 if is_method_call {
-                    let attr_var = AttrVar::new(*id, name.to_string(), None);
+                    let mut attr_var = AttrVar::new(*id, name.to_string(), None);
+                    attr_var.attr_type = from_type.clone();
+                    attr_var.offset = offset;
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryDot,
                         arg: Box::new(ArgType::Attr(attr_var)),
@@ -1195,7 +1217,8 @@ impl<'a> Bytecode {
                             None
                         };
                         var.var_type = Some(var_type);
-                        type_info = var.var_type.clone();
+                        //type_info = var.var_type.clone();
+                        from_type = var.var_type.clone();
                     }
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::Load,
@@ -1214,10 +1237,14 @@ impl<'a> Bytecode {
         result.append(&mut v.0[0]);
 
         let type_info_full = if const_map.is_static {
-            let var_type = const_map
-                .type_info
-                .get_type(getter.var_type.as_ref().unwrap());
-            var_type
+            if let Some(f) = from_type.clone() {
+                Some(f)
+            } else {
+                let var_type = const_map
+                    .type_info
+                    .get_type(getter.var_type.as_ref().unwrap());
+                var_type
+            }
         } else {
             None
         };
@@ -1237,8 +1264,7 @@ impl<'a> Bytecode {
                 Some(inner.clone())
             } else if let FSRSType::List(inner, _) = t.as_ref() {
                 Some(inner.clone())
-            }
-            else {
+            } else {
                 Some(t.clone())
             }
         } else {
@@ -1716,7 +1742,6 @@ impl<'a> Bytecode {
             );
         } else if var.get_name().eq("ptr") {
             if let FSRToken::Variable(v) = father {
-
             } else {
                 panic!("Ptr must be a Variable name, meta: {:?}", var.get_meta());
             }
@@ -2098,7 +2123,7 @@ impl<'a> Bytecode {
             return_type = v.1;
             op_code.append(&mut v.0);
         } else if let FSRToken::Getter(s) = expr.get_left() {
-            let mut v = Self::load_getter(s, var_map, false, false, false, const_map);
+            let mut v = Self::load_getter(s, var_map, false, false, false, const_map, None);
             op_code.append(&mut v.0);
             return_type = v.1;
         } else if let FSRToken::Constant(c) = expr.get_left() {
@@ -2224,12 +2249,21 @@ impl<'a> Bytecode {
             let mut is_method_call = true;
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 is_attr = true;
+                let name = s.get_name();
             }
 
             if expr.get_op().eq("::") {
                 is_method_call = false;
             }
-            let mut v = Self::load_getter(s, var_map, is_attr, is_method_call, false, const_map);
+            let mut v = Self::load_getter(
+                s,
+                var_map,
+                is_attr,
+                is_method_call,
+                false,
+                const_map,
+                return_type.clone(),
+            );
             second.append(&mut v.0);
             return_type = Self::deduction_two_type(
                 &mut const_map.type_info,
@@ -2734,6 +2768,7 @@ impl<'a> Bytecode {
                 is_method_call,
                 false,
                 byte_context,
+                None,
             );
             return (vec![v.0], v.1);
         } else if let FSRToken::Constant(c) = token {
@@ -2928,7 +2963,7 @@ impl<'a> Bytecode {
     ) -> Option<(Vec<BytecodeArg>)> {
         let mut result_list = Vec::new();
         if let FSRToken::Getter(v) = &**token.get_left() {
-            let mut left = Self::load_getter(v, var_map, false, false, true, const_map);
+            let mut left = Self::load_getter(v, var_map, false, false, true, const_map, None);
 
             let mut right = Self::load_token_with_map(
                 token.get_assign_expr(),
