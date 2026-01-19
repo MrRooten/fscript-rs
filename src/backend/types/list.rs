@@ -394,6 +394,8 @@ pub fn extend(
 
     let extend_list_id = if let FSRValue::Iterator(i) = &extend_list_obj.value {
         extend_list_id
+    } else if let FSRValue::List(_) = &extend_list_obj.value {
+        extend_list_id
     } else {
         let iter_fn = extend_list_obj
             .get_attr("__iter__")
