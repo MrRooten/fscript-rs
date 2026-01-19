@@ -57,6 +57,11 @@ impl FSRElse {
         let mut start = 0;
         while s.eq("else") {
             start += 4;
+            if source[start] != ' ' {
+                let sub_meta = meta.new_offset(start);
+                let err = SyntaxError::new(&sub_meta, "else token must be followed by space");
+                return Err(err);
+            }
             while source[start] as char == ' ' {
                 start += 1;
             }
@@ -85,7 +90,9 @@ impl FSRElse {
                 };
                 else_ifs.push(e);
             } else {
-                break;
+                let sub_meta = meta.new_offset(start);
+                let err = SyntaxError::new(&sub_meta, "not valid else if or else block");
+                return Err(err);
             }
 
             while start < source.len() && ASTParser::is_blank_char_with_new_line(source[start]) {

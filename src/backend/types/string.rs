@@ -13,7 +13,9 @@ use crate::{
         memory::GarbageCollector,
         types::{base::FSRValue, bytes::FSRInnerBytes},
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    }, to_rs_list, utils::error::FSRError
+    },
+    to_rs_list,
+    utils::error::FSRError,
 };
 
 use super::{
@@ -121,10 +123,9 @@ impl FSRIterator for FSRSplitStringIterator<'_> {
     fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
         if let Some(c) = self.iter.next() {
             let s = FSRInnerString::new(c);
-            let obj_id = thread.garbage_collect.new_object(
-                FSRValue::String(Arc::new(s)),
-                gid(GlobalObj::StringCls),
-            );
+            let obj_id = thread
+                .garbage_collect
+                .new_object(FSRValue::String(Arc::new(s)), gid(GlobalObj::StringCls));
             Ok(Some(obj_id))
         } else {
             Ok(None)
@@ -210,10 +211,9 @@ pub fn add(
     if let FSRValue::String(self_str) = &self_object.value {
         if let FSRValue::String(other_str) = &other_object.value {
             let s = FSRInnerString::new(format!("{}{}", self_str.chars, other_str.chars));
-            let obj_id = thread.garbage_collect.new_object(
-                FSRValue::String(Arc::new(s)),
-                gid(GlobalObj::StringCls),
-            );
+            let obj_id = thread
+                .garbage_collect
+                .new_object(FSRValue::String(Arc::new(s)), gid(GlobalObj::StringCls));
 
             return Ok(FSRRetValue::GlobalId(obj_id));
         } else {
@@ -291,55 +291,57 @@ fn get_sub_char(
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
-    if let FSRValue::String(self_str) = &self_object.value {
-        if let FSRValue::Integer(index) = &index.value {
-            let index = *index as usize;
-            if index < self_str.len() {
-                let obj_id = thread.garbage_collect.new_object(
-                    FSRValue::String(Arc::new(FSRInnerString::new_from_char(
-                        self_str.chars.chars().nth(index).unwrap(),
-                    ))),
-                    gid(GlobalObj::StringCls),
-                );
-                Ok(FSRRetValue::GlobalId(obj_id))
-            } else {
-                Err(FSRError::new(
-                    "index out of range of string",
-                    crate::utils::error::FSRErrCode::IndexOutOfRange,
-                ))
-            }
-        } else if let FSRValue::Range(r) = &index.value {
-            let start = r.range.start as usize;
-            let end = r.range.end as usize;
+    let self_str = if let FSRValue::String(self_str) = &self_object.value {
+        self_str
+    } else {
+        return Err(FSRError::new(
+            "left value is not a string",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
+    };
 
-            if start >= self_str.len() || end > self_str.len() || start > end {
-                return Err(FSRError::new(
-                    "range out of bounds for string",
-                    crate::utils::error::FSRErrCode::IndexOutOfRange,
-                ));
-            }
-
-            let sub_str = self_str
-                .chars
-                .chars()
-                .skip(start)
-                .take(end - start)
-                .collect::<String>();
-            let obj_id = thread.garbage_collect.new_object(
-                FSRValue::String(Arc::new(FSRInnerString::new(sub_str))),
-                gid(GlobalObj::StringCls),
-            );
-
-            return Ok(FSRRetValue::GlobalId(obj_id));
-        } else {
-            Err(FSRError::new(
-                "index is not an integer of string",
-                crate::utils::error::FSRErrCode::NotValidArgs,
-            ))
+    if let FSRValue::Integer(index) = &index.value {
+        let index = *index as usize;
+        if index >= self_str.len() {
+            return Err(FSRError::new(
+                "index out of range of string",
+                crate::utils::error::FSRErrCode::IndexOutOfRange,
+            ));
         }
+
+        let obj_id = thread.garbage_collect.new_object(
+            FSRValue::String(Arc::new(FSRInnerString::new_from_char(
+                self_str.chars.chars().nth(index).unwrap(),
+            ))),
+            gid(GlobalObj::StringCls),
+        );
+        return Ok(FSRRetValue::GlobalId(obj_id));
+    } else if let FSRValue::Range(r) = &index.value {
+        let start = r.range.start as usize;
+        let end = r.range.end as usize;
+
+        if start >= self_str.len() || end > self_str.len() || start > end {
+            return Err(FSRError::new(
+                "range out of bounds for string",
+                crate::utils::error::FSRErrCode::IndexOutOfRange,
+            ));
+        }
+
+        let sub_str = self_str
+            .chars
+            .chars()
+            .skip(start)
+            .take(end - start)
+            .collect::<String>();
+        let obj_id = thread.garbage_collect.new_object(
+            FSRValue::String(Arc::new(FSRInnerString::new(sub_str))),
+            gid(GlobalObj::StringCls),
+        );
+
+        return Ok(FSRRetValue::GlobalId(obj_id));
     } else {
         Err(FSRError::new(
-            "left value is not a string",
+            "index is not an integer of string",
             crate::utils::error::FSRErrCode::NotValidArgs,
         ))
     }
@@ -510,11 +512,13 @@ fn starts_with(
 
     if let FSRValue::String(self_str) = &self_object.value {
         if let FSRValue::String(prefix_str) = &prefix_object.value {
-            return Ok(FSRRetValue::GlobalId(if self_str.chars.starts_with(prefix_str.as_str()) {
-                FSRObject::true_id()
-            } else {
-                FSRObject::false_id()
-            }));
+            return Ok(FSRRetValue::GlobalId(
+                if self_str.chars.starts_with(prefix_str.as_str()) {
+                    FSRObject::true_id()
+                } else {
+                    FSRObject::false_id()
+                },
+            ));
         }
     }
 
@@ -523,7 +527,6 @@ fn starts_with(
         crate::utils::error::FSRErrCode::NotValidArgs,
     ))
 }
-
 
 pub fn fsr_fn_strip(
     args: *const ObjId,

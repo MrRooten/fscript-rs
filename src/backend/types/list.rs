@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Formatter},
-    sync::{atomic::Ordering, Arc},
+    sync::{Arc, atomic::Ordering},
 };
 
 use ahash::AHashMap;
@@ -14,11 +14,13 @@ use crate::{
             iterator::FSRInnerIterator,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    }, to_rs_list, utils::error::{FSRErrCode, FSRError}
+    },
+    to_rs_list,
+    utils::error::{FSRErrCode, FSRError},
 };
 
 use super::{
-    base::{Area, AtomicObjId, GlobalObj, FSRRetValue, ObjId},
+    base::{Area, AtomicObjId, FSRRetValue, GlobalObj, ObjId},
     class::FSRClass,
     fn_def::FSRFn,
     iterator::{FSRIterator, FSRIteratorReferences},
@@ -67,7 +69,10 @@ fn list_len(
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
     if len != 1 {
-        return Err(FSRError::new("List::len must has 1 arguments", FSRErrCode::NotValidArgs));
+        return Err(FSRError::new(
+            "List::len must has 1 arguments",
+            FSRErrCode::NotValidArgs,
+        ));
     }
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
@@ -113,10 +118,9 @@ fn list_string(
     }
 
     s.push(']');
-    let obj_id = thread.garbage_collect.new_object(
-        FSRValue::String(Arc::new(s)),
-        gid(GlobalObj::StringCls),
-    );
+    let obj_id = thread
+        .garbage_collect
+        .new_object(FSRValue::String(Arc::new(s)), gid(GlobalObj::StringCls));
     Ok(FSRRetValue::GlobalId(obj_id))
 }
 
@@ -195,7 +199,7 @@ pub fn set_item(
     let self_id = args[0];
     let index_id = args[1];
     let target_id = args[2];
-    
+
     let obj = FSRObject::id_to_mut_obj(self_id).unwrap();
     let index_obj = FSRObject::id_to_obj(index_id);
     if obj.area.is_long() && FSRObject::id_to_obj(target_id).area == Area::Minjor {
@@ -272,9 +276,7 @@ pub fn sort_by(
             let r_id = b.load(Ordering::Relaxed);
             //let thread = unsafe { &mut *thread_ptr }; // Use raw pointer to avoid borrowing issues
 
-            let ret = compare_fn
-                .call(&[l_id, r_id], thread)
-                .unwrap();
+            let ret = compare_fn.call(&[l_id, r_id], thread).unwrap();
             if !FSRObject::id_to_obj(ret.get_id()).is_false() {
                 std::cmp::Ordering::Greater
             } else {
@@ -362,6 +364,75 @@ pub fn push(
     }
     if let FSRValue::List(l) = &mut obj.value {
         l.vs.push(AtomicObjId::new(args[1]));
+    }
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
+}
+
+/// Extend the list by appending all the items from the given list or iterator
+/// # Arguments
+/// * `args` - Pointer to the arguments array or iterator or iterable object
+/// * `len` - Length of the arguments array
+/// * `thread` - The current thread runtime
+/// # Returns
+/// * `Result<FSRRetValue, FSRError>` - Result of the operation
+pub fn extend(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let args = to_rs_list!(args, len);
+    if args.len() != 2 {
+        return Err(FSRError::new("extend args error", FSRErrCode::RuntimeError));
+    }
+    let self_id = args[0];
+    let extend_list_id = args[1];
+    let extend_list_obj = FSRObject::id_to_mut_obj(extend_list_id).unwrap();
+    let obj = FSRObject::id_to_mut_obj(self_id).expect("msg: not a list");
+    if obj.area.is_long() && extend_list_obj.area == Area::Minjor {
+        obj.set_write_barrier(true);
+    }
+
+    let extend_list_id = if let FSRValue::Iterator(i) = &extend_list_obj.value {
+        extend_list_id
+    } else {
+        let iter_fn = extend_list_obj
+            .get_attr("__iter__")
+            .ok_or_else(|| {
+                FSRError::new(
+                    "extend args error not a list or iterator",
+                    FSRErrCode::RuntimeError,
+                )
+            })?
+            .load(Ordering::Relaxed);
+        let iter_ret = FSRObject::id_to_obj(iter_fn).call(&[extend_list_id], thread)?;
+        iter_ret.get_id()
+    };
+    let extend_list_obj = FSRObject::id_to_mut_obj(extend_list_id).unwrap();
+    let l = if let FSRValue::List(l) = &mut obj.value {
+        l
+    } else {
+        return Err(FSRError::new(
+            "extend args error not a list or iterator",
+            FSRErrCode::RuntimeError,
+        ));
+    };
+    if let FSRValue::List(extend_list) = &extend_list_obj.value {
+        l.vs.extend(
+            extend_list
+                .get_items()
+                .iter()
+                .map(|x| AtomicObjId::new(x.load(Ordering::Relaxed))),
+        );
+    } else if let FSRValue::Iterator(iter) = &mut extend_list_obj.value {
+        let mut iterator = iter.iterator.as_mut().unwrap();
+        while let Some(id) = iterator.next(thread)? {
+            l.vs.push(AtomicObjId::new(id));
+        }
+    } else {
+        return Err(FSRError::new(
+            "extend args error not a list or iterator",
+            FSRErrCode::RuntimeError,
+        ));
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
@@ -459,11 +530,7 @@ pub fn equal(
                     .load(Ordering::Relaxed);
                 let eq_fn = FSRObject::id_to_obj(eq_fn_id);
                 let equal_res = eq_fn
-                    .call(
-                        &[obj_id, other_s.vs[i].load(Ordering::Relaxed)],
-                        thread,
-                        
-                    )?
+                    .call(&[obj_id, other_s.vs[i].load(Ordering::Relaxed)], thread)?
                     .get_id();
                 if equal_res != FSRObject::true_id() {
                     return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
@@ -504,6 +571,8 @@ impl FSRList {
         cls.insert_attr("filter", filter_fn);
         let set_item = FSRFn::from_rust_fn_static(set_item, "list_set_item");
         cls.insert_offset_attr(BinaryOffset::SetItem, set_item);
+        let extend_fn = FSRFn::from_rust_fn_static(extend, "list_extend");
+        cls.insert_attr("extend", extend_fn);
         cls
     }
 

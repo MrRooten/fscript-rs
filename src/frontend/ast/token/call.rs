@@ -95,8 +95,7 @@ impl FSRCall {
         }
 
         let end_blasket =
-            ASTParser::read_valid_bracket(&source[start..], meta.new_offset(start), context)
-                .unwrap();
+            ASTParser::read_valid_bracket(&source[start..], meta.new_offset(start), context)?;
 
         //let s = str::from_utf8(source).unwrap();
         //let first = s.find('(').unwrap();

@@ -89,7 +89,7 @@ impl FSRCode {
     }
 
     pub fn as_string(&self) -> String {
-        format!("<Module `{}`>", self.name)
+        format!("<Code `{}`>", self.name)
     }
 
 }

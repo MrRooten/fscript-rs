@@ -17,12 +17,12 @@ use fscript_rs::{
 fn bench_compile() {
     let mut line = vec![];
     for _ in 0..100000 {
-        line.push(format!("a: u64 = 1"));
+        line.push(format!("asdfsdf: u64 = 1"));
         line.push(r#"
-        if a > 10 {
-            a = a + 1
+        if asdfsdf > 10 {
+            asdfsdf = asdfsdf + 1
         } else {
-            a = a - 1
+            asdfsdf = asdfsdf - 1
         }
         "#.to_string());
     }

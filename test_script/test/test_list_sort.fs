@@ -14,3 +14,4 @@ str_list.sort_by(|x, y| {
 })
 
 println(str_list)
+assert(str_list == ["a", "cd", "efg", "hijk"])

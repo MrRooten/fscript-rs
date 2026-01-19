@@ -90,7 +90,7 @@ class ArgParser {
                     continue
                 }
 
-                println("option.follow_value: {}".format(option.follow_value))
+                //println("option.follow_value: {}".format(option.follow_value))
                 if option.follow_value == true {
                     index = index + 1
                     value = self.args[index]
@@ -103,7 +103,7 @@ class ArgParser {
             }
 
             else if self.args[index].starts_with("-") {
-                println(self.args[index])
+                //println(self.args[index])
                 short_name_len = self.args[index].len()
                 short_name = self.args[index][1..short_name_len]
                 option = short_map[short_name]

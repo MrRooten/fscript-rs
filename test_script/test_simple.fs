@@ -1,6 +1,6 @@
-if abc > 1 {
-    
-} else {
-    
-}
-abc = abc + 1
+a = []
+
+
+iter = 0..300
+a.extend(iter)
+println(a)
