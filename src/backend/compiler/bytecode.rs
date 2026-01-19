@@ -863,6 +863,12 @@ pub struct FSRSTypeInfo {
     fn_call_sig_map: HashMap<String, Arc<FnCallSig>>,
 }
 
+struct CallInfo {
+    is_attr: bool,
+    is_method_call: bool,
+    is_assign: bool,
+}
+
 impl FSRSTypeInfo {
     pub fn get_type(&self, type_name: &FSRTypeName) -> Option<Arc<FSRSType>> {
         let mut search = vec![];
@@ -1148,9 +1154,7 @@ impl<'a> Bytecode {
     fn load_getter(
         getter: &FSRGetter,
         var_map: &mut Vec<VarMap>,
-        is_attr: bool,
-        is_method_call: bool,
-        is_assign: bool,
+        call_info: &CallInfo,
         const_map: &mut BytecodeContext,
         father_type: Option<Arc<FSRSType>>,
     ) -> (Vec<BytecodeArg>, Option<Arc<FSRSType>>) {
@@ -1164,11 +1168,11 @@ impl<'a> Bytecode {
 
         //let mut type_info = None;
         if !name.is_empty() {
-            if is_attr {
+            if call_info.is_attr {
                 ensure_attr_id!(var_map, name);
                 let id = var_map.last_mut().unwrap().get_attr(name).unwrap();
 
-                if is_method_call {
+                if call_info.is_method_call {
                     let mut attr_var = AttrVar::new(*id, name.to_string(), None);
                     attr_var.attr_type = from_type.clone();
                     attr_var.offset = offset;
@@ -1248,7 +1252,7 @@ impl<'a> Bytecode {
         } else {
             None
         };
-        if !is_assign {
+        if !call_info.is_assign {
             result.push(BytecodeArg {
                 operator: BytecodeOperator::Getter,
                 arg: Box::new(ArgType::TypeInfo(type_info_full.clone())),
@@ -2123,7 +2127,12 @@ impl<'a> Bytecode {
             return_type = v.1;
             op_code.append(&mut v.0);
         } else if let FSRToken::Getter(s) = expr.get_left() {
-            let mut v = Self::load_getter(s, var_map, false, false, false, const_map, None);
+            let call_info = CallInfo {
+                is_attr: false,
+                is_method_call: false,
+                is_assign: false,
+            };
+            let mut v = Self::load_getter(s, var_map, &call_info, const_map, None);
             op_code.append(&mut v.0);
             return_type = v.1;
         } else if let FSRToken::Constant(c) = expr.get_left() {
@@ -2255,22 +2264,21 @@ impl<'a> Bytecode {
             if expr.get_op().eq("::") {
                 is_method_call = false;
             }
-            let mut v = Self::load_getter(
-                s,
-                var_map,
+
+            let call_info = CallInfo {
                 is_attr,
                 is_method_call,
-                false,
-                const_map,
-                return_type.clone(),
-            );
+                is_assign: false,
+            };
+            let mut v = Self::load_getter(s, var_map, &call_info, const_map, return_type.clone());
+            return_type = v.1;
             second.append(&mut v.0);
-            return_type = Self::deduction_two_type(
-                &mut const_map.type_info,
-                &return_type,
-                &v.1,
-                expr.get_op(),
-            );
+            // return_type = Self::deduction_two_type(
+            //     &mut const_map.type_info,
+            //     &return_type,
+            //     &v.1,
+            //     expr.get_op(),
+            // );
             //call special process
             if expr.get_op().eq(".") || expr.get_op().eq("::") {
                 op_code.append(&mut second);
@@ -2761,15 +2769,12 @@ impl<'a> Bytecode {
             let v = Self::load_call(call, var_map, is_attr, is_method_call, byte_context, None);
             return (vec![v.0], v.1);
         } else if let FSRToken::Getter(getter) = token {
-            let v = Self::load_getter(
-                getter,
-                var_map,
+            let call_info = CallInfo {
                 is_attr,
                 is_method_call,
-                false,
-                byte_context,
-                None,
-            );
+                is_assign: false,
+            };
+            let v = Self::load_getter(getter, var_map, &call_info, byte_context, None);
             return (vec![v.0], v.1);
         } else if let FSRToken::Constant(c) = token {
             let v = Self::load_constant(c, var_map, byte_context);
@@ -2963,7 +2968,12 @@ impl<'a> Bytecode {
     ) -> Option<(Vec<BytecodeArg>)> {
         let mut result_list = Vec::new();
         if let FSRToken::Getter(v) = &**token.get_left() {
-            let mut left = Self::load_getter(v, var_map, false, false, true, const_map, None);
+            let call_info = CallInfo {
+                is_attr: false,
+                is_method_call: false,
+                is_assign: true,
+            };
+            let mut left = Self::load_getter(v, var_map, &call_info, const_map, None);
 
             let mut right = Self::load_token_with_map(
                 token.get_assign_expr(),

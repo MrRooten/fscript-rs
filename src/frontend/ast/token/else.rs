@@ -61,7 +61,6 @@ impl FSRElse {
                 start += 1;
             }
 
-            // let may_if_token = std::str::from_utf8(&source[start..start + 2]).unwrap();
             let may_if_token = chrs2str!(&source[start..start + 2]);
             if may_if_token.eq("if") {
                 let sub_meta = meta.new_offset(start);
@@ -85,6 +84,8 @@ impl FSRElse {
                     body: Box::new(block),
                 };
                 else_ifs.push(e);
+            } else {
+                break;
             }
 
             while start < source.len() && ASTParser::is_blank_char_with_new_line(source[start]) {
@@ -95,8 +96,7 @@ impl FSRElse {
             if start + 4 >= source.len() {
                 break;
             }
-            // s = std::str::from_utf8(&source[start..start + 4]).unwrap();
-            
+            s = chrs2str!(&source[start..start + 4]);
         }
 
         let sub_meta = meta.new_offset(start);

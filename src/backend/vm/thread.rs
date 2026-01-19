@@ -283,6 +283,7 @@ impl CallFrame {
         self.handling_exception = FSRObject::none_id();
         self.middle_value.clear();
         self.flow_tracker.clear();
+        self.static_args.clear();
         self.catch_ends.clear();
         self.future = None;
         //self.last_expr_val = FSRObject::none_id();
@@ -737,10 +738,11 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let cur = thread_rt.get_cur_frame();
-        print_frame(0, cur);
-
+        let len = thread_rt.call_frames.len() + 1;
+        print_frame(len, cur);
+        
         for (i, frame) in thread_rt.call_frames.iter().rev().enumerate() {
-            print_frame(i + 1, frame);
+            print_frame(len - i - 1, frame);
         }
 
         panic!("thread unwrap: {}", message);
@@ -947,7 +949,12 @@ impl<'a> FSRThreadRuntime<'a> {
             if let Some(op_assign) = var.op_assign {
                 let left_id = match self.get_cur_frame().get_var(&var.id) {
                     Some(s) => s.load(Ordering::Relaxed),
-                    None => Self::get_chain_by_name(self, &var.name).unwrap(),
+                    None => Self::get_chain_by_name(self, &var.name).ok_or_else(|| {
+                        FSRError::new(
+                            format!("variable `{}` not found for op assign", var.name),
+                            FSRErrCode::NoSuchObject,
+                        )
+                    })?,
                 };
 
                 let offset = op_assign.get_offset();
@@ -1261,7 +1268,12 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             let id = dot_father_obj
                 .get_attr(name)
-                .unwrap_or_else(|| panic!("unfound attr: {}", name));
+                .ok_or_else(|| {
+                    FSRError::new(
+                        format!("not have this attr: `{}`", name),
+                        FSRErrCode::NoSuchObject,
+                    )
+                })?;
 
             id.load(Ordering::Relaxed)
         };
@@ -3076,6 +3088,8 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::LoadYield => Self::load_yield(self),
             BytecodeOperator::OpAssign => Self::load_op_assign(self, bytecode),
             _ => {
+                let message = format!("not implement for {:#?}", op);
+                Self::thread_unwrap(self, &message).unwrap();
                 panic!("not implement for {:#?}", op);
             }
         };
@@ -3083,7 +3097,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = match v {
             Ok(o) => o,
             Err(e) => {
-                panic!("error in process: {}", e);
+                let message = format!("error in process: {}", e);
+                Self::thread_unwrap(self, &message).unwrap();
+                panic!("error in process: {}, location: {:?}", e, bytecode.get_pos());
             }
         };
 
@@ -3127,12 +3143,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = module
             .get_object(&var.name)
             .map(|s| s.load(Ordering::Relaxed))
-            .or_else(|| vm.get_global_obj_by_name(&var.name).copied())
-            .unwrap_or_else(|| {
-                panic!("not found var: {}", var.name);
-            });
+            .or_else(|| vm.get_global_obj_by_name(&var.name).copied());
 
-        Some(v)
+        v
     }
 
     pub fn get_chain_by_name(thread: &FSRThreadRuntime, name: &str) -> Option<ObjId> {
@@ -3157,12 +3170,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = module
             .get_object(name)
             .map(|s| s.load(Ordering::Relaxed))
-            .or_else(|| vm.get_global_obj_by_name(name).copied())
-            .unwrap_or_else(|| {
-                panic!("not found var: {}", name);
-            });
+            .or_else(|| vm.get_global_obj_by_name(name).copied());
 
-        Some(v)
+        v
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -3173,7 +3183,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 let id = if let Some(s) = self.get_cur_frame().get_var(&var.id) {
                     s.load(Ordering::Relaxed)
                 } else {
-                    let v = Self::get_chains(self, self.get_cur_frame(), var).unwrap();
+                    let v = Self::get_chains(self, self.get_cur_frame(), var).ok_or_else(|| {
+                        FSRError::new(
+                            format!("Variable '{}' not found", var.name),
+                            FSRErrCode::RuntimeError,
+                        )
+                    })?;
                     //self.get_cur_mut_frame().insert_var(var.0, v);
                     v
                 };
@@ -3196,14 +3211,24 @@ impl<'a> FSRThreadRuntime<'a> {
                     let var = if is_base_fn!(fn_id) {
                         let state = self.get_cur_frame();
 
-                        Self::get_chain_by_name(self, &v.1).unwrap()
+                        Self::get_chain_by_name(self, &v.1).ok_or_else(|| {
+                            FSRError::new(
+                                format!("Variable '{}' not found", v.1),
+                                FSRErrCode::RuntimeError,
+                            )
+                        })?
                     } else {
                         let fn_obj = FSRObject::id_to_obj(fn_id).as_fn();
                         let var = match fn_obj.get_closure_var(&v.1) {
                             Some(s) => s,
                             None => {
                                 let state = self.get_cur_frame();
-                                Self::get_chain_by_name(self, &v.1).unwrap()
+                                Self::get_chain_by_name(self, &v.1).ok_or_else(|| {
+                                    FSRError::new(
+                                        format!("Variable '{}' not found", v.1),
+                                        FSRErrCode::RuntimeError,
+                                    )
+                                })?
                             }
                         };
                         var
@@ -3219,13 +3244,22 @@ impl<'a> FSRThreadRuntime<'a> {
             ArgType::CurrentFn => {
                 let fn_id = self.get_cur_frame().fn_id;
                 if is_base_fn!(fn_id) {
-                    panic!("not found function object");
+                    // panic!("not found function object");
+                    return Err(FSRError::new(
+                        "Current function is base function, no function object",
+                        FSRErrCode::RuntimeError,
+                    ));
                 }
                 push_exp!(self, fn_id);
             }
             ArgType::Global(name) => {
                 let state = self.get_cur_frame();
-                let id = Self::get_chain_by_name(self, name).unwrap();
+                let id = Self::get_chain_by_name(self, name).ok_or_else(|| {
+                    FSRError::new(
+                        format!("Global variable '{}' not found", name),
+                        FSRErrCode::RuntimeError,
+                    )
+                })?;
                 push_exp!(self, id);
             }
             ArgType::LoadTrue => {

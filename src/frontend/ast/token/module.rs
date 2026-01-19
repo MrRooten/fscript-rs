@@ -1,10 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    frontend::ast::{
+    chrs2str, frontend::ast::{
         parse::ASTParser, token::{ASTVariableState, xtruct::FSRStructFrontEnd}, utils::automaton::{FSTrie, NodeType}
-    },
-    utils::error::SyntaxError,
+    }, utils::error::SyntaxError
 };
 
 use super::{
