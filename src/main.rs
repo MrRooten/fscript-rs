@@ -2,29 +2,31 @@ use std::time::Instant;
 
 use std::io::Read;
 
-use fscript_rs::{
-    backend::{
-        compiler::bytecode::Bytecode,
-        types::{base::FSRObject, code::FSRCode, module::FSRModule},
-        vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
-    },
-    frontend::ast::token::{
-        base::{FSRPosition, FSRToken},
-        module::FSRModuleFrontEnd,
-    },
+use fscript_rs::backend::{
+    compiler::bytecode::Bytecode,
+    types::{base::FSRObject, code::FSRCode, module::FSRModule},
+    vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM},
+};
+
+use frontend::ast::token::{
+    base::{FSRPosition, FSRToken},
+    module::FSRModuleFrontEnd,
 };
 
 fn bench_compile() {
     let mut line = vec![];
     for _ in 0..100000 {
         line.push(format!("asdfsdf: u64 = 1"));
-        line.push(r#"
+        line.push(
+            r#"
         if asdfsdf > 10 {
             asdfsdf = asdfsdf + 1
         } else {
             asdfsdf = asdfsdf - 1
         }
-        "#.to_string());
+        "#
+            .to_string(),
+        );
     }
 
     let source_code = line.join("\n");

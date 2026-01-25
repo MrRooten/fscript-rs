@@ -11,30 +11,29 @@ use std::{
     },
 };
 
-use crate::frontend::ast::token::constant::FSROrinStr;
-use crate::{
-    backend::types::base::ObjId,
-    frontend::ast::token::{
-        assign::FSRAssign,
-        base::{FSRPosition, FSRToken, FSRTypeName},
-        block::FSRBlock,
-        call::FSRCall,
-        class::FSRClassFrontEnd,
-        constant::{FSRConstType, FSRConstant, FSROrinStr2},
-        expr::{FSRExpr, SingleOp},
-        for_statement::FSRFor,
-        function_def::FSRFnDef,
-        if_statement::FSRIf,
-        import::FSRImport,
-        list::FSRListFrontEnd,
-        module::FSRModuleFrontEnd,
-        return_def::FSRReturn,
-        slice::FSRGetter,
-        try_expr::FSRTryBlock,
-        variable::FSRVariable,
-        while_statement::FSRWhile,
-        xtruct::FSRStructFrontEnd,
-    },
+use crate::backend::types::base::ObjId;
+use frontend::ast::token::constant::FSROrinStr;
+
+use frontend::ast::token::{
+    assign::FSRAssign,
+    base::{FSRPosition, FSRToken, FSRTypeName},
+    block::FSRBlock,
+    call::FSRCall,
+    class::FSRClassFrontEnd,
+    constant::{FSRConstType, FSRConstant, FSROrinStr2},
+    expr::{FSRExpr, SingleOp},
+    for_statement::FSRFor,
+    function_def::FSRFnDef,
+    if_statement::FSRIf,
+    import::FSRImport,
+    list::FSRListFrontEnd,
+    module::FSRModuleFrontEnd,
+    return_def::FSRReturn,
+    slice::FSRGetter,
+    try_expr::FSRTryBlock,
+    variable::FSRVariable,
+    while_statement::FSRWhile,
+    xtruct::FSRStructFrontEnd,
 };
 
 macro_rules! ensure_attr_id {
@@ -1106,6 +1105,15 @@ impl VarMap {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct FnInfo {
+    pub(crate) is_static: bool,
+    pub(crate) is_async: bool,
+    pub(crate) is_entry: bool,
+    pub(crate) is_jit: bool,
+    pub(crate) fn_type: Option<Arc<FnCallSig>>,
+}
+
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Bytecode {
@@ -1113,11 +1121,12 @@ pub struct Bytecode {
     pub(crate) context: BytecodeContext,
     pub(crate) bytecode: Vec<Vec<BytecodeArg>>,
     pub(crate) var_map: VarMap,
-    pub(crate) is_jit: bool,
-    pub(crate) is_async: bool,
-    pub(crate) is_static: bool,
-    pub(crate) is_entry: bool,
-    pub(crate) fn_type: Option<Arc<FnCallSig>>,
+    // pub(crate) is_jit: bool,
+    // pub(crate) is_async: bool,
+    // pub(crate) is_static: bool,
+    // pub(crate) is_entry: bool,
+    // pub(crate) fn_type: Option<Arc<FnCallSig>>,
+    pub(crate) fn_info: FnInfo,
 }
 
 enum AttrIdOrCode {
@@ -2064,11 +2073,18 @@ impl<'a> Bytecode {
                     context: BytecodeContext::new(vec![]),
                     bytecode: v.0,
                     var_map: v.1,
-                    is_jit: def.is_static(),
-                    is_async: def.is_async(),
-                    is_static: def.is_static(),
-                    is_entry: def.is_static_entry(),
-                    fn_type: v.2,
+                    // is_jit: def.is_static(),
+                    // is_async: def.is_async(),
+                    // is_static: def.is_static(),
+                    // is_entry: def.is_static_entry(),
+                    // fn_type: v.2,
+                    fn_info: FnInfo {
+                        is_static: def.is_static(),
+                        is_async: def.is_async(),
+                        is_entry: def.is_static_entry(),
+                        is_jit: def.is_jit(),
+                        fn_type: v.2,
+                    },
                 });
             }
         }
@@ -2789,11 +2805,18 @@ impl<'a> Bytecode {
                     context: BytecodeContext::new(vec![]),
                     bytecode: v.0,
                     var_map: v.1,
-                    is_jit: false,
-                    is_async: false,
-                    is_static: false,
-                    is_entry: false,
-                    fn_type: v.2,
+                    // is_jit: false,
+                    // is_async: false,
+                    // is_static: false,
+                    // is_entry: false,
+                    // fn_type: v.2,
+                    fn_info: FnInfo {
+                        is_static: false,
+                        is_async: false,
+                        is_entry: false,
+                        is_jit: false,
+                        fn_type: v.2,
+                    },
                 });
                 let c_id = var_map
                     .last_mut()
@@ -3140,13 +3163,13 @@ impl<'a> Bytecode {
         let c = token.get_const_str();
 
         let ret_type = match c {
-            crate::frontend::ast::token::constant::FSROrinStr::Integer(_, _) => {
+            frontend::ast::token::constant::FSROrinStr::Integer(_, _) => {
                 const_map.type_info.get_type(&FSRTypeName::new("i64"))
             }
-            crate::frontend::ast::token::constant::FSROrinStr::Float(_, _) => {
+            frontend::ast::token::constant::FSROrinStr::Float(_, _) => {
                 const_map.type_info.get_type(&FSRTypeName::new("f64"))
             }
-            crate::frontend::ast::token::constant::FSROrinStr::String(_) => {
+            frontend::ast::token::constant::FSROrinStr::String(_) => {
                 const_map.type_info.get_type(&FSRTypeName::new("string"))
             }
         };
@@ -3686,11 +3709,18 @@ impl<'a> Bytecode {
                 context: BytecodeContext::new(vec![]),
                 bytecode: result,
                 var_map: vs.1,
-                is_jit: false,
-                is_async: false,
-                is_static: false,
-                is_entry: false,
-                fn_type: None,
+                // is_jit: false,
+                // is_async: false,
+                // is_static: false,
+                // is_entry: false,
+                // fn_type: None,
+                fn_info: FnInfo {
+                    is_static: false,
+                    is_async: false,
+                    is_entry: false,
+                    is_jit: false,
+                    fn_type: None,
+                },
             },
         );
 
@@ -3702,11 +3732,18 @@ impl<'a> Bytecode {
                 context: BytecodeContext::new(vec![]),
                 bytecode: code.1.code,
                 var_map: code.1.var_map,
-                is_jit: code.1.is_jit,
-                is_async: code.1.is_async,
-                is_static: code.1.is_static,
-                is_entry: code.1.is_entry,
-                fn_type: code.1.fn_type.clone(),
+                // is_jit: code.1.is_jit,
+                // is_async: code.1.is_async,
+                // is_static: code.1.is_static,
+                // is_entry: code.1.is_entry,
+                // fn_type: code.1.fn_type.clone(),
+                fn_info: FnInfo {
+                    is_static: code.1.is_static,
+                    is_async: code.1.is_async,
+                    is_entry: code.1.is_entry,
+                    is_jit: code.1.is_jit,
+                    fn_type: code.1.fn_type.clone(),
+                },
             };
 
             res.insert(code.0.to_string(), bytecode);
@@ -3725,12 +3762,11 @@ impl<'a> Bytecode {
 
 #[allow(unused)]
 mod test {
-    use crate::{
-        backend::compiler::bytecode::Bytecode,
-        frontend::ast::token::{
-            base::{FSRPosition, FSRToken},
-            module::FSRModuleFrontEnd,
-        },
+    use crate::backend::compiler::bytecode::Bytecode;
+
+    use frontend::ast::token::{
+        base::{FSRPosition, FSRToken},
+        module::FSRModuleFrontEnd,
     };
 
     #[test]

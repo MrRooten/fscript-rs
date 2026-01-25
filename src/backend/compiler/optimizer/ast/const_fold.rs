@@ -1,5 +1,5 @@
-use crate::{frontend::ast::token::base::FSRToken, utils::error::FSRError};
-
+use crate::{utils::error::FSRError};
+use frontend::ast::token::base::FSRToken;
 use super::ASTOptimizer;
 
 pub struct ConstFoldOptimizer;

@@ -36,8 +36,8 @@ pub mod xtruct;
 
 #[derive(Debug, Clone)]
 pub struct ASTVariableState {
-    pub(crate) is_defined: bool,
-    pub(crate) token: Option<FSRToken>,
+    pub is_defined: bool,
+    pub token: Option<FSRToken>,
 }
 
 impl ASTVariableState {
@@ -51,7 +51,7 @@ impl ASTVariableState {
 }
 
 pub struct ASTContext {
-    pub(crate) variable_define: Vec<Rc<RefCell<HashMap<String, ASTVariableState>>>>,
+    pub variable_define: Vec<Rc<RefCell<HashMap<String, ASTVariableState>>>>,
 }
 
 impl ASTContext {

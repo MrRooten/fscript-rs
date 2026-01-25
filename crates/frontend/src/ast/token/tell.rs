@@ -4,9 +4,9 @@ use super::base::FSRPosition;
 
 #[derive(Debug, Clone)]
 pub struct FSRTell {
-    pub(crate) position: FSRPosition,
-    pub(crate) value: Vec<String>,
-    pub(crate) len: usize,
+    pub position: FSRPosition,
+    pub value: Vec<String>,
+    pub len: usize,
 }
 
 impl FSRTell {

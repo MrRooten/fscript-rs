@@ -82,8 +82,7 @@ fn mul(
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
             let v = thread
-                .garbage_collect
-                .new_object(FSRValue::Integer(self_int * other_int), gid(GlobalObj::IntegerCls));
+                .garbage_collect.get_integer(self_int * other_int);
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -413,7 +412,7 @@ fn repeat(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         for _ in 0..self_int {
-            let _ = call_fn.call(&[], thread);
+            let _ = call_fn.call(&[], thread)?;
         }
 
         return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
@@ -439,7 +438,7 @@ fn repeat_with_index(
                 FSRValue::Integer(i),
                 gid(GlobalObj::IntegerCls),
             );
-            let _ = call_fn.call(&[index_obj], thread);
+            let _ = call_fn.call(&[index_obj], thread)?;
         }
 
         return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));

@@ -322,6 +322,7 @@ pub fn sort_key(
     let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
     let key_fn_id = args[1];
     let key_fn = FSRObject::id_to_obj(key_fn_id);
+    let mut error = None;
     if let FSRValue::List(l) = &mut obj.value {
         l.vs.sort_by_cached_key(|a| {
             let l_id = a.load(Ordering::Relaxed);
@@ -333,10 +334,27 @@ pub fn sort_key(
             if let FSRValue::Integer(i) = &obj.value {
                 return *i;
             } else {
-                let ord_fn = obj.get_cls_offset_attr(BinaryOffset::Order).unwrap();
+                let ord_fn = obj.get_cls_offset_attr(BinaryOffset::Order);
+                let ord_fn = match ord_fn {
+                    Some(f) => f,
+                    None => {
+                        error = Some(FSRError::new(
+                            "only support integer as order",
+                            FSRErrCode::RuntimeError,
+                        ));
+                        return 0;
+                    }
+                };
                 let ord_fn_id = ord_fn.load(Ordering::Relaxed);
                 let ord_fn = FSRObject::id_to_obj(ord_fn_id);
-                let ord_value = ord_fn.call(&[ret_id], thread).unwrap();
+                // let ord_value = ord_fn.call(&[ret_id], thread).unwrap();
+                let ord_value = match ord_fn.call(&[ret_id], thread) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error = Some(e);
+                        return 0;
+                    }
+                };
                 let ord_value_id = ord_value.get_id();
                 if let FSRValue::Integer(i) = &FSRObject::id_to_obj(ord_value_id).value {
                     return *i;
@@ -345,7 +363,12 @@ pub fn sort_key(
             panic!("only support integer as order")
         });
     }
-    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
+    // Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
+    if let Some(e) = error {
+        Err(e)
+    } else {
+        Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
+    }
 }
 
 pub fn push(
@@ -414,7 +437,7 @@ pub fn extend(
         l
     } else {
         return Err(FSRError::new(
-            "extend args error not a list or iterator",
+            "extend args error not a list",
             FSRErrCode::RuntimeError,
         ));
     };

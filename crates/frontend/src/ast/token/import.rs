@@ -4,7 +4,7 @@ use super::{base::FSRPosition, ASTContext};
 use std::str;
 #[derive(Debug, Clone)]
 pub struct FSRImport {
-    pub(crate) module_name: Vec<String>,
+    pub module_name: Vec<String>,
     meta: FSRPosition,
 }
 

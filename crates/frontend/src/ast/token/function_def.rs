@@ -16,15 +16,15 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub struct FSRFnDef {
-    pub(crate) teller: Option<FSRTell>,
+    pub teller: Option<FSRTell>,
     lambda: bool,
     name: String,
     args: Vec<FSRToken>,
     body: Rc<FSRBlock>,
     len: usize,
     meta: FSRPosition,
-    pub(crate) ret_type: Option<FSRTypeName>,
-    pub(crate) ref_map: Rc<RefCell<HashMap<String, ASTVariableState>>>,
+    pub ret_type: Option<FSRTypeName>,
+    pub ref_map: Rc<RefCell<HashMap<String, ASTVariableState>>>,
 }
 
 #[derive(PartialEq, Clone)]

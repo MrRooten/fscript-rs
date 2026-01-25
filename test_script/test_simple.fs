@@ -1,6 +1,7 @@
-a = []
+for i in 0..3000 {
+    for j in 0..3000 {
+        i * j
+    }
+}
 
-
-iter = 0..300
-a.extend(iter)
-println(a)
+gc_info()

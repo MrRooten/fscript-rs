@@ -195,7 +195,7 @@ pub trait FSRTokenMatcher {
 
 #[derive(Clone, Debug)]
 pub struct FSRPosition {
-    pub(crate) offset: usize,
+    pub offset: usize,
 }
 
 impl Default for FSRPosition {
@@ -236,8 +236,8 @@ impl Display for FSRPosition {
 
 #[derive(Debug, Clone)]
 pub struct FSRTypeName {
-    pub(crate) name: String,
-    pub(crate) subtype: Option<Vec<Box<FSRTypeName>>>,
+    pub name: String,
+    pub subtype: Option<Vec<Box<FSRTypeName>>>,
 }
 
 impl FSRTypeName {

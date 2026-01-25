@@ -3,26 +3,25 @@ pub mod tests {
 
     use std::{borrow::Cow, io::Read, time::Instant};
 
-    use crate::{
-        backend::{
-            compiler::{bytecode::Bytecode, jit::cranelift::CraneLiftJitBackend},
-            types::{
-                base::{FSRObject, FSRValue},
-                code::FSRCode,
-                fn_def::FSRFn,
-                iterator::FSRInnerIterator,
-                list::FSRList,
-                module::FSRModule,
-            },
-            vm::{
-                thread::{CallFrame, FSRThreadRuntime},
-                virtual_machine::FSRVM,
-            },
+    use crate::backend::{
+        compiler::{bytecode::Bytecode, jit::cranelift::CraneLiftJitBackend},
+        types::{
+            base::{FSRObject, FSRValue},
+            code::FSRCode,
+            fn_def::FSRFn,
+            iterator::FSRInnerIterator,
+            list::FSRList,
+            module::FSRModule,
         },
-        frontend::ast::token::{
-            base::{FSRPosition, FSRToken},
-            module::FSRModuleFrontEnd,
+        vm::{
+            thread::{CallFrame, FSRThreadRuntime},
+            virtual_machine::FSRVM,
         },
+    };
+
+    use frontend::ast::token::{
+        base::{FSRPosition, FSRToken},
+        module::FSRModuleFrontEnd,
     };
 
     #[test]
@@ -157,7 +156,6 @@ pub mod tests {
         println!("{:#?}", v);
     }
 
-
     #[test]
     fn test_new_object() {
         let s = Instant::now();
@@ -182,7 +180,7 @@ pub mod tests {
             "test_script/test/test_nested_call.fs",
             "test_script/test/test_closure.fs",
             "test_script/bench/bench_iter_filter.fs",
-            "test_script/test/test_iter_enumerate.fs"
+            "test_script/test/test_iter_enumerate.fs",
         ];
         for i in vs {
             println!("Running script: {}", i);
@@ -332,5 +330,4 @@ pub mod tests {
 
         runtime.start(obj_id, false).unwrap();
     }
-
 }

@@ -115,7 +115,7 @@ impl ASTParser {
     }
 
     #[allow(unused)]
-    pub(crate) fn read_valid_expr(source: &[char]) -> usize {
+    pub fn read_valid_expr(source: &[char]) -> usize {
         let stack: Vec<u32> = Vec::new();
         let mut index = 0;
         loop {

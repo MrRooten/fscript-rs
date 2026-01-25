@@ -69,8 +69,8 @@ impl ModuleStates {
 
 #[derive(Debug, Clone)]
 pub struct FSRModuleFrontEnd {
-    pub(crate) tokens: Vec<FSRToken>,
-    pub(crate) ref_map: Rc<RefCell<HashMap<String, ASTVariableState>>>,
+    pub tokens: Vec<FSRToken>,
+    pub ref_map: Rc<RefCell<HashMap<String, ASTVariableState>>>,
     len: usize,
     meta: FSRPosition,
 }

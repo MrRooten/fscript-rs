@@ -58,8 +58,8 @@ pub struct FSRConstant {
     const_str: FSROrinStr,
     constant: FSRConstantType,
     const_type: FSRConstType,
-    pub(crate) len: usize,
-    pub(crate) single_op: Option<SingleOp>,
+    pub len: usize,
+    pub single_op: Option<SingleOp>,
     meta: FSRPosition,
 }
 

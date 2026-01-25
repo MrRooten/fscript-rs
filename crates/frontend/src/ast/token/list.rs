@@ -6,7 +6,7 @@ use super::{base::{FSRPosition, FSRToken}, ASTContext};
 pub struct FSRListFrontEnd {
     items: Vec<FSRToken>,
     #[allow(unused)]
-    pub(crate) len: usize,
+    pub len: usize,
 
     meta: FSRPosition,
 }

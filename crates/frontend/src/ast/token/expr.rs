@@ -21,12 +21,12 @@ static mut LAMBDA_NUMBER: i32 = 0;
 
 #[derive(Debug, Clone)]
 pub struct FSRExpr {
-    pub(crate) single_op: Option<SingleOp>,
-    pub(crate) left: Box<FSRToken>,
-    pub(crate) right: Box<FSRToken>,
-    pub(crate) op: Option<&'static str>,
-    pub(crate) len: usize,
-    pub(crate) meta: FSRPosition,
+    pub single_op: Option<SingleOp>,
+    pub left: Box<FSRToken>,
+    pub right: Box<FSRToken>,
+    pub op: Option<&'static str>,
+    pub len: usize,
+    pub meta: FSRPosition,
 }
 
 impl FSRExpr {

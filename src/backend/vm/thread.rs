@@ -39,9 +39,11 @@ use crate::{
         },
         vm::debugger::debug::FSRDebugger,
     },
-    frontend::ast::token::{base::FSRTypeName, constant::FSROrinStr2, expr::SingleOp},
+    
     utils::error::{FSRErrCode, FSRError},
 };
+
+use frontend::ast::token::{base::FSRTypeName, constant::FSROrinStr2, expr::SingleOp};
 
 use super::{
     free_list::FrameFreeList,
@@ -703,6 +705,12 @@ impl<'a> FSRThreadRuntime<'a> {
         //if self.gc_context.gc_state == GcState::Stop {
         self.gc_context.worklist = self.add_worklist();
         self.gc_context.worklist.extend_from_slice(addition);
+        self.gc_context.worklist.extend(
+            self.garbage_collect
+                .small_integer
+                .iter()
+                .filter(|x| **x != 0),
+        );
         //}
         //self.gc_context.gc_state = GcState::Running;
 
@@ -740,7 +748,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let cur = thread_rt.get_cur_frame();
         let len = thread_rt.call_frames.len() + 1;
         print_frame(len, cur);
-        
+
         for (i, frame) in thread_rt.call_frames.iter().rev().enumerate() {
             print_frame(len - i - 1, frame);
         }
@@ -1266,14 +1274,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
             id.load(Ordering::Relaxed)
         } else {
-            let id = dot_father_obj
-                .get_attr(name)
-                .ok_or_else(|| {
-                    FSRError::new(
-                        format!("not have this attr: `{}`", name),
-                        FSRErrCode::NoSuchObject,
-                    )
-                })?;
+            let id = dot_father_obj.get_attr(name).ok_or_else(|| {
+                FSRError::new(
+                    format!("not have this attr: `{}`", name),
+                    FSRErrCode::NoSuchObject,
+                )
+            })?;
 
             id.load(Ordering::Relaxed)
         };
@@ -1285,7 +1291,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn binary_get_cls_attr_process(
+    fn binary_get_cls_attr(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
@@ -1323,7 +1329,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn binary_range_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
+    fn binary_range(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
         let rhs_id = match pop_exp!(self) {
             Some(s) => s,
             None => {
@@ -1392,7 +1398,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
+    //#[cfg_attr(feature = "more_inline", inline(always))]
     fn process_fsr_cls(
         self: &mut FSRThreadRuntime<'a>,
         cls_id: ObjId,
@@ -1504,19 +1510,18 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn get_call_fn_id(
         &mut self,
-        var: &Option<&(usize, u64, String, bool)>,
-        call_method: bool,
+        //var: &Option<&(usize, u64, String, bool)>,
     ) -> Result<(ObjId), FSRError> {
-        if let Some(var) = var {
-            let var_id = var.1;
+        // if let Some(var) = var {
+        //     let var_id = var.1;
 
-            let fn_id = self.try_get_obj_by_name(var.1, &var.2).unwrap();
-            Ok(fn_id)
-        } else {
-            let fn_id = pop_exp!(self).unwrap();
-            push_middle!(self, fn_id);
-            Ok(fn_id)
-        }
+        //     let fn_id = self.try_get_obj_by_name(var.1, &var.2).unwrap();
+        //     Ok(fn_id)
+        // } else {
+        let fn_id = pop_exp!(self).unwrap();
+        push_middle!(self, fn_id);
+        Ok(fn_id)
+        //}
     }
 
     #[allow(clippy::missing_transmute_annotations)]
@@ -1664,14 +1669,21 @@ impl<'a> FSRThreadRuntime<'a> {
             iret_type.clone_from(ret_type);
             Self::call_process_set_args(*args_num, self, &mut args)?;
             //args.reverse();
-        } else if let ArgType::CallArgsNumberWithVar(pack) = bytecode.get_arg() {
-            let args_num = pack.0;
-            Self::call_process_set_args(args_num, self, &mut args)?;
-            var = Some(pack);
+            // } else if let ArgType::CallArgsNumberWithVar(pack) = bytecode.get_arg() {
+        } else {
+            // let args_num = pack.0;
+            // Self::call_process_set_args(args_num, self, &mut args)?;
+            // var = Some(pack);
             //args.reverse();
+            return Err(FSRError::new(
+                "not support ArgType in call_process",
+                FSRErrCode::NotValidArgs,
+            ));
         };
 
-        let fn_id = self.get_call_fn_id(&var, false)?;
+        // let fn_id = self.get_call_fn_id()?;
+        let fn_id = pop_exp!(self).unwrap();
+        push_middle!(self, fn_id);
 
         //self.call_process_ret(fn_id, &mut args, &None, false)
         self.call_process_ret(fn_id, &mut args, &iret_type)
@@ -1784,7 +1796,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn else_if_test_process(
+    fn else_if_test(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
@@ -2082,7 +2094,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_code = module.get_fn(&fn_args.fn_identify_name).unwrap();
         let fn_code_inner = fn_code.as_code();
         let const_map = self.get_const_map(fn_code_inner)?;
-        let is_jit = fn_code_inner.get_bytecode().is_jit;
+        let is_jit = fn_code_inner.get_bytecode().fn_info.is_jit;
         // let code = if is_jit {
         //     Some(Self::compile_jit(
         //         fn_code_inner,
@@ -2110,7 +2122,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 code_obj: fn_code_id,
                 fn_id: self.get_cur_frame().fn_id,
                 jit_code: code,
-                is_async: fn_code_inner.get_bytecode().is_async,
+                is_async: fn_code_inner.get_bytecode().fn_info.is_async,
                 const_map: Arc::new(const_map),
             },
         );
@@ -2829,8 +2841,9 @@ impl<'a> FSRThreadRuntime<'a> {
     fn process_import(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
-        context: ObjId,
+        //code: ObjId,
     ) -> Result<bool, FSRError> {
+        let code = self.get_cur_frame().code;
         macro_rules! as_mut_module {
             ($id:expr) => {
                 FSRObject::id_to_mut_obj(FSRObject::id_to_obj($id).as_code().module)
@@ -2853,7 +2866,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let state = self.get_cur_mut_frame();
         state.insert_var(*v, module_id);
 
-        let module = as_mut_module!(context);
+        let module = as_mut_module!(code);
         module.register_object(module_name.last().unwrap(), module_id);
         Ok(false)
     }
@@ -2994,7 +3007,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn not_process(self: &mut FSRThreadRuntime<'a>) -> Result<bool, FSRError> {
-        let v1_id = match top_exp!(self) {
+        let v1_id = match pop_exp!(self) {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
@@ -3006,8 +3019,6 @@ impl<'a> FSRThreadRuntime<'a> {
 
         // let mut target = false;
         let target = FSRObject::none_id() == v1_id || FSRObject::false_id() == v1_id;
-
-        if let Some(x) = pop_exp!(self) {}
 
         //push_middle!(self, v1_id);
 
@@ -3021,7 +3032,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn empty_process(self: &mut FSRThreadRuntime<'a>, _bc: &BytecodeArg) -> Result<bool, FSRError> {
+    fn empty_process() -> Result<bool, FSRError> {
         Ok(false)
     }
 
@@ -3048,7 +3059,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::LoadList => Self::load_list(self, bytecode),
             BytecodeOperator::Else => Self::else_process(self, bytecode),
             BytecodeOperator::ElseIf => Self::else_if_match(self, bytecode),
-            BytecodeOperator::ElseIfTest => Self::else_if_test_process(self, bytecode),
+            BytecodeOperator::ElseIfTest => Self::else_if_test(self, bytecode),
             BytecodeOperator::IfBlockEnd => Self::if_end(self, bytecode),
             BytecodeOperator::Break => Self::break_process(self, bytecode),
             BytecodeOperator::Continue => Self::continue_process(self, bytecode),
@@ -3057,23 +3068,19 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::SpecialLoadFor => Self::special_load_for(self, bytecode),
             BytecodeOperator::AndJump => Self::process_logic_and(self, bytecode),
             BytecodeOperator::OrJump => Self::process_logic_or(self, bytecode),
-            BytecodeOperator::Empty => Self::empty_process(self, bytecode),
+            BytecodeOperator::Empty => Self::empty_process(),
             BytecodeOperator::BinarySub => Self::binary_sub_process(self, bytecode),
-            BytecodeOperator::Import => {
-                Self::process_import(self, bytecode, self.get_cur_frame().code)
-            }
+            BytecodeOperator::Import => Self::process_import(self, bytecode),
             BytecodeOperator::BinaryDiv => Self::binary_div_process(self, bytecode),
             BytecodeOperator::NotOperator => Self::not_process(self),
-            BytecodeOperator::BinaryClassGetter => {
-                Self::binary_get_cls_attr_process(self, bytecode)
-            }
+            BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr(self, bytecode),
             BytecodeOperator::Getter => Self::getter_process(self, bytecode),
             BytecodeOperator::Try => Self::try_process(self, bytecode),
             BytecodeOperator::EndTry => Self::try_end(self),
             BytecodeOperator::EndCatch => Self::catch_end(self),
-            BytecodeOperator::BinaryRange => Self::binary_range_process(self),
+            BytecodeOperator::BinaryRange => Self::binary_range(self),
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
-            BytecodeOperator::LoadConst => Self::empty_process(self, bytecode),
+            BytecodeOperator::LoadConst => Self::empty_process(),
             BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
@@ -3099,7 +3106,11 @@ impl<'a> FSRThreadRuntime<'a> {
             Err(e) => {
                 let message = format!("error in process: {}", e);
                 Self::thread_unwrap(self, &message).unwrap();
-                panic!("error in process: {}, location: {:?}", e, bytecode.get_pos());
+                panic!(
+                    "error in process: {}, location: {:?}",
+                    e,
+                    bytecode.get_pos()
+                );
             }
         };
 
@@ -3405,11 +3416,11 @@ impl<'a> FSRThreadRuntime<'a> {
             {
                 println!("after: {:?}", self.get_cur_frame().exp);
             }
-            if Self::exception_process(self) {
-                clear_exp!(self);
-                clear_middle_exp!(self);
-                return Ok(true);
-            }
+            // if Self::exception_process(self) {
+            //     clear_exp!(self);
+            //     clear_middle_exp!(self);
+            //     return Ok(false);
+            // }
 
             if pre_exit {
                 if self.get_cur_frame().ret_val.is_some() {
@@ -3475,7 +3486,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             let fn_obj = code.1.as_code();
-            if fn_obj.get_bytecode().is_jit {
+            if fn_obj.get_bytecode().fn_info.is_jit {
                 v.push(code.0.to_string());
             }
         }
@@ -3510,13 +3521,13 @@ impl<'a> FSRThreadRuntime<'a> {
             }
 
             let fn_obj = code.1.as_code();
-            if fn_obj.get_bytecode().is_jit {
+            if fn_obj.get_bytecode().fn_info.is_jit {
                 let jit = Self::compile_jit(
                     &code.0,
                     fn_obj,
                     self.get_cur_frame().code,
-                    fn_obj.get_bytecode().is_entry,
-                    fn_obj.get_bytecode().fn_type.clone(),
+                    fn_obj.get_bytecode().fn_info.is_entry,
+                    fn_obj.get_bytecode().fn_info.fn_type.clone(),
                 );
                 h.insert(code.0.to_string(), jit);
             }
@@ -3562,8 +3573,10 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let base_fn = FSRFn::new_empty();
-        let base_fn_id = FSRObject::new_inst(base_fn, gid(GlobalObj::FnCls));
-        let base_fn_id = FSRVM::leak_object(Box::new(base_fn_id));
+        let base_fn = FSRObject::new_inst(base_fn, gid(GlobalObj::FnCls));
+        let base_fn = Box::new(base_fn);
+        let base_fn_id = FSRObject::obj_to_id(&base_fn);
+
 
         let const_map = Self::get_const_map(self, main_code.unwrap().as_code())?;
 
@@ -3582,6 +3595,7 @@ impl<'a> FSRThreadRuntime<'a> {
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
         }
+
 
         println!("count: {}", self.counter);
         #[cfg(feature = "count_bytecode")]

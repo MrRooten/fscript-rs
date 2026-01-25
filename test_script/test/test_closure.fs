@@ -31,9 +31,9 @@ assert(a() == 2, "abc() error")
 
 fn abc3() {
     a = 1
-    fn ddc() {
+    ddc = || {
         a = a + 1
-        println(a)
+        println(f"a in ddc from abc3: {a}")
         return a
     }
 
@@ -51,7 +51,7 @@ fn abc4() {
     a = 1
     fn ddc() {
         a += 1
-        println(a)
+        println(f"a in ddc from abc4: {a}")
         return a
     }
 

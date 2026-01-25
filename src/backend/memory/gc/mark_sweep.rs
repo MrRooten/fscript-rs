@@ -5,7 +5,7 @@ use std::sync::atomic::AtomicBool;
 use crate::backend::types::base::{Area, GlobalObj};
 
 use crate::backend::types::string::FSRInnerString;
-use crate::backend::vm::virtual_machine::gid;
+use crate::backend::vm::virtual_machine::{FSRVM, gid};
 use crate::backend::{
     memory::size_alloc::FSRObjectAllocator,
     types::base::{FSRObject, FSRValue, ObjId},
@@ -41,6 +41,8 @@ pub struct MarkSweepGarbageCollector<'a> {
     check: AtomicBool,
 
     gc_reason: Option<GcReason>,
+
+    pub(crate) small_integer: [ObjId; 65536],
 }
 
 const THROLD: usize = 10240 * 2;
@@ -78,6 +80,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             check: AtomicBool::new(false),
             marjor_arena: Vec::with_capacity(THROLD),
             gc_reason: None,
+            small_integer: [0; 65536],
         }
     }
 
@@ -98,6 +101,22 @@ impl<'a> MarkSweepGarbageCollector<'a> {
                 obj.unmark();
             }
         });
+    }
+
+    pub fn get_integer(&mut self, value: i64) -> ObjId {
+        if value >= -32768 && value <= 32767 {
+            let idx = (value + 32768) as usize;
+            if self.small_integer[idx] == 0 {
+                let int_obj = self.new_object(
+                    FSRValue::Integer(value),
+                    gid(GlobalObj::IntegerCls),
+                );
+                self.small_integer[idx] = int_obj;
+            }
+            self.small_integer[idx]
+        } else {
+            self.new_object(FSRValue::Integer(value), gid(GlobalObj::IntegerCls))
+        }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]

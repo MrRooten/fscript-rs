@@ -20,5 +20,5 @@ def fib(n):
     else:
         return fib(n - 1) + fib(n - 2)
 
-for i in range(30000000):
+for i in range(3000000):
     fib(2)

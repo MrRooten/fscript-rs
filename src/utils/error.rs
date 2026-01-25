@@ -3,9 +3,10 @@ use std::error::Error;
 use std::fmt::Display;
 use std::io;
 
+use frontend::ast::token::base::FSRPosition;
+
 use crate::backend::types::base::ObjId;
 use crate::backend::vm::thread::CallFrame;
-use crate::frontend::ast::token::base::FSRPosition;
 
 #[derive(Debug)]
 pub enum SyntaxErrType {

@@ -10,10 +10,10 @@ use std::str;
 pub struct FSRCall {
     name: String,
     args: Vec<FSRToken>,
-    pub(crate) len: usize,
-    pub(crate) single_op: Option<SingleOp>,
+    pub len: usize,
+    pub single_op: Option<SingleOp>,
     meta: FSRPosition,
-    pub(crate) is_defined: bool,
+    pub is_defined: bool,
 }
 
 #[derive(PartialEq)]

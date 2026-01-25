@@ -10,10 +10,10 @@ use super::ASTContext;
 
 #[derive(Debug, Clone)]
 pub struct FSRWhile {
-    pub(crate) test: Box<FSRToken>,
-    pub(crate) body: Box<FSRBlock>,
-    pub(crate) len: usize,
-    pub(crate) meta: FSRPosition,
+    pub test: Box<FSRToken>,
+    pub body: Box<FSRBlock>,
+    pub len: usize,
+    pub meta: FSRPosition,
 }
 
 #[derive(PartialEq, Clone)]

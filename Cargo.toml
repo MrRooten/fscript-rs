@@ -16,6 +16,7 @@ cranelift = "0.127.2"
 cranelift-module = "0.127.2"
 cranelift-jit = "0.127.2"
 cranelift-native = "0.127.2"
+frontend = { path = "crates/frontend" }
 
 # [profile.test]
 # opt-level = 2
@@ -36,3 +37,4 @@ lto = "thin"
 opt-level = 3
 strip = false
 panic = "abort"
+incremental = true

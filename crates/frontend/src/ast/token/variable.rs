@@ -5,13 +5,13 @@ use super::{base::{FSRPosition, FSRTypeName}, expr::SingleOp};
 
 #[derive(Debug, Clone)]
 pub struct FSRVariable {
-    pub(crate) name: String,
-    pub(crate) single_op: Option<SingleOp>,
-    pub(crate) len: usize,
-    pub(crate) meta: FSRPosition,
-    pub(crate) is_defined: bool,
-    pub(crate) var_type: Option<FSRTypeName>,
-    pub(crate) force_type: bool
+    pub name: String,
+    pub single_op: Option<SingleOp>,
+    pub len: usize,
+    pub meta: FSRPosition,
+    pub is_defined: bool,
+    pub var_type: Option<FSRTypeName>,
+    pub force_type: bool
 }
 
 impl FSRVariable {

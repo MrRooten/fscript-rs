@@ -7,12 +7,12 @@ use super::{base::{FSRPosition, FSRToken}, ASTContext};
 
 #[derive(Debug, Clone)]
 pub struct FSRAssign {
-    pub(crate) expr: Rc<FSRToken>,
-    pub(crate) left: Rc<FSRToken>,
-    pub(crate) name: String,
-    pub(crate) len: usize,
-    pub(crate) meta: FSRPosition,
-    pub(crate) op_assign: String,
+    pub expr: Rc<FSRToken>,
+    pub left: Rc<FSRToken>,
+    pub name: String,
+    pub len: usize,
+    pub meta: FSRPosition,
+    pub op_assign: String,
 }
 
 #[derive(PartialEq)]

@@ -18,10 +18,10 @@ pub struct FSRGetter {
     name: String,
     getter: Box<FSRToken>,
     len: usize,
-    pub(crate)single_op: Option<SingleOp>,
+    pub single_op: Option<SingleOp>,
     meta: FSRPosition,
-    pub(crate) is_defined: bool,
-    pub(crate) var_type: Option<FSRTypeName>,
+    pub is_defined: bool,
+    pub var_type: Option<FSRTypeName>,
 }
 
 impl FSRGetter {

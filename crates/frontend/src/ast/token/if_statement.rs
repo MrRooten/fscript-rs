@@ -13,12 +13,12 @@ use super::ASTContext;
 
 #[derive(Debug, Clone)]
 pub struct FSRIf {
-    pub(crate) test: Box<FSRToken>,
-    pub(crate) body: Box<FSRBlock>,
+    pub test: Box<FSRToken>,
+    pub body: Box<FSRBlock>,
     #[allow(unused)]
     elses        : Option<Box<FSRElse>>,
-    pub(crate) len: usize,
-    pub(crate) meta: FSRPosition,
+    pub len: usize,
+    pub meta: FSRPosition,
 }
 
 #[derive(PartialEq, Clone)]

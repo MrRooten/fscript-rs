@@ -19,9 +19,9 @@ enum State {
 
 #[derive(Debug, Clone)]
 pub struct FSRCatch {
-    pub(crate) body: Box<FSRBlock>,
-    pub(crate) len: usize,
-    pub(crate) meta: FSRPosition,
+    pub body: Box<FSRBlock>,
+    pub len: usize,
+    pub meta: FSRPosition,
 }
 
 impl FSRCatch {
@@ -75,11 +75,11 @@ impl FSRCatch {
 
 #[derive(Debug, Clone)]
 pub struct FSRTryBlock {
-    pub(crate) body: Box<FSRBlock>,
+    pub body: Box<FSRBlock>,
     #[allow(unused)]
     catch: Box<FSRCatch>,
-    pub(crate) len: usize,
-    pub(crate) meta: FSRPosition,
+    pub len: usize,
+    pub meta: FSRPosition,
 }
 
 impl FSRTryBlock {

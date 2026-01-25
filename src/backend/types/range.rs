@@ -32,10 +32,13 @@ impl FSRIterator for FSRRangeIterator {
 
         let c = self.iter.next();
         if let Some(x) = c {
-            let obj = thread.garbage_collect.new_object_in_place();
-            obj.value = FSRValue::Integer(x);
-            obj.set_cls(gid(GlobalObj::IntegerCls));
-            Ok(Some(FSRObject::obj_to_id(obj)))
+            // let obj = thread.garbage_collect.new_object_in_place();
+            // obj.value = FSRValue::Integer(x);
+            // obj.set_cls(gid(GlobalObj::IntegerCls));
+            let obj = thread
+                .garbage_collect
+                .get_integer(x);
+            Ok(Some(obj))
         } else {
             Ok(None)
         }

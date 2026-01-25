@@ -1,5 +1,5 @@
-use crate::{frontend::ast::token::base::FSRToken, utils::error::FSRError};
-
+use crate::{utils::error::FSRError};
+use frontend::ast::token::base::FSRToken;
 pub mod const_fold;
 
 pub trait ASTOptimizer {

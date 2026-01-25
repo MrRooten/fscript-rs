@@ -451,6 +451,10 @@ impl<'a> FSRVM<'a> {
         id
     }
 
+    pub fn to_object(id: ObjId) -> Box<FSRObject<'a>> {
+        unsafe { Box::from_raw(id as *mut FSRObject<'a>) }
+    }
+
     pub fn register_object(object: FSRObject<'a>) -> ObjId {
         let object = Box::new(object);
         let id = FSRObject::obj_to_id(&object);
