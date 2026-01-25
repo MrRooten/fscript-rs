@@ -1,0 +1,70 @@
+pub mod parse;
+pub mod token;
+pub mod utils;
+
+use std::error::Error;
+use std::fmt::Display;
+use std::io;
+
+use crate::ast::token::base::FSRPosition;
+
+#[derive(Debug)]
+pub enum SyntaxErrType {
+    BracketNotMatch,
+    OperatorError,
+    QuoteNotClose,
+    CommentError,
+    NotMatchAttribute,
+    None,
+}
+
+#[derive(Debug)]
+pub struct SyntaxError {
+    meta: FSRPosition,
+    msg: String,
+    err_type: SyntaxErrType,
+}
+
+impl SyntaxError {
+    pub fn new<S>(meta: &FSRPosition, msg: S) -> Self
+    where
+        S: ToString,
+    {
+        Self {
+            meta: meta.clone(),
+            msg: msg.to_string(),
+            err_type: SyntaxErrType::None,
+        }
+    }
+
+    pub fn new_with_type<S>(meta: &FSRPosition, msg: S, t: SyntaxErrType) -> Self
+    where
+        S: ToString,
+    {
+        Self {
+            meta: meta.clone(),
+            msg: msg.to_string(),
+            err_type: t,
+        }
+    }
+}
+
+impl Display for SyntaxError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(offset: {}) {}", self.meta, self.msg)
+    }
+}
+
+impl Error for SyntaxError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &str {
+        self.msg.as_str()
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
+    }
+}
