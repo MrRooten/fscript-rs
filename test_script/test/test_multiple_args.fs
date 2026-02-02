@@ -11,8 +11,11 @@ class Abc {
 }
 
 fn abc(a, b, c) {
+    assert(a == "will print a", "arg a error")
     println(a)
+    assert(b == "will print b", "arg b error")
     println(b)
+    assert(c == "will print c", "arg c error")
     println(c)
 }
 
