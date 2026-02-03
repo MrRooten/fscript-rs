@@ -44,10 +44,11 @@ impl FSRIterator for FSREnumerateIter {
             return Ok(None);
         }
 
-        let integer = thread.garbage_collect.new_object(
-            FSRValue::Integer(self.index),
-            gid(crate::backend::types::base::GlobalObj::IntegerCls),
-        );
+        // let integer = thread.garbage_collect.new_object(
+        //     FSRValue::Integer(self.index),
+        //     gid(crate::backend::types::base::GlobalObj::IntegerCls),
+        // );
+        let integer = thread.garbage_collect.get_integer(self.index);
         let ret = vec![integer, ret];
         self.index += 1;
         let ret_value = thread.garbage_collect.new_object(FSRList::new_value(ret), 

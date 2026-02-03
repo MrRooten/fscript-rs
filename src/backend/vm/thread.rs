@@ -139,6 +139,8 @@ pub struct IndexIterator<'a> {
     vs: core::slice::Iter<'a, Option<AtomicObjId>>,
 }
 
+type CallArgs = SmallVec<[ObjId; 4]>;
+
 #[allow(clippy::new_without_default)]
 #[allow(unused)]
 impl IndexMap {
@@ -1385,7 +1387,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn call_process_set_args(
         args_num: usize,
         thread: &mut Self,
-        args: &mut SmallVec<[ObjId; 4]>,
+        args: &mut CallArgs,
     ) -> Result<(), FSRError> {
         let mut i = 0;
         while i < args_num {
@@ -1402,14 +1404,14 @@ impl<'a> FSRThreadRuntime<'a> {
     fn process_fsr_cls(
         self: &mut FSRThreadRuntime<'a>,
         cls_id: ObjId,
-        args: &mut SmallVec<[ObjId; 4]>,
+        args: &mut CallArgs,
     ) -> Result<bool, FSRError> {
         // New a object if fn_obj is fsr_cls
         let cls = FSRObject::id_to_obj(cls_id);
         if let FSRValue::Class(c) = &cls.value {
             if c.get_attr("__new__").is_none() {
                 let self_id = self.garbage_collect.new_object(
-                    FSRValue::ClassInst(Box::new(FSRClassInst::new(c.get_arc_name()))),
+                    FSRClassInst::new_value(c.get_arc_name()),
                     cls_id,
                 );
 
@@ -1421,7 +1423,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let fn_obj = FSRObject::id_to_obj(cls_id);
         let self_id = self.garbage_collect.new_object(
-            FSRValue::ClassInst(Box::new(FSRClassInst::new(fn_obj.get_fsr_class_name()))),
+            FSRClassInst::new_value(fn_obj.get_fsr_class_name()),
             cls_id,
         );
 
@@ -1487,27 +1489,6 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn process_fsr_fn(
-        &mut self,
-        fn_id: ObjId,
-        fn_obj: &FSRObject<'a>,
-        args: &mut SmallVec<[ObjId; 4]>,
-    ) -> Result<(), FSRError> {
-        //self.get_cur_mut_context().context_call_count += 1;
-        // self.save_ip_to_callstate();
-        let f = fn_obj.as_fn();
-        let frame = self.frame_free_list.new_frame(f.code, fn_id);
-        self.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
-
-        for arg in args.iter() {
-            self.get_cur_mut_frame().args.push(*arg);
-        }
-
-        self.get_cur_mut_frame().ip = (0, 0);
-        Ok(())
-    }
-
-    #[cfg_attr(feature = "more_inline", inline(always))]
     fn get_call_fn_id(
         &mut self,
         //var: &Option<&(usize, u64, String, bool)>,
@@ -1528,7 +1509,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn jit_call(
         &mut self,
         fn_id: ObjId,
-        args: &mut SmallVec<[ObjId; 4]>,
+        args: &mut CallArgs,
         f: &FSRFnInner,
         call_sig: &Option<Arc<FnCallSig>>,
     ) -> Result<bool, FSRError> {
@@ -1547,7 +1528,7 @@ impl<'a> FSRThreadRuntime<'a> {
         for arg in args.iter().cloned() {
             self.get_cur_mut_frame()
                 .static_args
-                .push(FSRObject::id_to_obj(arg).get_static_value_ptr());
+                .push(FSRObject::id_to_obj(arg).get_value_ptr());
         }
         let call_fn = unsafe {
             std::mem::transmute::<_, extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId) -> ObjId>(
@@ -1564,7 +1545,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn async_call(
         &mut self,
         fn_id: ObjId,
-        args: &mut SmallVec<[ObjId; 4]>,
+        args: &mut CallArgs,
     ) -> Result<bool, FSRError> {
         let frame = self
             .frame_free_list
@@ -1582,7 +1563,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn call_process_ret(
         &mut self,
         fn_id: ObjId,
-        args: &mut SmallVec<[ObjId; 4]>,
+        args: &mut CallArgs,
         ret_type: &Option<Arc<FnCallSig>>,
     ) -> Result<bool, FSRError> {
         let fn_obj = FSRObject::id_to_obj(fn_id);
@@ -1629,7 +1610,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn call_method_ret(
         &mut self,
         fn_id: ObjId,
-        args: &mut SmallVec<[ObjId; 4]>,
+        args: &mut CallArgs,
         object_id: &Option<ObjId>,
         //call_method: bool,
     ) -> Result<bool, FSRError> {
@@ -2894,14 +2875,14 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         let state = self.get_cur_mut_frame();
         state.insert_var(id, obj_id);
-        let module = FSRObject::id_to_mut_obj(
+        let code = FSRObject::id_to_mut_obj(
             FSRObject::id_to_obj(self.get_cur_frame().code)
                 .as_code()
                 .module,
         )
         .unwrap()
         .as_mut_module();
-        module.register_object(&name, obj_id);
+        code.register_object(&name, obj_id);
 
         Ok(false)
     }
@@ -3168,7 +3149,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
         // let module = FSRObject::id_to_obj(state.code).as_code();
-        let module = FSRObject::id_to_obj(
+        let code = FSRObject::id_to_obj(
             FSRObject::id_to_obj(thread.get_cur_frame().code)
                 .as_code()
                 .module,
@@ -3176,7 +3157,7 @@ impl<'a> FSRThreadRuntime<'a> {
         .as_module();
         let vm = thread.get_vm();
 
-        let v = module
+        let v = code
             .get_object(name)
             .map(|s| s.load(Ordering::Relaxed))
             .or_else(|| vm.get_global_obj_by_name(name).copied());

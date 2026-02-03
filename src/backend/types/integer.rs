@@ -1,6 +1,5 @@
 #![allow(unused)]
 
-
 use std::hash::{Hash, Hasher};
 
 use ahash::AHasher;
@@ -14,11 +13,13 @@ use crate::{
             thread::{CallFrame, FSRThreadRuntime},
             virtual_machine::{FSRVM, gid},
         },
-    }, to_rs_list, utils::error::FSRError
+    },
+    to_rs_list,
+    utils::error::FSRError,
 };
 
 use super::{
-    base::{GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
+    base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
     class::FSRClass,
     code::FSRCode,
     fn_def::FSRFn,
@@ -35,16 +36,41 @@ pub fn add(
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
 
-    if let FSRValue::Integer(self_int) = self_object.value {
-        if let FSRValue::Integer(other_int) = other_object.value {
-            let obj = thread.garbage_collect.new_object_in_place();
-            obj.value = FSRValue::Integer(self_int + other_int);
-            obj.cls = self_object.cls;
-            return Ok(FSRRetValue::GlobalId(FSRObject::obj_to_id(obj)));
+    // let (self_int, other_int) = if let FSRValue::Integer(self_int) = self_object.value {
+    //     if let FSRValue::Integer(other_int) = other_object.value {
+    //         (self_int, other_int)
+    //     } else {
+    //         return Err(FSRError::new(
+    //             "Addition requires both operands to be integers, second is not integer",
+    //             crate::utils::error::FSRErrCode::RuntimeError,
+    //         ));
+    //     }
+    // } else {
+    //     return Err(FSRError::new(
+    //         "Addition requires both operands to be integers, first is not integer",
+    //         crate::utils::error::FSRErrCode::RuntimeError,
+    //     ));
+    // };
+    let (self_int, other_int) = match (&self_object.value, &other_object.value) {
+        (FSRValue::Integer(self_int), FSRValue::Integer(other_int)) => (*self_int, *other_int),
+        (FSRValue::Integer(_), _) => {
+            return Err(FSRError::new(
+                "Addition requires both operands to be integers, second is not integer",
+                crate::utils::error::FSRErrCode::RuntimeError,
+            ));
         }
-    }
+        _ => {
+            return Err(FSRError::new(
+                "Addition requires both operands to be integers, first is not integer",
+                crate::utils::error::FSRErrCode::RuntimeError,
+            ));
+        }
+    };
 
-    unimplemented!()
+    let obj = thread.garbage_collect.new_object_in_place();
+    obj.value = FSRValue::Integer(self_int + other_int);
+    obj.cls = self_object.cls;
+    return Ok(FSRRetValue::GlobalId(FSRObject::obj_to_id(obj)));
 }
 
 pub fn sub(
@@ -81,8 +107,7 @@ fn mul(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let v = thread
-                .garbage_collect.get_integer(self_int * other_int);
+            let v = thread.garbage_collect.get_integer(self_int * other_int);
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -120,7 +145,6 @@ fn div(
 
     unimplemented!()
 }
-
 
 pub fn reminder(
     args: *const ObjId,
@@ -165,9 +189,10 @@ fn left_shift(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let v = thread
-                .garbage_collect
-                .new_object(FSRValue::Integer(self_int << other_int), gid(GlobalObj::IntegerCls));
+            let v = thread.garbage_collect.new_object(
+                FSRValue::Integer(self_int << other_int),
+                gid(GlobalObj::IntegerCls),
+            );
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -189,9 +214,10 @@ fn right_shift(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let v = thread
-                .garbage_collect
-                .new_object(FSRValue::Integer(self_int >> other_int), gid(GlobalObj::IntegerCls));
+            let v = thread.garbage_collect.new_object(
+                FSRValue::Integer(self_int >> other_int),
+                gid(GlobalObj::IntegerCls),
+            );
 
             return Ok(FSRRetValue::GlobalId(v));
         }
@@ -316,10 +342,8 @@ pub fn equal(
             } else {
                 return Ok(FSRRetValue::GlobalId(FSRObject::false_id()));
             }
-        },
-        _ => {
-            return Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
         }
+        _ => return Ok(FSRRetValue::GlobalId(FSRObject::false_id())),
     }
 
     Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
@@ -349,7 +373,7 @@ pub fn not_equal(
             }
         }
     }
-    
+
     Ok(FSRRetValue::GlobalId(FSRObject::true_id()))
 }
 
@@ -387,9 +411,7 @@ fn hash_integer(
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
 
-
     if let FSRValue::Integer(self_int) = &self_object.value {
-
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(*self_int),
             gid(GlobalObj::IntegerCls),
@@ -434,10 +456,9 @@ fn repeat_with_index(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         for i in 0..self_int {
-            let index_obj = thread.garbage_collect.new_object(
-                FSRValue::Integer(i),
-                gid(GlobalObj::IntegerCls),
-            );
+            let index_obj = thread
+                .garbage_collect
+                .new_object(FSRValue::Integer(i), gid(GlobalObj::IntegerCls));
             let _ = call_fn.call(&[index_obj], thread)?;
         }
 
@@ -490,7 +511,8 @@ impl<'a> FSRInteger {
         let repeat = FSRFn::from_rust_fn_static(repeat, "integer_repeat");
         cls.insert_attr("repeat", repeat);
 
-        let repeat_with_index = FSRFn::from_rust_fn_static(repeat_with_index, "integer_repeat_with_index");
+        let repeat_with_index =
+            FSRFn::from_rust_fn_static(repeat_with_index, "integer_repeat_with_index");
         cls.insert_attr("repeat_with_index", repeat_with_index);
 
         cls

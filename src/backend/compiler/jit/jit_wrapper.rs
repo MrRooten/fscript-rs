@@ -43,7 +43,7 @@ pub extern "C" fn call_fn(
         thread
             .get_cur_mut_frame()
             .static_args
-            .push(FSRObject::id_to_obj(arg).get_static_value_ptr());
+            .push(FSRObject::id_to_obj(arg).get_value_ptr());
     }
     call_fn_target(thread, code)
 }

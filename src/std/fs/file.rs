@@ -19,7 +19,7 @@ enum OpMode {
 
 #[derive(Debug)]
 pub struct FSRInnerFile {
-    pub reader: BufReader<File>,
+    pub reader: Option<BufReader<File>>,
     pub writer: Option<BufWriter<File>>,
     mode: OpMode,
     pub path: PathBuf,
@@ -61,7 +61,7 @@ impl FSRInnerFile {
         let path_buf = PathBuf::from(path);
         let file = std::fs::File::open(&path_buf)?;
         Ok(FSRInnerFile {
-            reader: BufReader::new(file),
+            reader: Some(BufReader::new(file)),
             writer: None, // Writer can be initialized later if needed
             mode: Self::get_mode(mode),
             path: path_buf,
@@ -74,7 +74,7 @@ impl FSRInnerFile {
 
     pub fn seek(&mut self, offset: usize) -> Result<(), FSRError> {
         use std::io::Seek;
-        self.reader
+        self.reader.as_mut().unwrap()
             .seek(std::io::SeekFrom::Start(offset as u64))
             .with_context(|| {
                 anyhow!(
@@ -106,6 +106,8 @@ impl FSRInnerFile {
         cls.insert_attr("is_file", is_file);
         let is_dir = FSRFn::from_rust_fn_static(fsr_fn_is_dir, "is_dir");
         cls.insert_attr("is_dir", is_dir);
+        let close = FSRFn::from_rust_fn_static(fsr_fn_file_close, "close");
+        cls.insert_attr("close", close);
         cls
     }
 }
@@ -170,7 +172,7 @@ pub fn fsr_fn_read_all(
             if inner_file.mode == OpMode::Bytes {
                 let mut content = Vec::new();
                 inner_file
-                    .reader
+                    .reader.as_mut().unwrap()
                     .read_to_end(&mut content)
                     .with_context(|| anyhow!("Failed to read from file: {}", inner_file.get_path()))?;
                 let ret = FSRValue::Bytes(Box::new(FSRInnerBytes::new(content)));
@@ -181,7 +183,7 @@ pub fn fsr_fn_read_all(
             }
             let mut content = String::new();
             inner_file
-                .reader
+                .reader.as_mut().unwrap()
                 .read_to_string(&mut content)
                 .with_context(|| anyhow!("Failed to read from file: {}", inner_file.get_path()))?;
             let ret = FSRString::new_value(content);
@@ -292,11 +294,17 @@ pub fn fsr_fn_read(
     
     if let FSRValue::Extension(any_type) = &mut file_obj.value {
         if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
+            if inner_file.reader.is_none() {
+                return Err(FSRError::new(
+                    "File is not opened for reading",
+                    FSRErrCode::RuntimeError,
+                ));
+            }
             use std::io::Read;
             inner_file.seek(offset)?;
             let mut buffer = vec![0; size];
             inner_file
-                .reader
+                .reader.as_mut().unwrap()
                 .read_exact(&mut buffer)
                 .with_context(|| anyhow!("Failed to read from file: {}", inner_file.get_path()))?;
             if inner_file.mode == OpMode::Bytes {
@@ -314,6 +322,35 @@ pub fn fsr_fn_read(
                     .new_object(ret, gid(GlobalObj::StringCls));
                 return Ok(FSRRetValue::GlobalId(ret));
             }
+        }
+    }
+
+    Err(FSRError::new(
+        "Invalid file object",
+        FSRErrCode::RuntimeError,
+    ))
+}
+
+pub fn fsr_fn_file_close(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    if len < 1 {
+        return Err(FSRError::new(
+            "fsr_fn_file_close requires at least 1 argument",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let args = to_rs_list!(args, len);
+    let file_obj_id = args[0];
+    let file_obj = FSRObject::id_to_mut_obj(file_obj_id).unwrap();
+
+    if let FSRValue::Extension(any_type) = &mut file_obj.value {
+        if let Some(inner_file) = any_type.value.as_any_mut().downcast_mut::<FSRInnerFile>() {
+            inner_file.writer = None;
+            inner_file.reader = None;
+            return Ok(FSRRetValue::GlobalId(FSRObject::true_id()));
         }
     }
 

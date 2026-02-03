@@ -38,6 +38,10 @@ impl<'a> FSRClassInst<'a> {
         }
     }
 
+    pub fn new_value(name: Arc<String>) -> FSRValue<'a> {
+        FSRValue::ClassInst(Box::new(FSRClassInst::new(name)))
+    }
+
     pub fn get_attr(&self, name: &str) -> Option<&AtomicObjId> {
         self.attrs.get(name)
     }

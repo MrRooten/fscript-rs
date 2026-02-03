@@ -14,7 +14,9 @@ use crate::{
             string::FSRString,
         },
         vm::thread::FSRThreadRuntime,
-    }, to_rs_list, utils::error::FSRError
+    },
+    to_rs_list,
+    utils::error::FSRError,
 };
 use std::fmt::Debug;
 
@@ -57,48 +59,50 @@ pub fn fsr_fn_sub_path(
     let path_id = args[0];
     let path_obj = FSRObject::id_to_obj(path_id);
 
-    if let FSRValue::String(s) = &path_obj.value {
-        let dir_path = std::path::Path::new(s.as_str());
-        let mut sub_paths = Vec::new();
-        for entry in fs::read_dir(dir_path).map_err(|e| {
-            FSRError::new(
-                format!("Read dir error: {}", e),
-                crate::utils::error::FSRErrCode::RuntimeError,
-            )
-        })? {
-            let entry = entry.map_err(|e| {
-                FSRError::new(
-                    format!("DirEntry error: {}", e),
-                    crate::utils::error::FSRErrCode::RuntimeError,
-                )
-            })?;
-            let sub_path = entry
-                .path()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .to_string();
-            sub_paths.push(sub_path);
-        }
-
-        let path_vec = sub_paths
-            .iter()
-            .map(|x| {
-                let value = FSRString::new_value(x);
-                thread
-                    .garbage_collect
-                    .new_object(value, GlobalObj::StringCls.get_id())
-            })
-            .collect::<Vec<_>>();
-        let value = FSRList::new_value(path_vec);
-        let res = thread
-            .garbage_collect
-            .new_object(value, GlobalObj::ListCls.get_id());
-
-        Ok(FSRRetValue::GlobalId(res))
+    let s = if let FSRValue::String(s) = &path_obj.value {
+        s
     } else {
         panic!("sub_paths expects a string path argument");
+    };
+
+    let dir_path = std::path::Path::new(s.as_str());
+    let mut sub_paths = Vec::new();
+    for entry in fs::read_dir(dir_path).map_err(|e| {
+        FSRError::new(
+            format!("Read dir error: {}", e),
+            crate::utils::error::FSRErrCode::RuntimeError,
+        )
+    })? {
+        let entry = entry.map_err(|e| {
+            FSRError::new(
+                format!("DirEntry error: {}", e),
+                crate::utils::error::FSRErrCode::RuntimeError,
+            )
+        })?;
+        let sub_path = entry
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        sub_paths.push(sub_path);
     }
+
+    let path_vec = sub_paths
+        .iter()
+        .map(|x| {
+            let value = FSRString::new_value(x);
+            thread
+                .garbage_collect
+                .new_object(value, GlobalObj::StringCls.get_id())
+        })
+        .collect::<Vec<_>>();
+    let value = FSRList::new_value(path_vec);
+    let res = thread
+        .garbage_collect
+        .new_object(value, GlobalObj::ListCls.get_id());
+
+    Ok(FSRRetValue::GlobalId(res))
 }
 
 impl FSRDir {

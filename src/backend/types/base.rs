@@ -511,22 +511,6 @@ impl<'a> FSRObject<'a> {
         self.mark.store(false, Ordering::Relaxed);
     }
 
-    pub fn is_true_id(&self) -> ObjId {
-        if let FSRValue::None = self.value {
-            return 2;
-        }
-
-        if let FSRValue::Bool(b) = self.value {
-            if b {
-                return 1;
-            } else {
-                return 2;
-            }
-        }
-
-        1
-    }
-
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn set_value(&mut self, value: FSRValue<'a>) {
         self.value = value;
@@ -561,14 +545,6 @@ impl<'a> FSRObject<'a> {
         }
 
         unimplemented!()
-    }
-
-    pub extern "C" fn as_class_c(&self) -> *const FSRClass {
-        if let FSRValue::Class(cls) = &self.value {
-            return cls.as_ref() as *const FSRClass;
-        }
-
-        panic!("Not a Cls object")
     }
 
     #[inline(always)]
@@ -691,41 +667,6 @@ impl<'a> FSRObject<'a> {
         let v = method_object.call(args, thread)?;
         Ok(v)
     }
-
-    // #[cfg_attr(feature = "more_inline", inline(always))]
-    // pub fn invoke_binary_method(
-    //     offset: BinaryOffset,
-    //     left: ObjId,
-    //     right: ObjId,
-    //     thread: &mut FSRThreadRuntime<'a>,
-    //     code: ObjId,
-    // ) -> Result<FSRRetValue, FSRError> {
-    //     let left_object: &FSRObject<'_> = Self::id_to_obj(left);
-    //     if let Some(left_method) = FSRObject::id_to_obj(left_object.cls).as_class().get_rust_fn(offset) {
-    //         return left_method(&[left, right], thread, code);
-    //     }
-    //     if let Some(left_method) = left_object.get_cls_offset_attr(offset) {
-    //         let left_method = left_method.load(Ordering::Relaxed);
-    //         let method_object = Self::id_to_obj(left_method).as_fn();
-    //         let v = method_object.invoke_binary(left, right, thread, code, left_method)?;
-    //         return Ok(v);
-    //     }
-
-    //     let left_method = match left_object.get_cls_attr(offset.alias_name()) {
-    //         Some(s) => s,
-    //         None => {
-    //             return Err(FSRError::new(
-    //                 format!("no such a method `{}`", offset.alias_name()),
-    //                 FSRErrCode::NoSuchMethod,
-    //             ))
-    //         }
-    //     };
-    //     let left_method = left_method.load(Ordering::Relaxed);
-
-    //     let method_object = Self::id_to_obj(left_method).as_fn();
-    //     let v = method_object.invoke(&[left, right], thread, code, left_method)?;
-    //     Ok(v)
-    // }
 
     //#[cfg_attr(feature = "more_inline", inline(always))]
     #[inline]
@@ -991,7 +932,7 @@ impl<'a> FSRObject<'a> {
         }
     }
 
-    pub fn get_static_value_ptr(&self) -> usize {
+    pub fn get_value_ptr(&self) -> usize {
         match &self.value {
             FSRValue::Integer(i) => i as *const i64 as usize,
             FSRValue::Float(f) => &f.to_bits() as *const u64 as usize,
