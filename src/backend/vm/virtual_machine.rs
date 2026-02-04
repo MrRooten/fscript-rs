@@ -10,7 +10,7 @@ use crate::{
     backend::types::{
         any::FSRThreadHandle,
         asynclib::future::FSRFuture,
-        base::{Area, FSRObject, FSRValue, GlobalObj, ObjId, FALSE_ID, NONE_ID, TRUE_ID},
+        base::{Area, FALSE_ID, FSRObject, FSRValue, GlobalObj, NONE_ID, ObjId, TRUE_ID},
         bool::FSRBool,
         bytes::FSRInnerBytes,
         class::FSRClass,
@@ -29,14 +29,11 @@ use crate::{
     },
     std::{
         core::{
-            gc::{init_gc, Gc},
+            gc::{Gc, init_gc},
             io::init_io,
             thread::init_thread,
             utils::init_utils,
-        },
-        fs::{file::FSRInnerFile, FSRFileSystem},
-        os::FSROs,
-        string::FSRStringModule,
+        }, fs::{FSRFileSystem, file::FSRInnerFile}, os::FSROs, rand_fs::FSRRandModule, string::FSRStringModule
     },
 };
 
@@ -128,6 +125,7 @@ impl<'a> FSRVM<'a> {
         res.insert("os", FSROs::new_module);
         res.insert("str", FSRStringModule::new_module);
         res.insert("gc", Gc::new_module);
+        res.insert("rand", FSRRandModule::new_module);
         res
     }
 

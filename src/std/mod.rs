@@ -5,3 +5,4 @@ pub mod regex;
 pub mod iterator;
 pub mod os;
 pub mod string;
+pub mod rand_fs;

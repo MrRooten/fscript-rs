@@ -124,10 +124,11 @@ pub fn get_len(
     
     if let FSRValue::Bytes(bytes) = &obj.value {
         let len = bytes.bytes.len() as i64;
-        let obj_id = thread.garbage_collect.new_object(
-            FSRValue::Integer(len),
-            GlobalObj::IntegerCls.get_id(),
-        );
+        // let obj_id = thread.garbage_collect.new_object(
+        //     FSRValue::Integer(len),
+        //     GlobalObj::IntegerCls.get_id(),
+        // );
+        let obj_id = thread.garbage_collect.get_integer(len);
         Ok(FSRRetValue::GlobalId(obj_id))
     } else {
         Err(FSRError::new(

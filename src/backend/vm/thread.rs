@@ -2024,6 +2024,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         i
                     };
 
+
                     let new_integer = self
                         .garbage_collect
                         .new_object(FSRValue::Integer(i), gid(GlobalObj::IntegerCls) as ObjId);

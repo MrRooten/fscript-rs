@@ -17,10 +17,7 @@ pub fn fsr_get_cur_thread_id(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let id = thread.get_thread_id();
-    let obj = thread.garbage_collect.new_object(
-        FSRValue::Integer(id as i64),
-        gid(GlobalObj::IntegerCls),
-    );
+    let obj = thread.garbage_collect.get_integer(id as i64);
     Ok(FSRRetValue::GlobalId(obj))
 }
 

@@ -17,6 +17,7 @@ cranelift-module = "0.127.2"
 cranelift-jit = "0.127.2"
 cranelift-native = "0.127.2"
 frontend = { path = "crates/frontend" }
+rand = "0.9.2"
 
 # [profile.test]
 # opt-level = 2

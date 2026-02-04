@@ -77,13 +77,8 @@ fn list_len(
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
 
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
     if let FSRValue::List(self_s) = &self_object.value {
-        // return Ok(FSRRetValue::Value(
-        //     Box::new(FSRInteger::new_inst(self_s.vs.len() as i64)),
-        // ));
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(self_s.get_items().len() as i64),
             gid(GlobalObj::IntegerCls),
@@ -146,7 +141,11 @@ fn iter(
         );
         return Ok(FSRRetValue::GlobalId(inner_obj));
     }
-    unimplemented!()
+    
+    return Err(FSRError::new(
+        "iter args error not a list",
+        FSRErrCode::RuntimeError,
+    ));
 }
 
 pub fn get_item(
@@ -165,7 +164,7 @@ pub fn get_item(
             if let Some(s) = l.vs.get(index) {
                 return Ok(FSRRetValue::GlobalId(s.load(Ordering::Relaxed)));
             } else {
-                return Err(FSRError::new("list index of range", FSRErrCode::OutOfRange));
+                return Err(FSRError::new("list index of range", FSRErrCode::RuntimeError));
             }
         } else if let FSRValue::Range(range) = &index_obj.value {
             let start = range.range.start as usize;
@@ -179,6 +178,11 @@ pub fn get_item(
                 gid(GlobalObj::ListCls) as ObjId,
             );
             return Ok(FSRRetValue::GlobalId(range));
+        } else {
+            return Err(FSRError::new(
+                "list index type error",
+                FSRErrCode::NotValidArgs,
+            ));
         }
     }
     unimplemented!()

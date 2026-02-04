@@ -534,10 +534,11 @@ pub fn fsr_fn_hashmap_len(
     if let FSRValue::Extension(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             let len = hashmap.len();
-            let obj_id = thread.garbage_collect.new_object(
-                FSRValue::Integer(len as i64),
-                gid(GlobalObj::IntegerCls),
-            );
+            // let obj_id = thread.garbage_collect.new_object(
+            //     FSRValue::Integer(len as i64),
+            //     gid(GlobalObj::IntegerCls),
+            // );
+            let obj_id = thread.garbage_collect.get_integer(len as i64);
             Ok(FSRRetValue::GlobalId(obj_id))
         } else {
             unimplemented!()
