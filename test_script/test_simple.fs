@@ -1,9 +1,4 @@
-class Test {
-    fn __new__(self) {
-        self.abc = [1, 2, 3]
-    }
-}
+import collection
 
-t = Test()
-t.abc[0] += 1
-println(t.abc[0])
+c = collection::Counter([1, 2, 3, 2, 3])
+println(c.inner_map)
