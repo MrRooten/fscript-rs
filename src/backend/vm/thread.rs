@@ -880,6 +880,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn getter_assign_process(
         self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let len = len_exp!(self);
         let index_obj = top_exp!(self).unwrap();
@@ -887,7 +888,22 @@ impl<'a> FSRThreadRuntime<'a> {
         let value_obj = peek_exp!(self, len - 3).unwrap();
 
         //let containter_obj_v = FSRObject::id_to_obj(container_obj);
+        let value_obj = if let ArgType::AssignContainer((Some(op_assign), _)) = bytecode.get_arg() {
+            let left_value = FSRObject::invoke_offset_method(
+                BinaryOffset::GetItem,
+                &[container_obj, index_obj],
+                self,
+                //self.get_cur_frame().code,
+            )?;
 
+            let offset = op_assign.get_offset();
+
+            let new_value = Self::op_assign_helper(left_value.get_id(), value_obj, self, offset)?;
+
+            new_value
+        } else {
+            value_obj
+        };
         let set_item = FSRObject::id_to_obj(container_obj)
             .get_cls_offset_attr(BinaryOffset::SetItem)
             .unwrap()
@@ -1409,10 +1425,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let cls = FSRObject::id_to_obj(cls_id);
         if let FSRValue::Class(c) = &cls.value {
             if c.get_attr("__new__").is_none() {
-                let self_id = self.garbage_collect.new_object(
-                    FSRClassInst::new_value(c.get_arc_name()),
-                    cls_id,
-                );
+                let self_id = self
+                    .garbage_collect
+                    .new_object(FSRClassInst::new_value(c.get_arc_name()), cls_id);
 
                 push_exp!(self, self_id);
 
@@ -1421,10 +1436,9 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let fn_obj = FSRObject::id_to_obj(cls_id);
-        let self_id = self.garbage_collect.new_object(
-            FSRClassInst::new_value(fn_obj.get_fsr_class_name()),
-            cls_id,
-        );
+        let self_id = self
+            .garbage_collect
+            .new_object(FSRClassInst::new_value(fn_obj.get_fsr_class_name()), cls_id);
 
         args.push(self_id);
         args.reverse();
@@ -1541,11 +1555,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    fn async_call(
-        &mut self,
-        fn_id: ObjId,
-        args: &mut CallArgs,
-    ) -> Result<bool, FSRError> {
+    fn async_call(&mut self, fn_id: ObjId, args: &mut CallArgs) -> Result<bool, FSRError> {
         let frame = self
             .frame_free_list
             .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
@@ -2022,7 +2032,6 @@ impl<'a> FSRThreadRuntime<'a> {
                     } else {
                         i
                     };
-
 
                     let new_integer = self
                         .garbage_collect
@@ -3061,7 +3070,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
             BytecodeOperator::LoadConst => Self::empty_process(),
             BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
-            BytecodeOperator::AssignContainer => Self::getter_assign_process(self,),
+            BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
             BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
             BytecodeOperator::CompareEqual => Self::compare_equal_process(self),

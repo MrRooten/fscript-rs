@@ -1,4 +1,9 @@
-import rand
+class Test {
+    fn __new__(self) {
+        self.abc = [1, 2, 3]
+    }
+}
 
-r = rand::rand_int(1, 10)
-println(r)
+t = Test()
+t.abc[0] += 1
+println(t.abc[0])

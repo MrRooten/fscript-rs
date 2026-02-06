@@ -6,11 +6,16 @@ use crate::{
         memory::GarbageCollector,
         types::{asynclib::future::poll_future, list::FSRList},
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, to_rs_list, utils::error::{FSRErrCode, FSRError}
+    },
+    std::iterator::{
+        enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter,
+    },
+    to_rs_list,
+    utils::error::{FSRErrCode, FSRError},
 };
 
 use super::{
-    base::{AtomicObjId, GlobalObj, FSRObject, FSRRetValue, FSRValue, ObjId},
+    base::{AtomicObjId, FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
     class::FSRClass,
     code::FSRCode,
     fn_def::FSRFn,
@@ -60,7 +65,7 @@ pub fn next_obj(
             }
         } else if let FSRValue::Future(future) = &from_obj.value {
             let res = poll_future(args.as_ptr(), len, thread);
-            return res
+            return res;
         } else {
             let iter = it.iterator.as_mut().unwrap();
             if let Some(obj) = iter.next(thread)? {
@@ -278,25 +283,35 @@ pub fn count(
         ));
     }
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
-    if let FSRValue::Iterator(it) = &mut self_obj.value {
-        if let Some(it) = it.iterator.as_mut() {
-            let mut count = 0;
-            while let Some(obj) = it.next(thread)? {
-                count += 1;
-            }
+    let it = if let FSRValue::Iterator(it) = &mut self_obj.value {
+        it
+    } else {
+        return Err(FSRError::new(
+            "msg: object is not an iterator",
+            FSRErrCode::NotValidArgs,
+        ));
+    };
 
-            // let count_obj = thread.garbage_collect.new_object(
-            //     FSRValue::Integer(count),
-            //     gid(GlobalObj::IntegerCls),
-            // );
-            let count_obj = thread.garbage_collect.get_integer(count);
-            return Ok(FSRRetValue::GlobalId(count_obj));
-        }
+    let it = if let Some(it) = it.iterator.as_mut() {
+        it
+    } else {
+        return Err(FSRError::new(
+            "iterator not some(value)",
+            FSRErrCode::NotValidArgs,
+        ));
+    };
+
+    let mut count = 0;
+    while let Some(obj) = it.next(thread)? {
+        count += 1;
     }
-    Err(FSRError::new(
-        "msg: args is not a iterator",
-        FSRErrCode::NotValidArgs,
-    ))
+
+    // let count_obj = thread.garbage_collect.new_object(
+    //     FSRValue::Integer(count),
+    //     gid(GlobalObj::IntegerCls),
+    // );
+    let count_obj = thread.garbage_collect.get_integer(count);
+    return Ok(FSRRetValue::GlobalId(count_obj));
 }
 
 impl FSRInnerIterator {

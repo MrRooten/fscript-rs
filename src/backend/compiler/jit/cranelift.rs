@@ -1795,7 +1795,10 @@ impl JitBuilder<'_> {
     }
 
     fn store_container(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
-        if let ArgType::TypeInfo(v) = arg.get_arg() {
+        if let ArgType::AssignContainer((op_assign, v)) = arg.get_arg() {
+            if op_assign.is_some() {
+                panic!("StoreContainer does not support OpAssign");
+            }
             let value_index = context.exp.pop().unwrap();
             let container_ptr = context.exp.pop().unwrap();
             let value_assign = context.exp.pop().unwrap();

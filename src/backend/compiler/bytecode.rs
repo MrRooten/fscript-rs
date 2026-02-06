@@ -529,6 +529,7 @@ pub enum ArgType {
     JitFunction(Option<Arc<FSRSType>>, String), //father struct name, function identify name
     Alloc((String, usize, bool)),               // type name, size
     TypeInfo(Option<Arc<FSRSType>>),            // Contain full type information
+    AssignContainer((Option<OpAssign>, Option<Arc<FSRSType>>)), // assign container with type info, for optimize like list += [1, 2, 3]
     None,
 }
 
@@ -3023,9 +3024,11 @@ impl<'a> Bytecode {
                 None
             };
 
+            let op_assign = OpAssign::from_str(&token.op_assign).ok();
             result_list.push(BytecodeArg {
                 operator: BytecodeOperator::AssignContainer,
-                arg: Box::new(ArgType::TypeInfo(t)),
+                // arg: Box::new(ArgType::TypeInfo(t)),
+                arg: Box::new(ArgType::AssignContainer((op_assign, t))),
                 info: Box::new(FSRByteInfo::new(&const_map.lines, v.get_meta().clone())),
             });
             return Some(result_list);
@@ -3111,15 +3114,29 @@ impl<'a> Bytecode {
         } else {
             let mut left =
                 Self::load_token_with_map(token.get_left(), var_map, bc_map, false, false);
+            // if let BytecodeOperator::Getter = &left.0[0].last().unwrap().operator {
+            //     panic!("Cannot assign to getter without attribute");
+            // }
             let mut right =
                 Self::load_token_with_map(token.get_assign_expr(), var_map, bc_map, false, false);
             result_list.append(&mut right.0[0]);
             result_list.append(&mut left.0[0]);
-            result_list.push(BytecodeArg {
-                operator: BytecodeOperator::Assign,
-                arg: Box::new(ArgType::None),
-                info: Box::new(FSRByteInfo::new(&bc_map.lines, token.get_meta().clone())),
-            });
+            if let BytecodeOperator::Getter = result_list.last().unwrap().operator {
+                result_list.pop();
+                let op_assign = OpAssign::from_str(&token.op_assign).ok();
+                result_list.push(BytecodeArg {
+                    operator: BytecodeOperator::AssignContainer,
+                    arg: Box::new(ArgType::AssignContainer((op_assign, None))),
+                    info: Box::new(FSRByteInfo::new(&bc_map.lines, token.get_meta().clone())),
+                });
+            } else {
+                result_list.push(BytecodeArg {
+                    operator: BytecodeOperator::Assign,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&bc_map.lines, token.get_meta().clone())),
+                });
+            }
+
             result_list
         }
     }
