@@ -285,10 +285,11 @@ pub fn count(
                 count += 1;
             }
 
-            let count_obj = thread.garbage_collect.new_object(
-                FSRValue::Integer(count),
-                gid(GlobalObj::IntegerCls),
-            );
+            // let count_obj = thread.garbage_collect.new_object(
+            //     FSRValue::Integer(count),
+            //     gid(GlobalObj::IntegerCls),
+            // );
+            let count_obj = thread.garbage_collect.get_integer(count);
             return Ok(FSRRetValue::GlobalId(count_obj));
         }
     }

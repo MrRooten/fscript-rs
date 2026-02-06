@@ -156,20 +156,20 @@ pub mod tests {
         println!("{:#?}", v);
     }
 
-    #[test]
-    fn test_new_object() {
-        let s = Instant::now();
-        let mut i = 0;
-        let mut vs = Vec::with_capacity(300000);
-        while i < 3000 {
-            let v = Box::new(FSRObject::new());
-            vs.push(v);
-            i += 1;
-            vs.pop();
-        }
-        let e = Instant::now();
-        println!("{:#?}", e - s);
-    }
+    // #[test]
+    // fn test_new_object() {
+    //     let s = Instant::now();
+    //     let mut i = 0;
+    //     let mut vs = Vec::with_capacity(300000);
+    //     while i < 3000 {
+    //         let v = Box::new(FSRObject::new());
+    //         vs.push(v);
+    //         i += 1;
+    //         vs.pop();
+    //     }
+    //     let e = Instant::now();
+    //     println!("{:#?}", e - s);
+    // }
 
     #[test]
     fn test_script() {

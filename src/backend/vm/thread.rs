@@ -849,7 +849,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     fn getter_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        //_bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let index = pop_exp!(self).unwrap();
 
@@ -880,7 +880,6 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn getter_assign_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let len = len_exp!(self);
         let index_obj = top_exp!(self).unwrap();
@@ -1054,7 +1053,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_sub_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        //_bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let right = match pop_exp!(self) {
             Some(s) => s,
@@ -3049,12 +3048,12 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::AndJump => Self::process_logic_and(self, bytecode),
             BytecodeOperator::OrJump => Self::process_logic_or(self, bytecode),
             BytecodeOperator::Empty => Self::empty_process(),
-            BytecodeOperator::BinarySub => Self::binary_sub_process(self, bytecode),
+            BytecodeOperator::BinarySub => Self::binary_sub_process(self),
             BytecodeOperator::Import => Self::process_import(self, bytecode),
             BytecodeOperator::BinaryDiv => Self::binary_div_process(self, bytecode),
             BytecodeOperator::NotOperator => Self::not_process(self),
             BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr(self, bytecode),
-            BytecodeOperator::Getter => Self::getter_process(self, bytecode),
+            BytecodeOperator::Getter => Self::getter_process(self),
             BytecodeOperator::Try => Self::try_process(self, bytecode),
             BytecodeOperator::EndTry => Self::try_end(self),
             BytecodeOperator::EndCatch => Self::catch_end(self),
@@ -3062,7 +3061,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
             BytecodeOperator::LoadConst => Self::empty_process(),
             BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
-            BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
+            BytecodeOperator::AssignContainer => Self::getter_assign_process(self,),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
             BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
             BytecodeOperator::CompareEqual => Self::compare_equal_process(self),

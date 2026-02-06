@@ -412,10 +412,13 @@ fn hash_integer(
     let self_object = FSRObject::id_to_obj(args[0]);
 
     if let FSRValue::Integer(self_int) = &self_object.value {
-        return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-            FSRValue::Integer(*self_int),
-            gid(GlobalObj::IntegerCls),
-        )));
+        // return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
+        //     FSRValue::Integer(*self_int),
+        //     gid(GlobalObj::IntegerCls),
+        // )));
+        return Ok(FSRRetValue::GlobalId(
+            thread.garbage_collect.get_integer(*self_int),
+        ));
     }
 
     unimplemented!()

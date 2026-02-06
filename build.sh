@@ -6,4 +6,5 @@
 
 RUSTFLAGS="
   -C target-cpu=native
-" /usr/bin/time -v cargo +nightly build --release 
+  -C force-frame-pointers=yes
+" /usr/bin/time -h -l -p cargo +nightly build --release 
