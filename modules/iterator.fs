@@ -28,10 +28,48 @@ class Chain {
     }
 }
 
+class Zip {
+    fn __new__(self, list_iterator) {
+        self.list_iterator = list_iterator.map(|x| {
+            return x.__iter__()
+        })
+    }
+
+    fn __next__(self) {
+        ret = []
+        any_value = false
+
+        for item in self.list_iterator {
+            value = item.__next__()
+            ret.push(value)
+            # push_fn(ret, value)
+            if value != none {
+                any_value = true
+            }
+        }
+
+        if !any_value {
+            return none
+        }
+
+        return ret
+    }
+
+}
+
 fn test_chain() {
     c = iterator::Chain([[1,2,3], [4,5,6]])
 
     for i in c {
+        println(i)
+    }
+}
+
+fn test_zip() {
+    a = [[1,2,3], [4,5,6]]
+    z = iterator::Zip(a)
+
+    for i in z {
         println(i)
     }
 }
