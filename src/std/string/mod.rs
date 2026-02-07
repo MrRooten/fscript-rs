@@ -7,7 +7,7 @@ use crate::{
             string::{FSRString, fsr_fn_format_string},
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    }, register_fn, to_rs_list, utils::error::FSRError
+    }, register_attr, to_rs_list, utils::error::FSRError
 };
 
 pub fn fsr_fn_chr(
@@ -60,9 +60,9 @@ pub struct FSRStringModule {}
 impl FSRStringModule {
     pub fn new_module(thread: &mut FSRThreadRuntime) -> FSRValue<'static> {
         let mut module = FSRModule::new_module("str");
-        register_fn!(module, thread, "format", fsr_fn_format_string);
-        register_fn!(module, thread, "chr", fsr_fn_chr);
-        register_fn!(module, thread, "ord", fsr_fn_ord);
+        register_attr!(module, thread, "format", fsr_fn_format_string);
+        register_attr!(module, thread, "chr", fsr_fn_chr);
+        register_attr!(module, thread, "ord", fsr_fn_ord);
         FSRValue::Module(Box::new(module))
     }
 }

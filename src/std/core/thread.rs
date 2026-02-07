@@ -30,9 +30,10 @@ pub fn fsr_new_thread(
     let fn_id = args[0];
     let th_thread_args = args[1..].iter().map(|x| Arc::new(*x)).collect::<Vec<_>>();
     
-    for arg in &th_thread_args {
-        thread.thread_shared.insert(arg.clone());
-    }
+    // for arg in &th_thread_args {
+    //     thread.thread_shared.insert(arg.clone());
+    // }
+    let th2 = th_thread_args.clone();
 
     let vm = thread.get_vm();
     let th = std::thread::spawn(move || {
@@ -41,17 +42,17 @@ pub fn fsr_new_thread(
         let mut args = vec![];
         for arg in th_thread_args {
             args.push(*arg);
-            runtime.thread_shared.insert(arg.clone());
+            //runtime.thread_shared.insert(arg.clone());
         }
         let thread_id = vm.add_thread(runtime);
         let th = vm.get_thread(thread_id).unwrap();
         let fn_obj = FSRObject::id_to_obj(fn_id);
         let _ = fn_obj.call(&args, th);
     });
-    let handle = FSRThreadHandle::new(th);
-    
+    let mut handle = FSRThreadHandle::new(th);
+    handle.track_objects = th2.iter().map(|x| **x).collect();
     let thread_obj = thread.garbage_collect.new_object(handle.to_any_type(), gid(GlobalObj::ThreadCls) as ObjId);
-    
+    thread.thread_shared.insert(thread_obj);
     Ok(FSRRetValue::GlobalId(thread_obj))
 }
 

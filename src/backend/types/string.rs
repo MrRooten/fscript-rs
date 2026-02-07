@@ -421,7 +421,7 @@ fn find(
         }
     }
 
-    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 fn rfind(
@@ -444,7 +444,7 @@ fn rfind(
         }
     }
 
-    Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 fn trim(

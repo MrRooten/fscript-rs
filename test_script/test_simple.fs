@@ -1,4 +1,7 @@
-import collection
+import iterator
 
-c = collection::Counter([1, 2, 3, 2, 3])
-println(c.inner_map)
+c = iterator::Chain([0..1000000, 1000000..2000000])
+
+for i in c {
+    
+}

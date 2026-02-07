@@ -921,6 +921,9 @@ impl<'a> FSRObject<'a> {
             FSRValue::Extension(any) => Box::new(any.iter_values(full, worklist, is_add)),
             FSRValue::Range(r) => Box::new(r.get_references().into_iter()),
             FSRValue::Future(f) => f.get_reference(full, worklist, is_add),
+            FSRValue::Module(m) => {
+                Box::new(m.object_map.iter().map(|(_, v)| v.load(Ordering::Relaxed)))
+            }
             _ => Box::new(std::iter::empty()),
         }
         //Box::new(self.value.get_references().into_iter())

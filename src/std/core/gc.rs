@@ -7,7 +7,7 @@ use crate::{
             fn_def::FSRFn, module::FSRModule,
         },
         vm::thread::FSRThreadRuntime,
-    }, register_fn, to_rs_list, utils::error::FSRError
+    }, register_attr, to_rs_list, utils::error::FSRError
 };
 
 
@@ -82,10 +82,10 @@ impl Gc {
         // register_class!(module, thread, "Dir", FSRDir::get_class());
         // register_fn!(module, thread, "is_file", fsr_fn_is_file);
         //register_fn!(module, thread, "is_dir", fsr_fn_is_dir);
-        register_fn!(module, thread, "gc_info", fn_gc_info);
-        register_fn!(module, thread, "gc_collect", fn_gc_collect);
-        register_fn!(module, thread, "gc_minjor_collect", fn_minjor_gc_collect);
-        register_fn!(module, thread, "gc_shrink", fn_gc_shrink);
+        register_attr!(module, thread, "gc_info", fn_gc_info);
+        register_attr!(module, thread, "gc_collect", fn_gc_collect);
+        register_attr!(module, thread, "gc_minjor_collect", fn_minjor_gc_collect);
+        register_attr!(module, thread, "gc_shrink", fn_gc_shrink);
 
         FSRValue::Module(Box::new(module))
     }

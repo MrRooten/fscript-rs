@@ -97,6 +97,18 @@ impl<'a> FSRModule<'a> {
         object
     }
 
+    pub fn new_value(name: &str) -> FSRValue<'a> {
+        let module = FSRModule {
+            name: name.to_string(),
+            fn_map: HashMap::new(),
+            object_map: AHashMap::new(),
+            jit_code_map: vec![],
+            type_info: FSRSTypeInfo::new(),
+            // const_table: vec![],
+        };
+        FSRValue::Module(Box::new(module))
+    }
+
     pub fn new_module(name: &str) -> FSRModule<'a> {
         FSRModule {
             name: name.to_string(),

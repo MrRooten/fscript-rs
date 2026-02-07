@@ -80,6 +80,7 @@ impl SegmentHashMap {
 pub struct FSRHashMap {
     // inner_map: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
     segment_map: Vec<SegmentHashMap>,
+    default_value: Option<ObjId>
 }
 
 impl Debug for FSRHashMap {
@@ -106,6 +107,14 @@ impl ExtensionTrait for FSRHashMap {
         is_add: &mut bool,
     ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
         //let mut v = Vec::with_capacity(self.len() * 2);
+        if let Some(default_value) = self.default_value {
+            let obj = FSRObject::id_to_obj(default_value);
+            if obj.area == Area::Minjor {
+                *is_add = true;
+            } else if full {
+                return Box::new(std::iter::once(default_value));
+            }
+        }
         for segment in self.segment_map.iter() {
             for (_, vec) in segment.hashmap.iter() {
                 for (key, value) in vec.iter() {
@@ -385,6 +394,10 @@ pub fn fsr_fn_hashmap_get(
                 return Ok(FSRRetValue::GlobalId(
                     value.load(std::sync::atomic::Ordering::Relaxed),
                 ));
+            } else if let Some(default_value) = hashmap.default_value {
+                return Ok(FSRRetValue::GlobalId(default_value));
+            } else {
+                return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
             }
         } else {
             unimplemented!()
@@ -471,6 +484,8 @@ pub fn fsr_fn_hashmap_get_reference(
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             if let Some(value) = hashmap.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(value.load(Ordering::Relaxed)));
+            } else if let Some(default) = hashmap.default_value {
+                return Ok(FSRRetValue::GlobalId(default))
             }
         }
     } else {
@@ -500,6 +515,32 @@ pub fn fsr_fn_hashmap_contains(
         unimplemented!()
     }
     Ok(FSRRetValue::GlobalId(FSRObject::false_id()))
+}
+
+pub fn fsr_fn_hashmap_set_default(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let args = to_rs_list!(args, len);
+    let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    let default_value = args[1];
+    if hashmap.area.is_long() {
+        let default_value_obj = FSRObject::id_to_obj(default_value);
+        if default_value_obj.area == Area::Minjor {
+            hashmap.set_write_barrier(true);
+        }
+    }
+    if let FSRValue::Extension(any) = &mut hashmap.value {
+        if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
+            hashmap.default_value = Some(default_value);
+        } else {
+            unimplemented!()
+        }
+    } else {
+        unimplemented!()
+    }
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn fsr_fn_hashmap_remove(
@@ -552,6 +593,7 @@ impl FSRHashMap {
     pub fn new_hashmap() -> Self {
         Self {
             segment_map: vec![SegmentHashMap::new()],
+            default_value: None
         }
     }
 
@@ -883,6 +925,8 @@ impl FSRHashMap {
         cls.insert_attr("__str__", to_str);
         let len = FSRFn::from_rust_fn_static(fsr_fn_hashmap_len, "len");
         cls.insert_attr("len", len);
+        let set_default = FSRFn::from_rust_fn_static(fsr_fn_hashmap_set_default, "set_default");
+        cls.insert_attr("set_default", set_default);
         cls
     }
 }

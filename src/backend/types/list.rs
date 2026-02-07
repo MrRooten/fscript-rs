@@ -225,6 +225,46 @@ pub fn set_item(
     unimplemented!()
 }
 
+fn swap(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let args = to_rs_list!(args, len);
+    if args.len() != 3 {
+        return Err(FSRError::new(
+            "swap args error",
+            FSRErrCode::RuntimeError,
+        ));
+    }
+    let self_id = args[0];
+    let index1_id = args[1];
+    let index2_id = args[2];
+
+    let obj = FSRObject::id_to_mut_obj(self_id).unwrap();
+    let index1_obj = FSRObject::id_to_obj(index1_id);
+    let index2_obj = FSRObject::id_to_obj(index2_id);
+    if obj.area.is_long() && (FSRObject::id_to_obj(index1_id).area == Area::Minjor || FSRObject::id_to_obj(index2_id).area == Area::Minjor) {
+        obj.set_write_barrier(true);
+    }
+    if let FSRValue::List(l) = &mut obj.value {
+        if let FSRValue::Integer(i1) = &index1_obj.value {
+            if let FSRValue::Integer(i2) = &index2_obj.value {
+                let index1 = *i1 as usize;
+                let index2 = *i2 as usize;
+                if index1 >= l.vs.len() || index2 >= l.vs.len() {
+                    return Err(FSRError::new("list index of range", FSRErrCode::OutOfRange));
+                }
+                l.vs.swap(index1, index2);
+                return Ok(FSRRetValue::GlobalId(FSRObject::none_id()));
+            }
+        }
+
+        unimplemented!()
+    }
+    unimplemented!()
+}
+
 pub fn sort(
     args: *const ObjId,
     len: usize,
@@ -602,6 +642,8 @@ impl FSRList {
         cls.insert_offset_attr(BinaryOffset::SetItem, set_item);
         let extend_fn = FSRFn::from_rust_fn_static(extend, "list_extend");
         cls.insert_attr("extend", extend_fn);
+        let swap_fn = FSRFn::from_rust_fn_static(swap, "list_swap");
+        cls.insert_attr("swap", swap_fn);
         cls
     }
 

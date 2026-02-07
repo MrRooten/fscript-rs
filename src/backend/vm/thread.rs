@@ -486,7 +486,7 @@ impl GcContext {
 }
 
 pub struct ThreadShared {
-    objects: Vec<Arc<ObjId>>,
+    objects: Vec<ObjId>,
 }
 
 impl ThreadShared {
@@ -496,7 +496,7 @@ impl ThreadShared {
         }
     }
 
-    pub fn insert(&mut self, obj: Arc<ObjId>) {
+    pub fn insert(&mut self, obj: ObjId) {
         self.objects.push(obj);
     }
 }
@@ -674,7 +674,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Self::process_callframe(&mut work_list, it);
 
         for shared_object in &self.thread_shared.objects {
-            work_list.push(**shared_object);
+            work_list.push(*shared_object);
         }
 
         work_list
@@ -2808,8 +2808,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRVM::leak_object(Box::new(module))
             } else {
                 let code = Self::read_code_from_module(module_name)?;
-                let mut module = FSRModule::new_object(&module_name.join("."));
-                let module_id = FSRVM::leak_object(Box::new(module));
+                let mut module = FSRModule::new_value(&module_name.join("."));
+                let module_id = self.new_object(module, GlobalObj::ModuleCls.get_id());
                 let fn_map = FSRCode::from_code(&module_name.join("."), &code, module_id)?;
                 let module = FSRObject::id_to_mut_obj(module_id).unwrap();
                 module.as_mut_module().init_fn_map(fn_map);
@@ -2845,11 +2845,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRErrCode::NotValidArgs,
             ));
         };
-        let module_id = if let Some(s) = self.get_vm().module_manager.get_module(module_name) {
-            s
-        } else {
-            Self::load_module(self, module_name)?
-        };
+        // let module_id = if let Some(s) = self.get_vm().module_manager.get_module(module_name) {
+        //     s
+        // } else {
+        //     Self::load_module(self, module_name)?
+        // };
+        let module_id = Self::load_module(self, module_name)?;
 
         let state = self.get_cur_mut_frame();
         state.insert_var(*v, module_id);

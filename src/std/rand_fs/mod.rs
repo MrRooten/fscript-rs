@@ -9,7 +9,7 @@ use crate::{
             module::FSRModule,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    }, register_class, register_fn, std::fs::{dir::FSRDir, file::{FSRInnerFile, fsr_fn_is_dir, fsr_fn_is_file}}, to_rs_list, utils::error::{FSRErrCode, FSRError}
+    }, register_class, register_attr, std::fs::{dir::FSRDir, file::{FSRInnerFile, fsr_fn_is_dir, fsr_fn_is_file}}, to_rs_list, utils::error::{FSRErrCode, FSRError}
 };
 
 fn rand_int(
@@ -57,7 +57,7 @@ impl FSRRandModule {
         // register_class!(module, thread, "Dir", FSRDir::get_class());
         // register_fn!(module, thread, "is_file", fsr_fn_is_file);
         // register_fn!(module, thread, "is_dir", fsr_fn_is_dir);
-        register_fn!(module, thread, "rand_int", rand_int);
+        register_attr!(module, thread, "rand_int", rand_int);
         FSRValue::Module(Box::new(module))
     }
 }

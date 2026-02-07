@@ -1,7 +1,9 @@
 use std::{any::Any, fmt::Debug};
 
 use crate::{
-    backend::{types::base::FSRObject, vm::thread::FSRThreadRuntime}, to_rs_list, utils::error::FSRError
+    backend::{types::base::FSRObject, vm::thread::FSRThreadRuntime},
+    to_rs_list,
+    utils::error::FSRError,
 };
 
 use super::{
@@ -11,7 +13,7 @@ use super::{
 };
 
 // pub trait GetReference {
-    
+
 // }
 
 pub trait ExtensionTrait: Send {
@@ -28,7 +30,6 @@ pub trait ExtensionTrait: Send {
 
     fn set_undirty(&mut self);
 }
-
 
 pub struct FSRExtension {
     pub value: Box<dyn ExtensionTrait>,
@@ -58,6 +59,7 @@ impl FSRExtension {
 #[derive(Debug)]
 pub struct FSRThreadHandle {
     pub thread: Option<std::thread::JoinHandle<()>>,
+    pub track_objects: Vec<ObjId>,
 }
 
 impl ExtensionTrait for FSRThreadHandle {
@@ -75,12 +77,12 @@ impl ExtensionTrait for FSRThreadHandle {
         _: &mut Vec<ObjId>,
         _: &mut bool,
     ) -> Box<dyn Iterator<Item = ObjId> + 'a> {
-        Box::new(std::iter::empty())
+        // Box::new(std::iter::empty())
+        Box::new(self.track_objects.iter().cloned())
     }
 
     fn set_undirty(&mut self) {}
 }
-
 
 fn join(
     args: *const ObjId,
@@ -107,6 +109,7 @@ impl FSRThreadHandle {
     pub fn new(thread: std::thread::JoinHandle<()>) -> Self {
         FSRThreadHandle {
             thread: Some(thread),
+            track_objects: vec![],
         }
     }
 

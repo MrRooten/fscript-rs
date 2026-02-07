@@ -6,10 +6,13 @@ use crate::{
         types::{
             base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
-            fn_def::FSRFn, string::FSRInnerString,
+            fn_def::FSRFn,
+            string::FSRInnerString,
         },
         vm::thread::FSRThreadRuntime,
-    }, to_rs_list, utils::error::{FSRErrCode, FSRError}
+    },
+    to_rs_list,
+    utils::error::{FSRErrCode, FSRError},
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -92,8 +95,7 @@ fn get_sub_bytes(
                 GlobalObj::BytesCls.get_id(),
             );
             Ok(FSRRetValue::GlobalId(obj_id))
-        }
-        else {
+        } else {
             Err(FSRError::new(
                 "index is not an integer of bytes",
                 crate::utils::error::FSRErrCode::NotValidArgs,
@@ -121,7 +123,7 @@ pub fn get_len(
     }
     let self_id = args[0];
     let obj = FSRObject::id_to_obj(self_id);
-    
+
     if let FSRValue::Bytes(bytes) = &obj.value {
         let len = bytes.bytes.len() as i64;
         // let obj_id = thread.garbage_collect.new_object(
@@ -146,7 +148,7 @@ pub fn set_item(
     let args = to_rs_list!(args, len);
     if args.len() != 3 {
         return Err(FSRError::new(
-            "set_item args error",
+            "set_item requires exactly 3 arguments",
             FSRErrCode::RuntimeError,
         ));
     }
@@ -157,55 +159,52 @@ pub fn set_item(
     let obj = FSRObject::id_to_mut_obj(self_id).unwrap();
     let index_obj = FSRObject::id_to_obj(index_id);
     let target_obj = FSRObject::id_to_obj(target_id);
-    if let FSRValue::Bytes(l) = &obj.value {
-        if let FSRValue::Integer(index) = &index_obj.value {
-            if let FSRValue::Integer(target) = &target_obj.value {
-                if *target > 255 || *target < 0 {
-                    return Err(FSRError::new(
-                        "target value out of range for bytes",
-                        FSRErrCode::OutOfRange,
-                    ));
-                }
-                if l.bytes.is_empty() {
-                    return Err(FSRError::new("bytes is empty", FSRErrCode::NotValidArgs));
-                }
-                if *index < 0 {
-                    return Err(FSRError::new(
-                        "index cannot be negative",
-                        FSRErrCode::NotValidArgs,
-                    ));
-                }
-                if *index >= l.bytes.len() as i64 {
-                    return Err(FSRError::new(
-                        "index out of range of bytes",
-                        FSRErrCode::OutOfRange,
-                    ));
-                }
-
-                let index = *index as usize;
-                let target = *target as u8;
-                let mut bytes = l.bytes.clone();
-                bytes[index] = target;
-
-                Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
-            } else {
-                Err(FSRError::new(
-                    "target is not an integer",
-                    FSRErrCode::NotValidArgs,
-                ))
-            }
-        } else {
-            Err(FSRError::new(
-                "index is not an integer",
-                FSRErrCode::NotValidArgs,
-            ))
-        }
-    } else {
-        Err(FSRError::new(
+    let FSRValue::Bytes(l) = &obj.value else {
+        return Err(FSRError::new(
             "left value is not a bytes",
             FSRErrCode::NotValidArgs,
-        ))
+        ));
+    };
+    let FSRValue::Integer(index) = &index_obj.value else {
+        return Err(FSRError::new(
+            "index is not an integer",
+            FSRErrCode::NotValidArgs,
+        ));
+    };
+    let FSRValue::Integer(target) = &target_obj.value else {
+        return Err(FSRError::new(
+            "target is not an integer",
+            FSRErrCode::NotValidArgs,
+        ));
+    };
+    if *target > 255 || *target < 0 {
+        return Err(FSRError::new(
+            "target value out of range for bytes",
+            FSRErrCode::OutOfRange,
+        ));
     }
+    if l.bytes.is_empty() {
+        return Err(FSRError::new("bytes is empty", FSRErrCode::NotValidArgs));
+    }
+    if *index < 0 {
+        return Err(FSRError::new(
+            "index cannot be negative",
+            FSRErrCode::NotValidArgs,
+        ));
+    }
+    if *index >= l.bytes.len() as i64 {
+        return Err(FSRError::new(
+            "index out of range of bytes",
+            FSRErrCode::OutOfRange,
+        ));
+    }
+
+    let index = *index as usize;
+    let target = *target as u8;
+    let mut bytes = l.bytes.clone();
+    bytes[index] = target;
+
+    Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
 pub fn as_hex(
@@ -222,9 +221,13 @@ pub fn as_hex(
     }
     let self_id = args[0];
     let obj = FSRObject::id_to_obj(self_id);
-    
+
     if let FSRValue::Bytes(bytes) = &obj.value {
-        let hex_string = bytes.bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let hex_string = bytes
+            .bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
         let hex_obj_id = thread.garbage_collect.new_object(
             FSRValue::String(Arc::new(FSRInnerString::new(hex_string))),
             GlobalObj::StringCls.get_id(),
