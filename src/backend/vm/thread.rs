@@ -3069,7 +3069,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::EndCatch => Self::catch_end(self),
             BytecodeOperator::BinaryRange => Self::binary_range(self),
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
-            BytecodeOperator::LoadConst => Self::empty_process(),
+            //BytecodeOperator::LoadConst => Self::empty_process(),
             BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),

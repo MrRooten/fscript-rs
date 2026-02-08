@@ -2627,9 +2627,9 @@ impl JitBuilder<'_> {
                 BytecodeOperator::IfBlockEnd => {
                     self.load_if_end(context);
                 }
-                BytecodeOperator::LoadConst => {
-                    // self.load_init_constants(arg, context);
-                }
+                // BytecodeOperator::LoadConst => {
+                //     // self.load_init_constants(arg, context);
+                // }
                 BytecodeOperator::ForBlockRefAdd => {
                     context.for_obj.push(context.exp.pop().unwrap());
                 }

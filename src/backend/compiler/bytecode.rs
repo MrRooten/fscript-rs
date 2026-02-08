@@ -250,7 +250,7 @@ pub enum BytecodeOperator {
     /// Load current function
     /// use in nested function
     LoadSelfFn = 43,
-    LoadConst = 44,
+    //LoadConst = 44,
     BinaryReminder = 45,
     Create = 46,
     AssignContainer = 47,
@@ -321,7 +321,7 @@ impl BytecodeOperator {
             41 => Some(BinaryRange),
             42 => Some(ForBlockRefAdd),
             43 => Some(LoadSelfFn),
-            44 => Some(LoadConst),
+            //44 => Some(LoadConst),
             45 => Some(BinaryReminder),
             46 => Some(Create),
             47 => Some(AssignContainer),
@@ -2135,7 +2135,7 @@ impl<'a> Bytecode {
                 AttrIdOrCode::AttrId(arg_type) => todo!(),
             }
 
-            if let Some(var_type) = &v.var_type {
+            if let Some(var_type) = &v.var_type && const_map.is_static {
                 let tmp = const_map.type_info.get_type(&var_type);
                 return_type = tmp;
             }
@@ -3436,38 +3436,38 @@ impl<'a> Bytecode {
         let v = var_map.pop().unwrap();
 
         let mut const_map = &v.const_map;
-        let mut const_loader = vec![];
-        for const_var in const_map {
-            match const_var.0 {
-                FSROrinStr2::Integer(i, v) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstInteger(
-                            *const_var.1,
-                            Self::process_integer(i.as_str()),
-                            *v,
-                        )),
-                        info: Box::new(FSRByteInfo::new(&bytecontext.lines, FSRPosition::new())),
-                    });
-                }
-                FSROrinStr2::Float(f, v) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstFloat(*const_var.1, f.to_string(), *v)),
-                        info: Box::new(FSRByteInfo::new(&bytecontext.lines, FSRPosition::new())),
-                    });
-                }
-                FSROrinStr2::String(s) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstString(*const_var.1, s.to_string())),
-                        info: Box::new(FSRByteInfo::new(&bytecontext.lines, FSRPosition::new())),
-                    });
-                }
-            }
-        }
+        // let mut const_loader = vec![];
+        // for const_var in const_map {
+        //     match const_var.0 {
+        //         FSROrinStr2::Integer(i, v) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstInteger(
+        //                     *const_var.1,
+        //                     Self::process_integer(i.as_str()),
+        //                     *v,
+        //                 )),
+        //                 info: Box::new(FSRByteInfo::new(&bytecontext.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //         FSROrinStr2::Float(f, v) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstFloat(*const_var.1, f.to_string(), *v)),
+        //                 info: Box::new(FSRByteInfo::new(&bytecontext.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //         FSROrinStr2::String(s) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstString(*const_var.1, s.to_string())),
+        //                 info: Box::new(FSRByteInfo::new(&bytecontext.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //     }
+        // }
 
-        fn_body.insert(0, const_loader);
+        // fn_body.insert(0, const_loader);
 
         for sub_def in v.sub_fn_def.iter() {
             fn_body.splice(0..0, sub_def.bytecode.clone());
@@ -3634,36 +3634,36 @@ impl<'a> Bytecode {
         }
 
         let mut const_map = &vs.1.const_map;
-        let mut const_loader = vec![];
-        for const_var in const_map {
-            match const_var.0 {
-                FSROrinStr2::Integer(i, v) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstInteger(
-                            *const_var.1,
-                            Self::process_integer(i.as_str()),
-                            *v,
-                        )),
-                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
-                    });
-                }
-                FSROrinStr2::Float(f, v) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstFloat(*const_var.1, f.to_string(), *v)),
-                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
-                    });
-                }
-                FSROrinStr2::String(s) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstString(*const_var.1, s.to_string())),
-                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
-                    });
-                }
-            }
-        }
+        // let mut const_loader = vec![];
+        // for const_var in const_map {
+        //     match const_var.0 {
+        //         FSROrinStr2::Integer(i, v) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstInteger(
+        //                     *const_var.1,
+        //                     Self::process_integer(i.as_str()),
+        //                     *v,
+        //                 )),
+        //                 info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //         FSROrinStr2::Float(f, v) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstFloat(*const_var.1, f.to_string(), *v)),
+        //                 info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //         FSROrinStr2::String(s) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstString(*const_var.1, s.to_string())),
+        //                 info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //     }
+        // }
 
         const_table
     }
@@ -3685,38 +3685,38 @@ impl<'a> Bytecode {
         }
 
         let mut const_map = &vs.1.const_map;
-        let mut const_loader = vec![];
-        for const_var in const_map {
-            match const_var.0 {
-                FSROrinStr2::Integer(i, v) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstInteger(
-                            *const_var.1,
-                            Self::process_integer(i.as_str()),
-                            *v,
-                        )),
-                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
-                    });
-                }
-                FSROrinStr2::Float(f, v) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstFloat(*const_var.1, f.to_string(), *v)),
-                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
-                    });
-                }
-                FSROrinStr2::String(s) => {
-                    const_loader.push(BytecodeArg {
-                        operator: BytecodeOperator::LoadConst,
-                        arg: Box::new(ArgType::ConstString(*const_var.1, s.to_string())),
-                        info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
-                    });
-                }
-            }
-        }
+        // let mut const_loader = vec![];
+        // for const_var in const_map {
+        //     match const_var.0 {
+        //         FSROrinStr2::Integer(i, v) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstInteger(
+        //                     *const_var.1,
+        //                     Self::process_integer(i.as_str()),
+        //                     *v,
+        //                 )),
+        //                 info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //         FSROrinStr2::Float(f, v) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstFloat(*const_var.1, f.to_string(), *v)),
+        //                 info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //         FSROrinStr2::String(s) => {
+        //             const_loader.push(BytecodeArg {
+        //                 operator: BytecodeOperator::LoadConst,
+        //                 arg: Box::new(ArgType::ConstString(*const_var.1, s.to_string())),
+        //                 info: Box::new(FSRByteInfo::new(&const_table.lines, FSRPosition::new())),
+        //             });
+        //         }
+        //     }
+        // }
 
-        result.insert(0, const_loader);
+        // result.insert(0, const_loader);
 
         let mut res = HashMap::new();
         res.insert(

@@ -14,8 +14,17 @@ class Counter {
 
     fn most_common(self, n: Integer) {
         items = self.inner_map.__iter__().as_list()
+        items.sort_key(|a| {
+            return a[1]
+        })
+
+        return items[0..n]
+    }
+
+    fn least_common(self, n: Integer) {
+        items = self.inner_map.__iter__().as_list()
         items.sort_by(|a, b| {
-            return b[1] - a[1] > 0
+            return a[1] < b[1]
         })
 
         return items[0..n]
