@@ -4,7 +4,7 @@ pub mod logger;
 /// Utility functions and macros for FScript
 /// This module provides various utility functions and macros that are commonly used across the FScript codebase.
 #[macro_export]
-macro_rules! register_attr {
+macro_rules! register_fn {
     ($module:expr, $thread:expr, $name:expr, $func:expr) => {{
         let fn_obj = $crate::backend::types::fn_def::FSRFn::from_rust_fn_static_value($func, $name);
         let fn_id = $thread.garbage_collect.new_object(fn_obj, $crate::backend::types::base::GlobalObj::FnCls.get_id());

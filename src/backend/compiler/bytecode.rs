@@ -360,6 +360,17 @@ impl CompareOperator {
             _ => None,
         }
     }
+
+    pub fn op_to_binary_offset(&self) -> BinaryOffset {
+        match self {
+            CompareOperator::Equal => BinaryOffset::Equal,
+            CompareOperator::NotEqual => BinaryOffset::NotEqual,
+            CompareOperator::Greater => BinaryOffset::Greater,
+            CompareOperator::GreaterEqual => BinaryOffset::GreatEqual,
+            CompareOperator::Less => BinaryOffset::Less,
+            CompareOperator::LessEqual => BinaryOffset::LessEqual,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

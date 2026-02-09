@@ -42,7 +42,7 @@ pub struct MarkSweepGarbageCollector<'a> {
 
     gc_reason: Option<GcReason>,
 
-    pub(crate) small_integer: [ObjId; 65536],
+    pub(crate) small_integer: Box<[ObjId; 65536]>,
 }
 
 const THROLD: usize = 10240 * 2;
@@ -80,7 +80,7 @@ impl<'a> MarkSweepGarbageCollector<'a> {
             check: AtomicBool::new(false),
             marjor_arena: Vec::with_capacity(THROLD),
             gc_reason: None,
-            small_integer: [0; 65536],
+            small_integer: Box::new([0; 65536]),
         }
     }
 
@@ -318,6 +318,20 @@ impl<'a> MarkSweepGarbageCollector<'a> {
         // else {
         //     self.alloc_when_full(value, cls)
         // }
+    }
+
+    pub fn leak_object(&mut self, value: FSRValue<'a>, cls: ObjId) -> ObjId {
+        let mut obj = self.allocator.new_object(value, cls);
+        let cls = FSRObject::id_to_obj(cls).as_class();
+        obj.cls = cls;
+        obj.free = false;
+        obj.area = Area::Marjor;
+        #[cfg(feature = "track_memory_size")]
+        {
+            self.tracker.memory_size += obj.get_size();
+        }
+        self.tracker.marjor_object_count += 1;
+        FSRVM::leak_object(obj)
     }
 
     pub fn new_string<IntoS>(&mut self, value: IntoS)

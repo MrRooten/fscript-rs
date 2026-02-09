@@ -27,7 +27,7 @@ def gc_info():
     print(f"GC count: {len(gc.get_objects())}")
 
 def abc():
-    result = fib(30)
+    result = fib(32)
     print(result)
     gc_info()
 

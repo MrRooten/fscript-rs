@@ -7,17 +7,18 @@ class Chain {
     }
 
     fn __next__(self) {
-        len = self.chains.len()
+        chains = self.chains
+        len = chains.len()
 
         if self.index < len {
-            iter = self.chains[self.index]
+            iter = chains[self.index]
             v = iter.__next__()
             while v == none and self.index < len {
                 self.index += 1
                 if self.index == len {
                     return none
                 }
-                iter = self.chains[self.index]
+                iter = chains[self.index]
                 v = iter.__next__()
             }
 
@@ -58,7 +59,7 @@ class Zip {
 }
 
 class Skip {
-    fn __new__(self, iter, n) {
+    fn __new__(self, iter: Iterator, n: Integer) {
         self.iter = iter.__iter__()
         self.n = n
     }

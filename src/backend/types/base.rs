@@ -414,7 +414,7 @@ impl<'a> FSRObject<'a> {
         self.write_barrier.store(value, Ordering::Relaxed);
     }
 
-    pub fn get_write_barrier(&self) -> bool {
+    pub fn is_write_barrier(&self) -> bool {
         self.write_barrier.load(Ordering::Relaxed)
     }
 

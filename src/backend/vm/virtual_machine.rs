@@ -29,10 +29,7 @@ use crate::{
     },
     std::{
         core::{
-            gc::{Gc, init_gc},
-            io::init_io,
-            thread::init_thread,
-            utils::init_utils,
+            gc::{Gc, init_gc}, io::init_io, thread::init_thread, time::Time, utils::init_utils
         }, fs::{FSRFileSystem, file::FSRInnerFile}, os::FSROs, rand_fs::FSRRandModule, string::FSRStringModule
     },
 };
@@ -70,7 +67,7 @@ pub struct FSRVM<'a> {
     global_modules: AHashMap<&'a str, ObjId>,
     pub(crate) core_module: AHashMap<&'static str, NewModuleFn>,
     threads: Mutex<Vec<Option<UnsafeCell<FSRThreadRuntime<'a>>>>>,
-    pub(crate) module_manager: ModuleManager,
+    
 }
 
 pub static mut VM: Option<Arc<FSRVM<'static>>> = None;
@@ -126,6 +123,7 @@ impl<'a> FSRVM<'a> {
         res.insert("str", FSRStringModule::new_module);
         res.insert("gc", Gc::new_module);
         res.insert("rand", FSRRandModule::new_module);
+        res.insert("time", Time::new_module);
         res
     }
 
@@ -137,7 +135,7 @@ impl<'a> FSRVM<'a> {
             global_modules: AHashMap::new(),
             threads: Mutex::new(vec![]),
             core_module,
-            module_manager: ModuleManager::new_manager(),
+            //module_manager: ModuleManager::new_manager(),
         };
         v.init();
         v

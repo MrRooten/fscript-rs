@@ -37,7 +37,7 @@ use crate::{
             range::FSRRange,
             string::FSRString,
         },
-        vm::debugger::debug::FSRDebugger,
+        vm::{debugger::debug::FSRDebugger, virtual_machine::ModuleManager},
     },
     utils::error::{FSRErrCode, FSRError},
 };
@@ -100,7 +100,7 @@ macro_rules! third_exp {
 
 macro_rules! peek_exp {
     ($thread:expr, $index:expr) => {
-        $thread.get_cur_frame().get_exp($index).cloned()
+        $thread.get_cur_frame().get_exp($index)
     };
 }
 
@@ -268,6 +268,7 @@ pub struct CallFrame {
     pub(crate) ip: (usize, usize),
     pub(crate) future: Option<ObjId>,
     pub(crate) flow_tracker: FlowTracker,
+    pub(crate) is_module: bool,
 }
 
 impl CallFrame {
@@ -290,6 +291,7 @@ impl CallFrame {
         self.static_args.clear();
         self.catch_ends.clear();
         self.future = None;
+        self.is_module = false;
         //self.last_expr_val = FSRObject::none_id();
     }
 
@@ -324,8 +326,8 @@ impl CallFrame {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_exp(&self, index: usize) -> Option<&ObjId> {
-        self.exp.get(index)
+    pub fn get_exp(&self, index: usize) -> Option<ObjId> {
+        self.exp.get(index).cloned()
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -379,6 +381,7 @@ impl CallFrame {
             future: None,
             flow_tracker: FlowTracker::new(),
             static_args: Vec::new(),
+            is_module: false,
         }
     }
 }
@@ -521,6 +524,7 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) gc_context: GcContext,
     pub(crate) thread_shared: ThreadShared,
     dbg_flag: bool,
+    pub(crate) module_manager: ModuleManager,
     #[cfg(feature = "count_bytecode")]
     pub(crate) bytecode_counter: Vec<usize>,
 }
@@ -570,6 +574,7 @@ impl<'a> FSRThreadRuntime<'a> {
             bytecode_counter: vec![0; 256],
             thread_shared: ThreadShared::new_share(),
             dbg_flag: false,
+            module_manager: ModuleManager::new_manager()
         }
     }
 
@@ -698,7 +703,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
 
-        if !is_add && obj.get_write_barrier() {
+        if !is_add && obj.is_write_barrier() {
             obj.set_write_barrier(false);
         }
     }
@@ -728,7 +733,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             obj.mark();
 
-            if !full && obj.area.is_long() && !obj.get_write_barrier() {
+            if !full && obj.area.is_long() && !obj.is_write_barrier() {
                 continue;
             }
 
@@ -767,72 +772,18 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<bool, FSRError> {
         let args = [left, right];
         let len = args.len();
-        let res = match op {
-            CompareOperator::Equal => {
-                if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Equal) {
-                    rust_fn(args.as_ptr(), len, thread)?
-                } else {
-                    FSRObject::invoke_offset_method(
-                        BinaryOffset::Equal,
-                        &[left, right],
-                        thread,
-                        //thread.get_cur_frame().code,
-                    )?
-                }
-            }
-            CompareOperator::Greater => {
-                if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Greater) {
-                    rust_fn(args.as_ptr(), len, thread)?
-                } else {
-                    FSRObject::invoke_offset_method(
-                        BinaryOffset::Greater,
-                        &[left, right],
-                        thread,
-                        //thread.get_cur_frame().code,
-                    )?
-                }
-            }
-            CompareOperator::Less => {
-                if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Less) {
-                    rust_fn(args.as_ptr(), len, thread)?
-                } else {
-                    FSRObject::invoke_offset_method(
-                        BinaryOffset::Less,
-                        &[left, right],
-                        thread,
-                        //thread.get_cur_frame().code,
-                    )?
-                }
-            }
-            CompareOperator::GreaterEqual => FSRObject::invoke_offset_method(
-                BinaryOffset::GreatEqual,
-                &[left, right],
-                thread,
-                //thread.get_cur_frame().code,
-            )?,
-            CompareOperator::LessEqual => FSRObject::invoke_offset_method(
-                BinaryOffset::LessEqual,
-                &[left, right],
-                thread,
-                //thread.get_cur_frame().code,
-            )?,
+        let binary_offset = op.op_to_binary_offset();
 
-            CompareOperator::NotEqual => FSRObject::invoke_offset_method(
-                BinaryOffset::NotEqual,
+        let res = if let Some(rust_fn) = obj_cls!(left).get_rust_fn(binary_offset) {
+            rust_fn(args.as_ptr(), len, thread)?
+        } else {
+            FSRObject::invoke_offset_method(
+                binary_offset,
                 &[left, right],
                 thread,
                 //thread.get_cur_frame().code,
-            )?,
-            _ => {
-                return Err(FSRError::new(
-                    format!("not support op: `{:?}`", op),
-                    FSRErrCode::NotSupportOperator,
-                ));
-            }
+            )?
         };
-        // if let FSRRetValue::GlobalId(id) = &res {
-        //     return Ok(id == &1);
-        // }
 
         let id = res.get_id();
         Ok(id == FSRObject::true_id())
@@ -2304,6 +2255,12 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         //_bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
+        if self.get_cur_frame().is_module {
+            return Err(FSRError::new(
+                "module not support return",
+                FSRErrCode::NotValidArgs,
+            ));
+        }
         let v = pop_exp!(self).unwrap_or(FSRObject::none_id());
 
         // push_middle!(self, v);
@@ -2803,9 +2760,11 @@ impl<'a> FSRThreadRuntime<'a> {
         let module_id =
             if let Some(module_fn) = self.get_vm().core_module.get(module_name[0].as_str()) {
                 let module = module_fn(self);
-                let module = FSRObject::new_inst(module, GlobalObj::ModuleCls.get_id());
+                // let module = FSRObject::new_inst(module, GlobalObj::ModuleCls.get_id());
 
-                FSRVM::leak_object(Box::new(module))
+                // FSRVM::leak_object(Box::new(module))
+                self.garbage_collect
+                    .new_object(module, GlobalObj::ModuleCls.get_id())
             } else {
                 let code = Self::read_code_from_module(module_name)?;
                 let mut module = FSRModule::new_value(&module_name.join("."));
@@ -2819,8 +2778,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 module_id
             };
 
-        self.get_vm()
-            .module_manager
+        self.module_manager
             .register_module(module_name.clone(), module_id);
 
         Ok(module_id)
@@ -3451,6 +3409,8 @@ impl<'a> FSRThreadRuntime<'a> {
         let const_map = Self::get_const_map(self, code.as_code())?;
         self.push_frame(frame, Arc::new(const_map));
         //self.unlock_and_lock();
+        //self.get_cur_mut_frame().fn_id = 0;
+        self.get_cur_mut_frame().is_module = true;
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
@@ -3581,6 +3541,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.cur_frame.code = code_id;
         self.cur_frame.fn_id = base_fn_id;
         self.cur_frame.const_map = Arc::new(const_map);
+        self.cur_frame.is_module = true;
         let mut code = FSRObject::id_to_obj(code_id).as_code();
 
         // Debug stop at entry

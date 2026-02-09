@@ -5,7 +5,7 @@ use crate::{
             base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId}, class::FSRClass, ext::hashmap::FSRHashMap, fn_def::FSRFn, integer::FSRInteger, list::FSRList, module::FSRModule, string::FSRString
         },
         vm::thread::FSRThreadRuntime,
-    }, register_attr, to_rs_list, utils::error::FSRError
+    }, register_fn, to_rs_list, utils::error::FSRError
 };
 
 pub struct FSROs {}
@@ -168,13 +168,13 @@ impl FSROs {
 
     pub fn new_module(thread: &mut FSRThreadRuntime) -> FSRValue<'static> {
         let mut module = FSRModule::new_module("os");
-        register_attr!(module, thread, "get_pid", fsr_fn_get_pid);
-        register_attr!(module, thread, "platform", fsr_fn_platform);
-        register_attr!(module, thread, "os_version", fsr_fn_os_version);
-        register_attr!(module, thread, "get_environ", fsr_fn_get_environ);
-        register_attr!(module, thread, "command", fsr_fn_command);
-        register_attr!(module, thread, "cpu_arch", fsr_fn_cpu_arch);
-        register_attr!(module, thread, "get_args", fsr_fn_get_args);
+        register_fn!(module, thread, "get_pid", fsr_fn_get_pid);
+        register_fn!(module, thread, "platform", fsr_fn_platform);
+        register_fn!(module, thread, "os_version", fsr_fn_os_version);
+        register_fn!(module, thread, "get_environ", fsr_fn_get_environ);
+        register_fn!(module, thread, "command", fsr_fn_command);
+        register_fn!(module, thread, "cpu_arch", fsr_fn_cpu_arch);
+        register_fn!(module, thread, "get_args", fsr_fn_get_args);
         FSRValue::Module(Box::new(module))
     }
 }

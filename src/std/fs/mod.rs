@@ -9,7 +9,7 @@ use crate::{
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     },
-    register_class, register_attr,
+    register_class, register_fn,
     std::fs::{dir::FSRDir, file::{fsr_fn_is_dir, fsr_fn_is_file, FSRInnerFile}},
 };
 
@@ -20,8 +20,8 @@ impl FSRFileSystem {
         let mut module = FSRModule::new_module("fs");
         register_class!(module, thread, "File", FSRInnerFile::get_class());
         register_class!(module, thread, "Dir", FSRDir::get_class());
-        register_attr!(module, thread, "is_file", fsr_fn_is_file);
-        register_attr!(module, thread, "is_dir", fsr_fn_is_dir);
+        register_fn!(module, thread, "is_file", fsr_fn_is_file);
+        register_fn!(module, thread, "is_dir", fsr_fn_is_dir);
 
         FSRValue::Module(Box::new(module))
     }

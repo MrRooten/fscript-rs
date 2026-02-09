@@ -288,10 +288,24 @@ pub fn unwrap(
     Err(FSRError::new("not an Option type", FSRErrCode::NotValidArgs))
 }
 
+pub fn timestamp(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let start = SystemTime::now();
+    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
+    let timestamp = since_the_epoch.as_secs() as i64;
+    let obj = thread.garbage_collect.new_object(FSRValue::Integer(timestamp), gid(GlobalObj::IntegerCls) as ObjId);
+    Ok(FSRRetValue::GlobalId(obj))
+}
+
 pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     let assert_fn = FSRFn::from_rust_fn_static(fsr_fn_assert, "assert");
     let export_fn = FSRFn::from_rust_fn_static(fsr_fn_export, "export");
     let time_it = FSRFn::from_rust_fn_static(fsr_timeit, "timeit");
+    let timestamp_fn = FSRFn::from_rust_fn_static(timestamp, "timestamp");
     let range = FSRFn::from_rust_fn_static(fsr_fn_range, "range");
     let is_class = FSRFn::from_rust_fn_static(fsr_is_class, "is_class");
     let type_fn = FSRFn::from_rust_fn_static(fsr_fn_type, "type");
@@ -310,5 +324,6 @@ pub fn init_utils() -> HashMap<&'static str, FSRObject<'static>> {
     m.insert("get_class", get_class);
     m.insert("breakpoint", breakpoint_fn);
     m.insert("panic", unwrap_fn);
+    m.insert("timestamp", timestamp_fn);
     m
 }
