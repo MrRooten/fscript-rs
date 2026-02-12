@@ -29,6 +29,7 @@ track_memory_size = []
 mimalloc = []
 count_bytecode = []
 more_inline = []
+self_stack = []
 
 [profile.release]
 overflow-checks = false

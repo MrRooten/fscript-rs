@@ -779,7 +779,7 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             FSRObject::invoke_offset_method(
                 binary_offset,
-                &[left, right],
+                &args,
                 thread,
                 //thread.get_cur_frame().code,
             )?
@@ -3306,7 +3306,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn run_expr_wrapper(&mut self, expr: &'a [BytecodeArg]) -> Result<bool, FSRError> {
+    fn run_expr_wrapper(&mut self, expr: &[BytecodeArg]) -> Result<bool, FSRError> {
         // if expr.is_empty() {
         //     self.get_cur_mut_frame().ip.0 += 1;
         //     return Ok(false);
@@ -3542,8 +3542,8 @@ impl<'a> FSRThreadRuntime<'a> {
         self.cur_frame.fn_id = base_fn_id;
         self.cur_frame.const_map = Arc::new(const_map);
         self.cur_frame.is_module = true;
+        let mut bs_code = &FSRObject::id_to_obj(code_id).as_code().get_bytecode().bytecode;
         let mut code = FSRObject::id_to_obj(code_id).as_code();
-
         // Debug stop at entry
         if start_dbg {
             self.startup_debug(code);
@@ -3551,7 +3551,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         Self::compile_fn(self, module);
 
-        while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
+        while let Some(expr) = bs_code.get(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
         }
 
@@ -3571,8 +3571,8 @@ impl<'a> FSRThreadRuntime<'a> {
             let offset = fn_def.get_ip();
             self.get_cur_mut_frame().ip = (offset.0, 0);
         }
-        let mut code = FSRObject::id_to_obj(self.get_cur_frame().code).as_code();
-        while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
+        let mut code = FSRObject::id_to_obj(self.get_cur_frame().code).as_code().get_bytecode();
+        while let Some(expr) = code.get(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
             if v {
                 break;
@@ -3592,8 +3592,8 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap()
             .as_mut_future()
             .set_running();
-        let mut code = FSRObject::id_to_obj(self.get_cur_frame().code).as_code();
-        while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
+        let mut code = &FSRObject::id_to_obj(self.get_cur_frame().code).as_code().get_bytecode().bytecode;
+        while let Some(expr) = code.get(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
             if v {
                 break;
