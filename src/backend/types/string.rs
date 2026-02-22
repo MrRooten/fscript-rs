@@ -395,10 +395,18 @@ fn split(
                 gid(GlobalObj::InnerIterator),
             );
             return Ok(FSRRetValue::GlobalId(inner_obj));
+        } else {
+            return Err(FSRError::new(
+                "separator is not a string",
+                crate::utils::error::FSRErrCode::NotValidArgs,
+            ));
         }
     }
 
-    unimplemented!()
+    return Err(FSRError::new(
+        "self is not a string",
+        crate::utils::error::FSRErrCode::NotValidArgs,
+    ));
 }
 
 fn find(

@@ -137,6 +137,23 @@ pub fn fsr_fn_command(
     }
 }
 
+pub fn fsr_fn_byteorder(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let byteorder = if cfg!(target_endian = "little") {
+        "little"
+    } else {
+        "big"
+    };
+    let value = FSRString::new_value(byteorder);
+    let res = thread
+        .garbage_collect
+        .new_object(value, GlobalObj::StringCls.get_id());
+    Ok(FSRRetValue::GlobalId(res))
+}
+
 pub fn fsr_fn_get_args(
     args: *const ObjId,
     len: usize,
@@ -147,7 +164,7 @@ pub fn fsr_fn_get_args(
     let args_vec = std::env::args().skip(1).collect::<Vec<String>>();
     let mut fsr_args = Vec::new();
     for arg in args_vec {
-        let value = FSRString::new_value(&arg);
+        let value = FSRString::new_value(arg);
         let obj_id = thread.garbage_collect.new_object(value, GlobalObj::StringCls.get_id());
         fsr_args.push(obj_id);
     }
@@ -175,6 +192,7 @@ impl FSROs {
         register_fn!(module, thread, "command", fsr_fn_command);
         register_fn!(module, thread, "cpu_arch", fsr_fn_cpu_arch);
         register_fn!(module, thread, "get_args", fsr_fn_get_args);
+        register_fn!(module, thread, "byteorder", fsr_fn_byteorder);
         FSRValue::Module(Box::new(module))
     }
 }
