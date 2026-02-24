@@ -206,6 +206,12 @@ fn right_shift(
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
+    if len != 2 {
+        return Err(FSRError::new(
+            "right_shift requires exactly 2 arguments",
+            crate::utils::error::FSRErrCode::RuntimeError,
+        ));
+    }
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);

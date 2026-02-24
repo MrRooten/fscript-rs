@@ -115,7 +115,7 @@ pub extern "C" fn compare_test(
     right: ObjId,
     op: CompareOperator,
 ) -> ObjId {
-    if FSRThreadRuntime::compare(left, right, op, thread).unwrap() {
+    if FSRThreadRuntime::compare(&[left, right], op, thread).unwrap() {
         FSRObject::true_id()
     } else {
         FSRObject::false_id()

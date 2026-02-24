@@ -5,20 +5,23 @@ use std::{
     fs,
     path::Path,
     ptr::addr_of,
-    sync::{atomic::AtomicUsize, Mutex},
+    sync::{Mutex, atomic::AtomicUsize},
 };
 
 use ahash::AHashMap;
 
 use crate::{
-    backend::{compiler::bytecode::{Bytecode, BytecodeArg, FSRSTypeInfo}, vm::virtual_machine::gid},
+    backend::{
+        compiler::bytecode::{Bytecode, BytecodeArg, FSRSTypeInfo},
+        vm::virtual_machine::gid,
+    },
     utils::error::FSRError,
 };
 
 use std::fmt::Debug;
 
 use super::{
-    base::{AtomicObjId, GlobalObj, FSRObject, FSRValue, ObjId},
+    base::{AtomicObjId, FSRObject, FSRValue, GlobalObj, ObjId},
     class::FSRClass,
 };
 
@@ -56,7 +59,11 @@ impl FSRCode {
         unimplemented!()
     }
 
-    pub fn from_code<'a>(name: &str, code: &str, module: ObjId) -> Result<(HashMap<String, FSRObject<'a>>, FSRSTypeInfo), FSRError> {
+    pub fn from_code<'a>(
+        name: &str,
+        code: &str,
+        module: ObjId,
+    ) -> Result<(HashMap<String, FSRObject<'a>>, FSRSTypeInfo), FSRError> {
         let bytecode = Bytecode::compile(name, code);
         let mut res = HashMap::new();
         for code in bytecode.0 {
@@ -64,7 +71,6 @@ impl FSRCode {
                 name: code.0.to_string(),
                 bytecode: code.1,
                 module,
-
             };
 
             let mut object = FSRObject::new();
@@ -76,8 +82,6 @@ impl FSRCode {
         }
         Ok((res, bytecode.1))
     }
-
-    
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get_expr(&self, first_ip: usize) -> Option<&Vec<BytecodeArg>> {
@@ -91,5 +95,4 @@ impl FSRCode {
     pub fn as_string(&self) -> String {
         format!("<Code `{}`>", self.name)
     }
-
 }

@@ -1,13 +1,9 @@
-import iterator
-import time
+fn abc() {
 
-start = time::timestamp_ms()
-c = iterator::Chain([0..1000000, 1000000..2000000])
-
-for i in 0..100000 {
-    println(i)
 }
 
-end = time::timestamp_ms()
+for i in 0..3000000 {
+    abc()
+}
 
-println(f"{(end - start) / 1000}ms")
+gc_info()

@@ -773,14 +773,6 @@ impl<'a> FSRObject<'a> {
         panic!("call: Not a function object");
     }
 
-    pub fn as_fn_mut(&mut self) -> &FSRFn<'a> {
-        if let FSRValue::Function(f) = &self.value {
-            return f;
-        }
-
-        panic!("as_fn_mut: Not a function object");
-    }
-
     pub fn get_self_id(&self) -> ObjId {
         self as *const Self as ObjId
     }
@@ -833,16 +825,6 @@ impl<'a> FSRObject<'a> {
         }
 
         false
-    }
-
-    pub fn get_fsr_offset(&self) -> (&Cow<'_, str>, (usize, usize)) {
-        if let FSRValue::Function(fn_def) = &self.value {
-            if let FSRnE::FSRFn(f) = &fn_def.get_def() {
-                return (f.get_name(), f.get_ip());
-            }
-        }
-
-        panic!()
     }
 
     pub fn get_fsr_args(&self) -> &Vec<String> {

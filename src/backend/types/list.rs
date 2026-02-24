@@ -7,7 +7,7 @@ use ahash::AHashMap;
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
+        compiler::bytecode::{BinaryOffset, CompareOperator},
         memory::GarbageCollector,
         types::{
             base::{FSRObject, FSRValue},
@@ -77,7 +77,6 @@ fn list_len(
     let args = to_rs_list!(args, len);
     let self_object = FSRObject::id_to_obj(args[0]);
 
-
     if let FSRValue::List(self_s) = &self_object.value {
         return Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
             FSRValue::Integer(self_s.get_items().len() as i64),
@@ -141,7 +140,7 @@ fn iter(
         );
         return Ok(FSRRetValue::GlobalId(inner_obj));
     }
-    
+
     return Err(FSRError::new(
         "iter args error not a list",
         FSRErrCode::RuntimeError,
@@ -164,7 +163,10 @@ pub fn get_item(
             if let Some(s) = l.vs.get(index) {
                 return Ok(FSRRetValue::GlobalId(s.load(Ordering::Relaxed)));
             } else {
-                return Err(FSRError::new("list index of range", FSRErrCode::RuntimeError));
+                return Err(FSRError::new(
+                    "list index of range",
+                    FSRErrCode::RuntimeError,
+                ));
             }
         } else if let FSRValue::Range(range) = &index_obj.value {
             let start = range.range.start as usize;
@@ -232,10 +234,7 @@ fn swap(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 3 {
-        return Err(FSRError::new(
-            "swap args error",
-            FSRErrCode::RuntimeError,
-        ));
+        return Err(FSRError::new("swap args error", FSRErrCode::RuntimeError));
     }
     let self_id = args[0];
     let index1_id = args[1];
@@ -244,7 +243,10 @@ fn swap(
     let obj = FSRObject::id_to_mut_obj(self_id).unwrap();
     let index1_obj = FSRObject::id_to_obj(index1_id);
     let index2_obj = FSRObject::id_to_obj(index2_id);
-    if obj.area.is_long() && (FSRObject::id_to_obj(index1_id).area == Area::Minjor || FSRObject::id_to_obj(index2_id).area == Area::Minjor) {
+    if obj.area.is_long()
+        && (FSRObject::id_to_obj(index1_id).area == Area::Minjor
+            || FSRObject::id_to_obj(index2_id).area == Area::Minjor)
+    {
         obj.set_write_barrier(true);
     }
     if let FSRValue::List(l) = &mut obj.value {
@@ -276,24 +278,28 @@ pub fn sort(
     }
     let obj_id = args[0];
     let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
-    if let FSRValue::List(l) = &mut obj.value {
-        l.vs.sort_by(|a, b| {
-            let l_id = a.load(Ordering::Relaxed);
-            let r_id = b.load(Ordering::Relaxed);
-            let v = FSRThreadRuntime::compare(
-                l_id,
-                r_id,
-                crate::backend::compiler::bytecode::CompareOperator::Greater,
-                thread,
-            )
-            .unwrap();
-            if v {
-                std::cmp::Ordering::Greater
-            } else {
-                std::cmp::Ordering::Less
-            }
-        });
-    }
+    let FSRValue::List(l) = &mut obj.value else {
+        return Err(FSRError::new(
+            "sort args error not a list",
+            FSRErrCode::RuntimeError,
+        ));
+    };
+
+    l.vs.sort_by(|a, b| {
+        let l_id = a.load(Ordering::Relaxed);
+        let r_id = b.load(Ordering::Relaxed);
+        let v = FSRThreadRuntime::compare(
+            &[l_id, r_id],
+            CompareOperator::Greater,
+            thread,
+        )
+        .unwrap();
+        if v {
+            std::cmp::Ordering::Greater
+        } else {
+            std::cmp::Ordering::Less
+        }
+    });
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
@@ -321,7 +327,8 @@ pub fn sort_by(
             //let thread = unsafe { &mut *thread_ptr }; // Use raw pointer to avoid borrowing issues
 
             let ret = compare_fn.call(&[l_id, r_id], thread).unwrap();
-            if !FSRObject::id_to_obj(ret.get_id()).is_false() {
+            let is_false = ret.get_id() == FSRObject::false_id();
+            if !is_false {
                 std::cmp::Ordering::Greater
             } else {
                 std::cmp::Ordering::Less

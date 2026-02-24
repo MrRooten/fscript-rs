@@ -2,7 +2,7 @@
 
 use std::{
     collections::HashMap,
-    ops::Range,
+    ops::{Index, Range},
     path::PathBuf,
     str::FromStr,
     sync::{
@@ -205,6 +205,82 @@ impl<'a> Iterator for IndexIterator<'a> {
     }
 }
 
+#[derive(Debug)]
+pub struct IndexMapObj {
+    vs: Vec<Option<ObjId>>,
+}
+
+pub struct IndexObjIterator<'a> {
+    vs: core::slice::Iter<'a, Option<ObjId>>,
+}
+
+
+#[allow(clippy::new_without_default)]
+#[allow(unused)]
+impl IndexMapObj {
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn get(&self, i: &u64) -> Option<&ObjId> {
+        match self.vs.get(*i as usize) {
+            Some(Some(s)) => Some(s),
+            Some(None) => None,
+            None => None,
+        }
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn insert(&mut self, i: u64, v: ObjId) {
+        if i as usize >= self.vs.len() {
+            let new_capacity = (i + 1) + (4 - (i + 1) % 4);
+            self.vs.resize_with(new_capacity as usize, || None);
+        }
+
+        // if let Some(Some(s)) = self.vs.get(i as usize) {
+        //     s.store(v, Ordering::Relaxed);
+        //     return;
+        // }
+        self.vs[i as usize] = Some(v);
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn contains_key(&self, i: &u64) -> bool {
+        if self.vs.get(*i as usize).is_none() {
+            return false;
+        }
+
+        self.vs[*i as usize].is_some()
+    }
+
+    pub fn new() -> Self {
+        Self { vs: vec![] }
+    }
+
+    pub fn iter(&self) -> IndexObjIterator<'_> {
+        IndexObjIterator { vs: self.vs.iter() }
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    pub fn clear(&mut self) {
+        self.vs.fill_with(|| None);
+        // self.vs.clear();
+    }
+}
+
+impl<'a> Iterator for IndexObjIterator<'a> {
+    type Item = &'a ObjId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for s in self.vs.by_ref() {
+            if s.is_some() {
+                return Some(s.as_ref().unwrap());
+            }
+        }
+
+        None
+    }
+}
+
+
+
 // struct AttrMap<'a> {
 //     attr_map: Vec<Vec<Option<&'a AtomicObjId>>>,
 // }
@@ -249,12 +325,14 @@ impl<'a> Iterator for IndexIterator<'a> {
 //     }
 // }
 
+pub type AnyPtr = usize;
+
 pub struct CallFrame {
     pub(crate) local_var: Box<IndexMap>,
-    pub(crate) const_map: Arc<IndexMap>,
+    pub(crate) const_map: Option<Arc<IndexMapObj>>,
     //reverse_ip: (usize, usize),
     pub(crate) args: Vec<ObjId>,
-    pub(crate) static_args: Vec<usize>, // Pointer to args
+    pub(crate) static_args: Vec<AnyPtr>, // Pointer to args
     cur_cls: Option<Box<FSRClass>>,
     pub(crate) ret_val: Option<ObjId>,
     exp: Vec<ObjId>,
@@ -356,8 +434,8 @@ impl CallFrame {
     // }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_const(&self, id: &u64) -> Option<&AtomicObjId> {
-        self.const_map.get(id)
+    pub fn get_const(&self, id: &u64) -> Option<&ObjId> {
+        self.const_map.as_ref().unwrap().get(id)
     }
 
     // pub fn set_reverse_ip(&mut self, ip: (usize, usize)) {
@@ -376,7 +454,7 @@ impl CallFrame {
             handling_exception: FSRObject::none_id(),
             fn_id: fn_obj,
             middle_value: vec![],
-            const_map: Arc::new(IndexMap::new()),
+            const_map: None,
             ip: (0, 0),
             future: None,
             flow_tracker: FlowTracker::new(),
@@ -574,7 +652,7 @@ impl<'a> FSRThreadRuntime<'a> {
             bytecode_counter: vec![0; 256],
             thread_shared: ThreadShared::new_share(),
             dbg_flag: false,
-            module_manager: ModuleManager::new_manager()
+            module_manager: ModuleManager::new_manager(),
         }
     }
 
@@ -603,8 +681,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
     /// Push new call frame to call stack, and replace current call frame with new one
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn push_frame(&mut self, mut frame: Box<CallFrame>, const_map: Arc<IndexMap>) {
-        frame.const_map = const_map;
+    pub fn push_frame(&mut self, mut frame: Box<CallFrame>, const_map: Arc<IndexMapObj>) {
+        // println!("const_map: {:?}", Arc::strong_count(frame.const_map.as_ref().unwrap()));
+        frame.const_map = Some(const_map);
         let old_frame = std::mem::replace(&mut self.cur_frame, frame);
         self.call_frames.push(old_frame);
     }
@@ -642,8 +721,8 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(*value);
         }
 
-        for val in it.const_map.iter() {
-            work_list.push(val.load(Ordering::Relaxed));
+        for val in it.const_map.as_ref().unwrap().iter() {
+            work_list.push(*val);
         }
 
         let module_id = FSRObject::id_to_obj(it.code).as_code().module;
@@ -656,8 +735,8 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(obj);
         }
 
-        for obj in it.const_map.iter() {
-            work_list.push(obj.load(Ordering::Relaxed));
+        for obj in it.const_map.as_ref().unwrap().iter() {
+            work_list.push(*obj);
         }
 
         let mut others = it.flow_tracker.for_iter_obj.clone();
@@ -765,21 +844,22 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn compare(
-        left: ObjId,
-        right: ObjId,
+        // left: ObjId,
+        // right: ObjId,
+        args: &[ObjId; 2],
         op: CompareOperator,
         thread: &mut Self,
     ) -> Result<bool, FSRError> {
-        let args = [left, right];
+        // let args = [left, right];
         let len = args.len();
         let binary_offset = op.op_to_binary_offset();
 
-        let res = if let Some(rust_fn) = obj_cls!(left).get_rust_fn(binary_offset) {
+        let res = if let Some(rust_fn) = obj_cls!(args[0]).get_rust_fn(binary_offset) {
             rust_fn(args.as_ptr(), len, thread)?
         } else {
             FSRObject::invoke_offset_method(
                 binary_offset,
-                &args,
+                args,
                 thread,
                 //thread.get_cur_frame().code,
             )?
@@ -1064,7 +1144,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_mul_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        //_bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let right_id = match pop_exp!(self) {
             Some(s) => s,
@@ -1107,7 +1187,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_div_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        //_bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let right_id = match pop_exp!(self) {
             Some(s) => s,
@@ -1138,11 +1218,8 @@ impl<'a> FSRThreadRuntime<'a> {
             self,
             //self.get_cur_frame().code,
         )?;
-        match res {
-            FSRRetValue::GlobalId(res_id) => {
-                push_exp!(self, res_id);
-            }
-        };
+
+        push_exp!(self, res.get_id());
 
         Ok(false)
     }
@@ -1150,7 +1227,7 @@ impl<'a> FSRThreadRuntime<'a> {
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn binary_reminder_process(
         self: &mut FSRThreadRuntime<'a>,
-        _bytecode: &BytecodeArg,
+        //_bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let right_id = match pop_exp!(self) {
             Some(s) => s,
@@ -1189,6 +1266,9 @@ impl<'a> FSRThreadRuntime<'a> {
             return Ok(false);
         }
 
+        push_middle!(self, right_id);
+        push_middle!(self, left_id);
+
         let res = FSRObject::invoke_offset_method(
             BinaryOffset::Reminder,
             &[left_id, right_id],
@@ -1201,8 +1281,6 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        // push_middle!(self, right_id);
-        // push_middle!(self, left_id);
         Ok(false)
     }
 
@@ -1968,8 +2046,8 @@ impl<'a> FSRThreadRuntime<'a> {
     fn get_const_map(
         self: &mut FSRThreadRuntime<'a>,
         code: &FSRCode,
-    ) -> Result<IndexMap, FSRError> {
-        let mut res_map = IndexMap::new();
+    ) -> Result<IndexMapObj, FSRError> {
+        let mut res_map = IndexMapObj::new();
         let const_map = &code.get_bytecode().var_map.const_map;
         for const_val in const_map {
             let const_id = *const_val.1;
@@ -2175,9 +2253,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
-        let op = if let ArgType::Compare(op) = bytecode.get_arg() {
-            op
-        } else {
+        let ArgType::Compare(op) = bytecode.get_arg() else {
             return Err(FSRError::new(
                 "not a compare test",
                 FSRErrCode::NotValidArgs,
@@ -2190,7 +2266,7 @@ impl<'a> FSRThreadRuntime<'a> {
         // push_middle!(self, right_id);
         // push_middle!(self, left_id);
 
-        let v = Self::compare(left_id, right_id, *op, self)?;
+        let v = Self::compare(&[left_id, right_id], *op, self)?;
 
         if v {
             // self.get_cur_mut_frame().push_exp(FSRObject::true_id())
@@ -2209,7 +2285,11 @@ impl<'a> FSRThreadRuntime<'a> {
         //bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let right = pop_exp!(self).unwrap();
-        let left = *self.get_cur_mut_frame().last_exp().unwrap();
+        //let left = *self.get_cur_mut_frame().last_exp().unwrap();
+        let left = pop_exp!(self).unwrap();
+
+        push_middle!(self, right);
+        push_middle!(self, left);
 
         if right == left {
             push_exp!(self, FSRObject::true_id());
@@ -2855,7 +2935,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
+    //#[cfg_attr(feature = "more_inline", inline(always))]
     fn special_load_for(
         self: &mut FSRThreadRuntime<'a>,
         arg: &BytecodeArg,
@@ -2885,26 +2965,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let res_id = res.get_id();
         if res_id == FSRObject::none_id() || self.get_cur_mut_frame().flow_tracker.is_break {
-            self.get_cur_mut_frame().flow_tracker.is_break = false;
-            let break_line = self
-                .get_cur_mut_frame()
-                .flow_tracker
-                .break_line
-                .pop()
-                .unwrap();
-            self.get_cur_mut_frame().flow_tracker.loop_start_line.pop();
-            let _ = self
-                .get_cur_mut_frame()
-                .flow_tracker
-                .for_iter_obj
-                .pop()
-                .unwrap();
-            let _ = self
-                .get_cur_mut_frame()
-                .flow_tracker
-                .ref_for_obj
-                .pop()
-                .unwrap();
+            let tracker = &mut self.get_cur_mut_frame().flow_tracker;
+            tracker.is_break = false;
+            let break_line = tracker.break_line.pop().unwrap();
+            tracker.loop_start_line.pop();
+            let _ = tracker.for_iter_obj.pop().unwrap();
+            let _ = tracker.ref_for_obj.pop().unwrap();
 
             self.get_cur_mut_frame().ip = (break_line, 0);
             return Ok(true);
@@ -2919,6 +2985,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
+    // #[cfg_attr(feature = "more_inline", inline(always))]
     fn process_logic_and(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
@@ -2936,7 +3003,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     // process logic or operator in bytecode
-    //#[cfg_attr(feature = "more_inline", inline(always))]
+    // #[cfg_attr(feature = "more_inline", inline(always))]
     fn process_logic_or(
         self: &mut FSRThreadRuntime<'a>,
         bc: &BytecodeArg,
@@ -2991,7 +3058,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Assign => Self::assign_process(self, bytecode),
             BytecodeOperator::BinaryAdd => Self::binary_add_process(self),
             BytecodeOperator::BinaryDot => Self::binary_dot_process(self, bytecode),
-            BytecodeOperator::BinaryMul => Self::binary_mul_process(self, bytecode),
+            BytecodeOperator::BinaryMul => Self::binary_mul_process(self),
             BytecodeOperator::Call => Self::call_process(self, bytecode),
             BytecodeOperator::IfTest => Self::if_test_process(self, bytecode),
             BytecodeOperator::WhileTest => Self::while_test_process(self, bytecode),
@@ -3018,7 +3085,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Empty => Self::empty_process(),
             BytecodeOperator::BinarySub => Self::binary_sub_process(self),
             BytecodeOperator::Import => Self::process_import(self, bytecode),
-            BytecodeOperator::BinaryDiv => Self::binary_div_process(self, bytecode),
+            BytecodeOperator::BinaryDiv => Self::binary_div_process(self),
             BytecodeOperator::NotOperator => Self::not_process(self),
             BytecodeOperator::BinaryClassGetter => Self::binary_get_cls_attr(self, bytecode),
             BytecodeOperator::Getter => Self::getter_process(self),
@@ -3028,7 +3095,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::BinaryRange => Self::binary_range(self),
             BytecodeOperator::ForBlockRefAdd => Self::for_block_ref(self),
             //BytecodeOperator::LoadConst => Self::empty_process(),
-            BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self, bytecode),
+            BytecodeOperator::BinaryReminder => Self::binary_reminder_process(self),
             BytecodeOperator::AssignContainer => Self::getter_assign_process(self, bytecode),
             BytecodeOperator::AssignAttr => Self::attr_assign_process(self, bytecode),
             BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
@@ -3196,11 +3263,10 @@ impl<'a> FSRThreadRuntime<'a> {
                 push_exp!(self, id);
             }
             ArgType::Const(index, _) => {
-                let obj = self
+                let obj = *self
                     .get_cur_frame()
                     .get_const(index)
-                    .unwrap()
-                    .load(Ordering::Relaxed);
+                    .unwrap();
                 push_exp!(self, obj);
             }
 
@@ -3540,9 +3606,12 @@ impl<'a> FSRThreadRuntime<'a> {
 
         self.cur_frame.code = code_id;
         self.cur_frame.fn_id = base_fn_id;
-        self.cur_frame.const_map = Arc::new(const_map);
+        self.cur_frame.const_map = Some(Arc::new(const_map));
         self.cur_frame.is_module = true;
-        let mut bs_code = &FSRObject::id_to_obj(code_id).as_code().get_bytecode().bytecode;
+        let mut bs_code = &FSRObject::id_to_obj(code_id)
+            .as_code()
+            .get_bytecode()
+            .bytecode;
         let mut code = FSRObject::id_to_obj(code_id).as_code();
         // Debug stop at entry
         if start_dbg {
@@ -3571,7 +3640,9 @@ impl<'a> FSRThreadRuntime<'a> {
             let offset = fn_def.get_ip();
             self.get_cur_mut_frame().ip = (offset.0, 0);
         }
-        let mut code = FSRObject::id_to_obj(self.get_cur_frame().code).as_code().get_bytecode();
+        let mut code = FSRObject::id_to_obj(self.get_cur_frame().code)
+            .as_code()
+            .get_bytecode();
         while let Some(expr) = code.get(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
             if v {
@@ -3592,7 +3663,10 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap()
             .as_mut_future()
             .set_running();
-        let mut code = &FSRObject::id_to_obj(self.get_cur_frame().code).as_code().get_bytecode().bytecode;
+        let mut code = &FSRObject::id_to_obj(self.get_cur_frame().code)
+            .as_code()
+            .get_bytecode()
+            .bytecode;
         while let Some(expr) = code.get(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
             if v {

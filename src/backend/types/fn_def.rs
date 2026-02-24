@@ -13,7 +13,7 @@ use crate::{
     backend::{
         compiler::bytecode::Bytecode,
         vm::{
-            thread::{FSRThreadRuntime, IndexMap},
+            thread::{FSRThreadRuntime, IndexMap, IndexMapObj},
             virtual_machine::gid,
         },
     },
@@ -73,7 +73,7 @@ pub struct FSRFn<'a> {
     /// Store cells for closure variables
     /// The key is the variable name, and the value is the object id
     pub(crate) store_cells: AHashMap<&'a str, AtomicObjId>,
-    pub(crate) const_map: Arc<IndexMap>,
+    pub(crate) const_map: Arc<IndexMapObj>,
 }
 
 impl Debug for FSRFn<'_> {
@@ -90,7 +90,7 @@ pub struct FnDesc {
     pub(crate) fn_id: ObjId, // Which father fn define this son fn
     pub(crate) jit_code: Option<*const u8>,
     pub(crate) is_async: bool,
-    pub(crate) const_map: Arc<IndexMap>,
+    pub(crate) const_map: Arc<IndexMapObj>,
 }
 
 impl<'a> FSRFn<'a> {
@@ -121,7 +121,7 @@ impl<'a> FSRFn<'a> {
             .collect();
 
         for val in self.const_map.iter() {
-            v1.push(val.load(Ordering::Relaxed));
+            v1.push(*val);
         }
 
         v1
@@ -171,7 +171,7 @@ impl<'a> FSRFn<'a> {
             code: 0,
             closure_fn: vec![],
             store_cells: AHashMap::new(),
-            const_map: Arc::new(IndexMap::new()),
+            const_map: Arc::new(IndexMapObj::new()),
         };
         FSRValue::Function(Box::new(v))
     }
@@ -210,7 +210,7 @@ impl<'a> FSRFn<'a> {
             code: 0,
             closure_fn: vec![],
             store_cells: AHashMap::new(),
-            const_map: Arc::new(IndexMap::new()),
+            const_map: Arc::new(IndexMapObj::new()),
         };
         FSRObject {
             value: FSRValue::Function(Box::new(v)),
@@ -229,7 +229,7 @@ impl<'a> FSRFn<'a> {
             code: 0,
             closure_fn: vec![],
             store_cells: AHashMap::new(),
-            const_map: Arc::new(IndexMap::new()),
+            const_map: Arc::new(IndexMapObj::new()),
         };
 
         FSRValue::Function(Box::new(v))

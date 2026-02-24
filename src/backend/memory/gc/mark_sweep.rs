@@ -104,19 +104,19 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     }
 
     pub fn get_integer(&mut self, value: i64) -> ObjId {
-        if value >= -32768 && value <= 32767 {
-            let idx = (value + 32768) as usize;
-            if self.small_integer[idx] == 0 {
-                let int_obj = self.new_object(
-                    FSRValue::Integer(value),
-                    gid(GlobalObj::IntegerCls),
-                );
-                self.small_integer[idx] = int_obj;
-            }
-            self.small_integer[idx]
-        } else {
+        // if value >= -32768 && value <= 32767 {
+        //     let idx = (value + 32768) as usize;
+        //     if self.small_integer[idx] == 0 {
+        //         let int_obj = self.new_object(
+        //             FSRValue::Integer(value),
+        //             gid(GlobalObj::IntegerCls),
+        //         );
+        //         self.small_integer[idx] = int_obj;
+        //     }
+        //     self.small_integer[idx]
+        // } else {
             self.new_object(FSRValue::Integer(value), gid(GlobalObj::IntegerCls))
-        }
+        //}
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
