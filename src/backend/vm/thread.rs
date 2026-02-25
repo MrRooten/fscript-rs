@@ -132,11 +132,11 @@ const ITER_METHOD: &str = "__iter__";
 const MAIN_FN: &str = "__main__";
 #[derive(Debug)]
 pub struct IndexMap {
-    vs: Vec<Option<AtomicObjId>>,
+    vs: Vec<Option<ObjId>>,
 }
 
 pub struct IndexIterator<'a> {
-    vs: core::slice::Iter<'a, Option<AtomicObjId>>,
+    vs: core::slice::Iter<'a, Option<ObjId>>,
 }
 
 type CallArgs = SmallVec<[ObjId; 4]>;
@@ -145,7 +145,7 @@ type CallArgs = SmallVec<[ObjId; 4]>;
 #[allow(unused)]
 impl IndexMap {
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get(&self, i: &u64) -> Option<&AtomicObjId> {
+    pub fn get(&self, i: &u64) -> Option<&ObjId> {
         match self.vs.get(*i as usize) {
             Some(Some(s)) => Some(s),
             Some(None) => None,
@@ -160,11 +160,11 @@ impl IndexMap {
             self.vs.resize_with(new_capacity as usize, || None);
         }
 
-        if let Some(Some(s)) = self.vs.get(i as usize) {
-            s.store(v, Ordering::Relaxed);
-            return;
-        }
-        self.vs[i as usize] = Some(AtomicObjId::new(v));
+        // if let Some(Some(s)) = self.vs.get(i as usize) {
+        //     s.store(v, Ordering::Relaxed);
+        //     return;
+        // }
+        self.vs[i as usize] = Some(v);
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -192,7 +192,7 @@ impl IndexMap {
 }
 
 impl<'a> Iterator for IndexIterator<'a> {
-    type Item = &'a AtomicObjId;
+    type Item = &'a ObjId;
 
     fn next(&mut self) -> Option<Self::Item> {
         for s in self.vs.by_ref() {
@@ -260,8 +260,8 @@ impl IndexMapObj {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear(&mut self) {
-        self.vs.fill_with(|| None);
-        // self.vs.clear();
+        // self.vs.fill_with(|| None);
+        self.vs.clear();
     }
 }
 
@@ -374,7 +374,7 @@ impl CallFrame {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_var(&self, id: &u64) -> Option<&AtomicObjId> {
+    pub fn get_var(&self, id: &u64) -> Option<&ObjId> {
         self.local_var.get(id)
     }
 
@@ -702,7 +702,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     pub fn process_callframe(work_list: &mut Vec<ObjId>, it: &CallFrame) {
         for obj in it.local_var.iter() {
-            work_list.push(obj.load(Ordering::Relaxed));
+            work_list.push(*obj);
         }
 
         for id in &it.exp {
@@ -1004,7 +1004,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if let Some(op_assign) = var.op_assign {
                 let left_id = match self.get_cur_frame().get_var(&var.id) {
-                    Some(s) => s.load(Ordering::Relaxed),
+                    Some(s) => *s,
                     None => Self::get_chain_by_name(self, &var.name).ok_or_else(|| {
                         FSRError::new(
                             format!("variable `{}` not found for op assign", var.name),
@@ -1507,7 +1507,7 @@ impl<'a> FSRThreadRuntime<'a> {
         {
             let state = self.get_cur_mut_frame();
             if let Some(id) = state.get_var(&c_id) {
-                return Some(id.load(Ordering::Relaxed));
+                return Some(*id);
             }
         }
         let module = FSRObject::id_to_obj(
@@ -2935,7 +2935,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(false)
     }
 
-    //#[cfg_attr(feature = "more_inline", inline(always))]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn special_load_for(
         self: &mut FSRThreadRuntime<'a>,
         arg: &BytecodeArg,
@@ -3101,6 +3101,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::CallMethod => Self::call_method_process(self, bytecode),
             BytecodeOperator::CompareEqual => Self::compare_equal_process(self),
             BytecodeOperator::Load => Self::load_var(self, bytecode),
+            BytecodeOperator::LoadVar => Self::load_local_var(self, bytecode),
             BytecodeOperator::TryException => Self::try_exception_process(self),
             BytecodeOperator::Yield => Self::yield_process(self),
             BytecodeOperator::Await => Self::await_process(self),
@@ -3206,7 +3207,7 @@ impl<'a> FSRThreadRuntime<'a> {
         v: &(u64, String, Option<OpAssign>),
     ) -> Result<ObjId, FSRError> {
         let var = if let Some(s) = self.get_cur_frame().get_var(&v.0) {
-            s.load(Ordering::Relaxed)
+            *s
         } else {
             let fn_id = self.get_cur_frame().fn_id;
             let var = if is_base_fn!(fn_id) {
@@ -3244,12 +3245,51 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
+    fn load_local_var(&mut self, arg: &BytecodeArg) -> Result<bool, FSRError> {
+        if let Some(id) = self.get_cur_frame().get_var(&arg.arg_id).cloned() {
+            push_exp!(self, id);
+            return Ok(false);
+        }
+
+        if let ArgType::Local(var) = arg.get_arg() {
+            let id = if let Some(s) = self.get_cur_frame().get_var(&var.id) {
+                *s
+            } else {
+                Self::get_chains(self, self.get_cur_frame(), var).ok_or_else(|| {
+                    FSRError::new(
+                        format!("Variable '{}' not found", var.name),
+                        FSRErrCode::RuntimeError,
+                    )
+                })?
+            };
+            push_exp!(self, id);
+        } else {
+            panic!("not a local variable");
+        }
+
+        Ok(false)
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    fn load_const(&mut self, arg: &BytecodeArg) -> Result<bool, FSRError> {
+        if let Some(id) = self.get_cur_frame().get_const(&arg.arg_id).cloned() {
+            push_exp!(self, id);
+            Ok(false)
+        } else {
+            Err(FSRError::new(
+                format!("Constant at index {} not found", arg.arg_id),
+                FSRErrCode::RuntimeError,
+            ))
+        }
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn load_var(&mut self, arg: &BytecodeArg) -> Result<bool, FSRError> {
         //let exp = &mut self.get_cur_mut_frame().exp;
         match arg.get_arg() {
             ArgType::Local(var) => {
                 let id = if let Some(s) = self.get_cur_frame().get_var(&var.id) {
-                    s.load(Ordering::Relaxed)
+                    *s
                 } else {
                     let v = Self::get_chains(self, self.get_cur_frame(), var).ok_or_else(|| {
                         FSRError::new(
@@ -3349,11 +3389,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
     fn exception_process(&mut self) -> bool {
-        if self.get_cur_frame().catch_ends.is_empty() {
-            return false;
-        }
         if let Some(exception_obj) = top_exp!(self) {
             let obj = FSRObject::id_to_obj(exception_obj);
             if !obj.is_error() {
@@ -3439,7 +3475,7 @@ impl<'a> FSRThreadRuntime<'a> {
             {
                 println!("after: {:?}", self.get_cur_frame().exp);
             }
-            if Self::exception_process(self) {
+            if !self.get_cur_frame().catch_ends.is_empty() && Self::exception_process(self) {
                 clear_exp!(self);
                 clear_middle_exp!(self);
                 return Ok(false);
@@ -3477,8 +3513,8 @@ impl<'a> FSRThreadRuntime<'a> {
         //self.unlock_and_lock();
         //self.get_cur_mut_frame().fn_id = 0;
         self.get_cur_mut_frame().is_module = true;
-        let mut code = FSRObject::id_to_obj(code_id).as_code();
-        while let Some(expr) = code.get_expr(self.get_cur_frame().ip.0) {
+        let mut code = &FSRObject::id_to_obj(code_id).as_code().get_bytecode().bytecode;
+        while let Some(expr) = code.get(self.get_cur_frame().ip.0) {
             self.run_expr_wrapper(expr)?;
         }
 
@@ -3640,9 +3676,9 @@ impl<'a> FSRThreadRuntime<'a> {
             let offset = fn_def.get_ip();
             self.get_cur_mut_frame().ip = (offset.0, 0);
         }
-        let mut code = FSRObject::id_to_obj(self.get_cur_frame().code)
+        let mut code = &FSRObject::id_to_obj(self.get_cur_frame().code)
             .as_code()
-            .get_bytecode();
+            .get_bytecode().bytecode;
         while let Some(expr) = code.get(self.get_cur_frame().ip.0) {
             let v = self.run_expr_wrapper(expr)?;
             if v {

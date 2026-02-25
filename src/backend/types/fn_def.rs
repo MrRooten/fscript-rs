@@ -32,16 +32,16 @@ pub type FSRRustFn = for<'a> fn(
 ) -> Result<FSRRetValue, FSRError>;
 
 #[derive(Debug, Clone)]
-pub struct FSRFnInner<'a> {
-    name: Cow<'a, str>,
+pub struct FSRFnInner {
+    name: String,
     fn_ip: (usize, usize),
     pub(crate) jit_code: Option<usize>,
     pub(crate) is_async: bool,
     //bytecode: &'a Bytecode,
 }
 
-impl FSRFnInner<'_> {
-    pub fn get_name(&self) -> &Cow<'_, str> {
+impl FSRFnInner {
+    pub fn get_name(&self) -> &str {
         &self.name
     }
 
@@ -51,9 +51,9 @@ impl FSRFnInner<'_> {
 }
 
 #[derive(Debug)]
-pub enum FSRnE<'a> {
-    RustFn((Cow<'a, str>, FSRRustFn)),
-    FSRFn(FSRFnInner<'a>),
+pub enum FSRnE {
+    RustFn((String, FSRRustFn)),
+    FSRFn(FSRFnInner),
 }
 
 pub struct FSRJitInfo {
@@ -67,7 +67,7 @@ impl FSRJitInfo {
 }
 
 pub struct FSRFn<'a> {
-    pub(crate) fn_def: FSRnE<'a>,
+    pub(crate) fn_def: FSRnE,
     pub(crate) code: ObjId,
     pub(crate) closure_fn: Vec<ObjId>, // fn define chain
     /// Store cells for closure variables
@@ -137,11 +137,11 @@ impl<'a> FSRFn<'a> {
         unimplemented!()
     }
 
-    pub fn get_name(&self) -> &Cow<'_, str> {
+    pub fn get_name(&self) -> &str {
         if let FSRnE::FSRFn(f) = &self.fn_def {
             return f.get_name();
         } else if let FSRnE::RustFn(f) = &self.fn_def {
-            return &Cow::Borrowed("RustFn");
+            return &f.0;
         }
         unimplemented!()
     }
@@ -150,7 +150,7 @@ impl<'a> FSRFn<'a> {
         matches!(&self.fn_def, FSRnE::FSRFn(_))
     }
 
-    pub fn get_def(&self) -> &FSRnE<'_> {
+    pub fn get_def(&self) -> &FSRnE {
         &self.fn_def
     }
 
@@ -160,7 +160,7 @@ impl<'a> FSRFn<'a> {
 
     pub fn new_empty() -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
-            name: Cow::Owned("__main__".to_string()),
+            name: "__main__".to_string(),
             fn_ip: (0, 0),
             jit_code: None,
             is_async: false,
@@ -178,7 +178,7 @@ impl<'a> FSRFn<'a> {
 
     pub fn from_fsr_fn(fn_name: &str, fn_desc: FnDesc) -> FSRValue<'a> {
         let fn_obj = FSRFnInner {
-            name: Cow::Owned(fn_name.to_string()),
+            name: fn_name.to_string(),
             fn_ip: fn_desc.u,
             jit_code: fn_desc.jit_code.map(|x| x as usize),
             is_async: fn_desc.is_async,
@@ -206,7 +206,7 @@ impl<'a> FSRFn<'a> {
 
     pub fn from_rust_fn_static(f: FSRRustFn, name: &'a str) -> FSRObject<'a> {
         let v = Self {
-            fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
+            fn_def: FSRnE::RustFn((name.to_string(), f)),
             code: 0,
             closure_fn: vec![],
             store_cells: AHashMap::new(),
@@ -225,7 +225,7 @@ impl<'a> FSRFn<'a> {
 
     pub fn from_rust_fn_static_value(f: FSRRustFn, name: &'a str) -> FSRValue<'a> {
         let v = Self {
-            fn_def: FSRnE::RustFn((Cow::Borrowed(name), f)),
+            fn_def: FSRnE::RustFn((name.to_string(), f)),
             code: 0,
             closure_fn: vec![],
             store_cells: AHashMap::new(),
