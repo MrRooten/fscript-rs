@@ -11,4 +11,4 @@
 
 RUSTFLAGS="
   -C target-cpu=native
-" /usr/bin/time -v cargo +nightly build --release 
+" /usr/bin/time -v cargo build --release 
