@@ -1,3 +1,8 @@
-i = 0
-while i < 3_000_000:
-    i = i + 1
+def test():
+    a = [1, 2, None, 3]
+    for i in a:
+        yield i
+
+
+for i in test():
+    print(i)

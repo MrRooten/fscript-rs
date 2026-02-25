@@ -45,6 +45,62 @@ impl FSRIterator for FSRRangeIterator {
     }
 }
 
+/// Count and always return true, this is for avoid allocate a new object for range iterator when call iter multiple times, since range is immutable, we can just return the same iterator object, and use the count to track how many iterators are using this range, when the count is 0, we can safely drop the iterator object.
+pub struct FSRRangeTrueIterator {
+    pub(crate) range_obj: ObjId,
+    pub(crate) iter: Range<i64>,
+    pub(crate) count: usize,
+}
+
+impl FSRIteratorReferences for FSRRangeTrueIterator {
+    fn ref_objects(&self) -> Vec<ObjId> {
+        vec![self.range_obj]
+    }
+}
+
+impl FSRIterator for FSRRangeTrueIterator {
+    fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
+        let c = self.iter.next();
+        if let Some(x) = c {
+            Ok(Some(FSRObject::true_id()))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+fn true_iter_obj(
+    args: *const ObjId,
+    len: usize,
+    thread: &mut FSRThreadRuntime,
+) -> Result<FSRRetValue, FSRError> {
+    let args = to_rs_list!(args, len);
+    let self_id = args[0];
+    if let FSRValue::Range(it) = &FSRObject::id_to_obj(self_id).value {
+        let iterator = FSRInnerIterator {
+            obj: self_id,
+            iterator: Some(Box::new(FSRRangeTrueIterator {
+                range_obj: self_id,
+                iter: Range {
+                    start: it.range.start,
+                    end: it.range.end,
+                },
+                count: 0,
+            })),
+        };
+
+        let inner_obj = thread.garbage_collect.new_object(
+            FSRValue::Iterator(Box::new(iterator)),
+            gid(GlobalObj::InnerIterator),
+        );
+        return Ok(FSRRetValue::GlobalId(inner_obj));
+    }
+
+    panic!("not a range object")
+    //Ok(FSRRetValue::Value(Box::new(FSRInnerIterator::new_inst(iterator))))
+}
+
+
 fn iter_obj(
     args: *const ObjId,
     len: usize,
@@ -208,6 +264,8 @@ impl FSRRange {
         r.insert_attr("as_list", as_list);
         let contains = FSRFn::from_rust_fn_static(contains, "range_contains");
         r.insert_attr("contains", contains);
+        let true_iter = FSRFn::from_rust_fn_static(true_iter_obj, "range_true_iter");
+        r.insert_attr("true_iter", true_iter);
         r
     }
 

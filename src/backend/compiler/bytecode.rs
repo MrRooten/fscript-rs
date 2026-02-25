@@ -626,8 +626,8 @@ impl BytecodeArg {
     }
 
     #[inline]
-    pub fn get_operator(&self) -> &BytecodeOperator {
-        &self.operator
+    pub fn get_operator(&self) -> BytecodeOperator {
+        self.operator
     }
 
     #[inline]
@@ -2732,7 +2732,7 @@ impl<'a> Bytecode {
                 &const_map.lines,
                 for_def.get_meta().clone(),
             )),
-            arg_id: 0,
+            arg_id: arg_id,
         });
 
         result.push(load_next);
@@ -3178,7 +3178,7 @@ impl<'a> Bytecode {
             operator: BytecodeOperator::Assign,
             arg: Box::new(ArgType::Local(local_var)),
             info: Box::new(FSRByteInfo::new(&bc_map.lines, v.get_meta().clone())),
-            arg_id: 0,
+            arg_id: *id,
         });
     }
 

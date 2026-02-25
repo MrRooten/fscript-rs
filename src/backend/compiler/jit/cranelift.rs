@@ -2529,7 +2529,7 @@ impl JitBuilder<'_> {
             return;
         }
 
-        if expr.last().unwrap().get_operator() == &BytecodeOperator::WhileTest {
+        if expr.last().unwrap().get_operator() == BytecodeOperator::WhileTest {
             //context.is_while += 1;
             let header_block = self.builder.create_block();
             self.builder.ins().jump(header_block, &[]);
@@ -2537,7 +2537,7 @@ impl JitBuilder<'_> {
             context.loop_blocks.push(header_block);
         }
 
-        if expr.last().unwrap().get_operator() == &BytecodeOperator::IfTest
+        if expr.last().unwrap().get_operator() == BytecodeOperator::IfTest
         //|| expr.last().unwrap().get_operator() == &BytecodeOperator::ElseIfTest
         {
             //context.is_if += 1;
@@ -2552,7 +2552,7 @@ impl JitBuilder<'_> {
             context.if_exit_blocks.push((end_block, false));
         }
 
-        if expr.last().unwrap().get_operator() == &BytecodeOperator::LoadForIter {
+        if expr.last().unwrap().get_operator() == BytecodeOperator::LoadForIter {
             //context.is_for += 1;
         }
 

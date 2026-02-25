@@ -8,3 +8,5 @@ fn while_test() {
 
 
 while_test()
+
+gc_info()

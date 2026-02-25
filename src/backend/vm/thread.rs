@@ -617,6 +617,29 @@ pub struct FSRThreadRuntime<'a> {
     pub(crate) bytecode_counter: Vec<usize>,
 }
 
+pub enum RetState {
+    Normal,
+    Exception,
+    Return,
+}
+
+impl RetState {
+    #[inline]
+    pub fn is_exception(&self) -> bool {
+        matches!(self, RetState::Exception)
+    }
+
+    #[inline]
+    pub fn is_return(&self) -> bool {
+        matches!(self, RetState::Return)
+    }
+
+    #[inline]
+    pub fn is_normal(&self) -> bool {
+        matches!(self, RetState::Normal)
+    }
+}
+
 impl<'a> FSRThreadRuntime<'a> {
     #[cfg(feature = "count_bytecode")]
     fn dump_bytecode_counter(&self) {
@@ -1575,7 +1598,10 @@ impl<'a> FSRThreadRuntime<'a> {
         let frame = self
             .frame_free_list
             .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-        self.push_frame(frame, index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map));
+        self.push_frame(
+            frame,
+            index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),
+        );
         for arg in args.iter().cloned() {
             self.get_cur_mut_frame()
                 .static_args
@@ -2294,7 +2320,6 @@ impl<'a> FSRThreadRuntime<'a> {
         //bytecode: &BytecodeArg,
     ) -> Result<bool, FSRError> {
         let right = pop_exp!(self).unwrap();
-        //let left = *self.get_cur_mut_frame().last_exp().unwrap();
         let left = pop_exp!(self).unwrap();
 
         push_middle!(self, right);
@@ -2978,18 +3003,18 @@ impl<'a> FSRThreadRuntime<'a> {
             tracker.is_break = false;
             let break_line = tracker.break_line.pop().unwrap();
             tracker.loop_start_line.pop();
-            let _ = tracker.for_iter_obj.pop().unwrap();
-            let _ = tracker.ref_for_obj.pop().unwrap();
+            tracker.for_iter_obj.pop().unwrap();
+            tracker.ref_for_obj.pop().unwrap();
 
             self.get_cur_mut_frame().ip = (break_line, 0);
             return Ok(true);
         }
 
-        if let ArgType::Local(v) = arg.get_arg() {
-            let state = self.get_cur_mut_frame();
-            state.insert_var(v.id, res_id);
-            return Ok(false);
-        }
+        //if let ArgType::Local(v) = arg.get_arg() {
+        let state = self.get_cur_mut_frame();
+        state.insert_var(arg.arg_id, res_id);
+        return Ok(false);
+        //}
         push_exp!(self, res_id);
         Ok(false)
     }
@@ -3459,38 +3484,43 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
+    fn before_bytecode_trace(&self, arg: &BytecodeArg) {
+        let fn_name = if is_base_fn!(self.get_cur_frame().fn_id) {
+            "__main__"
+        } else {
+            &FSRObject::id_to_obj(self.get_cur_frame().fn_id)
+                .as_fn()
+                .get_name()
+        };
+        let t = format!("{} -> {:?} => {:?}", fn_name, self.get_cur_frame().ip, arg);
+
+        println!("{}", t);
+        println!("before: {:?}", self.get_cur_frame().exp);
+    }
+
+    fn after_bytecode_trace(&self) {
+        println!("after: {:?}", self.get_cur_frame().exp);
+    }
+
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn run_expr(&mut self, expr: &[BytecodeArg]) -> Result<bool, FSRError> {
         let mut pre_exit;
-        self.pre_expr(expr);
+        //self.pre_expr(expr);
+        if self.dbg_flag && !expr.is_empty() {
+            self.debugger_process(&expr[0]);
+        }
         while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
             self.get_cur_mut_frame().ip.1 += 1;
             // Under the ip.1 += 1
             // make sure ip value as same as eval context
-            if self.dbg_flag {
-                self.debugger_process(arg);
-            }
 
             #[cfg(feature = "bytecode_trace")]
-            {
-                let fn_name = if is_base_fn!(self.get_cur_frame().fn_id) {
-                    "__main__"
-                } else {
-                    &FSRObject::id_to_obj(self.get_cur_frame().fn_id)
-                        .as_fn()
-                        .get_name()
-                };
-                let t = format!("{} -> {:?} => {:?}", fn_name, self.get_cur_frame().ip, arg);
-
-                println!("{}", t);
-                println!("before: {:?}", self.get_cur_frame().exp);
-            }
+            self.before_bytecode_trace(arg);
             self.counter += 1;
             pre_exit = self.process(arg)?;
             #[cfg(feature = "bytecode_trace")]
-            {
-                println!("after: {:?}", self.get_cur_frame().exp);
-            }
+            self.after_bytecode_trace();
+
             if !self.get_cur_frame().catch_ends.is_empty() && Self::exception_process(self) {
                 clear_exp!(self);
                 clear_middle_exp!(self);
