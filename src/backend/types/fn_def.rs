@@ -13,7 +13,7 @@ use crate::{
     backend::{
         compiler::bytecode::Bytecode,
         vm::{
-            thread::{FSRThreadRuntime, IndexMap, IndexMapObj},
+            thread::{FSRThreadRuntime, IndexMap, IndexMapObj, index_map_obj_to_ptr},
             virtual_machine::gid,
         },
     },
@@ -251,7 +251,7 @@ impl<'a> FSRFn<'a> {
         let frame = thread
             .frame_free_list
             .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-        thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
+        thread.push_frame(frame, index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map));
         for arg in args.iter() {
             thread.get_cur_mut_frame().args.push(*arg);
         }
@@ -283,7 +283,7 @@ impl<'a> FSRFn<'a> {
             }
             FSRnE::FSRFn(f) => {
                 let frame = thread.frame_free_list.new_frame(self.code, fn_id);
-                thread.push_frame(frame, FSRObject::id_to_obj(fn_id).as_fn().const_map.clone());
+                thread.push_frame(frame, index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map));
                 thread
                     .get_cur_mut_frame()
                     .args

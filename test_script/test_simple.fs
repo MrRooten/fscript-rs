@@ -1,9 +1,5 @@
-fn abc() {
-
-}
-
 for i in 0..3000000 {
-    abc()
+    if i == 1 or i == 2 {
+        
+    }
 }
-
-gc_info()

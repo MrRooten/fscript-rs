@@ -2558,7 +2558,7 @@ impl JitBuilder<'_> {
 
         for arg in expr {
             match arg.get_operator() {
-                BytecodeOperator::Load | BytecodeOperator::LoadVar => {
+                BytecodeOperator::Load | BytecodeOperator::LoadVar | BytecodeOperator::LoadConst => {
                     self.load_process(arg, context, code);
                     //unimplemented!()
                 }

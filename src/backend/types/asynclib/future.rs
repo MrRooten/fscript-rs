@@ -6,7 +6,7 @@ use crate::{
             class::FSRClass,
             fn_def::FSRFn,
         },
-        vm::thread::{CallFrame, FSRThreadRuntime},
+        vm::thread::{CallFrame, FSRThreadRuntime, index_map_obj_to_ptr},
     },
     to_rs_list,
     utils::error::FSRError,
@@ -84,7 +84,7 @@ fn cont_future(
     }
 
     frame.future = Some(args[0]);
-    thread.push_frame(frame, fn_obj.const_map.clone());
+    thread.push_frame(frame, index_map_obj_to_ptr(&fn_obj.const_map));
     let res = thread.poll_fn(future.fn_obj);
     return res.map(|x| FSRRetValue::GlobalId(x));
 }

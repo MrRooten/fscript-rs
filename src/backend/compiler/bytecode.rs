@@ -270,6 +270,7 @@ pub enum BytecodeOperator {
     SStructEndDef = 61,
     SAlloc = 62,
     SFree = 63,
+    LoadConst = 252,
     LoadVar = 253,
     Load = 254,
 }
@@ -362,6 +363,7 @@ impl CompareOperator {
         }
     }
 
+    #[inline]
     pub fn op_to_binary_offset(&self) -> BinaryOffset {
         match self {
             CompareOperator::Equal => BinaryOffset::Equal,
@@ -1660,7 +1662,7 @@ impl<'a> Bytecode {
                 let arg = if context.variable_is_defined(var.get_name()) {
                     let arg = ArgType::Local(lvar);
                     BytecodeArg {
-                        operator: BytecodeOperator::Load,
+                        operator: BytecodeOperator::LoadVar,
                         arg: Box::new(arg),
                         info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
                         arg_id: *arg_id,
@@ -2925,7 +2927,7 @@ impl<'a> Bytecode {
                     .cloned()
                     .unwrap();
                 let result = vec![BytecodeArg {
-                    operator: BytecodeOperator::Load,
+                    operator: BytecodeOperator::LoadVar,
                     arg: Box::new(ArgType::Local(LocalVar::new(
                         c_id,
                         fn_def.get_name().to_string(),
@@ -2936,7 +2938,7 @@ impl<'a> Bytecode {
                         &byte_context.lines,
                         fn_def.get_meta().clone(),
                     )),
-                    arg_id: 0,
+                    arg_id: c_id,
                 }];
                 return (vec![result], None);
             }
@@ -3301,10 +3303,10 @@ impl<'a> Bytecode {
         let id = ensure_const_id!(var_map, c);
 
         let mut result_list = vec![BytecodeArg {
-            operator: BytecodeOperator::Load,
+            operator: BytecodeOperator::LoadConst,
             arg: Box::new(ArgType::Const(id, c.to_2())),
             info: Box::new(FSRByteInfo::new(&const_map.lines, token.get_meta().clone())),
-            arg_id: 0,
+            arg_id: id,
         }];
 
         (result_list, ret_type)
