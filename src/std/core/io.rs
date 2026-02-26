@@ -118,13 +118,13 @@ pub fn fsr_fn_throw_error(
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
 
-pub fn fsr_fn_get_error(
+pub fn fsr_fn_take_error(
     args: *const ObjId,
     len: usize,
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    let ret = thread.get_cur_mut_frame().handling_exception;
+    let ret = thread.get_cur_mut_frame().handling_exception.take().unwrap_or(FSRObject::none_id());
     Ok(FSRRetValue::GlobalId(ret))
 }
 
@@ -133,14 +133,14 @@ pub fn init_io() -> HashMap<&'static str, FSRObject<'static>> {
     let println_fn = FSRFn::from_rust_fn_static(fsr_fn_println, "println");
     let dump_fn = FSRFn::from_rust_fn_static(fsr_fn_dump, "dump");
     let throw_error = FSRFn::from_rust_fn_static(fsr_fn_throw_error, "throw_error");
-    let get_error = FSRFn::from_rust_fn_static(fsr_fn_get_error, "pop_error");
+    let take_error = FSRFn::from_rust_fn_static(fsr_fn_take_error, "pop_error");
     let str_fn = FSRFn::from_rust_fn_static(fsr_fn_str, "str");
     let mut m = HashMap::new();
     m.insert("print", print_fn);
     m.insert("println", println_fn);
     m.insert("dump", dump_fn);
     m.insert("throw_error", throw_error);
-    m.insert("get_error", get_error);
+    m.insert("take_error", take_error);
     m.insert("str", str_fn);
     m
 }

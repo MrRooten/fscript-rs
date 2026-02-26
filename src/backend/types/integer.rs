@@ -15,7 +15,7 @@ use crate::{
         },
     },
     to_rs_list,
-    utils::error::FSRError,
+    utils::error::{FSRErrCode, FSRError},
 };
 
 use super::{
@@ -42,13 +42,13 @@ pub fn add(
     //     } else {
     //         return Err(FSRError::new(
     //             "Addition requires both operands to be integers, second is not integer",
-    //             crate::utils::error::FSRErrCode::RuntimeError,
+    //             crate::utils::error::FSRErrCode::NotValidArgs,
     //         ));
     //     }
     // } else {
     //     return Err(FSRError::new(
     //         "Addition requires both operands to be integers, first is not integer",
-    //         crate::utils::error::FSRErrCode::RuntimeError,
+    //         crate::utils::error::FSRErrCode::NotValidArgs,
     //     ));
     // };
     let (self_int, other_int) = match (&self_object.value, &other_object.value) {
@@ -56,13 +56,13 @@ pub fn add(
         (FSRValue::Integer(_), _) => {
             return Err(FSRError::new(
                 "Addition requires both operands to be integers, second is not integer",
-                crate::utils::error::FSRErrCode::RuntimeError,
+                crate::utils::error::FSRErrCode::NotValidArgs,
             ));
         }
         _ => {
             return Err(FSRError::new(
                 "Addition requires both operands to be integers, first is not integer",
-                crate::utils::error::FSRErrCode::RuntimeError,
+                crate::utils::error::FSRErrCode::NotValidArgs,
             ));
         }
     };
@@ -124,7 +124,7 @@ fn div(
     if len != 2 {
         return Err(FSRError::new(
             "div requires exactly 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -154,7 +154,7 @@ pub fn reminder(
     if len != 2 {
         return Err(FSRError::new(
             "reminder requires exactly 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -209,7 +209,7 @@ fn right_shift(
     if len != 2 {
         return Err(FSRError::new(
             "right_shift requires exactly 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -285,7 +285,7 @@ pub fn greater_equal(
     if len != 2 {
         return Err(FSRError::new(
             "greater_equal requires at least 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -335,7 +335,7 @@ pub fn equal(
     if len != 2 {
         return Err(FSRError::new(
             "equal requires at least 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -363,7 +363,7 @@ pub fn not_equal(
     if len != 2 {
         return Err(FSRError::new(
             "not_equal requires at least 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -391,7 +391,7 @@ pub fn sorted_value(
     if len != 1 {
         return Err(FSRError::new(
             "sorted_value requires exactly 1 argument",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -411,7 +411,7 @@ fn hash_integer(
     if len != 1 {
         return Err(FSRError::new(
             "hash_integer requires exactly 1 argument",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);

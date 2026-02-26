@@ -98,7 +98,7 @@ pub fn poll_future(
     if len != 1 {
         return Err(FSRError::new(
             "sorted_value requires exactly 1 argument",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -168,7 +168,7 @@ pub fn send_value(
     if len != 2 {
         return Err(FSRError::new(
             "sorted_value requires exactly 1 argument",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);

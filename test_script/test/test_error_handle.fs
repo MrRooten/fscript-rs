@@ -14,7 +14,7 @@ try {
     println('if not error will print')
     assert(true)
 } catch {
-    e = get_error()
+    e = take_error()
     println(e)
     println("catch")
     assert(false)

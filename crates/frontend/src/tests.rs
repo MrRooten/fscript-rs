@@ -344,7 +344,7 @@ try {
     for i in [1,2,3] {
     }
 } catch {
-    e = get_error()
+    e = take_error()
 }
 "#;
 

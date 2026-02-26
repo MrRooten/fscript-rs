@@ -120,7 +120,7 @@ pub fn fsr_fn_open_file(
     if len < 2 {
         return Err(FSRError::new(
             "fsr_fn_open_file requires at least 2 arguments",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -132,7 +132,7 @@ pub fn fsr_fn_open_file(
         } else {
             return Err(FSRError::new(
                 "Invalid mode argument, expected a string",
-                FSRErrCode::RuntimeError,
+                FSRErrCode::NotValidArgs,
             ));
         }
     } else {
@@ -159,7 +159,7 @@ pub fn fsr_fn_read_all(
     if len < 1 {
         return Err(FSRError::new(
             "fsr_fn_read_all requires at least 1 argument",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -196,7 +196,7 @@ pub fn fsr_fn_read_all(
 
     Err(FSRError::new(
         "Invalid file object",
-        FSRErrCode::RuntimeError,
+        FSRErrCode::NotValidArgs,
     ))
 }
 
@@ -208,7 +208,7 @@ pub fn fsr_fn_is_file(
     if len < 1 {
         return Err(FSRError::new(
             "fsr_fn_is_file requires at least 1 argument",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -224,7 +224,7 @@ pub fn fsr_fn_is_file(
 
     Err(FSRError::new(
         "Invalid file path argument",
-        FSRErrCode::RuntimeError,
+        FSRErrCode::NotValidArgs,
     ))
 }
 
@@ -236,7 +236,7 @@ pub fn fsr_fn_is_dir(
     if len < 1 {
         return Err(FSRError::new(
             "fsr_fn_is_dir requires at least 1 argument",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -252,7 +252,7 @@ pub fn fsr_fn_is_dir(
 
     Err(FSRError::new(
         "Invalid directory path argument",
-        FSRErrCode::RuntimeError,
+        FSRErrCode::NotValidArgs,
     ))
 }
 
@@ -265,7 +265,7 @@ pub fn fsr_fn_read(
     if len < 3 {
         return Err(FSRError::new(
             "fsr_fn_read requires at least 2 arguments",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -279,7 +279,7 @@ pub fn fsr_fn_read(
     } else {
         return Err(FSRError::new(
             "Offset must be an integer",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     };
 
@@ -288,7 +288,7 @@ pub fn fsr_fn_read(
     } else {
         return Err(FSRError::new(
             "Size must be an integer",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     };
     
@@ -297,7 +297,7 @@ pub fn fsr_fn_read(
             if inner_file.reader.is_none() {
                 return Err(FSRError::new(
                     "File is not opened for reading",
-                    FSRErrCode::RuntimeError,
+                    FSRErrCode::NotValidArgs,
                 ));
             }
             use std::io::Read;
@@ -315,7 +315,7 @@ pub fn fsr_fn_read(
                 return Ok(FSRRetValue::GlobalId(ret));
             } else {
                 let ret = String::from_utf8(buffer)
-                    .map_err(|e| FSRError::new(e.to_string(), FSRErrCode::RuntimeError))?;
+                    .map_err(|e| FSRError::new(e.to_string(), FSRErrCode::NotValidArgs))?;
                 let ret = FSRString::new_value(ret);
                 let ret = thread
                     .garbage_collect
@@ -327,7 +327,7 @@ pub fn fsr_fn_read(
 
     Err(FSRError::new(
         "Invalid file object",
-        FSRErrCode::RuntimeError,
+        FSRErrCode::NotValidArgs,
     ))
 }
 
@@ -339,7 +339,7 @@ pub fn fsr_fn_file_close(
     if len < 1 {
         return Err(FSRError::new(
             "fsr_fn_file_close requires at least 1 argument",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -356,7 +356,7 @@ pub fn fsr_fn_file_close(
 
     Err(FSRError::new(
         "Invalid file object",
-        FSRErrCode::RuntimeError,
+        FSRErrCode::NotValidArgs,
     ))
 }
 
@@ -368,7 +368,7 @@ pub fn fsr_fn_file_lines(
     if len < 1 {
         return Err(FSRError::new(
             "fsr_fn_file_lines requires at least 1 argument",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -402,7 +402,7 @@ pub fn fsr_fn_file_lines(
 
     Err(FSRError::new(
         "Invalid file object",
-        FSRErrCode::RuntimeError,
+        FSRErrCode::NotValidArgs,
     ))
 }
 
@@ -433,7 +433,7 @@ impl FSRIterator for FSRFileLineIterator {
             }
             Some(Err(e)) => Err(FSRError::new(
                 format!("Error reading line: {}", e),
-                FSRErrCode::RuntimeError,
+                FSRErrCode::NotValidArgs,
             )),
             None => Ok(None),
         }

@@ -270,6 +270,7 @@ pub enum BytecodeOperator {
     SStructEndDef = 61,
     SAlloc = 62,
     SFree = 63,
+    Raise = 64,
     LoadConst = 252,
     LoadVar = 253,
     Load = 254,
@@ -1778,7 +1779,18 @@ impl<'a> Bytecode {
                 }]),
                 None,
             );
-        } else if var.get_name().eq("await") {
+        } else if var.get_name().eq("raise") {
+            return (
+                Some(vec![BytecodeArg {
+                    operator: BytecodeOperator::Raise,
+                    arg: Box::new(ArgType::None),
+                    info: Box::new(FSRByteInfo::new(&context.lines, var.get_meta().clone())),
+                    arg_id: 0,
+                }]),
+                None,
+            );
+        }
+        else if var.get_name().eq("await") {
             return (
                 Some(vec![BytecodeArg {
                     operator: BytecodeOperator::Await,

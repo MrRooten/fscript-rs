@@ -11,7 +11,7 @@ while i < 3 {
         println('should not print')
         assert(false)
     } catch {
-        e = get_error()
+        e = take_error()
         println(e)
         println("catch")
     }

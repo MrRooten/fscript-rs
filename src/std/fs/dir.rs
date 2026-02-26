@@ -70,13 +70,13 @@ pub fn fsr_fn_sub_path(
     for entry in fs::read_dir(dir_path).map_err(|e| {
         FSRError::new(
             format!("Read dir error: {}", e),
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         )
     })? {
         let entry = entry.map_err(|e| {
             FSRError::new(
                 format!("DirEntry error: {}", e),
-                crate::utils::error::FSRErrCode::RuntimeError,
+                crate::utils::error::FSRErrCode::NotValidArgs,
             )
         })?;
         let sub_path = entry

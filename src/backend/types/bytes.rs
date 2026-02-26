@@ -118,7 +118,7 @@ pub fn get_len(
     if args.len() != 1 {
         return Err(FSRError::new(
             "get_len requires exactly 1 argument",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let self_id = args[0];
@@ -149,7 +149,7 @@ pub fn set_item(
     if args.len() != 3 {
         return Err(FSRError::new(
             "set_item requires exactly 3 arguments",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let self_id = args[0];
@@ -216,7 +216,7 @@ pub fn as_hex(
     if args.len() != 1 {
         return Err(FSRError::new(
             "as_hex requires exactly 1 argument",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let self_id = args[0];

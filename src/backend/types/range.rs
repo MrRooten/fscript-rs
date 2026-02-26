@@ -221,7 +221,7 @@ fn contains(
     if args.len() != 2 {
         return Err(FSRError::new(
             "contains requires exactly 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let self_id = args[0];

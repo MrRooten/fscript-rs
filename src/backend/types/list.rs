@@ -143,7 +143,7 @@ fn iter(
 
     return Err(FSRError::new(
         "iter args error not a list",
-        FSRErrCode::RuntimeError,
+        FSRErrCode::NotValidArgs,
     ));
 }
 
@@ -165,7 +165,7 @@ pub fn get_item(
             } else {
                 return Err(FSRError::new(
                     "list index of range",
-                    FSRErrCode::RuntimeError,
+                    FSRErrCode::OutOfRange,
                 ));
             }
         } else if let FSRValue::Range(range) = &index_obj.value {
@@ -199,7 +199,7 @@ pub fn set_item(
     if args.len() != 3 {
         return Err(FSRError::new(
             "set_item args error",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let self_id = args[0];
@@ -234,7 +234,7 @@ fn swap(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 3 {
-        return Err(FSRError::new("swap args error", FSRErrCode::RuntimeError));
+        return Err(FSRError::new("swap args error", FSRErrCode::NotValidArgs));
     }
     let self_id = args[0];
     let index1_id = args[1];
@@ -274,14 +274,14 @@ pub fn sort(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 1 {
-        return Err(FSRError::new("sort args error", FSRErrCode::RuntimeError));
+        return Err(FSRError::new("sort args error", FSRErrCode::NotValidArgs));
     }
     let obj_id = args[0];
     let obj = FSRObject::id_to_mut_obj(obj_id).expect("msg: not a list");
     let FSRValue::List(l) = &mut obj.value else {
         return Err(FSRError::new(
             "sort args error not a list",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     };
 
@@ -312,7 +312,7 @@ pub fn sort_by(
     if args.len() != 2 {
         return Err(FSRError::new(
             "sort_by args error",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let obj_id = args[0];
@@ -351,7 +351,7 @@ pub fn reverse(
     } else {
         return Err(FSRError::new(
             "reverse args error not a list",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
@@ -366,7 +366,7 @@ pub fn sort_key(
     if args.len() != 2 {
         return Err(FSRError::new(
             "sort_by args error",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let obj_id = args[0];
@@ -391,7 +391,7 @@ pub fn sort_key(
                     None => {
                         error = Some(FSRError::new(
                             "only support integer as order",
-                            FSRErrCode::RuntimeError,
+                            FSRErrCode::NotValidArgs,
                         ));
                         return 0;
                     }
@@ -429,7 +429,7 @@ pub fn push(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
-        return Err(FSRError::new("push args error", FSRErrCode::RuntimeError));
+        return Err(FSRError::new("push args error", FSRErrCode::NotValidArgs));
     }
     let self_id = args[0];
     let obj = FSRObject::id_to_mut_obj(self_id).expect("msg: not a list");
@@ -456,7 +456,7 @@ pub fn extend(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
-        return Err(FSRError::new("extend args error", FSRErrCode::RuntimeError));
+        return Err(FSRError::new("extend args error", FSRErrCode::NotValidArgs));
     }
     let self_id = args[0];
     let extend_list_id = args[1];
@@ -476,7 +476,7 @@ pub fn extend(
             .ok_or_else(|| {
                 FSRError::new(
                     "extend args error not a list or iterator",
-                    FSRErrCode::RuntimeError,
+                    FSRErrCode::NotValidArgs,
                 )
             })?
             .load(Ordering::Relaxed);
@@ -489,7 +489,7 @@ pub fn extend(
     } else {
         return Err(FSRError::new(
             "extend args error not a list",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     };
     if let FSRValue::List(extend_list) = &extend_list_obj.value {
@@ -507,7 +507,7 @@ pub fn extend(
     } else {
         return Err(FSRError::new(
             "extend args error not a list or iterator",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
@@ -520,7 +520,7 @@ pub fn map(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
-        return Err(FSRError::new("map args error", FSRErrCode::RuntimeError));
+        return Err(FSRError::new("map args error", FSRErrCode::NotValidArgs));
     }
     let self_id = args[0];
     let map_fn_id = args[1];
@@ -550,7 +550,7 @@ pub fn filter(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     if args.len() != 2 {
-        return Err(FSRError::new("filter args error", FSRErrCode::RuntimeError));
+        return Err(FSRError::new("filter args error", FSRErrCode::NotValidArgs));
     }
     let self_id = args[0];
     let filter_fn_id = args[1];
@@ -584,7 +584,7 @@ pub fn equal(
     if args.len() != 2 {
         return Err(FSRError::new(
             "list equal args error",
-            FSRErrCode::RuntimeError,
+            FSRErrCode::NotValidArgs,
         ));
     }
     let self_id = args[0];

@@ -14,7 +14,7 @@ pub fn not_equal(
     if len != 2 {
         return Err(FSRError::new(
             "not_equal requires at least 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);
@@ -33,7 +33,7 @@ pub fn equal(
     if len != 2 {
         return Err(FSRError::new(
             "equal requires at least 2 arguments",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let args = to_rs_list!(args, len);

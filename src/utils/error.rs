@@ -80,15 +80,15 @@ pub enum FSRErrCode {
     NotValidArgs,
     NotSupportOperator,
     IndexOutOfRange,
-    RuntimeError,
-    FileError
+    RuntimeError(ObjId),
+    FileError,
+    AnyhowError,
 }
 
 #[derive(Debug)]
 pub struct ErrorStruct {
     pub(crate) code: FSRErrCode,
-    pub(crate) exception: Option<ObjId>,
-    msg: String,
+    pub(crate) msg: String,
 }
 
 #[derive(Debug)]
@@ -101,7 +101,6 @@ impl FSRError {
         Self {
             inner: Box::new(ErrorStruct {
                 code,
-                exception: None,
                 msg: msg.into(),
             }),
         }
@@ -110,8 +109,7 @@ impl FSRError {
     pub fn new_runtime_error(exception: ObjId) -> Self {
         Self {
             inner: Box::new(ErrorStruct {
-                code: FSRErrCode::RuntimeError,
-                exception: Some(exception),
+                code: FSRErrCode::RuntimeError(exception),
                 msg: "Runtime Error".to_string(),
             }),
         }
@@ -134,25 +132,25 @@ impl Error for FSRError {
 
 impl Display for FSRError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(exception) = &self.inner.exception {
-            write!(f, "FSR Error: {} (code: {:?}, exception: {})", self.inner.msg, self.inner.code, exception)
-        } else {
-            write!(f, "FSR Error: {} (code: {:?})", self.inner.msg, self.inner.code)
-        }
+        write!(
+            f,
+            "FSR Error: {} (code: {:?})",
+            self.inner.msg, self.inner.code
+        )
     }
 }
 
 #[repr(C)]
 pub enum FSRResult {
     Ok,
-    Err
+    Err,
 }
 
 #[repr(C)]
 pub struct FSRCResult {
     r_type: FSRResult,
     ok_value: ObjId,
-    err_value: FSRError
+    err_value: FSRError,
 }
 
 impl From<io::Error> for FSRError {
@@ -160,7 +158,6 @@ impl From<io::Error> for FSRError {
         Self {
             inner: Box::new(ErrorStruct {
                 code: FSRErrCode::FileError,
-                exception: None,
                 msg: value.to_string(),
             }),
         }
@@ -171,8 +168,7 @@ impl From<anyhow::Error> for FSRError {
     fn from(value: anyhow::Error) -> Self {
         Self {
             inner: Box::new(ErrorStruct {
-                code: FSRErrCode::RuntimeError,
-                exception: None,
+                code: FSRErrCode::AnyhowError,
                 msg: value.to_string(),
             }),
         }

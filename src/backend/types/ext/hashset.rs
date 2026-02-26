@@ -337,7 +337,7 @@ pub fn fsr_fn_hashset_insert(
     if args.len() != 2 {
         return Err(FSRError::new(
             "not valid args",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let hashset = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashset");
@@ -464,7 +464,7 @@ fn hashset_string(
         let l = l.value.as_any().downcast_ref::<FSRHashSet>()
             .ok_or(FSRError::new(
                 "not a hashset",
-                crate::utils::error::FSRErrCode::RuntimeError,
+                crate::utils::error::FSRErrCode::NotValidArgs,
             ))?;
         
         let mut vs = vec![];
@@ -479,7 +479,7 @@ fn hashset_string(
                     } else {
                         return Err(FSRError::new(
                             "HashSet contains non-string value",
-                            crate::utils::error::FSRErrCode::RuntimeError,
+                            crate::utils::error::FSRErrCode::NotValidArgs,
                         ));
                     }
                 }
@@ -493,7 +493,7 @@ fn hashset_string(
     } else {
         return Err(FSRError::new(
             "not a hashset",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
 

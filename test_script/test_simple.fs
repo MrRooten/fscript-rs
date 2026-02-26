@@ -1,8 +1,10 @@
-fn test() {
-    a = [1, 2, none, 3]
-    for i in a {
-        println(i)
-    }
+fn abc() {
+    "abc".raise
 }
 
-test()
+try {
+    abc()
+} catch {
+    err = take_error()
+    println(err)
+}

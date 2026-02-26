@@ -350,7 +350,7 @@ pub fn fsr_fn_hashmap_insert(
     if args.len() != 3 {
         return Err(FSRError::new(
             "not valid args",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
     let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
@@ -422,7 +422,7 @@ fn hashmap_string(
         let l = l.value.as_any().downcast_ref::<FSRHashMap>()
             .ok_or(FSRError::new(
                 "not a hashset",
-                crate::utils::error::FSRErrCode::RuntimeError,
+                crate::utils::error::FSRErrCode::NotValidArgs,
             ))?;
         
         let mut vs = vec![];
@@ -439,13 +439,13 @@ fn hashmap_string(
                         } else {
                             return Err(FSRError::new(
                                 "HashMap contains non-string value",
-                                crate::utils::error::FSRErrCode::RuntimeError,
+                                crate::utils::error::FSRErrCode::NotValidArgs,
                             ));
                         }
                     } else {
                         return Err(FSRError::new(
                             "HashMap contains non-string key",
-                            crate::utils::error::FSRErrCode::RuntimeError,
+                            crate::utils::error::FSRErrCode::NotValidArgs,
                         ));
                     }
                 }
@@ -459,7 +459,7 @@ fn hashmap_string(
     } else {
         return Err(FSRError::new(
             "not a hashset",
-            crate::utils::error::FSRErrCode::RuntimeError,
+            crate::utils::error::FSRErrCode::NotValidArgs,
         ));
     }
 

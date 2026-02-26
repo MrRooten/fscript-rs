@@ -350,7 +350,7 @@ pub struct CallFrame {
     pub(crate) middle_value: Vec<ObjId>,
     pub(crate) code: ObjId,
     catch_ends: Vec<(usize, usize)>,
-    pub(crate) handling_exception: ObjId,
+    pub(crate) handling_exception: Option<ObjId>,
     /// Record current call fn_obj, Why not use Option, because fn_obj will extern "C", we need the ABI to be stable
     pub(crate) fn_id: ObjId,
     pub(crate) ip: (usize, usize),
@@ -373,7 +373,7 @@ impl CallFrame {
         self.cur_cls = None;
         self.ret_val = None;
         self.exp.clear();
-        self.handling_exception = FSRObject::none_id();
+        self.handling_exception = None;
         self.middle_value.clear();
         self.flow_tracker.clear();
         self.static_args.clear();
@@ -461,7 +461,7 @@ impl CallFrame {
             exp: Vec::with_capacity(8),
             code,
             catch_ends: vec![],
-            handling_exception: FSRObject::none_id(),
+            handling_exception: None,
             fn_id: fn_obj,
             middle_value: vec![],
             const_map: None,
@@ -620,6 +620,7 @@ pub struct FSRThreadRuntime<'a> {
 pub enum RetState {
     Normal,
     Exception,
+    BreakCurLine,
     Return,
 }
 
@@ -630,13 +631,18 @@ impl RetState {
     }
 
     #[inline]
-    pub fn is_return(&self) -> bool {
-        matches!(self, RetState::Return)
+    pub fn is_break_cur_line(&self) -> bool {
+        matches!(self, RetState::BreakCurLine)
     }
 
     #[inline]
     pub fn is_normal(&self) -> bool {
         matches!(self, RetState::Normal)
+    }
+
+    #[inline]
+    pub fn is_return(&self) -> bool {
+        matches!(self, RetState::Return)
     }
 }
 
@@ -746,8 +752,8 @@ impl<'a> FSRThreadRuntime<'a> {
             work_list.push(ret_val);
         }
 
-        if it.handling_exception != 0 {
-            work_list.push(it.handling_exception);
+        if let Some(handling_exception) = it.handling_exception {
+            work_list.push(handling_exception);
         }
 
         for value in &it.middle_value {
@@ -1799,7 +1805,7 @@ impl<'a> FSRThreadRuntime<'a> {
     fn try_end(self: &mut FSRThreadRuntime<'a>) -> Result<RetState, FSRError> {
         let end = self.get_cur_mut_frame().catch_ends.pop().unwrap();
         self.get_cur_mut_frame().ip = (end.1, 0);
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     fn catch_end(
@@ -1808,8 +1814,8 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<RetState, FSRError> {
         let state = self.get_cur_mut_frame();
         //state.catch_ends.pop().unwrap();
-        state.handling_exception = FSRObject::none_id();
-        Ok(RetState::Return)
+        state.handling_exception = None;
+        Ok(RetState::BreakCurLine)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -1832,7 +1838,7 @@ impl<'a> FSRThreadRuntime<'a> {
             self.get_cur_mut_frame()
                 .flow_tracker
                 .push_last_if_test(false);
-            return Ok(RetState::Return);
+            return Ok(RetState::BreakCurLine);
         }
 
         //push_middle!(self, test_val);
@@ -1843,7 +1849,10 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn if_end(self: &mut FSRThreadRuntime<'a>, _bytecode: &BytecodeArg) -> Result<RetState, FSRError> {
+    fn if_end(
+        self: &mut FSRThreadRuntime<'a>,
+        _bytecode: &BytecodeArg,
+    ) -> Result<RetState, FSRError> {
         self.get_cur_mut_frame().flow_tracker.pop_last_if_test();
         Ok(RetState::Normal)
     }
@@ -1860,7 +1869,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 let tmp = self.get_cur_frame().ip.0;
                 self.get_cur_mut_frame().ip = (tmp + n.0 as usize + 1_usize, 0);
                 self.get_cur_mut_frame().flow_tracker.false_last_if_test();
-                return Ok(RetState::Return);
+                return Ok(RetState::BreakCurLine);
             }
             return Err(FSRError::new(
                 "else if test process not have next",
@@ -1884,7 +1893,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             };
             self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + n.0 as usize + 1_usize, 0);
-            return Ok(RetState::Return);
+            return Ok(RetState::BreakCurLine);
         }
 
         self.get_cur_mut_frame().flow_tracker.false_last_if_test();
@@ -1900,7 +1909,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if let ArgType::IfTestNext(n) = bytecode.get_arg() {
                 let cur_ip = self.get_cur_frame().ip.0;
                 self.get_cur_mut_frame().ip = (cur_ip + n.0 as usize + 1_usize, 0);
-                return Ok(RetState::Return);
+                return Ok(RetState::BreakCurLine);
             }
             return Err(FSRError::new(
                 "else if match not have next",
@@ -1920,7 +1929,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let l = self.get_cur_frame().flow_tracker.loop_start_line.len();
         let continue_line = self.get_cur_frame().flow_tracker.loop_start_line[l - 1];
         self.get_cur_mut_frame().ip = (continue_line, 0);
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -1940,7 +1949,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 )
             })?;
         self.get_cur_mut_frame().ip = (continue_line, 0);
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     // save will fix
@@ -2060,7 +2069,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + *n as usize + 1, 0);
                 self.get_cur_mut_frame().flow_tracker.break_line.pop();
                 self.get_cur_mut_frame().flow_tracker.loop_start_line.pop();
-                return Ok(RetState::Return);
+                return Ok(RetState::BreakCurLine);
             }
         }
 
@@ -2189,11 +2198,11 @@ impl<'a> FSRThreadRuntime<'a> {
             if let Some(offset) = offset {
                 cur_cls.insert_offset_attr_obj_id(offset, fn_id);
                 self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
-                return Ok(RetState::Return);
+                return Ok(RetState::BreakCurLine);
             }
             cur_cls.insert_attr_id(&fn_args.name, fn_id);
             self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
-            return Ok(RetState::Return);
+            return Ok(RetState::BreakCurLine);
         }
 
         frame.insert_var(fn_args.name_id, fn_id);
@@ -2233,7 +2242,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let ip_0 = self.get_cur_frame().ip.0;
         self.get_cur_mut_frame().ip = (ip_0 + 1, 0);
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     fn op_assign_helper(
@@ -2366,6 +2375,16 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(RetState::Normal)
     }
 
+    fn raise_process(
+        self: &mut FSRThreadRuntime<'a>,
+        //bytecode: &BytecodeArg,
+    ) -> Result<RetState, FSRError> {
+        let exception_id = pop_exp!(self).unwrap_or(FSRObject::none_id());
+        
+
+        Err(FSRError::new_runtime_error(exception_id))
+    }
+
     fn ret_value(
         self: &mut FSRThreadRuntime<'a>,
         //_bytecode: &BytecodeArg,
@@ -2393,7 +2412,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         //let code = cur.code;
 
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     fn yield_process(
@@ -2416,7 +2435,7 @@ impl<'a> FSRThreadRuntime<'a> {
         cur.ret_val = Some(v);
         let code = cur.code;
 
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     fn load_yield(
@@ -2455,7 +2474,7 @@ impl<'a> FSRThreadRuntime<'a> {
         cur.ret_val = Some(res);
         //let code = cur.code;
 
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     fn await_process(
@@ -2479,7 +2498,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let code = cur.code;
 
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     /// NOTICE: This is generated by AI, may have some bugs.
@@ -2692,7 +2711,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //let code = cur.code;
         cur.ret_val = Some(FSRObject::none_id());
 
-        Ok(RetState::Return)
+        Ok(RetState::BreakCurLine)
     }
 
     fn for_block_end(
@@ -2702,7 +2721,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::ForEnd(n) = bytecode.get_arg() {
             let tmp = self.get_cur_frame().ip.0;
             self.get_cur_mut_frame().ip = (tmp - *n as usize, 0);
-            return Ok(RetState::Return);
+            return Ok(RetState::BreakCurLine);
         }
 
         Ok(RetState::Normal)
@@ -2715,7 +2734,7 @@ impl<'a> FSRThreadRuntime<'a> {
         if let ArgType::WhileEnd(n) = bytecode.get_arg() {
             let ip_0 = self.get_cur_frame().ip.0;
             self.get_cur_mut_frame().ip = (ip_0 - *n as usize, 0);
-            return Ok(RetState::Return);
+            return Ok(RetState::BreakCurLine);
         }
 
         Ok(RetState::Normal)
@@ -2734,12 +2753,12 @@ impl<'a> FSRThreadRuntime<'a> {
         if is_base_fn!(fn_obj_id) {
             return Err(FSRError::new(
                 "fn_obj is 0, this should not happen",
-                FSRErrCode::RuntimeError,
+                FSRErrCode::NotValidArgs,
             ));
         }
 
         let fn_obj = FSRObject::id_to_mut_obj(fn_obj_id)
-            .ok_or_else(|| FSRError::new("Not a function object", FSRErrCode::RuntimeError))?
+            .ok_or_else(|| FSRError::new("Not a function object", FSRErrCode::NoSuchObject))?
             .as_mut_fn();
 
         let name = closure.1.as_str();
@@ -2748,7 +2767,7 @@ impl<'a> FSRThreadRuntime<'a> {
             let left_value = fn_obj.store_cells.get(name).ok_or_else(|| {
                 FSRError::new(
                     "Closure variable not found for op assign",
-                    FSRErrCode::RuntimeError,
+                    FSRErrCode::NoSuchObject,
                 )
             })?;
             let left_id = left_value.load(Ordering::Relaxed);
@@ -2933,7 +2952,10 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(RetState::Normal)
     }
 
-    fn end_class_def(self: &mut FSRThreadRuntime<'a>, bc: &BytecodeArg) -> Result<RetState, FSRError> {
+    fn end_class_def(
+        self: &mut FSRThreadRuntime<'a>,
+        bc: &BytecodeArg,
+    ) -> Result<RetState, FSRError> {
         let ArgType::Local(var) = bc.get_arg() else {
             panic!("not a class def local");
         };
@@ -3008,7 +3030,7 @@ impl<'a> FSRThreadRuntime<'a> {
             tracker.ref_for_obj.pop().unwrap();
 
             self.get_cur_mut_frame().ip = (break_line, 0);
-            return Ok(RetState::Return);
+            return Ok(RetState::BreakCurLine);
         }
 
         //if let ArgType::Local(v) = arg.get_arg() {
@@ -3085,6 +3107,20 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(RetState::Normal)
     }
 
+    fn is_catchable(&self) -> bool {
+        for frame in self.call_frames.iter().rev() {
+            if !frame.catch_ends.is_empty() {
+                return true;
+            }
+        }
+
+        if !self.get_cur_frame().catch_ends.is_empty() {
+            return true;
+        }
+
+        false
+    }
+
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn process(&mut self, bytecode: &BytecodeArg) -> Result<RetState, FSRError> {
         let op = bytecode.get_operator();
@@ -3154,6 +3190,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Delegate => Self::delegate_process(self),
             BytecodeOperator::LoadYield => Self::load_yield(self),
             BytecodeOperator::OpAssign => Self::load_op_assign(self, bytecode),
+            BytecodeOperator::Raise => Self::raise_process(self),
             _ => {
                 let message = format!("not implement for {:#?}", op);
                 Self::thread_unwrap(self, &message).unwrap();
@@ -3164,6 +3201,10 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = match v {
             Ok(o) => o,
             Err(e) => {
+                if self.is_catchable() {
+                    return Err(e);
+                }
+                
                 let message = format!("error in process: {}", e);
                 Self::thread_unwrap(self, &message).unwrap();
                 panic!(
@@ -3261,7 +3302,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 Self::get_chain_by_name(self, &v.1).ok_or_else(|| {
                     FSRError::new(
                         format!("Variable '{}' not found", v.1),
-                        FSRErrCode::RuntimeError,
+                        FSRErrCode::NoSuchObject,
                     )
                 })?
             } else {
@@ -3273,7 +3314,7 @@ impl<'a> FSRThreadRuntime<'a> {
                         Self::get_chain_by_name(self, &v.1).ok_or_else(|| {
                             FSRError::new(
                                 format!("Variable '{}' not found", v.1),
-                                FSRErrCode::RuntimeError,
+                                FSRErrCode::NoSuchObject,
                             )
                         })?
                     }
@@ -3303,7 +3344,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 Self::get_chains(self, self.get_cur_frame(), var).ok_or_else(|| {
                     FSRError::new(
                         format!("Variable '{}' not found", var.name),
-                        FSRErrCode::RuntimeError,
+                        FSRErrCode::NoSuchObject,
                     )
                 })?
             };
@@ -3323,7 +3364,7 @@ impl<'a> FSRThreadRuntime<'a> {
         } else {
             Err(FSRError::new(
                 format!("Constant at index {} not found", arg.arg_id),
-                FSRErrCode::RuntimeError,
+                FSRErrCode::NoSuchObject,
             ))
         }
     }
@@ -3339,7 +3380,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     let v = Self::get_chains(self, self.get_cur_frame(), var).ok_or_else(|| {
                         FSRError::new(
                             format!("Variable '{}' not found", var.name),
-                            FSRErrCode::RuntimeError,
+                            FSRErrCode::NoSuchObject,
                         )
                     })?;
                     //self.get_cur_mut_frame().insert_var(var.0, v);
@@ -3363,7 +3404,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     // panic!("not found function object");
                     return Err(FSRError::new(
                         "Current function is base function, no function object",
-                        FSRErrCode::RuntimeError,
+                        FSRErrCode::NoSuchObject,
                     ));
                 }
                 push_exp!(self, fn_id);
@@ -3373,7 +3414,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 let id = Self::get_chain_by_name(self, name).ok_or_else(|| {
                     FSRError::new(
                         format!("Global variable '{}' not found", name),
-                        FSRErrCode::RuntimeError,
+                        FSRErrCode::NoSuchObject,
                     )
                 })?;
                 push_exp!(self, id);
@@ -3431,22 +3472,29 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    fn exception_process(&mut self) -> bool {
-        if let Some(exception_obj) = top_exp!(self) {
-            let obj = FSRObject::id_to_obj(exception_obj);
-            if !obj.is_error() {
-                return false;
-            }
+    fn err_to_err_obj(&mut self, err: &FSRError) -> ObjId {
+        let err_string = format!("{:?}: {}", err.inner.code, err.inner.msg);
 
-            self.get_cur_mut_frame().handling_exception = exception_obj;
-            // self.exception = FSRObject::none_id();
-            // self.exception_flag = false;
-            self.get_cur_mut_frame().ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
-            // self.garbage_collect.add_root(exception_handling);
-            return true;
-        }
+        let s = FSRString::new_value(err_string);
+        self.garbage_collect
+            .new_object(s, GlobalObj::StringCls.get_id())
+    }
 
-        false
+    fn exception_process(&mut self, err: &FSRError) -> bool {
+        // if let Some(exception_obj) = self.get_cur_frame().handling_exception {
+        //let exception_obj = self.err_to_err_obj(err);
+        let exception_obj = if let FSRErrCode::RuntimeError(raise_id) = err.inner.code {
+            raise_id
+        } else {
+            self.err_to_err_obj(err)
+        };
+        self.get_cur_mut_frame().handling_exception = Some(exception_obj);
+        // self.exception_flag = false;
+        self.get_cur_mut_frame().ip = (self.get_cur_mut_frame().catch_ends.pop().unwrap().0, 0);
+        // self.garbage_collect.add_root(exception_handling);
+        return true;
+
+        //}
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -3518,17 +3566,24 @@ impl<'a> FSRThreadRuntime<'a> {
             #[cfg(feature = "bytecode_trace")]
             self.before_bytecode_trace(arg);
             self.counter += 1;
-            ret = self.process(arg)?;
+            ret = self.process(arg);
             #[cfg(feature = "bytecode_trace")]
             self.after_bytecode_trace();
 
-            if !self.get_cur_frame().catch_ends.is_empty() && Self::exception_process(self) {
-                clear_exp!(self);
-                clear_middle_exp!(self);
-                return Ok(false);
+            if ret.is_err() {
+                if !self.get_cur_frame().catch_ends.is_empty()
+                    && Self::exception_process(self, &ret.as_ref().err().unwrap())
+                {
+                    clear_exp!(self);
+                    clear_middle_exp!(self);
+                    return Ok(false);
+                }
+
+                let frame = self.pop_stack();
+                self.frame_free_list.free(frame);
             }
 
-            if ret.is_return() {
+            if ret?.is_break_cur_line() {
                 if self.get_cur_frame().ret_val.is_some() {
                     // Will keep frame exp stack
                     return Ok(true);

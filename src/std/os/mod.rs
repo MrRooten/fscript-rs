@@ -122,7 +122,7 @@ pub fn fsr_fn_command(
             }).collect::<Vec<_>>();
             let output = std::process::Command::new(s.to_string()).args(args)
                 .output()
-                .map_err(|e| FSRError::new(format!("Failed to execute command: {}", e), crate::utils::error::FSRErrCode::RuntimeError))?;
+                .map_err(|e| FSRError::new(format!("Failed to execute command: {}", e), crate::utils::error::FSRErrCode::NotValidArgs))?;
             let output_str = String::from_utf8_lossy(&output.stdout);
             let value = FSRString::new_value(output_str);
             let res = thread
