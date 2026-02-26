@@ -1,6 +1,6 @@
 fn abc() {
     try {
-        Exception()
+        Exception().raise
         assert(false, 'should not reach here')
     } catch {
         println('in fn abc catch')
