@@ -12,6 +12,8 @@ use std::{
 };
 
 use crate::backend::types::base::ObjId;
+use crate::utils::error::FSRErrCode;
+use crate::utils::error::FSRError;
 use frontend::ast::token::constant::FSROrinStr;
 
 use frontend::ast::token::{
@@ -351,6 +353,25 @@ pub enum CompareOperator {
     LessEqual,
 }
 
+impl TryFrom<i64> for CompareOperator {
+    type Error = FSRError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(CompareOperator::Equal),
+            1 => Ok(CompareOperator::NotEqual),
+            2 => Ok(CompareOperator::Greater),
+            3 => Ok(CompareOperator::GreaterEqual),
+            4 => Ok(CompareOperator::Less),
+            5 => Ok(CompareOperator::LessEqual),
+            _ => Err(FSRError::new(
+                format!("Invalid compare operator value: {}", value),
+                FSRErrCode::NotValidArgs,
+            )),
+        }
+    }
+}
+
 impl CompareOperator {
     pub fn new_from_str(op: &str) -> Option<Self> {
         match op {
@@ -373,6 +394,18 @@ impl CompareOperator {
             CompareOperator::GreaterEqual => BinaryOffset::GreatEqual,
             CompareOperator::Less => BinaryOffset::Less,
             CompareOperator::LessEqual => BinaryOffset::LessEqual,
+        }
+    }
+
+    #[inline]
+    pub fn to_integer(&self) -> i64 {
+        match self {
+            CompareOperator::Equal => 0,
+            CompareOperator::NotEqual => 1,
+            CompareOperator::Greater => 2,
+            CompareOperator::GreaterEqual => 3,
+            CompareOperator::Less => 4,
+            CompareOperator::LessEqual => 5,
         }
     }
 }
@@ -498,6 +531,7 @@ pub struct LoadListArg {
     pub list_len: usize,
 }
 
+
 #[derive(Debug, Clone)]
 pub enum ArgType {
     Local(LocalVar),
@@ -510,27 +544,20 @@ pub enum ArgType {
     ConstString(u64, String),
     Const(u64, FSROrinStr2),
     Attr(AttrVar),
-    BinaryOperator(BinaryOffset),
     IfTestNext(u64), // first u64 for if line, second for count else if /else
     WhileTest(u64),         //i64 is return to test, u64 is skip the block,
     WhileEnd(i64),
     Compare(CompareOperator),
     OpAssign((OpAssign, Box<ArgType>)),
     CallArgsNumber((usize, Option<Arc<FnCallSig>>)), // number size, return type
-    CallArgsNumberWithVar((usize, u64, String, bool)), // number size, Variable
     CallArgsNumberWithAttr((usize, u64, String, Option<Arc<FnCallSig>>)),
     DefineFnArgs(FnArgs), // function len, args len, identify function name
-    DefineClassLine(u64),
     LoadListNumber(LoadListArg),
     ForEnd(i64),
     AddOffset(usize),
     ForLine(u64),
-    StoreFastVar(u64, String),
     Import(Vec<String>),
     TryCatch(u64, u64), // first u64 for catch start, second for catch end + 1
-    GlobalId(ObjId),    // only for global id, like key object
-    FnName(u64, String),
-    ClassName(u64, String),
     LoadTrue,
     LoadFalse,
     LoadNone,
@@ -741,13 +768,14 @@ impl BytecodeOperator {
             || op.eq("==")
             || op.eq("!=")
         {
+            let op = CompareOperator::new_from_str(op)
+                        .unwrap_or_else(|| panic!("Invalid compare operator: {}", op));
             return Some(BytecodeArg {
                 operator: BytecodeOperator::CompareTest,
                 arg: Box::new(ArgType::Compare(
-                    CompareOperator::new_from_str(op)
-                        .unwrap_or_else(|| panic!("Invalid compare operator: {}", op)),
+                    op
                 )),
-                arg_n: 0,
+                arg_n: op.to_integer() as i64,
                 info,
             });
         } else if op.eq("<<") {

@@ -1054,7 +1054,6 @@ impl<'a> FSRThreadRuntime<'a> {
                 };
 
                 let offset = op_assign.get_offset();
-
                 obj_id = Self::op_assign_helper(left_id, obj_id, self, offset)?;
             }
 
@@ -1105,18 +1104,14 @@ impl<'a> FSRThreadRuntime<'a> {
                 ));
             }
         };
-        // push_middle!(self, left);
-        // push_middle!(self, right);
+        push_middle!(self, left);
+        push_middle!(self, right);
         let args = [left, right];
         let len = args.len();
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Add) {
             let res = rust_fn(args.as_ptr(), len, self)?;
 
-            match res {
-                FSRRetValue::GlobalId(res_id) => {
-                    push_exp!(self, res_id);
-                }
-            };
+            push_exp!(self, res.get_id());
 
             return Ok(RetState::Normal);
         }
@@ -1128,11 +1123,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //self.get_cur_frame().code,
         )?;
 
-        match res {
-            FSRRetValue::GlobalId(res_id) => {
-                push_exp!(self, res_id);
-            }
-        };
+        push_exp!(self, res.get_id());
 
         Ok(RetState::Normal)
     }
@@ -1162,8 +1153,8 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         };
 
-        // push_middle!(self, right);
-        // push_middle!(self, left);
+        push_middle!(self, right);
+        push_middle!(self, left);
 
         let res = FSRObject::invoke_offset_method(
             BinaryOffset::Sub,
@@ -1334,30 +1325,15 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
         let name = &attr_var.name;
-        let id = if dot_father_obj.is_code() {
-            //let name = attr_id.1;
-            let id = dot_father_obj.get_attr(name);
-            let id = match id {
-                Some(s) => s,
-                None => {
-                    return Err(FSRError::new(
-                        format!("not have this attr: `{}`", name),
-                        FSRErrCode::NoSuchObject,
-                    ));
-                }
-            };
-
-            id.load(Ordering::Relaxed)
-        } else {
-            let id = dot_father_obj.get_attr(name).ok_or_else(|| {
+        let id = dot_father_obj
+            .get_attr(name)
+            .ok_or_else(|| {
                 FSRError::new(
                     format!("not have this attr: `{}`", name),
                     FSRErrCode::NoSuchObject,
                 )
-            })?;
-
-            id.load(Ordering::Relaxed)
-        };
+            })?
+            .load(Ordering::Relaxed);
 
         self.get_cur_mut_frame().push_exp(id);
         push_middle!(self, dot_father);
@@ -2207,6 +2183,8 @@ impl<'a> FSRThreadRuntime<'a> {
         thread: &mut FSRThreadRuntime<'a>,
         offset: BinaryOffset,
     ) -> Result<ObjId, FSRError> {
+        push_middle!(thread, right_id);
+        push_middle!(thread, left_id);
         let args = [left_id, right_id];
         let len = args.len();
         if let Some(rust_fn) = obj_cls!(left_id).get_rust_fn(offset) {
@@ -2254,18 +2232,19 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
-        let ArgType::Compare(op) = *bytecode.get_arg() else {
-            return Err(FSRError::new(
-                "not a compare test",
-                FSRErrCode::NotValidArgs,
-            ));
-        };
+        // let ArgType::Compare(op) = *bytecode.get_arg() else {
+        //     return Err(FSRError::new(
+        //         "not a compare test",
+        //         FSRErrCode::NotValidArgs,
+        //     ));
+        // };
+        let op = bytecode.arg_n.try_into().unwrap();
 
         let right_id = pop_exp!(self).unwrap();
         let left_id = pop_exp!(self).unwrap();
 
-        // push_middle!(self, right_id);
-        // push_middle!(self, left_id);
+        push_middle!(self, right_id);
+        push_middle!(self, left_id);
 
         let v = Self::compare(&[left_id, right_id], op, self)?;
 
