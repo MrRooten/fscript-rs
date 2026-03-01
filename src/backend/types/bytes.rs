@@ -63,47 +63,47 @@ fn get_sub_bytes(
     // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
     // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
 
-    if let FSRValue::Bytes(self_bytes) = &self_object.value {
-        if let FSRValue::Integer(index) = &index.value {
-            let index = *index as usize;
-            if index < self_bytes.bs_len() {
-                let obj_id = thread.garbage_collect.new_object(
-                    FSRValue::Integer(self_bytes.bytes[index] as i64),
-                    GlobalObj::IntegerCls.get_id(),
-                );
-                Ok(FSRRetValue::GlobalId(obj_id))
-            } else {
-                Err(FSRError::new(
-                    "index out of range of bytes",
-                    crate::utils::error::FSRErrCode::IndexOutOfRange,
-                ))
-            }
-        } else if let FSRValue::Range(r) = &index.value {
-            let start = r.range.start as usize;
-            let end = r.range.end as usize;
+    let FSRValue::Bytes(self_bytes) = &self_object.value else {
+        return Err(FSRError::new(
+            "left value is not a bytes",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
+    };
 
-            if start >= self_bytes.bs_len() || end > self_bytes.bs_len() || start > end {
-                return Err(FSRError::new(
-                    "range out of bounds for bytes",
-                    crate::utils::error::FSRErrCode::IndexOutOfRange,
-                ));
-            }
-
-            let sub_bytes = self_bytes.bytes[start..end].to_vec();
+    if let FSRValue::Integer(index) = &index.value {
+        let index = *index as usize;
+        if index < self_bytes.bs_len() {
             let obj_id = thread.garbage_collect.new_object(
-                FSRValue::Bytes(Box::new(FSRInnerBytes::new(sub_bytes))),
-                GlobalObj::BytesCls.get_id(),
+                FSRValue::Integer(self_bytes.bytes[index] as i64),
+                GlobalObj::IntegerCls.get_id(),
             );
             Ok(FSRRetValue::GlobalId(obj_id))
         } else {
             Err(FSRError::new(
-                "index is not an integer of bytes",
-                crate::utils::error::FSRErrCode::NotValidArgs,
+                "index out of range of bytes",
+                crate::utils::error::FSRErrCode::IndexOutOfRange,
             ))
         }
+    } else if let FSRValue::Range(r) = &index.value {
+        let start = r.range.start as usize;
+        let end = r.range.end as usize;
+
+        if start >= self_bytes.bs_len() || end > self_bytes.bs_len() || start > end {
+            return Err(FSRError::new(
+                "range out of bounds for bytes",
+                crate::utils::error::FSRErrCode::IndexOutOfRange,
+            ));
+        }
+
+        let sub_bytes = self_bytes.bytes[start..end].to_vec();
+        let obj_id = thread.garbage_collect.new_object(
+            FSRValue::Bytes(Box::new(FSRInnerBytes::new(sub_bytes))),
+            GlobalObj::BytesCls.get_id(),
+        );
+        Ok(FSRRetValue::GlobalId(obj_id))
     } else {
         Err(FSRError::new(
-            "left value is not a bytes",
+            "index is not an integer of bytes",
             crate::utils::error::FSRErrCode::NotValidArgs,
         ))
     }

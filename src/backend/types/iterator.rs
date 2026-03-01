@@ -283,18 +283,14 @@ pub fn count(
         ));
     }
     let self_obj = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a iterator");
-    let it = if let FSRValue::Iterator(it) = &mut self_obj.value {
-        it
-    } else {
+    let FSRValue::Iterator(it) = &mut self_obj.value else {
         return Err(FSRError::new(
             "msg: object is not an iterator",
             FSRErrCode::NotValidArgs,
         ));
     };
 
-    let it = if let Some(it) = it.iterator.as_mut() {
-        it
-    } else {
+    let Some(it) = it.iterator.as_mut() else {
         return Err(FSRError::new(
             "iterator not some(value)",
             FSRErrCode::NotValidArgs,

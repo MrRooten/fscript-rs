@@ -3,7 +3,8 @@ use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     sync::{
-        Arc, atomic::{AtomicBool, AtomicI16, Ordering}
+        Arc,
+        atomic::{AtomicBool, AtomicI16, Ordering},
     },
 };
 
@@ -251,7 +252,10 @@ impl<'a> FSRFn<'a> {
         let frame = thread
             .frame_free_list
             .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-        thread.push_frame(frame, index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map));
+        thread.push_frame(
+            frame,
+            index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),
+        );
         for arg in args.iter() {
             thread.get_cur_mut_frame().args.push(*arg);
         }
@@ -283,12 +287,18 @@ impl<'a> FSRFn<'a> {
             }
             FSRnE::FSRFn(f) => {
                 let frame = thread.frame_free_list.new_frame(self.code, fn_id);
-                thread.push_frame(frame, index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map));
-                thread
-                    .get_cur_mut_frame()
-                    .args
-                    .extend(args.iter().rev().cloned());
-                let v = FSRThreadRuntime::call_fn(thread, f, self.code)?;
+                thread.push_frame(
+                    frame,
+                    index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),
+                );
+                // thread
+                //     .get_cur_mut_frame()
+                //     .args
+                //     .extend(args.iter().rev().cloned());
+                for arg in args.iter().rev() {
+                    thread.get_cur_mut_frame().args.push(*arg);
+                }
+                let v = FSRThreadRuntime::call_fn(thread, f)?;
                 return Ok(FSRRetValue::GlobalId(v));
             }
         }

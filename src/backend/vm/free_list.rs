@@ -16,12 +16,12 @@ impl FrameFreeList {
         }
     }
 
-    #[inline]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn free(&mut self, frame: Box<CallFrame>) {
         self.list.push(frame);
     }
 
-    #[inline]
+    #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn new_frame(&mut self, code: ObjId, fn_obj: ObjId) -> Box<CallFrame> {
         if let Some(mut frame) = self.list.pop() {
             frame.clear();

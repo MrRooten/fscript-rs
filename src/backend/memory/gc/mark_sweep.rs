@@ -4,6 +4,7 @@ use std::sync::atomic::AtomicBool;
 
 use crate::backend::types::base::{Area, GlobalObj};
 
+use crate::backend::types::integer::FSRInteger;
 use crate::backend::types::string::FSRInnerString;
 use crate::backend::vm::virtual_machine::{FSRVM, gid};
 use crate::backend::{
@@ -104,19 +105,18 @@ impl<'a> MarkSweepGarbageCollector<'a> {
     }
 
     pub fn get_integer(&mut self, value: i64) -> ObjId {
-        // if value >= -32768 && value <= 32767 {
-        //     let idx = (value + 32768) as usize;
-        //     if self.small_integer[idx] == 0 {
-        //         let int_obj = self.new_object(
-        //             FSRValue::Integer(value),
-        //             gid(GlobalObj::IntegerCls),
-        //         );
-        //         self.small_integer[idx] = int_obj;
-        //     }
-        //     self.small_integer[idx]
-        // } else {
+        if value >= -32768 && value <= 32767 {
+            let idx = (value + 32768) as usize;
+            if self.small_integer[idx] == 0 {
+                let value = FSRValue::Integer(value);
+                let integer_obj = Box::new(FSRObject::new_inst(value, gid(GlobalObj::IntegerCls)));
+                let int_obj = FSRVM::leak_object(integer_obj);
+                self.small_integer[idx] = int_obj;
+            }
+            self.small_integer[idx]
+        } else {
             self.new_object(FSRValue::Integer(value), gid(GlobalObj::IntegerCls))
-        //}
+        }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -299,6 +299,20 @@ impl<'a> MarkSweepGarbageCollector<'a> {
 
         self.tracker.count_free += freed_count as u64;
         self.tracker.collect_count += 1;
+    }
+}
+
+impl Drop for MarkSweepGarbageCollector<'_> {
+    fn drop(&mut self) {
+        self.objects.clear();
+        self.marjor_arena.clear();
+
+        for small_integer in self.small_integer.iter() {
+            if *small_integer != 0 {
+                // from leaked object to free
+                unsafe { Box::from_raw(*small_integer as *mut FSRObject) };
+            }
+        }
     }
 }
 

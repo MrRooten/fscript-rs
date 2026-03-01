@@ -25,7 +25,15 @@ use super::{
     fn_def::FSRFn,
 };
 
-pub struct FSRInteger {}
+pub struct FSRInteger {
+    inner_integer: i64
+}
+
+impl FSRInteger {
+    pub fn try_i64(&self) -> Result<i64, FSRError> {
+        Ok(self.inner_integer)
+    }
+}
 
 pub fn add(
     args: *const ObjId,
@@ -140,7 +148,7 @@ fn div(
                 gid(GlobalObj::FloatCls) as ObjId,
             );
             return Ok(FSRRetValue::GlobalId(obj));
-        }
+        } 
     }
 
     unimplemented!()
@@ -165,10 +173,11 @@ pub fn reminder(
 
     if let FSRValue::Integer(self_int) = self_object.value {
         if let FSRValue::Integer(other_int) = other_object.value {
-            let obj = thread.garbage_collect.new_object_in_place();
-            obj.value = FSRValue::Integer(self_int % other_int);
-            obj.cls = self_object.cls;
-            return Ok(FSRRetValue::GlobalId(FSRObject::obj_to_id(obj)));
+            // let obj = thread.garbage_collect.new_object_in_place();
+            // obj.value = FSRValue::Integer(self_int % other_int);
+            // obj.cls = self_object.cls;
+            let obj = thread.garbage_collect.get_integer(self_int % other_int);
+            return Ok(FSRRetValue::GlobalId(obj));
             //return Ok(FSRRetValue::GlobalId(v));
         }
     }

@@ -337,6 +337,11 @@ impl Area {
     }
 }
 
+pub struct GcDescriptor {
+    index: u32,
+    tid: u16
+}
+
 pub struct FSRObject<'a> {
     pub(crate) value: FSRValue<'a>,
     pub(crate) cls: &'static FSRClass,
@@ -351,18 +356,6 @@ pub struct FSRObject<'a> {
 impl Debug for FSRObject<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let cls = self.cls;
-        // let obj = FSRObject::id_to_obj(cls);
-        // let cls = match &obj.value {
-        //     FSRValue::Class(c) => c,
-        //     FSRValue::None => {
-        //         return f
-        //             .debug_struct("FSRObject")
-        //             .field("value", &self.value)
-        //             .field("cls", &"None".to_string())
-        //             .finish();
-        //     }
-        //     _ => panic!("not valid cls"),
-        // };
         f.debug_struct("FSRObject")
             .field("value", &self.value)
             .field("cls", &cls.name.to_string())

@@ -1,15 +1,10 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    collections::HashMap,
-    ops::{Index, Range},
-    path::PathBuf,
-    str::FromStr,
-    sync::{
+    collections::HashMap, num::NonZeroUsize, ops::{Index, Range}, path::PathBuf, str::FromStr, sync::{
         Arc, Condvar, Mutex,
         atomic::{AtomicUsize, Ordering},
-    },
-    time::Instant,
+    }, time::Instant
 };
 
 use cranelift::codegen::ir::Inst;
@@ -132,11 +127,11 @@ const ITER_METHOD: &str = "__iter__";
 const MAIN_FN: &str = "__main__";
 #[derive(Debug)]
 pub struct IndexMap {
-    vs: Vec<Option<ObjId>>,
+    vs: Vec<Option<NonZeroUsize>>,
 }
 
 pub struct IndexIterator<'a> {
-    vs: core::slice::Iter<'a, Option<ObjId>>,
+    vs: core::slice::Iter<'a, Option<NonZeroUsize>>,
 }
 
 type CallArgs = SmallVec<[ObjId; 4]>;
@@ -145,9 +140,9 @@ type CallArgs = SmallVec<[ObjId; 4]>;
 #[allow(unused)]
 impl IndexMap {
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get(&self, i: &u64) -> Option<&ObjId> {
+    pub fn get(&self, i: &u64) -> Option<NonZeroUsize> {
         match self.vs.get(*i as usize) {
-            Some(Some(s)) => Some(s),
+            Some(Some(s)) => Some(*s),
             Some(None) => None,
             None => None,
         }
@@ -156,7 +151,8 @@ impl IndexMap {
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn insert(&mut self, i: u64, v: ObjId) {
         if i as usize >= self.vs.len() {
-            let new_size = ((i + 1) as f64 * 1.5).ceil() as u64;
+            // let new_size = ((i + 1) as f64 * 1.5).ceil() as u64;
+            let new_size = i + 1;
             let new_capacity = (new_size) + (4 - (new_size) % 4);
             self.vs.resize_with(new_capacity as usize, || None);
         }
@@ -165,7 +161,7 @@ impl IndexMap {
         //     s.store(v, Ordering::Relaxed);
         //     return;
         // }
-        self.vs[i as usize] = Some(v);
+        self.vs[i as usize] = Some(NonZeroUsize::new(v).unwrap());
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -187,18 +183,18 @@ impl IndexMap {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear(&mut self) {
-        self.vs.fill_with(|| None);
-        // self.vs.clear();
+        // self.vs.fill_with(|| None);
+        self.vs.clear();
     }
 }
 
 impl<'a> Iterator for IndexIterator<'a> {
-    type Item = &'a ObjId;
+    type Item = ObjId;
 
     fn next(&mut self) -> Option<Self::Item> {
         for s in self.vs.by_ref() {
             if s.is_some() {
-                return Some(s.as_ref().unwrap());
+                return Some(s.as_ref().unwrap().get());
             }
         }
 
@@ -380,11 +376,12 @@ impl CallFrame {
         self.catch_ends.clear();
         self.future = None;
         self.is_module = false;
+        self.ip = (0, 0);
         //self.last_expr_val = FSRObject::none_id();
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn get_var(&self, id: &u64) -> Option<&ObjId> {
+    pub fn get_var(&self, id: &u64) -> Option<NonZeroUsize> {
         self.local_var.get(id)
     }
 
@@ -718,6 +715,22 @@ impl<'a> FSRThreadRuntime<'a> {
         &mut self.cur_frame
     }
 
+    #[inline]
+    pub fn add_1_ip1(&mut self) {
+        self.cur_frame.ip.1 += 1;
+    }
+
+    #[inline]
+    pub fn add_1_ip0(&mut self) {
+        self.cur_frame.ip.0 += 1;
+    }
+
+    #[inline]
+    pub fn add_1_ip0_reset_ip1(&mut self) {
+        self.cur_frame.ip.0 += 1;
+        self.cur_frame.ip.1 = 0;
+    }
+
     /// Push new call frame to call stack, and replace current call frame with new one
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn push_frame(&mut self, mut frame: Box<CallFrame>, const_map: IndexMapObjPtr) {
@@ -741,7 +754,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
     pub fn process_callframe(work_list: &mut Vec<ObjId>, it: &CallFrame) {
         for obj in it.local_var.iter() {
-            work_list.push(*obj);
+            work_list.push(obj);
         }
 
         for id in &it.exp {
@@ -830,12 +843,12 @@ impl<'a> FSRThreadRuntime<'a> {
         //if self.gc_context.gc_state == GcState::Stop {
         self.gc_context.worklist = self.add_worklist();
         self.gc_context.worklist.extend_from_slice(addition);
-        self.gc_context.worklist.extend(
-            self.garbage_collect
-                .small_integer
-                .iter()
-                .filter(|x| **x != 0),
-        );
+        // self.gc_context.worklist.extend(
+        //     self.garbage_collect
+        //         .small_integer
+        //         .iter()
+        //         .filter(|x| **x != 0),
+        // );
         //}
         //self.gc_context.gc_state = GcState::Running;
 
@@ -1044,7 +1057,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             if let Some(op_assign) = var.op_assign {
                 let left_id = match self.get_cur_frame().get_var(&var.id) {
-                    Some(s) => *s,
+                    Some(s) => s.get(),
                     None => Self::get_chain_by_name(self, &var.name).ok_or_else(|| {
                         FSRError::new(
                             format!("variable `{}` not found for op assign", var.name),
@@ -1508,12 +1521,12 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    #[inline]
+
     fn try_get_obj_by_name(&mut self, c_id: u64, name: &str) -> Option<ObjId> {
         {
             let state = self.get_cur_mut_frame();
             if let Some(id) = state.get_var(&c_id) {
-                return Some(*id);
+                return Some(id.get());
             }
         }
         let module = FSRObject::id_to_obj(
@@ -2319,6 +2332,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Err(FSRError::new_runtime_error(exception_id))
     }
 
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn ret_value(
         self: &mut FSRThreadRuntime<'a>,
         //_bytecode: &BytecodeArg,
@@ -2723,6 +2737,7 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
+    #[cfg_attr(feature = "more_inline", inline(always))]
     fn assign_args(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -2978,9 +2993,6 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<RetState, FSRError> {
         let first = pop_exp!(self).unwrap();
         if first == FSRObject::none_id() || first == FSRObject::false_id() {
-            // let ArgType::AddOffset(offset) = bc.get_arg() else {
-            //     return Err(FSRError::new("not a add offset", FSRErrCode::NotValidArgs));
-            // };
             self.get_cur_mut_frame().ip.1 += bc.arg_n as usize;
             push_exp!(self, FSRObject::false_id());
         }
@@ -3050,7 +3062,7 @@ impl<'a> FSRThreadRuntime<'a> {
         false
     }
 
-    fn exception_(&mut self, e: FSRError, bytecode: &BytecodeArg) -> Result<(), FSRError> {
+    fn exception_unwrap(&mut self, e: FSRError, bytecode: &BytecodeArg) -> Result<(), FSRError> {
         if self.is_catchable() {
             return Err(e);
         }
@@ -3132,9 +3144,8 @@ impl<'a> FSRThreadRuntime<'a> {
                 if let Some(id) = self
                     .get_cur_frame()
                     .get_var(&(bytecode.arg_n as u64))
-                    .cloned()
                 {
-                    push_exp!(self, id);
+                    push_exp!(self, id.get());
                     Ok(RetState::Normal)
                 } else {
                     // panic!("variable not found: {}, location: {:?}", bytecode.arg_id, bytecode.get_pos());
@@ -3160,7 +3171,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let v = match v {
             Ok(o) => o,
             Err(e) => {
-                Self::exception_(self, e, bytecode)?;
+                Self::exception_unwrap(self, e, bytecode)?;
                 return Ok(RetState::Normal);
             }
         };
@@ -3189,6 +3200,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .map_err(|_| FSRError::new("Failed to parse float", FSRErrCode::NotValidArgs))
     }
 
+    #[cold]
     fn get_chains(thread: &FSRThreadRuntime, state: &CallFrame, var: &LocalVar) -> Option<ObjId> {
         let fn_id = state.fn_id;
         // if in __main__ the module base code
@@ -3221,7 +3233,7 @@ impl<'a> FSRThreadRuntime<'a> {
             }
         }
         // let module = FSRObject::id_to_obj(state.code).as_code();
-        let code = FSRObject::id_to_obj(
+        let module = FSRObject::id_to_obj(
             FSRObject::id_to_obj(thread.get_cur_frame().code)
                 .as_code()
                 .module,
@@ -3229,7 +3241,7 @@ impl<'a> FSRThreadRuntime<'a> {
         .as_module();
         let vm = thread.get_vm();
 
-        let v = code
+        let v = module
             .get_object(name)
             .map(|s| s.load(Ordering::Relaxed))
             .or_else(|| vm.get_global_obj_by_name(name).copied());
@@ -3243,7 +3255,7 @@ impl<'a> FSRThreadRuntime<'a> {
         v: &(u64, String, Option<OpAssign>),
     ) -> Result<ObjId, FSRError> {
         let var = if let Some(s) = self.get_cur_frame().get_var(&v.0) {
-            *s
+            s.get()
         } else {
             let fn_id = self.get_cur_frame().fn_id;
             let var = if is_base_fn!(fn_id) {
@@ -3281,32 +3293,6 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn load_local_var(&mut self, arg: &BytecodeArg) -> Result<RetState, FSRError> {
-        if let Some(id) = self.get_cur_frame().get_var(&(arg.arg_n as u64)).cloned() {
-            push_exp!(self, id);
-            return Ok(RetState::Normal);
-        }
-
-        if let ArgType::Local(var) = arg.get_arg() {
-            let id = if let Some(s) = self.get_cur_frame().get_var(&var.id) {
-                *s
-            } else {
-                Self::get_chains(self, self.get_cur_frame(), var).ok_or_else(|| {
-                    FSRError::new(
-                        format!("Variable '{}' not found", var.name),
-                        FSRErrCode::NoSuchObject,
-                    )
-                })?
-            };
-            push_exp!(self, id);
-        } else {
-            panic!("not a local variable");
-        }
-
-        Ok(RetState::Normal)
-    }
-
-    #[cfg_attr(feature = "more_inline", inline(always))]
     fn load_const(&mut self, arg: &BytecodeArg) -> Result<RetState, FSRError> {
         if let Some(id) = self.get_cur_frame().get_const(&(arg.arg_n as u64)).cloned() {
             push_exp!(self, id);
@@ -3325,7 +3311,7 @@ impl<'a> FSRThreadRuntime<'a> {
         match arg.get_arg() {
             ArgType::Local(var) => {
                 let id = if let Some(s) = self.get_cur_frame().get_var(&var.id) {
-                    *s
+                    s.get()
                 } else {
                     let v = Self::get_chains(self, self.get_cur_frame(), var).ok_or_else(|| {
                         FSRError::new(
@@ -3396,7 +3382,8 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
+    //#[cfg_attr(feature = "more_inline", inline(always))]
+    #[cold]
     fn debugger_process(&mut self, expr: &BytecodeArg) {
         unsafe {
             if DEBUGGER.is_none() {
@@ -3456,6 +3443,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self.run_expr(expr)
     }
 
+    #[cold]
     fn collect_action(&mut self) {
         let st = std::time::Instant::now();
         if self.gc_context.gc_state == GcState::Stop {
@@ -3472,8 +3460,9 @@ impl<'a> FSRThreadRuntime<'a> {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     fn end_expr(&mut self) {
-        self.get_cur_mut_frame().ip.0 += 1;
-        self.get_cur_mut_frame().ip.1 = 0;
+        // self.get_cur_mut_frame().ip.0 += 1;
+        // self.get_cur_mut_frame().ip.1 = 0;
+        self.add_1_ip0_reset_ip1();
 
         clear_exp!(self);
         clear_middle_exp!(self);
@@ -3509,7 +3498,8 @@ impl<'a> FSRThreadRuntime<'a> {
             self.debugger_process(&expr[0]);
         }
         while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
-            self.get_cur_mut_frame().ip.1 += 1;
+            // self.get_cur_mut_frame().ip.1 += 1;
+            self.add_1_ip1();
             // Under the ip.1 += 1
             // make sure ip value as same as eval context
 
@@ -3723,14 +3713,14 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(())
     }
 
-    pub fn call_fn(&mut self, fn_def: &FSRFnInner, code: ObjId) -> Result<ObjId, FSRError> {
-        {
-            clear_exp!(self);
-            clear_middle_exp!(self);
+    pub fn call_fn(&mut self, fn_def: &FSRFnInner) -> Result<ObjId, FSRError> {
+        // {
+        //     clear_exp!(self);
+        //     clear_middle_exp!(self);
 
-            let offset = fn_def.get_ip();
-            self.get_cur_mut_frame().ip = (offset.0, 0);
-        }
+        //     let offset = fn_def.get_ip();
+        //     self.get_cur_mut_frame().ip = (offset.0, 0);
+        // }
         let mut code = &FSRObject::id_to_obj(self.get_cur_frame().code)
             .as_code()
             .get_bytecode()

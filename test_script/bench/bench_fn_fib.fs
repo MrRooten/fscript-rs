@@ -1,12 +1,8 @@
 fn fib(n) {
-    if n == 1 or n == 2 {
-        return 1
-    }
-
-    return fib(n - 1) + fib(n - 2)
+    return 1
 }
 
-for i in 0..3000000 {
+for i in (0..3000000).true_iter() {
     fib(2)
 }
 
