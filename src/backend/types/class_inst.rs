@@ -8,8 +8,7 @@ use ahash::AHashMap;
 use super::base::{AtomicObjId, FSRObject, FSRValue, ObjId};
 
 pub struct FSRClassInst<'a> {
-    #[allow(unused)]
-    name: Arc<String>,
+    //name: Arc<String>,
     attrs: AHashMap<&'a str, AtomicObjId>,
 }
 
@@ -24,7 +23,7 @@ impl Debug for FSRClassInst<'_> {
             new_hash.insert(kv.0, obj);
         }
         f.debug_struct("FSRClassInst")
-            .field("name", &self.name)
+            //.field("name", &self.name)
             .field("attrs", &new_hash)
             .finish()
     }
@@ -33,7 +32,7 @@ impl Debug for FSRClassInst<'_> {
 impl<'a> FSRClassInst<'a> {
     pub fn new(name: Arc<String>) -> FSRClassInst<'a> {
         Self {
-            name,
+            //name,
             attrs: AHashMap::new(),
         }
     }
@@ -62,7 +61,7 @@ impl<'a> FSRClassInst<'a> {
         self.attrs.values()
     }
 
-    pub fn get_cls_name(&self) -> &str {
-        self.name.as_str()
-    }
+    // pub fn get_cls_name(&self) -> &str {
+    //     self.name.as_str()
+    // }
 }

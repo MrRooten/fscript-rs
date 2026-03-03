@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
+        compiler::bytecode::FastAttr,
         types::{
             any::{ExtensionTrait, FSRExtension},
             base::{FSRObject, FSRValue, ObjId},
@@ -32,7 +32,7 @@ impl FSRIterator for FSREnumerateIter {
     fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
         let prev_iterator = FSRObject::id_to_obj(self.prev_iterator);
         let next_method_id = prev_iterator
-            .get_cls_offset_attr(BinaryOffset::NextObject)
+            .get_cls_offset_attr(FastAttr::NextObject)
             .unwrap()
             .load(std::sync::atomic::Ordering::Relaxed);
         let next_method = FSRObject::id_to_obj(next_method_id);

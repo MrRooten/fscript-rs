@@ -2,7 +2,7 @@ use std::{ops::Range, sync::atomic::AtomicUsize};
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset, memory::GarbageCollector, types::base::FSRObject,
+        compiler::bytecode::FastAttr, memory::GarbageCollector, types::base::FSRObject,
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
     }, std::iterator::{enumerate::FSREnumerateIter, filter_iter::FSRFilterIter, map_iter::FSRMapIter}, to_rs_list, utils::error::FSRError
 };
@@ -253,7 +253,8 @@ impl FSRRange {
     pub fn get_class() -> FSRClass {
         let mut r = FSRClass::new("Range");
         let iter = FSRFn::from_rust_fn_static(iter_obj, "range_iter");
-        r.insert_attr("__iter__", iter);
+        // r.insert_attr("__iter__", iter);
+        r.insert_offset_attr(FastAttr::Iterator, iter);
         let filter = FSRFn::from_rust_fn_static(filter, "range_filter");
         r.insert_attr("filter", filter);
         let map = FSRFn::from_rust_fn_static(map, "range_map");

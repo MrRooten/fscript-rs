@@ -14,8 +14,11 @@
 
 # abc()
 from itertools import repeat
-def fib(n):
-    return 1
+def fib(a):
+    if a == 1 or a == 2:
+        return a
+    
+    return a
 
 for i in repeat(None, 3000000):
-    fib(2)
+    fib(1)

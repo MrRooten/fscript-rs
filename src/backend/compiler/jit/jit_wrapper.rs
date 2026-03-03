@@ -2,7 +2,7 @@ use std::{ops::Range, sync::atomic::Ordering};
 
 use crate::{
     backend::{
-        compiler::bytecode::{BinaryOffset, CompareOperator, FSRSType},
+        compiler::bytecode::{FastAttr, CompareOperator, FSRSType},
         types::{
             base::{FSRObject, FSRValue, GlobalObj, ObjId}, integer::FSRInteger, iterator::next_obj, list::FSRList, range::FSRRange, string::FSRString
         },
@@ -133,7 +133,7 @@ pub extern "C" fn compare_test(
 pub extern "C" fn binary_op(
     left: ObjId,
     right: ObjId,
-    op: BinaryOffset,
+    op: FastAttr,
     code: ObjId,
     thread: &mut FSRThreadRuntime,
 ) -> ObjId {
@@ -203,7 +203,7 @@ pub extern "C" fn getter(
     let container_obj = FSRObject::id_to_obj(container);
     let index = FSRObject::id_to_obj(index_obj);
 
-    if let Some(rust_fn) = obj_cls!(container).get_rust_fn(BinaryOffset::GetItem) {
+    if let Some(rust_fn) = obj_cls!(container).get_rust_fn(FastAttr::GetItem) {
         let list = [container, index_obj];
         return rust_fn(list.as_ptr(), 2, thread).unwrap().get_id();
     }

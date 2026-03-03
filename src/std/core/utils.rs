@@ -118,9 +118,9 @@ pub fn fsr_fn_type(
             gid(GlobalObj::StringCls),
         ))),
         FSRValue::ClassInst(fsrclass_inst) => {
-            let name = fsrclass_inst.get_cls_name();
+            //let name = fsrclass_inst.get_cls_name();
             Ok(FSRRetValue::GlobalId(thread.garbage_collect.new_object(
-                FSRString::new_value(name),
+                FSRString::new_value(obj.cls.get_name()),
                 gid(GlobalObj::StringCls),
             )))
         }

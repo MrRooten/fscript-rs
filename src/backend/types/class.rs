@@ -5,7 +5,7 @@ use std::{
 
 use ahash::AHashMap;
 
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::base::{FSRRetValue, GlobalObj}, vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM}}, to_rs_list, utils::error::FSRError};
+use crate::{backend::{compiler::bytecode::FastAttr, types::base::{FSRRetValue, GlobalObj}, vm::{thread::FSRThreadRuntime, virtual_machine::FSRVM}}, to_rs_list, utils::error::FSRError};
 
 use super::{
     base::{AtomicObjId, FSRObject, FSRValue, ObjId},
@@ -268,7 +268,7 @@ impl FSRClass {
 
     /// Inserts an attribute with a given offset.
     /// Can be overridden by the class.
-    pub fn insert_offset_attr(&mut self, offset: BinaryOffset, object: FSRObject<'_>) {
+    pub fn insert_offset_attr(&mut self, offset: FastAttr, object: FSRObject<'_>) {
         if self.offset_attrs.len() <= offset as usize {
             self.offset_attrs.resize_with(offset as usize + 1, || None);
         }
@@ -289,12 +289,12 @@ impl FSRClass {
     }
 
     #[inline(always)]
-    pub fn get_rust_fn(&self, offset: BinaryOffset) -> Option<FSRRustFn> {
+    pub fn get_rust_fn(&self, offset: FastAttr) -> Option<FSRRustFn> {
         // self.offset_rust_fn.get(offset as usize).and_then(|s| s.as_ref())
         self.offset_rust_fn[offset as usize]
     }
 
-    pub fn insert_offset_attr_obj_id(&mut self, offset: BinaryOffset, id: ObjId) {
+    pub fn insert_offset_attr_obj_id(&mut self, offset: FastAttr, id: ObjId) {
         if self.offset_attrs.len() <= offset as usize {
             self.offset_attrs.resize_with(offset as usize + 1, || None);
         }
@@ -320,7 +320,7 @@ impl FSRClass {
     }
 
     #[inline]
-    pub fn get_offset_attr(&self, offset: BinaryOffset) -> Option<&AtomicObjId> {
+    pub fn get_offset_attr(&self, offset: FastAttr) -> Option<&AtomicObjId> {
         let s = self.offset_attrs.get(offset as usize)?;
         if s.is_none() {
             return None;
@@ -330,7 +330,7 @@ impl FSRClass {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    pub fn try_get_offset_attr(&self, offset: BinaryOffset) -> Option<&AtomicObjId> {
+    pub fn try_get_offset_attr(&self, offset: FastAttr) -> Option<&AtomicObjId> {
         match self.get_offset_attr(offset) {
             Some(s) => Some(s),
             None => self.get_attr(offset.alias_name()),

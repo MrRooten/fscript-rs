@@ -20,7 +20,7 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
+                ArgType, FastAttr, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
                 FSRSType, FnCallSig, LocalVar, OpAssign,
             },
             jit::jit_wrapper::{
@@ -1033,26 +1033,26 @@ impl JitBuilder<'_> {
         binary_op_sig
     }
 
-    fn load_binary_op(&mut self, context: &mut OperatorContext, op: BinaryOffset) {
+    fn load_binary_op(&mut self, context: &mut OperatorContext, op: FastAttr) {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
             let ret = match op {
-                BinaryOffset::Add => {
+                FastAttr::Add => {
                     // For addition, we can use integer addition directly
                     self.builder.ins().iadd(left, right)
                 }
-                BinaryOffset::Sub => {
+                FastAttr::Sub => {
                     // For subtraction, we can use integer subtraction directly
                     self.builder.ins().isub(left, right)
                 }
-                BinaryOffset::Mul => {
+                FastAttr::Mul => {
                     // For multiplication, we can use integer multiplication directly
                     self.builder.ins().imul(left, right)
                 }
-                BinaryOffset::Div => {
+                FastAttr::Div => {
                     // For division, we can use integer division directly
                     self.builder.ins().sdiv(left, right)
                 }
-                BinaryOffset::Reminder => {
+                FastAttr::Reminder => {
                     // For modulus, we can use integer remainder directly
                     self.builder.ins().srem(left, right)
                 }
@@ -2566,19 +2566,19 @@ impl JitBuilder<'_> {
                     self.assign_process(context, arg);
                 }
                 BytecodeOperator::BinaryAdd => {
-                    self.load_binary_op(context, BinaryOffset::Add);
+                    self.load_binary_op(context, FastAttr::Add);
                 }
                 BytecodeOperator::BinarySub => {
-                    self.load_binary_op(context, BinaryOffset::Sub);
+                    self.load_binary_op(context, FastAttr::Sub);
                 }
                 BytecodeOperator::BinaryMul => {
-                    self.load_binary_op(context, BinaryOffset::Mul);
+                    self.load_binary_op(context, FastAttr::Mul);
                 }
                 BytecodeOperator::BinaryDiv => {
-                    self.load_binary_op(context, BinaryOffset::Div);
+                    self.load_binary_op(context, FastAttr::Div);
                 }
                 BytecodeOperator::BinaryReminder => {
-                    self.load_binary_op(context, BinaryOffset::Reminder);
+                    self.load_binary_op(context, FastAttr::Reminder);
                 }
                 BytecodeOperator::AssignArgs => {
                     if is_entry {

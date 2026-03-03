@@ -38,7 +38,7 @@ pub struct FSRFnInner {
     fn_ip: (usize, usize),
     pub(crate) jit_code: Option<usize>,
     pub(crate) is_async: bool,
-    //bytecode: &'a Bytecode,
+    pub(crate) max_local_id: u64, //bytecode: &'a Bytecode,
 }
 
 impl FSRFnInner {
@@ -92,6 +92,7 @@ pub struct FnDesc {
     pub(crate) jit_code: Option<*const u8>,
     pub(crate) is_async: bool,
     pub(crate) const_map: Arc<IndexMapObj>,
+    pub(crate) max_local_id: u64,
 }
 
 impl<'a> FSRFn<'a> {
@@ -165,6 +166,7 @@ impl<'a> FSRFn<'a> {
             fn_ip: (0, 0),
             jit_code: None,
             is_async: false,
+            max_local_id: 4,
         };
 
         let v = Self {
@@ -183,6 +185,7 @@ impl<'a> FSRFn<'a> {
             fn_ip: fn_desc.u,
             jit_code: fn_desc.jit_code.map(|x| x as usize),
             is_async: fn_desc.is_async,
+            max_local_id: fn_desc.max_local_id,
         };
 
         let c = if fn_desc.fn_id != 0 {
@@ -240,37 +243,6 @@ impl<'a> FSRFn<'a> {
         FSRClass::new_without_method("Fn")
     }
 
-    pub fn call_jit(
-        f: &FSRFnInner,
-        thread: &mut FSRThreadRuntime<'a>,
-        fn_id: ObjId,
-        args: &[ObjId],
-        code: ObjId,
-    ) -> ObjId {
-        let jit_code = *f.jit_code.as_ref().unwrap();
-        let jit_code = jit_code as *const u8;
-        let frame = thread
-            .frame_free_list
-            .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
-        thread.push_frame(
-            frame,
-            index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),
-        );
-        for arg in args.iter() {
-            thread.get_cur_mut_frame().args.push(*arg);
-        }
-        let call_fn = unsafe {
-            std::mem::transmute::<
-                _,
-                extern "C" fn(&mut FSRThreadRuntime<'a>, ObjId, *const ObjId, i32) -> ObjId,
-            >(jit_code)
-        };
-        let res = call_fn(thread, code, args.as_ptr(), args.len() as i32);
-        let v = thread.pop_frame();
-        thread.frame_free_list.free(v);
-        res
-    }
-
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn invoke(
         &self,
@@ -286,7 +258,9 @@ impl<'a> FSRFn<'a> {
                 return v;
             }
             FSRnE::FSRFn(f) => {
-                let frame = thread.frame_free_list.new_frame(self.code, fn_id);
+                let frame = thread
+                    .frame_free_list
+                    .new_frame(self.code, fn_id, f.max_local_id);
                 thread.push_frame(
                     frame,
                     index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),

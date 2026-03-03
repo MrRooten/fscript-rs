@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
+        compiler::bytecode::FastAttr,
         types::{
             base::{FSRObject, FSRRetValue, FSRValue, GlobalObj, ObjId},
             class::FSRClass,
@@ -36,11 +36,11 @@ impl FSRInnerBytes {
     pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Bytes");
         cls.insert_offset_attr(
-            BinaryOffset::GetItem,
+            FastAttr::GetItem,
             FSRFn::from_rust_fn_static(get_sub_bytes, "bytes_get_sub_bytes"),
         );
         cls.insert_offset_attr(
-            BinaryOffset::SetItem,
+            FastAttr::SetItem,
             FSRFn::from_rust_fn_static(set_item, "bytes_set_item"),
         );
 

@@ -9,7 +9,7 @@ use ahash::AHasher;
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
+        compiler::bytecode::FastAttr,
         memory::GarbageCollector,
         types::{base::FSRValue, bytes::FSRInnerBytes},
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
@@ -638,17 +638,17 @@ impl FSRString {
         cls.insert_attr("len", len_m);
         let add_fn = FSRFn::from_rust_fn_static(add, "string_add");
         //cls.insert_attr("__add__", add_fn);
-        cls.insert_offset_attr(BinaryOffset::Add, add_fn);
+        cls.insert_offset_attr(FastAttr::Add, add_fn);
 
         let eq_fn = FSRFn::from_rust_fn_static(equal, "string_eq");
         //cls.insert_attr("__add__", add_fn);
-        cls.insert_offset_attr(BinaryOffset::Equal, eq_fn);
+        cls.insert_offset_attr(FastAttr::Equal, eq_fn);
 
         let neq_fn = FSRFn::from_rust_fn_static(neq, "string_neq");
-        cls.insert_offset_attr(BinaryOffset::NotEqual, neq_fn);
+        cls.insert_offset_attr(FastAttr::NotEqual, neq_fn);
 
         cls.insert_offset_attr(
-            BinaryOffset::GetItem,
+            FastAttr::GetItem,
             FSRFn::from_rust_fn_static(get_sub_char, "string_get_sub_char"),
         );
 
@@ -656,7 +656,7 @@ impl FSRString {
         cls.insert_attr("__iter__", iter);
 
         let hash = FSRFn::from_rust_fn_static(hash_string, "string_hash");
-        cls.insert_offset_attr(BinaryOffset::Hash, hash);
+        cls.insert_offset_attr(FastAttr::Hash, hash);
 
         let split = FSRFn::from_rust_fn_static(split, "string_split");
         cls.insert_attr("split", split);

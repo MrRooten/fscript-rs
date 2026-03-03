@@ -7,7 +7,7 @@ use ahash::AHashMap;
 
 use crate::{
     backend::{
-        compiler::bytecode::{BinaryOffset, CompareOperator},
+        compiler::bytecode::{FastAttr, CompareOperator},
         memory::GarbageCollector,
         types::{
             base::{FSRObject, FSRValue},
@@ -385,7 +385,7 @@ pub fn sort_key(
             if let FSRValue::Integer(i) = &obj.value {
                 return *i;
             } else {
-                let ord_fn = obj.get_cls_offset_attr(BinaryOffset::Order);
+                let ord_fn = obj.get_cls_offset_attr(FastAttr::Order);
                 let ord_fn = match ord_fn {
                     Some(f) => f,
                     None => {
@@ -601,7 +601,7 @@ pub fn equal(
                 let obj_id = id.load(Ordering::Relaxed);
                 let obj = FSRObject::id_to_obj(obj_id);
                 let eq_fn_id = obj
-                    .get_cls_offset_attr(BinaryOffset::Equal)
+                    .get_cls_offset_attr(FastAttr::Equal)
                     .unwrap()
                     .load(Ordering::Relaxed);
                 let eq_fn = FSRObject::id_to_obj(eq_fn_id);
@@ -630,7 +630,7 @@ impl FSRList {
         let sort_fn = FSRFn::from_rust_fn_static(sort, "list_iter");
         cls.insert_attr("sort", sort_fn);
         let get_item = FSRFn::from_rust_fn_static(get_item, "list_get_item");
-        cls.insert_offset_attr(BinaryOffset::GetItem, get_item);
+        cls.insert_offset_attr(FastAttr::GetItem, get_item);
         let sort_by_fn = FSRFn::from_rust_fn_static(sort_by, "list_sort_by");
         cls.insert_attr("sort_by", sort_by_fn);
         let push_fn = FSRFn::from_rust_fn_static(push, "list_push");
@@ -642,11 +642,11 @@ impl FSRList {
         let map_fn = FSRFn::from_rust_fn_static(map, "list_map");
         cls.insert_attr("map", map_fn);
         let equal_fn = FSRFn::from_rust_fn_static(equal, "list_equal");
-        cls.insert_offset_attr(BinaryOffset::Equal, equal_fn);
+        cls.insert_offset_attr(FastAttr::Equal, equal_fn);
         let filter_fn = FSRFn::from_rust_fn_static(filter, "list_filter");
         cls.insert_attr("filter", filter_fn);
         let set_item = FSRFn::from_rust_fn_static(set_item, "list_set_item");
-        cls.insert_offset_attr(BinaryOffset::SetItem, set_item);
+        cls.insert_offset_attr(FastAttr::SetItem, set_item);
         let extend_fn = FSRFn::from_rust_fn_static(extend, "list_extend");
         cls.insert_attr("extend", extend_fn);
         let swap_fn = FSRFn::from_rust_fn_static(swap, "list_swap");

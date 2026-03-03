@@ -2,7 +2,7 @@ use std::{any::Any, fmt::Debug, sync::atomic::Ordering};
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
+        compiler::bytecode::FastAttr,
         memory::GarbageCollector,
         types::{asynclib::future::poll_future, list::FSRList},
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
@@ -56,7 +56,7 @@ pub fn next_obj(
             let cls = from_obj.cls;
             // let cls = FSRObject::id_to_obj(cls);
             // let cls = cls.as_class();
-            let v = cls.get_offset_attr(BinaryOffset::Index);
+            let v = cls.get_offset_attr(FastAttr::Index);
             if let Some(obj_id) = v {
                 let obj_id = obj_id.load(Ordering::Relaxed);
                 let obj = FSRObject::id_to_obj(obj_id);
@@ -316,7 +316,7 @@ impl FSRInnerIterator {
         let next = FSRFn::from_rust_fn_static(next_obj, "inner_iterator_next");
 
         // cls.insert_attr("__next__", next);
-        cls.insert_offset_attr(BinaryOffset::NextObject, next);
+        cls.insert_offset_attr(FastAttr::NextObject, next);
         let map = FSRFn::from_rust_fn_static(map, "inner_iterator_map");
         cls.insert_attr("map", map);
         let filter = FSRFn::from_rust_fn_static(filter, "inner_iterator_filter");

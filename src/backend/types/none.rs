@@ -1,4 +1,4 @@
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, to_rs_list, utils::error::FSRError};
+use crate::{backend::{compiler::bytecode::FastAttr, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, to_rs_list, utils::error::FSRError};
 
 use super::{base::{GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
@@ -48,9 +48,9 @@ impl FSRNone {
     pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("None");
         let not_eq = FSRFn::from_rust_fn_static(not_equal, "none_not_eq");
-        cls.insert_offset_attr(BinaryOffset::NotEqual, not_eq);
+        cls.insert_offset_attr(FastAttr::NotEqual, not_eq);
         let eq = FSRFn::from_rust_fn_static(equal, "none_eq");
-        cls.insert_offset_attr(BinaryOffset::Equal, eq);
+        cls.insert_offset_attr(FastAttr::Equal, eq);
         cls
     }
 }

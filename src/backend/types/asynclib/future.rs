@@ -192,7 +192,7 @@ impl FSRFuture {
         cls.insert_attr("poll", poll);
         let next_obj = FSRFn::from_rust_fn_static(next_obj, "future_next");
         cls.insert_offset_attr(
-            crate::backend::compiler::bytecode::BinaryOffset::NextObject,
+            crate::backend::compiler::bytecode::FastAttr::NextObject,
             next_obj,
         );
         let send = FSRFn::from_rust_fn_static(send_value, "future_send");

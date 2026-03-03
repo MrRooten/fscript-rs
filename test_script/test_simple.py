@@ -1,8 +1,14 @@
-def test():
-    a = [1, 2, None, 3]
-    for i in a:
-        yield i
+# fn fib(a) {
+    
+# }
 
+# for i in (0..3000000).true_iter() {
+#     for b in 0..3 {
+        
+#     }
+# }
 
-for i in test():
-    print(i)
+from itertools import repeat
+for i in repeat(None, 3000000):
+    for b in range(3):
+        pass

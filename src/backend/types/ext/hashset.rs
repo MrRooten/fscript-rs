@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
+        compiler::bytecode::FastAttr,
         memory::GarbageCollector,
         types::{
             any::{ExtensionTrait, FSRExtension},
@@ -620,7 +620,7 @@ impl FSRHashSet {
         let key_obj = FSRObject::id_to_obj(key);
         let cls = key_obj.cls;
         let hash_fn_id = key_obj
-            .get_cls_offset_attr(BinaryOffset::Hash)
+            .get_cls_offset_attr(FastAttr::Hash)
             .unwrap()
             .load(std::sync::atomic::Ordering::Relaxed);
         let hash_fn = FSRObject::id_to_obj(hash_fn_id);
@@ -652,7 +652,7 @@ impl FSRHashSet {
             let res = self.get_mut(hash).unwrap();
             for save_item in res.iter() {
                 let eq_fn_id = FSRObject::id_to_obj(key)
-                    .get_cls_offset_attr(BinaryOffset::Equal)
+                    .get_cls_offset_attr(FastAttr::Equal)
                     .unwrap()
                     .load(std::sync::atomic::Ordering::Relaxed);
                 let eq_fn = FSRObject::id_to_obj(eq_fn_id);
@@ -685,7 +685,7 @@ impl FSRHashSet {
             }
 
             let eq_fn_id = FSRObject::id_to_obj(save_key)
-                .get_cls_offset_attr(BinaryOffset::Equal)
+                .get_cls_offset_attr(FastAttr::Equal)
                 .unwrap()
                 .load(std::sync::atomic::Ordering::Relaxed);
             let eq_fn = FSRObject::id_to_obj(eq_fn_id);
@@ -704,7 +704,7 @@ impl FSRHashSet {
     pub fn remove(&mut self, key: ObjId, thread: &mut FSRThreadRuntime) {
         let key_obj = FSRObject::id_to_obj(key);
         let hash_fn_id = key_obj
-            .get_cls_offset_attr(BinaryOffset::Hash)
+            .get_cls_offset_attr(FastAttr::Hash)
             .unwrap()
             .load(std::sync::atomic::Ordering::Relaxed);
 
@@ -739,7 +739,7 @@ impl FSRHashSet {
             }
 
             let eq_fn_id = FSRObject::id_to_obj(save_key)
-                .get_cls_offset_attr(BinaryOffset::Equal)
+                .get_cls_offset_attr(FastAttr::Equal)
                 .unwrap()
                 .load(std::sync::atomic::Ordering::Relaxed);
             let eq_fn = FSRObject::id_to_obj(eq_fn_id);
@@ -766,7 +766,7 @@ impl FSRHashSet {
         let insert = FSRFn::from_rust_fn_static(fsr_fn_hashset_insert, "insert");
         cls.insert_attr("insert", insert);
         let set_item = FSRFn::from_rust_fn_static(fsr_fn_hashset_insert, "hashset__setitem__");
-        cls.insert_offset_attr(BinaryOffset::SetItem, set_item);
+        cls.insert_offset_attr(FastAttr::SetItem, set_item);
         let iter = FSRFn::from_rust_fn_static(fsr_fn_hashset_iter, "iter");
         cls.insert_attr("__iter__", iter);
         let contains = FSRFn::from_rust_fn_static(fsr_fn_hashset_contains, "contains");
@@ -775,7 +775,7 @@ impl FSRHashSet {
         cls.insert_attr("remove", remove);
         let get_item_ref =
             FSRFn::from_rust_fn_static(fsr_fn_hashset_get_reference, "__getitem__ref");
-        cls.insert_offset_attr(BinaryOffset::GetItem, get_item_ref);
+        cls.insert_offset_attr(FastAttr::GetItem, get_item_ref);
         let to_str = FSRFn::from_rust_fn_static(hashset_string, "to_string");
         cls.insert_attr("__str__", to_str);
         

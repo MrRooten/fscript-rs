@@ -97,6 +97,7 @@ pub struct FSRError {
 }
 
 impl FSRError {
+    #[cold]
     pub fn new(msg: impl Into<String>, code: FSRErrCode) -> Self {
         Self {
             inner: Box::new(ErrorStruct {
@@ -106,6 +107,7 @@ impl FSRError {
         }
     }
 
+    #[cold]
     pub fn new_runtime_error(exception: ObjId) -> Self {
         Self {
             inner: Box::new(ErrorStruct {

@@ -124,7 +124,7 @@ impl FSRPos {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-pub enum BinaryOffset {
+pub enum FastAttr {
     Add = 0,
     Sub = 1,
     Mul = 2,
@@ -142,58 +142,61 @@ pub enum BinaryOffset {
     Order = 14,
     Hash = 15,
     Reminder = 16,
+    Iterator = 17
 }
 
-impl BinaryOffset {
+impl FastAttr {
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn alias_name(&self) -> &'static str {
         match self {
-            BinaryOffset::Add => "__add__",
-            BinaryOffset::Sub => "__sub__",
-            BinaryOffset::Mul => "__mul__",
-            BinaryOffset::Greater => "__gt__",
-            BinaryOffset::GreatEqual => "__gte__",
-            BinaryOffset::Less => "__lt__",
-            BinaryOffset::LessEqual => "__lte__",
-            BinaryOffset::Equal => "__eq__",
-            BinaryOffset::NotEqual => "__neq__",
-            BinaryOffset::NextObject => "__next__",
-            BinaryOffset::GetItem => "__get__",
-            BinaryOffset::SetItem => "__set__",
-            BinaryOffset::Div => "__div__",
-            BinaryOffset::Index => "__index__",
-            BinaryOffset::Order => "__ord__",
-            BinaryOffset::Hash => "__hash__",
-            BinaryOffset::Reminder => "__reminder__",
+            FastAttr::Add => "__add__",
+            FastAttr::Sub => "__sub__",
+            FastAttr::Mul => "__mul__",
+            FastAttr::Greater => "__gt__",
+            FastAttr::GreatEqual => "__gte__",
+            FastAttr::Less => "__lt__",
+            FastAttr::LessEqual => "__lte__",
+            FastAttr::Equal => "__eq__",
+            FastAttr::NotEqual => "__neq__",
+            FastAttr::NextObject => "__next__",
+            FastAttr::GetItem => "__get__",
+            FastAttr::SetItem => "__set__",
+            FastAttr::Div => "__div__",
+            FastAttr::Index => "__index__",
+            FastAttr::Order => "__ord__",
+            FastAttr::Hash => "__hash__",
+            FastAttr::Reminder => "__reminder__",
+            FastAttr::Iterator => "__iter__",
         }
     }
 
     pub fn from_alias_name(name: &str) -> Option<Self> {
         match name {
-            "__add__" => Some(BinaryOffset::Add),
-            "__sub__" => Some(BinaryOffset::Sub),
-            "__mul__" => Some(BinaryOffset::Mul),
-            "__gt__" => Some(BinaryOffset::Greater),
-            "__gte__" => Some(BinaryOffset::GreatEqual),
-            "__lt__" => Some(BinaryOffset::Less),
-            "__lte__" => Some(BinaryOffset::LessEqual),
-            "__eq__" => Some(BinaryOffset::Equal),
-            "__neq__" => Some(BinaryOffset::NotEqual),
-            "__next__" => Some(BinaryOffset::NextObject),
-            "__get__" => Some(BinaryOffset::GetItem),
-            "__set__" => Some(BinaryOffset::SetItem),
-            "__div__" => Some(BinaryOffset::Div),
-            "__index__" => Some(BinaryOffset::Index),
-            "__ord__" => Some(BinaryOffset::Order),
-            "__hash__" => Some(BinaryOffset::Hash),
-            "__reminder__" => Some(BinaryOffset::Reminder),
+            "__add__" => Some(FastAttr::Add),
+            "__sub__" => Some(FastAttr::Sub),
+            "__mul__" => Some(FastAttr::Mul),
+            "__gt__" => Some(FastAttr::Greater),
+            "__gte__" => Some(FastAttr::GreatEqual),
+            "__lt__" => Some(FastAttr::Less),
+            "__lte__" => Some(FastAttr::LessEqual),
+            "__eq__" => Some(FastAttr::Equal),
+            "__neq__" => Some(FastAttr::NotEqual),
+            "__next__" => Some(FastAttr::NextObject),
+            "__get__" => Some(FastAttr::GetItem),
+            "__set__" => Some(FastAttr::SetItem),
+            "__div__" => Some(FastAttr::Div),
+            "__index__" => Some(FastAttr::Index),
+            "__ord__" => Some(FastAttr::Order),
+            "__hash__" => Some(FastAttr::Hash),
+            "__reminder__" => Some(FastAttr::Reminder),
+            "__iter__" => Some(FastAttr::Iterator),
             _ => None,
         }
     }
 }
 
-impl From<BinaryOffset> for usize {
-    fn from(val: BinaryOffset) -> Self {
+impl From<FastAttr> for usize {
+    fn from(val: FastAttr) -> Self {
         val as usize
     }
 }
@@ -353,21 +356,30 @@ pub enum CompareOperator {
     LessEqual,
 }
 
-impl TryFrom<i64> for CompareOperator {
+impl TryFrom<u32> for CompareOperator {
     type Error = FSRError;
 
-    fn try_from(value: i64) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(CompareOperator::Equal),
-            1 => Ok(CompareOperator::NotEqual),
-            2 => Ok(CompareOperator::Greater),
-            3 => Ok(CompareOperator::GreaterEqual),
-            4 => Ok(CompareOperator::Less),
-            5 => Ok(CompareOperator::LessEqual),
-            _ => Err(FSRError::new(
-                format!("Invalid compare operator value: {}", value),
-                FSRErrCode::NotValidArgs,
-            )),
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        // match value {
+        //     0 => Ok(CompareOperator::Equal),
+        //     1 => Ok(CompareOperator::NotEqual),
+        //     2 => Ok(CompareOperator::Greater),
+        //     3 => Ok(CompareOperator::GreaterEqual),
+        //     4 => Ok(CompareOperator::Less),
+        //     5 => Ok(CompareOperator::LessEqual),
+        //     _ => Err(FSRError::new(
+        //         format!("Invalid compare operator value: {}", value),
+        //         FSRErrCode::NotValidArgs,
+        //     )),
+        // }
+        unsafe {
+            if value < 0 || value > 5 {
+                return Err(FSRError::new(
+                    format!("Invalid compare operator value: {}", value),
+                    FSRErrCode::NotValidArgs,
+                ));
+            }
+            Ok(std::mem::transmute(value))
         }
     }
 }
@@ -386,14 +398,14 @@ impl CompareOperator {
     }
 
     #[inline]
-    pub fn op_to_binary_offset(&self) -> BinaryOffset {
+    pub fn op_to_binary_offset(&self) -> FastAttr {
         match self {
-            CompareOperator::Equal => BinaryOffset::Equal,
-            CompareOperator::NotEqual => BinaryOffset::NotEqual,
-            CompareOperator::Greater => BinaryOffset::Greater,
-            CompareOperator::GreaterEqual => BinaryOffset::GreatEqual,
-            CompareOperator::Less => BinaryOffset::Less,
-            CompareOperator::LessEqual => BinaryOffset::LessEqual,
+            CompareOperator::Equal => FastAttr::Equal,
+            CompareOperator::NotEqual => FastAttr::NotEqual,
+            CompareOperator::Greater => FastAttr::Greater,
+            CompareOperator::GreaterEqual => FastAttr::GreatEqual,
+            CompareOperator::Less => FastAttr::Less,
+            CompareOperator::LessEqual => FastAttr::LessEqual,
         }
     }
 
@@ -435,13 +447,13 @@ impl FromStr for OpAssign {
 }
 
 impl OpAssign {
-    pub fn get_offset(&self) -> BinaryOffset {
+    pub fn get_offset(&self) -> FastAttr {
         match self {
-            OpAssign::Add => BinaryOffset::Add,
-            OpAssign::Sub => BinaryOffset::Sub,
-            OpAssign::Mul => BinaryOffset::Mul,
-            OpAssign::Div => BinaryOffset::Div,
-            OpAssign::Reminder => BinaryOffset::Reminder,
+            OpAssign::Add => FastAttr::Add,
+            OpAssign::Sub => FastAttr::Sub,
+            OpAssign::Mul => FastAttr::Mul,
+            OpAssign::Div => FastAttr::Div,
+            OpAssign::Reminder => FastAttr::Reminder,
         }
     }
 }

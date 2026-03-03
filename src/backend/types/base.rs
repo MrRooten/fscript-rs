@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
+        compiler::bytecode::FastAttr,
         memory::size_alloc::FSRObjectAllocator,
         types::{
             any::ExtensionTrait, asynclib::future::FSRFuture, bytes::FSRInnerBytes, fn_def::FSRnE,
@@ -573,7 +573,7 @@ impl<'a> FSRObject<'a> {
     like BinaryOffset::Add if not -> __add__
      */
     #[inline]
-    pub fn get_cls_offset_attr(&self, offset: BinaryOffset) -> Option<&'a AtomicObjId> {
+    pub fn get_cls_offset_attr(&self, offset: FastAttr) -> Option<&'a AtomicObjId> {
         // let cls_obj = FSRObject::id_to_obj(self.cls);
         // if let FSRValue::Class(cls) = &cls_obj.value {
         //     return cls.try_get_offset_attr(offset);
@@ -664,7 +664,7 @@ impl<'a> FSRObject<'a> {
     //#[cfg_attr(feature = "more_inline", inline(always))]
     #[inline]
     pub fn invoke_offset_method(
-        offset: BinaryOffset,
+        offset: FastAttr,
         args: &[ObjId],
         thread: &mut FSRThreadRuntime<'a>,
         //code: ObjId,

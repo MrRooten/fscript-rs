@@ -1,4 +1,4 @@
-use crate::{backend::{compiler::bytecode::BinaryOffset, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, to_rs_list, utils::error::{FSRErrCode, FSRError}};
+use crate::{backend::{compiler::bytecode::FastAttr, types::{base::FSRRetValue, fn_def::FSRFn}, vm::{thread::FSRThreadRuntime, virtual_machine::gid}}, to_rs_list, utils::error::{FSRErrCode, FSRError}};
 
 use super::{base::{GlobalObj, FSRObject, FSRValue, ObjId}, class::FSRClass};
 
@@ -30,7 +30,7 @@ impl<'a> FSRBool {
     pub fn get_class() -> FSRClass {
         let mut cls = FSRClass::new("Bool");
         let eq = FSRFn::from_rust_fn_static(equal, "bool_eq");
-        cls.insert_offset_attr(BinaryOffset::Equal, eq);
+        cls.insert_offset_attr(FastAttr::Equal, eq);
         cls
     }
 

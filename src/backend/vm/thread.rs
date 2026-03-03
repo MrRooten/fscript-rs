@@ -1,10 +1,17 @@
 #![allow(clippy::ptr_arg)]
 
 use std::{
-    collections::HashMap, num::NonZeroUsize, ops::{Index, Range}, path::PathBuf, str::FromStr, sync::{
+    collections::HashMap,
+    num::NonZeroUsize,
+    ops::{Index, Range},
+    path::PathBuf,
+    str::FromStr,
+    sync::{
         Arc, Condvar, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    }, time::Instant
+        atomic::{AtomicPtr, AtomicUsize, Ordering},
+    },
+    time::Instant,
+    vec,
 };
 
 use cranelift::codegen::ir::Inst;
@@ -14,8 +21,8 @@ use crate::{
     backend::{
         compiler::{
             bytecode::{
-                ArgType, BinaryOffset, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag,
-                FSRSType, FnCallSig, LocalVar, OpAssign,
+                ArgType, BytecodeArg, BytecodeOperator, CompareOperator, FSRDbgFlag, FSRSType,
+                FastAttr, FnArgs, FnCallSig, LocalVar, OpAssign,
             },
             jit::cranelift::CraneLiftJitBackend,
         },
@@ -135,24 +142,26 @@ pub struct IndexIterator<'a> {
 }
 
 type CallArgs = SmallVec<[ObjId; 4]>;
+// type CallArgs = Vec<ObjId>;
 
 #[allow(clippy::new_without_default)]
 #[allow(unused)]
 impl IndexMap {
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn get(&self, i: &u64) -> Option<NonZeroUsize> {
-        match self.vs.get(*i as usize) {
-            Some(Some(s)) => Some(*s),
-            Some(None) => None,
-            None => None,
-        }
+        // match self.vs.get(*i as usize) {
+        //     Some(Some(s)) => Some(*s),
+        //     Some(None) => None,
+        //     None => None,
+        // }
+        self.vs.get(*i as usize).copied().flatten()
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn insert(&mut self, i: u64, v: ObjId) {
         if i as usize >= self.vs.len() {
-            // let new_size = ((i + 1) as f64 * 1.5).ceil() as u64;
-            let new_size = i + 1;
+            let new_size = ((i + 1) as f64 * 1.5).ceil() as u64;
+            // let new_size = i + 1;
             let new_capacity = (new_size) + (4 - (new_size) % 4);
             self.vs.resize_with(new_capacity as usize, || None);
         }
@@ -162,6 +171,12 @@ impl IndexMap {
         //     return;
         // }
         self.vs[i as usize] = Some(NonZeroUsize::new(v).unwrap());
+    }
+
+    pub fn reserve(&mut self, cap: u64) {
+        if cap as usize > self.vs.len() {
+            self.vs.resize_with(cap as usize, || None);
+        }
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -174,7 +189,8 @@ impl IndexMap {
     }
 
     pub fn new() -> Self {
-        Self { vs: vec![] }
+        let default_v = vec![None; 4];
+        Self { vs: default_v }
     }
 
     pub fn iter(&self) -> IndexIterator<'_> {
@@ -353,6 +369,7 @@ pub struct CallFrame {
     pub(crate) future: Option<ObjId>,
     pub(crate) flow_tracker: FlowTracker,
     pub(crate) is_module: bool,
+    pub(crate) bytecode_slot: Option<AtomicPtr<Vec<BytecodeArg>>>,
 }
 
 impl CallFrame {
@@ -378,6 +395,15 @@ impl CallFrame {
         self.is_module = false;
         self.ip = (0, 0);
         //self.last_expr_val = FSRObject::none_id();
+    }
+
+    #[inline]
+    fn get_slot(&self, id: usize) -> Option<&BytecodeArg> {
+        if let Some(slot) = &self.bytecode_slot {
+            let slot = unsafe { &*slot.load(Ordering::Relaxed) };
+            return slot.get(id);
+        }
+        None
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -467,6 +493,7 @@ impl CallFrame {
             flow_tracker: FlowTracker::new(),
             static_args: Vec::new(),
             is_module: false,
+            bytecode_slot: None,
         }
     }
 }
@@ -944,7 +971,7 @@ impl<'a> FSRThreadRuntime<'a> {
         push_middle!(self, container);
         push_middle!(self, index);
         let res = FSRObject::invoke_offset_method(
-            BinaryOffset::GetItem,
+            FastAttr::GetItem,
             &[container, index],
             self,
             //self.get_cur_frame().code,
@@ -974,7 +1001,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //let containter_obj_v = FSRObject::id_to_obj(container_obj);
         let value_obj = if let ArgType::AssignContainer((Some(op_assign), _)) = bytecode.get_arg() {
             let left_value = FSRObject::invoke_offset_method(
-                BinaryOffset::GetItem,
+                FastAttr::GetItem,
                 &[container_obj, index_obj],
                 self,
                 //self.get_cur_frame().code,
@@ -989,7 +1016,7 @@ impl<'a> FSRThreadRuntime<'a> {
             value_obj
         };
         let set_item = FSRObject::id_to_obj(container_obj)
-            .get_cls_offset_attr(BinaryOffset::SetItem)
+            .get_cls_offset_attr(FastAttr::SetItem)
             .unwrap()
             .load(Ordering::Relaxed);
 
@@ -1121,7 +1148,7 @@ impl<'a> FSRThreadRuntime<'a> {
         push_middle!(self, right);
         let args = [left, right];
         let len = args.len();
-        if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Add) {
+        if let Some(rust_fn) = obj_cls!(left).get_rust_fn(FastAttr::Add) {
             let res = rust_fn(args.as_ptr(), len, self)?;
 
             push_exp!(self, res.get_id());
@@ -1130,7 +1157,7 @@ impl<'a> FSRThreadRuntime<'a> {
         }
 
         let res = FSRObject::invoke_offset_method(
-            BinaryOffset::Add,
+            FastAttr::Add,
             &[left, right],
             self,
             //self.get_cur_frame().code,
@@ -1170,7 +1197,7 @@ impl<'a> FSRThreadRuntime<'a> {
         push_middle!(self, left);
 
         let res = FSRObject::invoke_offset_method(
-            BinaryOffset::Sub,
+            FastAttr::Sub,
             &[left, right],
             self,
             //self.get_cur_frame().code,
@@ -1214,7 +1241,7 @@ impl<'a> FSRThreadRuntime<'a> {
         push_middle!(self, left_id);
 
         let res = FSRObject::invoke_offset_method(
-            BinaryOffset::Mul,
+            FastAttr::Mul,
             &[left_id, right_id],
             self,
             //self.get_cur_frame().code,
@@ -1257,7 +1284,7 @@ impl<'a> FSRThreadRuntime<'a> {
         push_middle!(self, left_id);
 
         let res = FSRObject::invoke_offset_method(
-            BinaryOffset::Div,
+            FastAttr::Div,
             &[left_id, right_id],
             self,
             //self.get_cur_frame().code,
@@ -1298,16 +1325,13 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let args = [left_id, right_id];
         let len = args.len();
-        let res = if let Some(rust_fn) = obj_cls!(left_id).get_rust_fn(BinaryOffset::Reminder) {
+        let res = if let Some(rust_fn) = obj_cls!(left_id).get_rust_fn(FastAttr::Reminder) {
             let res = rust_fn(args.as_ptr(), len, self)?;
 
             res
         } else {
-            let res = FSRObject::invoke_offset_method(
-                BinaryOffset::Reminder,
-                &[left_id, right_id],
-                self,
-            )?;
+            let res =
+                FSRObject::invoke_offset_method(FastAttr::Reminder, &[left_id, right_id], self)?;
 
             res
         };
@@ -1508,7 +1532,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         obj_id: ObjId,
         fn_obj: &'a FSRObject<'a>,
-        args: &mut SmallVec<[usize; 4]>,
+        args: &mut CallArgs,
     ) -> Result<(), FSRError> {
         args.push(obj_id);
         args.reverse();
@@ -1520,7 +1544,6 @@ impl<'a> FSRThreadRuntime<'a> {
         // Ok(false)
         Ok(())
     }
-
 
     fn try_get_obj_by_name(&mut self, c_id: u64, name: &str) -> Option<ObjId> {
         {
@@ -1582,9 +1605,9 @@ impl<'a> FSRThreadRuntime<'a> {
         }
         let code = *f.jit_code.as_ref().unwrap();
         let jit_code = code as *const u8;
-        let frame = self
-            .frame_free_list
-            .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+        let frame =
+            self.frame_free_list
+                .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id, 2);
         self.push_frame(
             frame,
             index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),
@@ -1607,9 +1630,9 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn async_call(&mut self, fn_id: ObjId, args: &mut CallArgs) -> Result<RetState, FSRError> {
-        let frame = self
-            .frame_free_list
-            .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id);
+        let frame =
+            self.frame_free_list
+                .new_frame(FSRObject::id_to_obj(fn_id).as_fn().code, fn_id, 2);
         let value = FSRFuture::new_value(fn_id, frame);
         let future_id = self
             .garbage_collect
@@ -1706,21 +1729,13 @@ impl<'a> FSRThreadRuntime<'a> {
         //let mut iret_type = None;
         //let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
         if let ArgType::CallArgsNumber((args_num, ret_type)) = bytecode.get_arg() {
-            //iret_type.clone_from(ret_type);
             Self::call_process_set_args(*args_num, self, &mut args)?;
-            //args.reverse();
-            // } else if let ArgType::CallArgsNumberWithVar(pack) = bytecode.get_arg() {
-            // let fn_id = self.get_call_fn_id()?;
             let fn_id = pop_exp!(self).unwrap();
             push_middle!(self, fn_id);
 
             //self.call_process_ret(fn_id, &mut args, &None, false)
             return self.call_process_ret(fn_id, &mut args, ret_type);
         } else {
-            // let args_num = pack.0;
-            // Self::call_process_set_args(args_num, self, &mut args)?;
-            // var = Some(pack);
-            //args.reverse();
             return Err(FSRError::new(
                 "not support ArgType in call_process",
                 FSRErrCode::NotValidArgs,
@@ -1931,7 +1946,8 @@ impl<'a> FSRThreadRuntime<'a> {
         let iter_id = pop_exp!(self).unwrap();
 
         let iter_obj = FSRObject::id_to_obj(iter_id);
-        let read_iter_id = match iter_obj.get_attr(ITER_METHOD) {
+        let iter_offset = FastAttr::Iterator;
+        let read_iter_id = match iter_obj.get_cls_offset_attr(iter_offset) {
             Some(s) => {
                 let iter_fn = s.load(Ordering::Relaxed);
                 let iter_fn_obj = FSRObject::id_to_obj(iter_fn);
@@ -1944,66 +1960,34 @@ impl<'a> FSRThreadRuntime<'a> {
         push_middle!(self, iter_id);
 
         let ip_0 = self.get_cur_frame().ip.0;
-        self.get_cur_mut_frame()
-            .flow_tracker
-            .break_line
-            .push(ip_0 + bytecode.arg_n as usize);
-        let ip_0 = self.get_cur_frame().ip.0;
-        self.get_cur_mut_frame()
-            .flow_tracker
-            .loop_start_line
-            .push(ip_0 + 1);
+        let tracker = &mut self.get_cur_mut_frame().flow_tracker;
+        tracker.break_line.push(ip_0 + bytecode.arg_n as usize);
+        //let ip_0 = self.get_cur_frame().ip.0;
+        tracker.loop_start_line.push(ip_0 + 1);
 
-        self.get_cur_mut_frame()
-            .flow_tracker
-            .for_iter_obj
-            .push(read_iter_id);
+        tracker.for_iter_obj.push(read_iter_id);
         Ok(RetState::Normal)
     }
 
     fn pre_while(&mut self, n: u64) {
-        if let Some(s) = self
-            .get_cur_mut_frame()
-            .flow_tracker
-            .break_line
-            .last()
-            .cloned()
-        {
-            if self.get_cur_frame().ip.0 + n as usize + 1 != s {
-                let ip_0 = self.get_cur_frame().ip.0;
-                self.get_cur_mut_frame()
-                    .flow_tracker
-                    .break_line
-                    .push(ip_0 + n as usize + 1);
+        let ip_0 = self.get_cur_frame().ip.0;
+        let tracker = &mut self.get_cur_mut_frame().flow_tracker;
+        if let Some(s) = tracker.break_line.last().cloned() {
+            if ip_0 + n as usize + 1 != s {
+                tracker.break_line.push(ip_0 + n as usize + 1);
             }
         } else {
-            let ip_0 = self.get_cur_frame().ip.0;
-            self.get_cur_mut_frame()
-                .flow_tracker
-                .break_line
-                .push(ip_0 + n as usize + 1);
+            tracker.break_line.push(ip_0 + n as usize + 1);
         }
 
-        if let Some(s) = self
-            .get_cur_mut_frame()
-            .flow_tracker
-            .loop_start_line
-            .last()
-            .cloned()
-        {
-            if self.get_cur_frame().ip.0 != s {
-                let ip_0 = self.get_cur_frame().ip.0;
-                self.get_cur_mut_frame()
-                    .flow_tracker
-                    .loop_start_line
-                    .push(ip_0);
+        if let Some(s) = tracker.loop_start_line.last().cloned() {
+            if ip_0 != s {
+                // let ip_0 = self.get_cur_frame().ip.0;
+                tracker.loop_start_line.push(ip_0);
             }
         } else {
-            let ip_0 = self.get_cur_frame().ip.0;
-            self.get_cur_mut_frame()
-                .flow_tracker
-                .loop_start_line
-                .push(ip_0);
+            // let ip_0 = self.get_cur_frame().ip.0;
+            tracker.loop_start_line.push(ip_0);
         }
     }
 
@@ -2095,6 +2079,64 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(res_map)
     }
 
+    fn module_fn_define(
+        self: &mut FSRThreadRuntime<'a>,
+        name: &str,
+        fn_id: ObjId,
+        is_jit: bool,
+        define_fn_obj: ObjId,
+    ) {
+        if is_base_fn!(define_fn_obj) || is_jit {
+            let module = FSRObject::id_to_mut_obj(
+                FSRObject::id_to_obj(self.get_cur_frame().code)
+                    .as_code()
+                    .module,
+            )
+            .unwrap()
+            .as_mut_module();
+            module.register_object(&name, fn_id);
+        }
+    }
+
+    fn fn_store_to_cell(
+        self: &mut FSRThreadRuntime<'a>,
+        fn_args: &FnArgs,
+        fn_id: ObjId,
+        define_fn_obj: ObjId,
+    ) {
+        if fn_args.store_to_cell && !is_base_fn!(define_fn_obj) {
+            let define_fn_obj = self.get_cur_frame().fn_id;
+            let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj)
+                .expect("not a fn obj")
+                .as_mut_fn();
+            if let Some(s) = define_fn_obj.store_cells.get(fn_args.name.as_str()) {
+                s.store(fn_id, Ordering::Relaxed);
+            } else {
+                define_fn_obj
+                    .store_cells
+                    .insert(fn_args.name.as_str(), AtomicObjId::new(fn_id));
+            }
+        }
+    }
+
+    fn fn_class_define(
+        self: &mut FSRThreadRuntime<'a>,
+        fn_args: &FnArgs,
+        fn_id: ObjId,
+        cur_cls: &mut FSRClass,
+    ) {
+        let offset = FastAttr::from_alias_name(fn_args.name.as_str());
+        if let Some(offset) = offset {
+            cur_cls.insert_offset_attr_obj_id(offset, fn_id);
+            self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
+            //return Ok(RetState::BreakCurLine);
+            return;
+        }
+        cur_cls.insert_attr_id(&fn_args.name, fn_id);
+        self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
+        //return Ok(RetState::BreakCurLine);
+    }
+
     fn define_fn(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
@@ -2118,7 +2160,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let fn_code_id = FSRObject::obj_to_id(fn_code);
 
-        let code = module
+        let jit_code = module
             .get_jit_code_map(None, &fn_args.fn_identify_name)
             .map(|x| x.load(Ordering::Relaxed) as *const u8);
         let fn_obj = FSRFn::from_fsr_fn(
@@ -2128,9 +2170,14 @@ impl<'a> FSRThreadRuntime<'a> {
                 args: fn_args.args.clone(),
                 code_obj: fn_code_id,
                 fn_id: self.get_cur_frame().fn_id,
-                jit_code: code,
+                jit_code,
                 is_async: fn_code_inner.get_bytecode().fn_info.is_async,
                 const_map: Arc::new(const_map),
+                max_local_id: fn_code_inner
+                    .get_bytecode()
+                    .var_map
+                    .var_id
+                    .load(Ordering::Relaxed),
             },
         );
 
@@ -2139,7 +2186,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .garbage_collect
             .new_object(fn_obj, gid(GlobalObj::FnCls));
         if let Some(cur_cls) = &mut frame.cur_cls {
-            let offset = BinaryOffset::from_alias_name(fn_args.name.as_str());
+            let offset = FastAttr::from_alias_name(fn_args.name.as_str());
             if let Some(offset) = offset {
                 cur_cls.insert_offset_attr_obj_id(offset, fn_id);
                 self.get_cur_mut_frame().ip = (self.get_cur_frame().ip.0 + 1, 0);
@@ -2153,37 +2200,9 @@ impl<'a> FSRThreadRuntime<'a> {
         frame.insert_var(fn_args.name_id, fn_id);
         let define_fn_obj = self.get_cur_frame().fn_id;
 
-        // if function define in base function, register to module
-        if is_base_fn!(define_fn_obj) || is_jit {
-            let module = FSRObject::id_to_mut_obj(
-                FSRObject::id_to_obj(self.get_cur_frame().code)
-                    .as_code()
-                    .module,
-            )
-            .unwrap()
-            .as_mut_module();
-            module.register_object(&fn_args.name, fn_id);
-            // if is_jit {
-            //     module.jit_code_map.insert(
-            //         fn_args.fn_identify_name.clone(),
-            //         AtomicUsize::new(code.unwrap() as usize),
-            //     );
-            // }
-        }
+        self.module_fn_define(&fn_args.name, fn_id, is_jit, define_fn_obj);
 
-        if fn_args.store_to_cell && !is_base_fn!(define_fn_obj) {
-            let define_fn_obj = self.get_cur_frame().fn_id;
-            let define_fn_obj = FSRObject::id_to_mut_obj(define_fn_obj)
-                .expect("not a fn obj")
-                .as_mut_fn();
-            if let Some(s) = define_fn_obj.store_cells.get(fn_args.name.as_str()) {
-                s.store(fn_id, Ordering::Relaxed);
-            } else {
-                define_fn_obj
-                    .store_cells
-                    .insert(fn_args.name.as_str(), AtomicObjId::new(fn_id));
-            }
-        }
+        self.fn_store_to_cell(fn_args, fn_id, define_fn_obj);
 
         let ip_0 = self.get_cur_frame().ip.0;
         self.get_cur_mut_frame().ip = (ip_0 + 1, 0);
@@ -2194,7 +2213,7 @@ impl<'a> FSRThreadRuntime<'a> {
         left_id: ObjId,
         right_id: ObjId,
         thread: &mut FSRThreadRuntime<'a>,
-        offset: BinaryOffset,
+        offset: FastAttr,
     ) -> Result<ObjId, FSRError> {
         push_middle!(thread, right_id);
         push_middle!(thread, left_id);
@@ -2251,7 +2270,7 @@ impl<'a> FSRThreadRuntime<'a> {
         //         FSRErrCode::NotValidArgs,
         //     ));
         // };
-        let op = bytecode.arg_n.try_into().unwrap();
+        let op = (bytecode.arg_n as u32).try_into().unwrap();
 
         let right_id = pop_exp!(self).unwrap();
         let left_id = pop_exp!(self).unwrap();
@@ -2290,26 +2309,23 @@ impl<'a> FSRThreadRuntime<'a> {
 
         let args = [left, right];
         let len = args.len();
-        if let Some(rust_fn) = obj_cls!(left).get_rust_fn(BinaryOffset::Equal) {
+        let v = if let Some(rust_fn) = obj_cls!(left).get_rust_fn(FastAttr::Equal) {
             let res = rust_fn(args.as_ptr(), len, self)?;
 
-            if res.get_id() == FSRObject::true_id() {
-                push_exp!(self, FSRObject::true_id())
-            } else {
-                push_exp!(self, FSRObject::false_id())
-            }
+            res.get_id() == FSRObject::true_id()
+        } else {
+            let v = FSRObject::invoke_offset_method(
+                FastAttr::Equal,
+                &[left, right],
+                self,
+                //self.get_cur_frame().code,
+            )?
+            .get_id()
+                == FSRObject::true_id();
 
-            return Ok(RetState::Normal);
-        }
+            v
+        };
 
-        let v = FSRObject::invoke_offset_method(
-            BinaryOffset::Equal,
-            &[left, right],
-            self,
-            //self.get_cur_frame().code,
-        )?
-        .get_id()
-            == FSRObject::true_id();
         //};
 
         if v {
@@ -2444,7 +2460,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let cur = self.get_cur_mut_frame();
         cur.ret_val = Some(awaitable_value);
 
-        let code = cur.code;
+        //let code = cur.code;
 
         Ok(RetState::BreakCurLine)
     }
@@ -2802,12 +2818,12 @@ impl<'a> FSRThreadRuntime<'a> {
             crate::backend::types::class::class_default_equal,
             "object_equal",
         );
-        new_cls.insert_offset_attr(BinaryOffset::Equal, default_equal);
+        new_cls.insert_offset_attr(FastAttr::Equal, default_equal);
         let default_not_equal = FSRFn::from_rust_fn_static(
             crate::backend::types::class::class_default_not_equal,
             "object_not_equal",
         );
-        new_cls.insert_offset_attr(BinaryOffset::NotEqual, default_not_equal);
+        new_cls.insert_offset_attr(FastAttr::NotEqual, default_not_equal);
         let state = self.get_cur_mut_frame();
         state.cur_cls = Some(Box::new(new_cls));
 
@@ -2881,11 +2897,7 @@ impl<'a> FSRThreadRuntime<'a> {
                 FSRErrCode::NotValidArgs,
             ));
         };
-        // let module_id = if let Some(s) = self.get_vm().module_manager.get_module(module_name) {
-        //     s
-        // } else {
-        //     Self::load_module(self, module_name)?
-        // };
+
         let module_id = Self::load_module(self, module_name)?;
 
         let state = self.get_cur_mut_frame();
@@ -2957,7 +2969,7 @@ impl<'a> FSRThreadRuntime<'a> {
             crate::backend::types::iterator::next_obj(args.as_ptr(), len, self)?
         } else {
             FSRObject::invoke_offset_method(
-                BinaryOffset::NextObject,
+                FastAttr::NextObject,
                 &[obj],
                 self,
                 //self.get_cur_frame().code,
@@ -3008,9 +3020,6 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<RetState, FSRError> {
         let first = pop_exp!(self).unwrap();
         if first != FSRObject::none_id() && first != FSRObject::false_id() {
-            // let ArgType::AddOffset(offset) = bc.get_arg() else {
-            //     return Err(FSRError::new("not a add offset", FSRErrCode::NotValidArgs));
-            // };
             self.get_cur_mut_frame().ip.1 += bc.arg_n as usize;
             push_exp!(self, FSRObject::true_id());
         }
@@ -3089,9 +3098,11 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn process(&mut self, bytecode: &BytecodeArg) -> Result<RetState, FSRError> {
+    fn match_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<RetState, FSRError> {
         let op = bytecode.get_operator();
-
         let v = match op {
             BytecodeOperator::Assign => Self::assign_process(self, bytecode),
             BytecodeOperator::BinaryAdd => Self::binary_add_process(self),
@@ -3141,10 +3152,7 @@ impl<'a> FSRThreadRuntime<'a> {
             BytecodeOperator::Load => Self::load_var(self, bytecode),
             BytecodeOperator::LoadVar => {
                 // Self::load_local_var(self, bytecode)
-                if let Some(id) = self
-                    .get_cur_frame()
-                    .get_var(&(bytecode.arg_n as u64))
-                {
+                if let Some(id) = self.get_cur_frame().get_var(&(bytecode.arg_n as u64)) {
                     push_exp!(self, id.get());
                     Ok(RetState::Normal)
                 } else {
@@ -3167,6 +3175,12 @@ impl<'a> FSRThreadRuntime<'a> {
                 panic!("not implement for {:#?}", op);
             }
         };
+        v
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    fn process(&mut self, bytecode: &BytecodeArg) -> Result<RetState, FSRError> {
+        let v = self.match_process(bytecode);
 
         let v = match v {
             Ok(o) => o,
@@ -3435,7 +3449,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn run_expr_wrapper(&mut self, expr: &[BytecodeArg]) -> Result<bool, FSRError> {
+    fn run_expr_wrapper(&mut self, expr: &Vec<BytecodeArg>) -> Result<bool, FSRError> {
         // if expr.is_empty() {
         //     self.get_cur_mut_frame().ip.0 += 1;
         //     return Ok(false);
@@ -3490,13 +3504,23 @@ impl<'a> FSRThreadRuntime<'a> {
         println!("after: {:?}", self.get_cur_frame().exp);
     }
 
+    #[inline]
+    fn cache_slot(&mut self, expr: &Vec<BytecodeArg>) {
+        self.get_cur_mut_frame().bytecode_slot = Some(AtomicPtr::new(
+            expr as *const Vec<BytecodeArg> as *mut Vec<BytecodeArg>,
+        ));
+    }
+
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn run_expr(&mut self, expr: &[BytecodeArg]) -> Result<bool, FSRError> {
+    fn run_expr(&mut self, expr: &Vec<BytecodeArg>) -> Result<bool, FSRError> {
         let mut ret;
         //self.pre_expr(expr);
         if self.dbg_flag && !expr.is_empty() {
             self.debugger_process(&expr[0]);
         }
+
+        self.cache_slot(expr);
+
         while let Some(arg) = expr.get(self.get_cur_frame().ip.1) {
             // self.get_cur_mut_frame().ip.1 += 1;
             self.add_1_ip1();
@@ -3549,7 +3573,7 @@ impl<'a> FSRThreadRuntime<'a> {
             .unwrap();
         let code_id = FSRObject::obj_to_id(code);
 
-        let frame = self.frame_free_list.new_frame(code_id, 0);
+        let frame = self.frame_free_list.new_frame(code_id, 0, 2);
         let const_map = Self::get_const_map(self, code.as_code())?;
         self.push_frame(frame, index_map_obj_to_ptr(&const_map));
         //self.unlock_and_lock();

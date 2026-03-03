@@ -6,7 +6,7 @@ use ahash::AHasher;
 
 use crate::{
     backend::{
-        compiler::bytecode::BinaryOffset,
+        compiler::bytecode::FastAttr,
         memory::GarbageCollector,
         types::float::FSRFloat,
         vm::{
@@ -491,40 +491,40 @@ impl<'a> FSRInteger {
         let mut cls = FSRClass::new("Integer");
         let add_fn = FSRFn::from_rust_fn_static(add, "integer_add");
         //cls.insert_attr("__add__", add_fn);
-        cls.insert_offset_attr(BinaryOffset::Add, add_fn);
+        cls.insert_offset_attr(FastAttr::Add, add_fn);
         let sub_fn = FSRFn::from_rust_fn_static(sub, "integer_sub");
         //cls.insert_attr("__sub__", sub_fn);
-        cls.insert_offset_attr(BinaryOffset::Sub, sub_fn);
+        cls.insert_offset_attr(FastAttr::Sub, sub_fn);
 
         let div_fn = FSRFn::from_rust_fn_static(div, "integer_div");
-        cls.insert_offset_attr(BinaryOffset::Div, div_fn);
+        cls.insert_offset_attr(FastAttr::Div, div_fn);
 
         let mul_fn = FSRFn::from_rust_fn_static(mul, "integer_mul");
         //cls.insert_attr("__mul__", mul_fn);
-        cls.insert_offset_attr(BinaryOffset::Mul, mul_fn);
+        cls.insert_offset_attr(FastAttr::Mul, mul_fn);
         let gt_fn = FSRFn::from_rust_fn_static(greater, "integer_gt");
         //cls.insert_attr("__gt__", gt_fn);
-        cls.insert_offset_attr(BinaryOffset::Greater, gt_fn);
+        cls.insert_offset_attr(FastAttr::Greater, gt_fn);
         let gte_fn = FSRFn::from_rust_fn_static(greater_equal, "integer_gte");
         //cls.insert_attr("__gte__", gte_fn);
-        cls.insert_offset_attr(BinaryOffset::GreatEqual, gte_fn);
+        cls.insert_offset_attr(FastAttr::GreatEqual, gte_fn);
         let lt_fn = FSRFn::from_rust_fn_static(less, "integer_lt");
         //cls.insert_attr("__lt__", lt_fn);
-        cls.insert_offset_attr(BinaryOffset::Less, lt_fn);
+        cls.insert_offset_attr(FastAttr::Less, lt_fn);
         let lte_fn = FSRFn::from_rust_fn_static(less_equal, "integer_lte");
         //cls.insert_attr("__lte__", lte_fn);
-        cls.insert_offset_attr(BinaryOffset::LessEqual, lte_fn);
+        cls.insert_offset_attr(FastAttr::LessEqual, lte_fn);
         let eq = FSRFn::from_rust_fn_static(equal, "integer_eq");
-        cls.insert_offset_attr(BinaryOffset::Equal, eq);
+        cls.insert_offset_attr(FastAttr::Equal, eq);
 
         let not_eq = FSRFn::from_rust_fn_static(not_equal, "integer_not_eq");
-        cls.insert_offset_attr(BinaryOffset::NotEqual, not_eq);
+        cls.insert_offset_attr(FastAttr::NotEqual, not_eq);
 
         let hash_integer = FSRFn::from_rust_fn_static(hash_integer, "integer_not_eq");
-        cls.insert_offset_attr(BinaryOffset::Hash, hash_integer);
+        cls.insert_offset_attr(FastAttr::Hash, hash_integer);
 
         let reminder = FSRFn::from_rust_fn_static(reminder, "integer_reminder");
-        cls.insert_offset_attr(BinaryOffset::Reminder, reminder);
+        cls.insert_offset_attr(FastAttr::Reminder, reminder);
 
         let repeat = FSRFn::from_rust_fn_static(repeat, "integer_repeat");
         cls.insert_attr("repeat", repeat);
