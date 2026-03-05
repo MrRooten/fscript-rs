@@ -30,15 +30,15 @@ impl Debug for FSRClassInst<'_> {
 }
 
 impl<'a> FSRClassInst<'a> {
-    pub fn new(name: Arc<String>) -> FSRClassInst<'a> {
+    pub fn new() -> FSRClassInst<'a> {
         Self {
             //name,
             attrs: AHashMap::new(),
         }
     }
 
-    pub fn new_value(name: Arc<String>) -> FSRValue<'a> {
-        FSRValue::ClassInst(Box::new(FSRClassInst::new(name)))
+    pub fn new_value() -> FSRValue<'a> {
+        FSRValue::ClassInst(Box::new(FSRClassInst::new()))
     }
 
     pub fn get_attr(&self, name: &str) -> Option<&AtomicObjId> {

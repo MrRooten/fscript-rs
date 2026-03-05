@@ -22,7 +22,8 @@ pub enum NodeType {
     Try,
     Telling,
     Struct,
-    DefineVar
+    DefineVar,
+    Defer
 }
 
 #[allow(unused)]
@@ -79,6 +80,7 @@ impl FSTrie {
         self.insert("@", NodeType::FnState);
         self.insert("struct", NodeType::Struct);
         self.insert("let", NodeType::DefineVar);
+        self.insert("defer", NodeType::Defer);
     }
 
     #[allow(static_mut_refs)]

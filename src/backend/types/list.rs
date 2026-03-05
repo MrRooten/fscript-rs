@@ -472,7 +472,7 @@ pub fn extend(
         extend_list_id
     } else {
         let iter_fn = extend_list_obj
-            .get_attr("__iter__")
+            .get_attr("__iter__", true)
             .ok_or_else(|| {
                 FSRError::new(
                     "extend args error not a list or iterator",

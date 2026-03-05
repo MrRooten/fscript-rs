@@ -662,4 +662,15 @@ try {
         let b = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
         println!("{:#?}", b);
     }
+
+    #[test]
+    fn test_defer() {
+        let s = r#"
+        defer println("defer test")
+        "#;
+        let meta = FSRPosition::new();
+        let context = ASTContext::new_context();
+        let b = FSRModuleFrontEnd::parse(&s.chars().collect::<Vec<char>>(), meta).unwrap();
+        println!("{:#?}", b);
+    }
 }

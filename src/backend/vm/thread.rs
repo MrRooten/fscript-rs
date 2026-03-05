@@ -160,10 +160,14 @@ impl IndexMap {
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn insert(&mut self, i: u64, v: ObjId) {
         if i as usize >= self.vs.len() {
-            let new_size = ((i + 1) as f64 * 1.5).ceil() as u64;
-            // let new_size = i + 1;
-            let new_capacity = (new_size) + (4 - (new_size) % 4);
-            self.vs.resize_with(new_capacity as usize, || None);
+            // let new_size = ((i + 1) as f64 * 1.5).ceil() as u64;
+            // // let new_size = i + 1;
+            // let new_capacity = (new_size) + (4 - (new_size) % 4);
+            // self.vs.resize_with(new_capacity as usize, || None);
+            self.vs.reserve((i as usize + 1) - self.vs.len());
+            for _ in self.vs.len()..=(i as usize) {
+                self.vs.push(None);
+            }
         }
 
         // if let Some(Some(s)) = self.vs.get(i as usize) {
@@ -174,8 +178,12 @@ impl IndexMap {
     }
 
     pub fn reserve(&mut self, cap: u64) {
-        if cap as usize > self.vs.len() {
-            self.vs.resize_with(cap as usize, || None);
+        self.vs.clear();
+        // if cap as usize > self.vs.len() {
+        //     self.vs.resize_with(cap as usize, || None);
+        // }
+        for _ in 0..cap {
+            self.vs.push(None);
         }
     }
 
@@ -199,8 +207,11 @@ impl IndexMap {
 
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn clear(&mut self) {
-        // self.vs.fill_with(|| None);
+        // // self.vs.fill_with(|| None);
         self.vs.clear();
+        // for v in self.vs.iter_mut() {
+        //     *v = None;
+        // }
     }
 }
 
@@ -209,8 +220,11 @@ impl<'a> Iterator for IndexIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         for s in self.vs.by_ref() {
-            if s.is_some() {
-                return Some(s.as_ref().unwrap().get());
+            // if s.is_some() {
+            //     return Some(s.as_ref().unwrap().get());
+            // }
+            if let Some(s) = s {
+                return Some(s.get());
             }
         }
 
@@ -1051,7 +1065,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
         if let Some(op_assign) = attr_var.op_assign {
             let left_value = father_obj
-                .get_attr(&attr_var.name)
+                .get_attr(&attr_var.name, false)
                 .unwrap()
                 .load(Ordering::Relaxed);
 
@@ -1363,7 +1377,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let dot_father_obj = FSRObject::id_to_obj(dot_father);
         let name = &attr_var.name;
         let id = dot_father_obj
-            .get_attr(name)
+            .get_attr(name, attr_var.is_method)
             .ok_or_else(|| {
                 FSRError::new(
                     format!("not have this attr: `{}`", name),
@@ -1498,7 +1512,7 @@ impl<'a> FSRThreadRuntime<'a> {
             if c.get_attr("__new__").is_none() {
                 let self_id = self
                     .garbage_collect
-                    .new_object(FSRClassInst::new_value(c.get_arc_name()), cls_id);
+                    .new_object(FSRClassInst::new_value(), cls_id);
 
                 push_exp!(self, self_id);
 
@@ -1509,7 +1523,7 @@ impl<'a> FSRThreadRuntime<'a> {
         let fn_obj = FSRObject::id_to_obj(cls_id);
         let self_id = self
             .garbage_collect
-            .new_object(FSRClassInst::new_value(fn_obj.get_fsr_class_name()), cls_id);
+            .new_object(FSRClassInst::new_value(), cls_id);
 
         args.push(self_id);
         args.reverse();
@@ -1702,16 +1716,11 @@ impl<'a> FSRThreadRuntime<'a> {
         if let Some(object_id) = object_id {
             let v = Self::process_fn_is_attr(self, *object_id, fn_obj, args)?;
             // if v.is_return() {
-            //     return Ok(v);
+            //      return Ok(v);
             // }
         } else {
             args.reverse();
-            let v = match fn_obj.call(args, self) {
-                Ok(o) => o,
-                Err(e) => {
-                    panic!("error: in call_process_ret: {}", e);
-                }
-            };
+            let v = fn_obj.call(args, self)?;
 
             let id = v.get_id();
             push_exp!(self, id);
@@ -1757,7 +1766,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             father = pop_exp!(self).unwrap();
             let father_cls = FSRObject::id_to_obj(father);
-            let fn_id = match father_cls.get_attr(&pack.2) {
+            let fn_id = match father_cls.get_attr(&pack.2, true) {
                 Some(s) => s.load(Ordering::Relaxed),
                 None => {
                     return Err(FSRError::new(
@@ -2264,13 +2273,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
-        // let ArgType::Compare(op) = *bytecode.get_arg() else {
-        //     return Err(FSRError::new(
-        //         "not a compare test",
-        //         FSRErrCode::NotValidArgs,
-        //     ));
-        // };
-        let op = (bytecode.arg_n as u32).try_into().unwrap();
+        let op = (bytecode.arg_n as u8).try_into().unwrap();
 
         let right_id = pop_exp!(self).unwrap();
         let left_id = pop_exp!(self).unwrap();
@@ -3263,7 +3266,7 @@ impl<'a> FSRThreadRuntime<'a> {
         v
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
+    //#[cfg_attr(feature = "more_inline", inline(always))]
     fn fetch_closure_variable(
         &mut self,
         v: &(u64, String, Option<OpAssign>),
@@ -3458,6 +3461,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     #[cold]
+    #[inline(never)]
     fn collect_action(&mut self) {
         let st = std::time::Instant::now();
         if self.gc_context.gc_state == GcState::Stop {

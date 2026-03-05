@@ -109,19 +109,6 @@ pub extern "C" fn gc_collect(thread: &mut FSRThreadRuntime, list_obj: *const Obj
     thread.garbage_collect.tracker.collect_time += st.elapsed().as_micros() as u64;
 }
 
-pub extern "C" fn compare_test(
-    thread: &mut FSRThreadRuntime,
-    left: ObjId,
-    right: ObjId,
-    op: CompareOperator,
-) -> ObjId {
-    if FSRThreadRuntime::compare(&[left, right], op, thread).unwrap() {
-        FSRObject::true_id()
-    } else {
-        FSRObject::false_id()
-    }
-}
-
 /// Perform a binary operation on two objects.
 /// # Arguments
 /// * `left` - The left operand object ID.
@@ -161,19 +148,19 @@ pub extern "C" fn binary_op(
 /// * `thread` - The current thread runtime.
 /// # Returns
 /// The object ID of the attribute if it exists, or `FSRObject::none_id()` if it does not.
-pub extern "C" fn get_attr_obj(
-    obj: ObjId,
-    name: *const u8,
-    len: usize,
-    thread: &mut FSRThreadRuntime,
-) -> ObjId {
-    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
-    let name_str = std::str::from_utf8(name_slice).unwrap();
-    let obj = FSRObject::id_to_obj(obj);
-    let attr = obj.get_attr(name_str);
-    attr.map(|x| x.load(std::sync::atomic::Ordering::Relaxed))
-        .unwrap_or(FSRObject::none_id())
-}
+// pub extern "C" fn get_attr_obj(
+//     obj: ObjId,
+//     name: *const u8,
+//     len: usize,
+//     thread: &mut FSRThreadRuntime,
+// ) -> ObjId {
+//     let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
+//     let name_str = std::str::from_utf8(name_slice).unwrap();
+//     let obj = FSRObject::id_to_obj(obj);
+//     let attr = obj.get_attr(name_str);
+//     attr.map(|x| x.load(std::sync::atomic::Ordering::Relaxed))
+//         .unwrap_or(FSRObject::none_id())
+// }
 
 pub extern "C" fn get_cur_frame<'a>(thread: &'a mut FSRThreadRuntime<'a>) -> *mut CallFrame {
     let frame = thread.get_cur_mut_frame();
@@ -219,21 +206,21 @@ pub extern "C" fn getter(
 /// - The `name` pointer is valid and points to a properly aligned memory region
 /// - The memory region contains at least `len` valid bytes
 /// - The memory region is not mutated during the lifetime of the slice
-pub unsafe extern "C" fn binary_dot_getter(
-    father: ObjId,
-    name: *const u8,
-    len: usize,
-    thread: &mut FSRThreadRuntime,
-) -> ObjId {
-    let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
-    let name_str = std::str::from_utf8(name_slice).unwrap();
-    let father_obj = FSRObject::id_to_obj(father);
+// pub unsafe extern "C" fn binary_dot_getter(
+//     father: ObjId,
+//     name: *const u8,
+//     len: usize,
+//     thread: &mut FSRThreadRuntime,
+// ) -> ObjId {
+//     let name_slice = unsafe { std::slice::from_raw_parts(name, len) };
+//     let name_str = std::str::from_utf8(name_slice).unwrap();
+//     let father_obj = FSRObject::id_to_obj(father);
 
-    father_obj
-        .get_attr(name_str)
-        .unwrap()
-        .load(Ordering::Relaxed)
-}
+//     father_obj
+//         .get_attr(name_str)
+//         .unwrap()
+//         .load(Ordering::Relaxed)
+// }
 
 pub extern "C" fn load_integer(value: i64, thread: &mut FSRThreadRuntime) -> ObjId {
     let obj = thread
@@ -270,20 +257,20 @@ pub extern "C" fn c_next_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId
     next_obj(args.as_ptr(), 1, thread).unwrap().get_id()
 }
 
-pub extern "C" fn get_iter_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
-    let iter_obj = FSRObject::id_to_obj(obj);
-    let read_iter_id = match iter_obj.get_attr("__iter__") {
-        Some(s) => {
-            let iter_fn = s.load(Ordering::Relaxed);
-            let iter_fn_obj = FSRObject::id_to_obj(iter_fn);
-            let ret = iter_fn_obj.call(&[obj], thread).unwrap();
-            ret.get_id()
-        }
-        None => obj,
-    };
+// pub extern "C" fn get_iter_obj(obj: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
+//     let iter_obj = FSRObject::id_to_obj(obj);
+//     let read_iter_id = match iter_obj.get_attr("__iter__") {
+//         Some(s) => {
+//             let iter_fn = s.load(Ordering::Relaxed);
+//             let iter_fn_obj = FSRObject::id_to_obj(iter_fn);
+//             let ret = iter_fn_obj.call(&[obj], thread).unwrap();
+//             ret.get_id()
+//         }
+//         None => obj,
+//     };
 
-    read_iter_id
-}
+//     read_iter_id
+// }
 
 pub extern "C" fn binary_range(left: ObjId, right: ObjId, thread: &mut FSRThreadRuntime) -> ObjId {
     let start = FSRObject::id_to_obj(left);

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use anyhow::anyhow;
+use frontend::ast::token::defer::FSRDefer;
 use core::panic;
 use std::{
     cell::Cell,
@@ -142,7 +143,7 @@ pub enum FastAttr {
     Order = 14,
     Hash = 15,
     Reminder = 16,
-    Iterator = 17
+    Iterator = 17,
 }
 
 impl FastAttr {
@@ -345,7 +346,7 @@ pub struct SArgWrapper {
     fallback: Box<ArgType>, // Used for alter for not jit
 }
 
-#[repr(C)]
+//#[repr(C)]
 #[derive(Debug, PartialEq, Hash, Eq, Clone, Copy)]
 pub enum CompareOperator {
     Equal,
@@ -356,10 +357,10 @@ pub enum CompareOperator {
     LessEqual,
 }
 
-impl TryFrom<u32> for CompareOperator {
+impl TryFrom<u8> for CompareOperator {
     type Error = FSRError;
 
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         // match value {
         //     0 => Ok(CompareOperator::Equal),
         //     1 => Ok(CompareOperator::NotEqual),
@@ -373,7 +374,7 @@ impl TryFrom<u32> for CompareOperator {
         //     )),
         // }
         unsafe {
-            if value < 0 || value > 5 {
+            if value > 5 {
                 return Err(FSRError::new(
                     format!("Invalid compare operator value: {}", value),
                     FSRErrCode::NotValidArgs,
@@ -509,19 +510,21 @@ pub struct StructAttr {
 pub struct AttrVar {
     pub attr_id: u64,
     pub name: String,
+    pub is_method: bool,
     pub op_assign: Option<OpAssign>,
     pub attr_type: Option<Arc<FSRSType>>,
     pub offset: Option<usize>,
 }
 
 impl AttrVar {
-    pub fn new(attr_id: u64, name: String, op_assign: Option<OpAssign>) -> Self {
+    pub fn new(attr_id: u64, name: String, op_assign: Option<OpAssign>, is_method: bool) -> Self {
         Self {
             attr_id,
             name,
             op_assign,
             attr_type: None,
             offset: None,
+            is_method,
         }
     }
 }
@@ -543,7 +546,6 @@ pub struct LoadListArg {
     pub list_len: usize,
 }
 
-
 #[derive(Debug, Clone)]
 pub enum ArgType {
     Local(LocalVar),
@@ -557,7 +559,7 @@ pub enum ArgType {
     Const(u64, FSROrinStr2),
     Attr(AttrVar),
     IfTestNext(u64), // first u64 for if line, second for count else if /else
-    WhileTest(u64),         //i64 is return to test, u64 is skip the block,
+    WhileTest(u64),  //i64 is return to test, u64 is skip the block,
     WhileEnd(i64),
     Compare(CompareOperator),
     OpAssign((OpAssign, Box<ArgType>)),
@@ -781,12 +783,10 @@ impl BytecodeOperator {
             || op.eq("!=")
         {
             let op = CompareOperator::new_from_str(op)
-                        .unwrap_or_else(|| panic!("Invalid compare operator: {}", op));
+                .unwrap_or_else(|| panic!("Invalid compare operator: {}", op));
             return Some(BytecodeArg {
                 operator: BytecodeOperator::CompareTest,
-                arg: Box::new(ArgType::Compare(
-                    op
-                )),
+                arg: Box::new(ArgType::Compare(op)),
                 arg_n: op.to_integer() as i64,
                 info,
             });
@@ -1248,7 +1248,8 @@ impl<'a> Bytecode {
                 let id = var_map.last_mut().unwrap().get_attr(name).unwrap();
 
                 if call_info.is_method_call {
-                    let mut attr_var = AttrVar::new(*id, name.to_string(), None);
+                    let mut attr_var =
+                        AttrVar::new(*id, name.to_string(), None, call_info.is_method_call);
                     attr_var.attr_type = from_type.clone();
                     attr_var.offset = offset;
                     result.push(BytecodeArg {
@@ -1261,7 +1262,7 @@ impl<'a> Bytecode {
                         )),
                     });
                 } else {
-                    let attr_var = AttrVar::new(*id, name.to_string(), None);
+                    let attr_var = AttrVar::new(*id, name.to_string(), None, false);
                     result.push(BytecodeArg {
                         operator: BytecodeOperator::BinaryClassGetter,
                         arg: Box::new(ArgType::Attr(attr_var)),
@@ -1373,7 +1374,7 @@ impl<'a> Bytecode {
             *attr_id_arg = Some((id, name.to_string()));
             if is_method_call {
             } else {
-                let attr_var = AttrVar::new(id, name.to_string(), None);
+                let attr_var = AttrVar::new(id, name.to_string(), None, false);
                 result.push(BytecodeArg {
                     operator: BytecodeOperator::BinaryClassGetter,
                     arg: Box::new(ArgType::Attr(attr_var)),
@@ -1659,7 +1660,7 @@ impl<'a> Bytecode {
                         .unwrap()
                         .get_attr(var.get_name())
                         .unwrap();
-                    let attr_var = AttrVar::new(*arg_id, var.get_name().to_string(), None);
+                    let attr_var = AttrVar::new(*arg_id, var.get_name().to_string(), None, false);
                     if context.is_static {
                         let type_hint = var.get_type_hint();
                     }
@@ -1680,7 +1681,7 @@ impl<'a> Bytecode {
                     .unwrap()
                     .get_attr(var.get_name())
                     .unwrap();
-                let attr_var = AttrVar::new(*arg_id, var.get_name().to_string(), None);
+                let attr_var = AttrVar::new(*arg_id, var.get_name().to_string(), None, false);
                 return (AttrIdOrCode::AttrId(ArgType::Attr(attr_var)), None);
             }
             false => {
@@ -1827,8 +1828,7 @@ impl<'a> Bytecode {
                 }]),
                 None,
             );
-        }
-        else if var.get_name().eq("await") {
+        } else if var.get_name().eq("await") {
             return (
                 Some(vec![BytecodeArg {
                     operator: BytecodeOperator::Await,
@@ -3041,6 +3041,9 @@ impl<'a> Bytecode {
             return (vec![], None);
         } else if let FSRToken::EmptyExpr(_) = token {
             return (vec![], None);
+        } else if let FSRToken::Defer(defer) = token {
+            let v = Self::load_defer(defer, var_map, byte_context);
+            return (vec![v], None);
         }
 
         unimplemented!()
@@ -3132,6 +3135,7 @@ impl<'a> Bytecode {
                 attr_name.to_string(),
                 // error to option
                 OpAssign::from_str(&token.op_assign).ok(),
+                false,
             );
 
             Self::is_static_type_process(&left.1, attr_name, &mut attr_var, const_map);
@@ -3485,6 +3489,25 @@ impl<'a> Bytecode {
         });
 
         (ret_expr, r.1)
+    }
+
+    fn load_defer(
+        defer: &FSRDefer,
+        var_map: &mut Vec<VarMap>,
+        const_map: &mut BytecodeContext,
+    ) -> Vec<BytecodeArg> {
+        //let mut result = Vec::new();
+        let v = Self::load_token_with_map(defer.get_defer_expr(), var_map, const_map, false, false);
+        // if !v.0.is_empty() {
+        //     result.append(&mut v.0[0]);
+        // }
+        // result.push(BytecodeArg {
+        //     operator: BytecodeOperator::Defer,
+        //     arg: Box::new(ArgType::None),
+        //     info: Box::new(FSRByteInfo::new(&const_map.lines, defer.get_meta().clone())),
+        //     arg_n: 0,
+        // });
+        vec![]
     }
 
     fn process_integer(ps: &str) -> i64 {

@@ -16,28 +16,24 @@ use cranelift::{
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::Module;
 
-use crate::{
-    backend::{
-        compiler::{
-            bytecode::{
-                ArgType, FastAttr, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator,
-                FSRSType, FnCallSig, LocalVar, OpAssign,
-            },
-            jit::jit_wrapper::{
-                binary_dot_getter, c_println, clear_exp, get_current_fn_id, get_obj_method,
-                load_list, memcpy, ret_process, save_to_exp,
-            },
+use super::jit_wrapper::{
+    binary_op, binary_range, c_next_obj, call_fn, check_gc, free, gc_collect, get_constant,
+    get_n_args, get_obj_by_name, load_float, load_integer, load_string, malloc,
+};
+use crate::backend::{
+    compiler::{
+        bytecode::{
+            ArgType, Bytecode, BytecodeArg, BytecodeOperator, CompareOperator, FSRSType, FastAttr,
+            FnCallSig, LocalVar, OpAssign,
         },
-        types::base::{FSRObject, ObjId},
+        jit::jit_wrapper::{
+            c_println, clear_exp, get_current_fn_id, get_obj_method, load_list, memcpy,
+            ret_process, save_to_exp,
+        },
     },
-    
+    types::base::{FSRObject, ObjId},
 };
 use frontend::ast::token::{constant::FSROrinStr2, expr::SingleOp, variable};
-use super::jit_wrapper::{
-    binary_op, binary_range, c_next_obj, call_fn, check_gc, compare_test, free, gc_collect,
-    get_constant, get_iter_obj, get_n_args, get_obj_by_name, load_float, load_integer, load_string,
-    malloc,
-};
 
 const CALL_ARGS_LEN: i64 = 16;
 const UNROLL_THRESHOLD: usize = 128;
@@ -247,46 +243,6 @@ impl JitBuilder<'_> {
 
     fn load_compare(&mut self, context: &mut OperatorContext, arg: &BytecodeArg) {
         if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
-            // pub extern "C" fn compare_test(thread: &mut FSRThreadRuntime, left: ObjId, right: ObjId, op: CompareOperator)
-
-            // let mut compare_test_sig = self.module.make_signature();
-            // compare_test_sig
-            //     .params
-            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-            // compare_test_sig
-            //     .params
-            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // left operand
-            // compare_test_sig
-            //     .params
-            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
-            // compare_test_sig.params.push(AbiParam::new(types::I32)); // compare operator type
-            // compare_test_sig
-            //     .returns
-            //     .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (boolean)
-            // let fn_id = self
-            //     .module
-            //     .declare_function(
-            //         "compare_test",
-            //         cranelift_module::Linkage::Import,
-            //         &compare_test_sig,
-            //     )
-            //     .unwrap();
-            // let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            // let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            // // let op = self.builder.ins().iconst(types::I32, 0); // Replace with actual operator type
-            // // let op = CompareOperator::new_from_str(context.operator).unwrap() as i32;
-            // let op = if let ArgType::Compare(op) = arg.get_arg() {
-            //     let v = *op as i64;
-            //     self.builder.ins().iconst(types::I32, v)
-            // } else {
-            //     panic!("CompareTest requires a CompareOperator argument")
-            // };
-            // let call = self
-            //     .builder
-            //     .ins()
-            //     .call(func_ref, &[thread_runtime, left, right, op]);
-            // let result = self.builder.inst_results(call)[0];
-
             let op = if let ArgType::Compare(op) = arg.get_arg() {
                 op
             } else {
@@ -2558,7 +2514,9 @@ impl JitBuilder<'_> {
 
         for arg in expr {
             match arg.get_operator() {
-                BytecodeOperator::Load | BytecodeOperator::LoadVar | BytecodeOperator::LoadConst => {
+                BytecodeOperator::Load
+                | BytecodeOperator::LoadVar
+                | BytecodeOperator::LoadConst => {
                     self.load_process(arg, context, code);
                     //unimplemented!()
                 }
@@ -2774,18 +2732,15 @@ impl CraneLiftJitBackend {
         builder.symbol("get_obj_by_name", get_obj_by_name as *const u8);
         builder.symbol("check_gc", check_gc as *const u8);
         builder.symbol("gc_collect", gc_collect as *const u8);
-        builder.symbol("compare_test", compare_test as *const u8);
         builder.symbol("get_n_args", get_n_args as *const u8);
         builder.symbol("load_integer", load_integer as *const u8);
         builder.symbol("load_string", load_string as *const u8);
         builder.symbol("load_float", load_float as *const u8);
-        builder.symbol("get_iter_obj", get_iter_obj as *const u8);
         builder.symbol("c_next_obj", c_next_obj as *const u8);
         builder.symbol("binary_range", binary_range as *const u8);
         builder.symbol("get_current_fn_id", get_current_fn_id as *const u8);
         builder.symbol("save_to_exp", save_to_exp as *const u8);
         builder.symbol("clear_exp", clear_exp as *const u8);
-        builder.symbol("binary_dot_getter", binary_dot_getter as *const u8);
         builder.symbol("get_obj_method", get_obj_method as *const u8);
         builder.symbol("load_list", load_list as *const u8);
         builder.symbol("c_println", c_println as *const u8);

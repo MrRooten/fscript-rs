@@ -2,11 +2,16 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
-        SyntaxError, parse::ASTParser, token::{ASTVariableState, xtruct::FSRStructFrontEnd}, utils::automaton::{FSTrie, NodeType}
-    }, chrs2str
+        SyntaxError,
+        parse::ASTParser,
+        token::{ASTVariableState, defer::FSRDefer, xtruct::FSRStructFrontEnd},
+        utils::automaton::{FSTrie, NodeType},
+    },
+    chrs2str,
 };
 
 use super::{
+    ASTContext,
     base::{FSRPosition, FSRToken},
     block::FSRBlock,
     class::FSRClassFrontEnd,
@@ -18,7 +23,6 @@ use super::{
     return_def::FSRReturn,
     try_expr::FSRTryBlock,
     while_statement::FSRWhile,
-    ASTContext,
 };
 
 #[derive(PartialEq)]
@@ -64,8 +68,6 @@ impl ModuleStates {
         self.states.len() == 0
     }
 }
-
-
 
 #[derive(Debug, Clone)]
 pub struct FSRModuleFrontEnd {
@@ -128,7 +130,12 @@ impl FSRModuleFrontEnd {
                 let l = ASTParser::read_valid_bracket(&source[start..], sub_meta, &context)?;
                 length += l;
                 let sub_block_meta = meta.new_offset(start);
-                let sub_block = FSRBlock::parse(&source[start..start + length], sub_block_meta, &mut context, None)?;
+                let sub_block = FSRBlock::parse(
+                    &source[start..start + length],
+                    sub_block_meta,
+                    &mut context,
+                    None,
+                )?;
                 module.tokens.push(FSRToken::Block(sub_block));
                 start += length;
                 length = 0;
@@ -227,9 +234,17 @@ impl FSRModuleFrontEnd {
                 module.tokens.push(FSRToken::TryBlock(try_def));
                 start += length;
                 length = 0;
+            } else if t == &NodeType::Defer {
+                let sub_meta = meta.new_offset(start);
+                let defer_def = FSRDefer::parse(&source[start..], sub_meta, &mut context)?;
+                length += defer_def.1;
+                module.tokens.push(FSRToken::Defer(defer_def.0));
+                start += length;
+                length = 0;
             } else if t == &NodeType::Struct {
                 let sub_meta = meta.new_offset(start);
-                let struct_def = FSRStructFrontEnd::parse(&source[start..], sub_meta, &mut context)?;
+                let struct_def =
+                    FSRStructFrontEnd::parse(&source[start..], sub_meta, &mut context)?;
                 length += struct_def.1;
                 module.tokens.push(FSRToken::Struct(struct_def.0));
                 start += length;

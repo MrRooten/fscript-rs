@@ -13,6 +13,8 @@ t.abc()
 t.index = 1
 b = 1
 for i in range(3000000):
-    c = t.abc()
+    t.ddc
+    t.ddc
+    t.ddc
 
     

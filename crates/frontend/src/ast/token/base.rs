@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::ast::SyntaxError;
+use crate::ast::token::defer::FSRDefer;
 use crate::ast::token::module::FSRModuleFrontEnd;
 use crate::ast::token::xtruct::FSRStructFrontEnd;
 use crate::{ast::token::block::FSRBlock};
@@ -31,6 +32,7 @@ pub enum FSRToken {
     Call(FSRCall),
     Variable(FSRVariable),
     Return(FSRReturn),
+    Defer(FSRDefer),
     Block(FSRBlock),
     WhileExp(FSRWhile),
     Module(FSRModuleFrontEnd),
@@ -133,6 +135,7 @@ impl FSRToken {
             FSRToken::StackExpr(fsrexprs) => fsrexprs.1.first().unwrap().get_meta(),
             FSRToken::TryBlock(fsrtry_block) => fsrtry_block.get_meta(),
             FSRToken::Struct(fsrstruct_front_end) => fsrstruct_front_end.get_meta(),
+            FSRToken::Defer(fsrdefer) => fsrdefer.get_meta(),
         }
     }
 

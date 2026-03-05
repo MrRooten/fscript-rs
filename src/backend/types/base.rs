@@ -693,8 +693,8 @@ impl<'a> FSRObject<'a> {
     }
 
     #[inline]
-    pub fn get_attr(&self, name: &str) -> Option<&AtomicObjId> {
-        if let Some(s) = self.get_cls_attr(name) {
+    pub fn get_attr(&self, name: &str, is_method: bool) -> Option<&AtomicObjId> {
+        if is_method && let Some(s) = self.get_cls_attr(name) {
             return Some(s);
         }
 
@@ -702,7 +702,7 @@ impl<'a> FSRObject<'a> {
             let v = match inst.get_attr(name) {
                 Some(s) => s,
                 None => {
-                    return None;
+                    return self.get_cls_attr(name)
                 }
             };
             return Some(v);
@@ -761,11 +761,12 @@ impl<'a> FSRObject<'a> {
         thread: &mut FSRThreadRuntime<'a>,
     ) -> Result<FSRRetValue, FSRError> {
         if let FSRValue::Function(fn_def) = &self.value {
-            return fn_def.invoke(args, thread, FSRObject::obj_to_id(self));
+            return fn_def.invoke(args, thread, self.get_self_id());
         }
         panic!("call: Not a function object");
     }
 
+    #[inline]
     pub fn get_self_id(&self) -> ObjId {
         self as *const Self as ObjId
     }
@@ -836,20 +837,6 @@ impl<'a> FSRObject<'a> {
         unimplemented!()
     }
 
-    // #[cfg_attr(feature = "more_inline", inline(always))]
-    // pub fn none_id() -> ObjId {
-    //     0
-    // }
-
-    // #[cfg_attr(feature = "more_inline", inline(always))]
-    // pub fn true_id() -> ObjId {
-    //     1
-    // }
-
-    // #[cfg_attr(feature = "more_inline", inline(always))]
-    // pub fn false_id() -> ObjId {
-    //     2
-    // }
 
     #[inline(always)]
     pub extern "C" fn none_id() -> ObjId {

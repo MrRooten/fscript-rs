@@ -33,6 +33,7 @@ pub mod try_expr;
 pub mod variable;
 pub mod while_statement;
 pub mod xtruct;
+pub mod defer;
 
 #[derive(Debug, Clone)]
 pub struct ASTVariableState {

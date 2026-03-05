@@ -1,22 +1,23 @@
 #![allow(unused)]
 
+use super::ASTContext;
 use super::base::{FSRPosition, FSRToken};
+use super::r#else::FSRElse;
 use super::for_statement::FSRFor;
 use super::function_def::FSRFnDef;
 use super::if_statement::FSRIf;
 use super::import::FSRImport;
-use super::r#else::FSRElse;
 use super::return_def::FSRReturn;
 use super::try_expr::FSRTryBlock;
 use super::while_statement::FSRWhile;
-use super::ASTContext;
-use crate::ast::{SyntaxErrType, SyntaxError};
-use crate::chrs2str;
 use crate::ast::token::assign;
 use crate::ast::token::assign::FSRAssign;
+use crate::ast::token::defer::FSRDefer;
 use crate::ast::token::xtruct::FSRStructFrontEnd;
 use crate::ast::utils::automaton::{FSTrie, NodeType};
+use crate::ast::{SyntaxErrType, SyntaxError};
 use crate::ast::{parse::ASTParser, token::expr::FSRExpr};
+use crate::chrs2str;
 
 use std::rc::Rc;
 use std::str;
@@ -114,7 +115,10 @@ impl FSRBlock {
                 continue;
             }
 
-            if c == '/' && start + length + 1 < source.len() && source[start + length + 1] as char == '/' {
+            if c == '/'
+                && start + length + 1 < source.len()
+                && source[start + length + 1] as char == '/'
+            {
                 while start + length < source.len() && source[start + length] as char != '\n' {
                     start += 1;
                 }
@@ -161,8 +165,12 @@ impl FSRBlock {
                 // let s = String::from_utf8_lossy(&source[start..start + length]).to_string();
                 let s = chrs2str!(&source[start..start + length]);
                 let mut sub_block_meta = meta.new_offset(start);
-                let sub_block =
-                    Self::parse(&source[start..start + length], sub_block_meta, context, None)?;
+                let sub_block = Self::parse(
+                    &source[start..start + length],
+                    sub_block_meta,
+                    context,
+                    None,
+                )?;
                 block.tokens.push(FSRToken::Block(sub_block));
 
                 start += length;
@@ -208,7 +216,8 @@ impl FSRBlock {
                     length = 0;
                 } else if t == &NodeType::FnState {
                     let sub_meta = meta.new_offset(start);
-                    let fn_def = FSRFnDef::parse(&source[start..], sub_meta, context, struct_info.clone())?;
+                    let fn_def =
+                        FSRFnDef::parse(&source[start..], sub_meta, context, struct_info.clone())?;
                     length += fn_def.get_len();
                     block.tokens.push(FSRToken::FunctionDef(fn_def));
                     start += length;
@@ -218,6 +227,13 @@ impl FSRBlock {
                     let ret_expr = FSRReturn::parse(&source[start..], sub_meta, context)?;
                     length += ret_expr.1;
                     block.tokens.push(FSRToken::Return(ret_expr.0));
+                    start += length;
+                    length = 0;
+                } else if t == &NodeType::Defer {
+                    let sub_meta = meta.new_offset(start);
+                    let defer_def = FSRDefer::parse(&source[start..], sub_meta, context)?;
+                    length += defer_def.1;
+                    block.tokens.push(FSRToken::Defer(defer_def.0));
                     start += length;
                     length = 0;
                 } else if t == &NodeType::Else {
@@ -284,7 +300,7 @@ impl FSRBlock {
 }
 
 mod test {
-    use crate::ast::token::{base::FSRPosition, block::FSRBlock, ASTContext};
+    use crate::ast::token::{ASTContext, base::FSRPosition, block::FSRBlock};
 
     #[test]
     fn test_block_comment() {
