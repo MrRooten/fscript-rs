@@ -265,10 +265,7 @@ impl<'a> FSRFn<'a> {
                     frame,
                     index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),
                 );
-                // thread
-                //     .get_cur_mut_frame()
-                //     .args
-                //     .extend(args.iter().rev().cloned());
+
                 for arg in args.iter().rev() {
                     thread.get_cur_mut_frame().args.push(*arg);
                 }

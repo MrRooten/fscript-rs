@@ -1083,67 +1083,79 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(RetState::Normal)
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    fn assign_process(
-        self: &mut FSRThreadRuntime<'a>,
-        bytecode: &BytecodeArg,
-    ) -> Result<RetState, FSRError> {
-        if let ArgType::Local(var) = bytecode.get_arg() {
-            let mut obj_id = match pop_exp!(self) {
-                Some(s) => s,
-                None => {
-                    return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
-                }
-            };
-
-            if let Some(op_assign) = var.op_assign {
-                let left_id = match self.get_cur_frame().get_var(&var.id) {
-                    Some(s) => s.get(),
-                    None => Self::get_chain_by_name(self, &var.name).ok_or_else(|| {
-                        FSRError::new(
-                            format!("variable `{}` not found for op assign", var.name),
-                            FSRErrCode::NoSuchObject,
-                        )
-                    })?,
-                };
-
-                let offset = op_assign.get_offset();
-                obj_id = Self::op_assign_helper(left_id, obj_id, self, offset)?;
-            }
-
-            self.get_cur_mut_frame().insert_var(var.id, obj_id);
-
-            return Ok(RetState::Normal);
-        }
-
-        if let ArgType::ClosureVar(v) = bytecode.get_arg() {
-            self.assign_closure(v)?;
-            return Ok(RetState::Normal);
-        }
-
-        //Assign variable name
-        let assign_id = match pop_exp!(self) {
+    #[inline]
+    fn op_assign_process(&mut self, var: &LocalVar) -> Result<ObjId, FSRError> {
+        let mut obj_id = match pop_exp!(self) {
             Some(s) => s,
             None => {
                 return Err(FSRError::new("", FSRErrCode::EmptyExpStack));
             }
         };
 
-        let to_assign_obj_id = pop_exp!(self).unwrap();
+        let obj_id = if let Some(op_assign) = var.op_assign {
+            let left_id = match self.get_cur_frame().get_var(&var.id) {
+                Some(s) => s.get(),
+                None => Self::get_chain_by_name(self, &var.name).ok_or_else(|| {
+                    FSRError::new(
+                        format!("variable `{}` not found for op assign", var.name),
+                        FSRErrCode::NoSuchObject,
+                    )
+                })?,
+            };
 
-        push_middle!(self, to_assign_obj_id);
-        // push_middle!(self, assign_id);
+            let offset = op_assign.get_offset();
+            obj_id = Self::op_assign_helper(left_id, obj_id, self, offset)?;
 
-        Ok(RetState::Normal)
+            obj_id
+        } else {
+            obj_id
+        };
+
+        Ok(obj_id)
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
-    fn binary_add_process(self: &mut FSRThreadRuntime<'a>) -> Result<RetState, FSRError> {
+    fn assign_process(
+        self: &mut FSRThreadRuntime<'a>,
+        bytecode: &BytecodeArg,
+    ) -> Result<RetState, FSRError> {
+        match bytecode.get_arg() {
+            ArgType::Local(var) => {
+                let obj_id = self.op_assign_process(var)?;
+
+                self.get_cur_mut_frame().insert_var(var.id, obj_id);
+
+                return Ok(RetState::Normal);
+            }
+
+            ArgType::ClosureVar(v) => {
+                self.assign_closure(v)?;
+                return Ok(RetState::Normal);
+            }
+
+            _ => {
+                let assign_id = pop_exp!(self).unwrap();
+
+                let to_assign_obj_id = pop_exp!(self).unwrap();
+
+                push_middle!(self, to_assign_obj_id);
+
+                Ok(RetState::Normal)
+            }
+        }
+
+        //Assign variable name
+
+        // push_middle!(self, assign_id);
+    }
+
+    #[inline]
+    fn pop_left_right(&mut self) -> Result<[ObjId; 2], FSRError> {
         let right = match pop_exp!(self) {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
-                    "error in binary add 1",
+                    "error in binary op 1",
                     FSRErrCode::EmptyExpStack,
                 ));
             }
@@ -1153,13 +1165,22 @@ impl<'a> FSRThreadRuntime<'a> {
             Some(s) => s,
             None => {
                 return Err(FSRError::new(
-                    "error in binary add 2",
+                    "error in binary op 2",
                     FSRErrCode::EmptyExpStack,
                 ));
             }
         };
+
         push_middle!(self, left);
         push_middle!(self, right);
+
+        Ok([left, right])
+    }
+
+    #[cfg_attr(feature = "more_inline", inline(always))]
+    fn binary_add_process(self: &mut FSRThreadRuntime<'a>) -> Result<RetState, FSRError> {
+        let [left, right] = self.pop_left_right()?;
+
         let args = [left, right];
         let len = args.len();
         if let Some(rust_fn) = obj_cls!(left).get_rust_fn(FastAttr::Add) {
@@ -1187,28 +1208,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         //_bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
-        let right = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary sub 1",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        let left = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary sub 2",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        push_middle!(self, right);
-        push_middle!(self, left);
+        let [left, right] = self.pop_left_right()?;
 
         let res = FSRObject::invoke_offset_method(
             FastAttr::Sub,
@@ -1216,12 +1216,7 @@ impl<'a> FSRThreadRuntime<'a> {
             self,
             //self.get_cur_frame().code,
         )?;
-
-        match res {
-            FSRRetValue::GlobalId(res_id) => {
-                push_exp!(self, res_id);
-            }
-        };
+        push_exp!(self, res.get_id());
 
         Ok(RetState::Normal)
     }
@@ -1231,28 +1226,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         //_bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
-        let right_id = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary mul 1",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        let left_id = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary mul 2",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        push_middle!(self, right_id);
-        push_middle!(self, left_id);
+        let [left_id, right_id] = self.pop_left_right()?;
 
         let res = FSRObject::invoke_offset_method(
             FastAttr::Mul,
@@ -1261,11 +1235,7 @@ impl<'a> FSRThreadRuntime<'a> {
             //self.get_cur_frame().code,
         )?;
 
-        match res {
-            FSRRetValue::GlobalId(res_id) => {
-                push_exp!(self, res_id);
-            }
-        };
+        push_exp!(self, res.get_id());
         Ok(RetState::Normal)
     }
 
@@ -1274,28 +1244,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         //_bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
-        let right_id = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary mul 1",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        let left_id = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary mul 2",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        push_middle!(self, right_id);
-        push_middle!(self, left_id);
+        let [left_id, right_id] = self.pop_left_right()?;
 
         let res = FSRObject::invoke_offset_method(
             FastAttr::Div,
@@ -1314,28 +1263,7 @@ impl<'a> FSRThreadRuntime<'a> {
         self: &mut FSRThreadRuntime<'a>,
         //_bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
-        let right_id = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary mul 1",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        let left_id = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary mul 2",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        push_middle!(self, right_id);
-        push_middle!(self, left_id);
+        let [left_id, right_id] = self.pop_left_right()?;
 
         let args = [left_id, right_id];
         let len = args.len();
@@ -1386,9 +1314,9 @@ impl<'a> FSRThreadRuntime<'a> {
             })?
             .load(Ordering::Relaxed);
 
-        self.get_cur_mut_frame().push_exp(id);
+        push_exp!(self, id);
         push_middle!(self, dot_father);
-        self.get_cur_mut_frame().middle_value.push(id);
+        push_middle!(self, id);
 
         Ok(RetState::Normal)
     }
@@ -1432,25 +1360,7 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn binary_range(self: &mut FSRThreadRuntime<'a>) -> Result<RetState, FSRError> {
-        let rhs_id = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary mul 1",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
-
-        let lhs_id = match pop_exp!(self) {
-            Some(s) => s,
-            None => {
-                return Err(FSRError::new(
-                    "error in binary mul 2",
-                    FSRErrCode::EmptyExpStack,
-                ));
-            }
-        };
+        let [lhs_id, rhs_id] = self.pop_left_right()?;
 
         let start = FSRObject::id_to_obj(lhs_id);
         let end = FSRObject::id_to_obj(rhs_id);
@@ -1586,23 +1496,6 @@ impl<'a> FSRThreadRuntime<'a> {
         }
     }
 
-    #[cfg_attr(feature = "more_inline", inline(always))]
-    fn get_call_fn_id(
-        &mut self,
-        //var: &Option<&(usize, u64, String, bool)>,
-    ) -> Result<(ObjId), FSRError> {
-        // if let Some(var) = var {
-        //     let var_id = var.1;
-
-        //     let fn_id = self.try_get_obj_by_name(var.1, &var.2).unwrap();
-        //     Ok(fn_id)
-        // } else {
-        let fn_id = pop_exp!(self).unwrap();
-        push_middle!(self, fn_id);
-        Ok(fn_id)
-        //}
-    }
-
     #[allow(clippy::missing_transmute_annotations)]
     fn jit_call(
         &mut self,
@@ -1712,12 +1605,8 @@ impl<'a> FSRThreadRuntime<'a> {
         //call_method: bool,
     ) -> Result<RetState, FSRError> {
         let fn_obj = FSRObject::id_to_obj(fn_id);
-        //let call_method = false;
         if let Some(object_id) = object_id {
             let v = Self::process_fn_is_attr(self, *object_id, fn_obj, args)?;
-            // if v.is_return() {
-            //      return Ok(v);
-            // }
         } else {
             args.reverse();
             let v = fn_obj.call(args, self)?;
@@ -1735,21 +1624,19 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
-        //let mut iret_type = None;
-        //let mut args = self.get_fn_args(&mut var, bytecode.get_arg())?;
-        if let ArgType::CallArgsNumber((args_num, ret_type)) = bytecode.get_arg() {
-            Self::call_process_set_args(*args_num, self, &mut args)?;
-            let fn_id = pop_exp!(self).unwrap();
-            push_middle!(self, fn_id);
 
-            //self.call_process_ret(fn_id, &mut args, &None, false)
-            return self.call_process_ret(fn_id, &mut args, ret_type);
-        } else {
+        let ArgType::CallArgsNumber((args_num, ret_type)) = bytecode.get_arg() else {
             return Err(FSRError::new(
                 "not support ArgType in call_process",
                 FSRErrCode::NotValidArgs,
             ));
         };
+
+        Self::call_process_set_args(*args_num, self, &mut args)?;
+        let fn_id = pop_exp!(self).unwrap();
+        push_middle!(self, fn_id);
+
+        return self.call_process_ret(fn_id, &mut args, ret_type);
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]
@@ -1766,7 +1653,7 @@ impl<'a> FSRThreadRuntime<'a> {
 
             father = pop_exp!(self).unwrap();
             let father_cls = FSRObject::id_to_obj(father);
-            let fn_id = match father_cls.get_attr(&pack.2, true) {
+            let method = match father_cls.get_attr(&pack.2, true) {
                 Some(s) => s.load(Ordering::Relaxed),
                 None => {
                     return Err(FSRError::new(
@@ -1775,7 +1662,7 @@ impl<'a> FSRThreadRuntime<'a> {
                     ));
                 }
             };
-            fn_id
+            method
         } else {
             panic!("not support ArgType: {:?}", bytecode.get_arg());
         };
@@ -1828,12 +1715,11 @@ impl<'a> FSRThreadRuntime<'a> {
         bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
         let test_val = pop_exp!(self).unwrap();
-        //let mut name = "";
 
         if test_val == FSRObject::false_id() || test_val == FSRObject::none_id() {
-            let n = bytecode.arg_n;
+            let n = bytecode.arg_n as usize;
             let cur_ip = self.get_cur_frame().ip.0;
-            self.get_cur_mut_frame().ip = (cur_ip + n as usize + 1_usize, 0);
+            self.get_cur_mut_frame().ip = (cur_ip + n + 1, 0);
             self.get_cur_mut_frame()
                 .flow_tracker
                 .push_last_if_test(false);

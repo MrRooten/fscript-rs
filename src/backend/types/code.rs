@@ -64,9 +64,9 @@ impl FSRCode {
         code: &str,
         module: ObjId,
     ) -> Result<(HashMap<String, FSRObject<'a>>, FSRSTypeInfo), FSRError> {
-        let bytecode = Bytecode::compile(name, code);
+        let bytecode = Bytecode::compile(name, code).unwrap();
         let mut res = HashMap::new();
-        for code in bytecode.0 {
+        for code in bytecode.bytecode_map {
             let code = Self {
                 name: code.0.to_string(),
                 bytecode: code.1,
@@ -80,7 +80,7 @@ impl FSRCode {
             object.set_cls(gid(GlobalObj::CodeCls));
             res.insert(tmp.to_string(), object);
         }
-        Ok((res, bytecode.1))
+        Ok((res, bytecode.type_info))
     }
 
     #[cfg_attr(feature = "more_inline", inline(always))]

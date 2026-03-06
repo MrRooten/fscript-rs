@@ -21,8 +21,6 @@ pub fn add(
     let _ = thread;
     let self_object = FSRObject::id_to_obj(args[0]);
     let other_object = FSRObject::id_to_obj(args[1]);
-    // let self_object = vm.get_obj_by_id(&self_id).unwrap().borrow();
-    // let other_object = vm.get_obj_by_id(&other_id).unwrap().borrow(
     
     if let FSRValue::Float(self_int) = self_object.value {
         if let FSRValue::Float(other_int) = other_object.value {
