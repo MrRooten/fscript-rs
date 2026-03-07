@@ -170,10 +170,6 @@ impl IndexMap {
             }
         }
 
-        // if let Some(Some(s)) = self.vs.get(i as usize) {
-        //     s.store(v, Ordering::Relaxed);
-        //     return;
-        // }
         self.vs[i as usize] = Some(NonZeroUsize::new(v).unwrap());
     }
 
@@ -316,50 +312,6 @@ impl<'a> Iterator for IndexObjIterator<'a> {
         None
     }
 }
-
-// struct AttrMap<'a> {
-//     attr_map: Vec<Vec<Option<&'a AtomicObjId>>>,
-// }
-
-// impl<'a> AttrMap<'a> {
-//     pub fn new() -> Self {
-//         Self {
-//             attr_map: vec![vec![None; 4]; 4],
-//         }
-//     }
-
-//     #[cfg_attr(feature = "more_inline", inline(always))]
-//     pub fn insert(&mut self, i: usize, j: usize, v: Option<&'a AtomicObjId>) {
-//         if i >= self.attr_map.len() {
-//             let new_capacity = (i + 1) + (4 - (i + 1) % 4);
-//             self.attr_map.resize(new_capacity, vec![None; 4]);
-//         }
-//         if j >= self.attr_map[i].len() {
-//             let new_capacity = (j + 1) + (4 - (j + 1) % 4);
-//             self.attr_map[i].resize(new_capacity, None);
-//         }
-//         self.attr_map[i][j] = v;
-//     }
-
-//     #[cfg_attr(feature = "more_inline", inline(always))]
-//     pub fn clear(&mut self) {
-//         self.attr_map.clear();
-//     }
-
-//     #[cfg_attr(feature = "more_inline", inline(always))]
-//     pub fn clear_var(&mut self, i: usize) {
-//         if i < self.attr_map.len() {
-//             self.attr_map[i].clear();
-//         }
-//     }
-
-//     pub fn get_attr(&self, i: usize, j: usize) -> Option<&'a AtomicObjId> {
-//         if i < self.attr_map.len() && j < self.attr_map[i].len() {
-//             return self.attr_map[i][j];
-//         }
-//         None
-//     }
-// }
 
 pub type AnyPtr = usize;
 
@@ -1470,12 +1422,11 @@ impl<'a> FSRThreadRuntime<'a> {
     }
 
     fn try_get_obj_by_name(&mut self, c_id: u64, name: &str) -> Option<ObjId> {
-        {
-            let state = self.get_cur_mut_frame();
-            if let Some(id) = state.get_var(&c_id) {
-                return Some(id.get());
-            }
+        let state = self.get_cur_mut_frame();
+        if let Some(id) = state.get_var(&c_id) {
+            return Some(id.get());
         }
+
         let module = FSRObject::id_to_obj(
             FSRObject::id_to_obj(self.get_cur_frame().code)
                 .as_code()

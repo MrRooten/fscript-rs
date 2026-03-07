@@ -37,7 +37,7 @@ fn bench_compile() {
     let end = Instant::now();
     println!("AST Parse Time: {:?}", end - start);
     let start = Instant::now();
-    Bytecode::load_ast("main", FSRToken::Module(token.0), token.1);
+    Bytecode::load_ast("main", FSRToken::Module(token.0), token.1).unwrap();
     let end = Instant::now();
     println!("Bytecode Compile Time: {:?}", end - start);
 }
