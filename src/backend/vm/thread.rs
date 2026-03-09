@@ -1143,12 +1143,7 @@ impl<'a> FSRThreadRuntime<'a> {
             return Ok(RetState::Normal);
         }
 
-        let res = FSRObject::invoke_offset_method(
-            FastAttr::Add,
-            &[left, right],
-            self,
-            //self.get_cur_frame().code,
-        )?;
+        let res = FSRObject::invoke_offset_method(FastAttr::Add, &[left, right], self)?;
 
         push_exp!(self, res.get_id());
 
@@ -1162,12 +1157,7 @@ impl<'a> FSRThreadRuntime<'a> {
     ) -> Result<RetState, FSRError> {
         let [left, right] = self.pop_left_right()?;
 
-        let res = FSRObject::invoke_offset_method(
-            FastAttr::Sub,
-            &[left, right],
-            self,
-            //self.get_cur_frame().code,
-        )?;
+        let res = FSRObject::invoke_offset_method(FastAttr::Sub, &[left, right], self)?;
         push_exp!(self, res.get_id());
 
         Ok(RetState::Normal)
@@ -2115,8 +2105,8 @@ impl<'a> FSRThreadRuntime<'a> {
         let right_id = pop_exp!(self).unwrap();
         let left_id = pop_exp!(self).unwrap();
 
-        push_middle!(self, right_id);
-        push_middle!(self, left_id);
+        //push_middle!(self, right_id);
+        //push_middle!(self, left_id);
 
         let v = Self::compare(&[left_id, right_id], op, self)?;
 
@@ -2613,32 +2603,44 @@ impl<'a> FSRThreadRuntime<'a> {
         Ok(RetState::Normal)
     }
 
+    #[inline]
+    fn new_list(self: &mut FSRThreadRuntime<'a>, len: usize) -> Result<Vec<ObjId>, FSRError> {
+        let mut list = Vec::with_capacity(len);
+
+        for _ in 0..len {
+            let v_id = pop_exp!(self).ok_or_else(|| {
+                FSRError::new(
+                    "Failed to pop value from stack in load_list",
+                    FSRErrCode::EmptyExpStack,
+                )
+            })?;
+
+            list.push(v_id);
+            push_middle!(self, v_id);
+        }
+
+        Ok(list)
+    }
+
     /// this is a special function for load list
     /// will load the list to the stack
     fn load_list(
         self: &mut FSRThreadRuntime<'a>,
         bytecode: &BytecodeArg,
     ) -> Result<RetState, FSRError> {
-        if let ArgType::LoadListNumber(n) = bytecode.get_arg() {
-            let mut list = Vec::with_capacity(n.list_len);
+        let ArgType::LoadListNumber(n) = bytecode.get_arg() else {
+            return Err(FSRError::new(
+                "not a load list number",
+                FSRErrCode::NotValidArgs,
+            ));
+        };
 
-            for _ in 0..n.list_len {
-                let v_id = pop_exp!(self).ok_or_else(|| {
-                    FSRError::new(
-                        "Failed to pop value from stack in load_list",
-                        FSRErrCode::EmptyExpStack,
-                    )
-                })?;
+        let list = self.new_list(n.list_len)?;
 
-                list.push(v_id);
-                push_middle!(self, v_id);
-            }
-
-            let list = self
-                .garbage_collect
-                .new_object(FSRList::new_value(list), GlobalObj::ListCls.get_id());
-            push_exp!(self, list);
-        }
+        let list = self
+            .garbage_collect
+            .new_object(FSRList::new_value(list), GlobalObj::ListCls.get_id());
+        push_exp!(self, list);
 
         Ok(RetState::Normal)
     }
