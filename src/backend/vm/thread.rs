@@ -336,6 +336,7 @@ pub struct CallFrame {
     pub(crate) flow_tracker: FlowTracker,
     pub(crate) is_module: bool,
     pub(crate) bytecode_slot: Option<AtomicPtr<Vec<BytecodeArg>>>,
+    pub(crate) top_exp: usize
 }
 
 impl CallFrame {
@@ -460,6 +461,7 @@ impl CallFrame {
             static_args: Vec::new(),
             is_module: false,
             bytecode_slot: None,
+            top_exp: 0,
         }
     }
 }
@@ -1588,24 +1590,26 @@ impl<'a> FSRThreadRuntime<'a> {
         //let mut var: Option<&(usize, u64, String, bool)> = None;
         let mut args: SmallVec<[usize; 4]> = SmallVec::<[ObjId; 4]>::new();
         let father;
-        let method = if let ArgType::CallArgsNumberWithAttr(pack) = bytecode.get_arg() {
-            let args_num = pack.0;
-            Self::call_process_set_args(args_num, self, &mut args)?;
+        let ArgType::CallArgsNumberWithAttr(pack) = bytecode.get_arg() else {
+            return Err(FSRError::new(
+                "not support ArgType in call_method_process",
+                FSRErrCode::NotValidArgs,
+            ));
+        };
 
-            father = pop_exp!(self).unwrap();
-            let father_cls = FSRObject::id_to_obj(father);
-            let method = match father_cls.get_attr(&pack.2, true) {
-                Some(s) => s.load(Ordering::Relaxed),
-                None => {
-                    return Err(FSRError::new(
-                        format!("not found method: {}", pack.2),
-                        FSRErrCode::NoSuchObject,
-                    ));
-                }
-            };
-            method
-        } else {
-            panic!("not support ArgType: {:?}", bytecode.get_arg());
+        let args_num = pack.0;
+        Self::call_process_set_args(args_num, self, &mut args)?;
+
+        father = pop_exp!(self).unwrap();
+        let father_cls = FSRObject::id_to_obj(father);
+        let method = match father_cls.get_attr(&pack.2, true) {
+            Some(s) => s.load(Ordering::Relaxed),
+            None => {
+                return Err(FSRError::new(
+                    format!("not found method: {}", pack.2),
+                    FSRErrCode::NoSuchObject,
+                ));
+            }
         };
 
         let object_id: Option<ObjId> = Some(father);
@@ -1798,10 +1802,9 @@ impl<'a> FSRThreadRuntime<'a> {
         let ip_0 = self.get_cur_frame().ip.0;
         let tracker = &mut self.get_cur_mut_frame().flow_tracker;
         tracker.break_line.push(ip_0 + bytecode.arg_n as usize);
-        //let ip_0 = self.get_cur_frame().ip.0;
         tracker.loop_start_line.push(ip_0 + 1);
-
         tracker.for_iter_obj.push(read_iter_id);
+
         Ok(RetState::Normal)
     }
 
