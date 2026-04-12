@@ -185,12 +185,10 @@ impl<'a> FSRHashMapRefIterator<'a> {
             yield_key: true,
         };
 
-        // 初始化第一个segment的迭代器
         if !hashmap.segment_map.is_empty() {
             iter.hash_iter = Some(hashmap.segment_map[0].hashmap.iter());
         }
 
-        // 初始化第一个vec迭代器
         iter.advance_hash_iterator();
 
         iter
@@ -205,7 +203,6 @@ impl<'a> FSRHashMapRefIterator<'a> {
             }
         }
 
-        // 尝试移动到下一个segment
         self.segment_idx += 1;
         if self.segment_idx < self.hashmap.segment_map.len() {
             self.hash_iter = Some(self.hashmap.segment_map[self.segment_idx].hashmap.iter());
@@ -226,7 +223,6 @@ impl<'a> FSRHashMapRefIterator<'a> {
             }
         }
 
-        // 尝试移动到下一个hashmap条目
         self.advance_hash_iterator()
     }
 }
@@ -264,14 +260,6 @@ impl FSRIteratorReferences for FSRHashMapIterator<'_> {
 impl FSRIterator for FSRHashMapIterator<'_> {
     fn next(&mut self, thread: &mut FSRThreadRuntime) -> Result<Option<ObjId>, FSRError> {
         let c = self.iter.next();
-        // c.map(|x| {
-        //     let vs = vec![x.0, x.1];
-        //     let list = FSRList::new_value(vs);
-        //     let ret = thread
-        //         .garbage_collect
-        //         .new_object(list, get_object_by_global_id(FSRGlobalObjId::ListCls) as ObjId);
-        //     Ok(ret)
-        // })
         if let Some((key, value)) = c {
             let vs = vec![key, value];
             let list = FSRList::new_value(vs);

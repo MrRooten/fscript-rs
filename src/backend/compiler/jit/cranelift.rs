@@ -1047,43 +1047,6 @@ impl JitBuilder<'_> {
         let _ = self.builder.inst_results(call); // We don't need the return value, just ensure the call is made
     }
 
-    fn load_binary_range(&mut self, context: &mut OperatorContext) {
-        if let (Some(right), Some(left)) = (context.exp.pop(), context.exp.pop()) {
-            // pub extern "C" fn binary_range(left: ObjId, right: ObjId, thread: &mut FSRThreadRuntime) -> ObjId
-            let mut binary_range_sig = self.module.make_signature();
-            binary_range_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // left operand
-            binary_range_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // right operand
-            binary_range_sig
-                .params
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // thread runtime
-            binary_range_sig
-                .returns
-                .push(AbiParam::new(self.module.target_config().pointer_type())); // return type (ObjId)
-            let fn_id = self
-                .module
-                .declare_function(
-                    "binary_range",
-                    cranelift_module::Linkage::Import,
-                    &binary_range_sig,
-                )
-                .unwrap();
-            let func_ref = self.module.declare_func_in_func(fn_id, self.builder.func);
-            let thread_runtime = self.builder.block_params(context.entry_block)[0];
-            let call = self
-                .builder
-                .ins()
-                .call(func_ref, &[left, right, thread_runtime]);
-            let ret = self.builder.inst_results(call)[0];
-            context.exp.push(ret);
-        } else {
-            panic!("BinaryRange requires both left and right operands");
-        }
-    }
-
     fn load_data(&mut self, var_type: &Arc<FSRSType>, value: Value) -> Value {
         // input a data ptr to get value
         match var_type.as_ref() {
@@ -2052,25 +2015,6 @@ impl JitBuilder<'_> {
             var
         };
 
-        // if let FSRSType::Struct(_) = v.var_type.as_ref().unwrap().as_ref() {
-        //     self.struct_assign(context, v, var);
-        //     return;
-        // } else if let FSRSType::List(in_type, len) = v.var_type.as_ref().unwrap().as_ref() {
-        //     self.list_assing(context, v, var);
-        //     return;
-        // } else if let FSRSType::UInt64 = v.var_type.as_ref().unwrap().as_ref() {
-        //     // for u64, we need to store the value to the stack slot
-        //     let variable = self.variables.get(v.name.as_str()).unwrap();
-        //     let stack_addr = self.builder.use_var(*variable);
-        //     self.builder.ins().store(
-        //         cranelift::codegen::ir::MemFlags::new(),
-        //         var,
-        //         stack_addr,
-        //         0,
-        //     );
-        //     return;
-        // }
-
         match v.var_type.as_ref().unwrap().as_ref() {
             FSRSType::Bool
             | FSRSType::IInt8
@@ -2601,7 +2545,8 @@ impl JitBuilder<'_> {
                     self.load_for_end(context);
                 }
                 BytecodeOperator::BinaryRange => {
-                    self.load_binary_range(context);
+                    // self.load_binary_range(context);
+                    panic!("BinaryRange operator should be handled in BinaryRange process, not here");
                 }
                 BytecodeOperator::OrJump => {
                     self.load_or_jump(context, arg);

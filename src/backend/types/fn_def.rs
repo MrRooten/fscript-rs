@@ -115,18 +115,11 @@ impl<'a> FSRFn<'a> {
         None
     }
 
-    pub fn get_references(&self) -> Vec<ObjId> {
-        let mut v1: Vec<usize> = self
-            .store_cells
+    pub fn get_references(&self) -> impl Iterator<Item = ObjId> + '_ {
+        self.store_cells
             .values()
             .map(|s| s.load(Ordering::Relaxed))
-            .collect();
-
-        for val in self.const_map.iter() {
-            v1.push(*val);
-        }
-
-        v1
+            .chain(self.const_map.iter().cloned())
     }
 
     pub fn as_str(&self) -> String {
@@ -243,6 +236,27 @@ impl<'a> FSRFn<'a> {
         FSRClass::new_without_method("Fn")
     }
 
+    #[inline]
+    fn fsr_call_args_settting(
+        &self,
+        f: &FSRFnInner,
+        args: &[ObjId],
+        thread: &mut FSRThreadRuntime<'a>,
+        fn_id: ObjId,
+    ) {
+        let frame = thread
+            .frame_free_list
+            .new_frame(self.code, fn_id, f.max_local_id);
+        thread.push_frame(
+            frame,
+            index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),
+        );
+
+        for arg in args.iter().rev() {
+            thread.get_cur_mut_frame().args.push(*arg);
+        }
+    }
+
     #[cfg_attr(feature = "more_inline", inline(always))]
     pub fn invoke(
         &self,
@@ -258,17 +272,7 @@ impl<'a> FSRFn<'a> {
                 return v;
             }
             FSRnE::FSRFn(f) => {
-                let frame = thread
-                    .frame_free_list
-                    .new_frame(self.code, fn_id, f.max_local_id);
-                thread.push_frame(
-                    frame,
-                    index_map_obj_to_ptr(&FSRObject::id_to_obj(fn_id).as_fn().const_map),
-                );
-
-                for arg in args.iter().rev() {
-                    thread.get_cur_mut_frame().args.push(*arg);
-                }
+                self.fsr_call_args_settting(f, args, thread, fn_id);
                 let v = FSRThreadRuntime::call_fn(thread, f)?;
                 return Ok(FSRRetValue::GlobalId(v));
             }
