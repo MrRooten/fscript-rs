@@ -403,6 +403,12 @@ impl<'a> FSRObject<'a> {
         }
     }
 
+    pub fn pre_store_obj(&mut self, store_id: ObjId) {
+        if self.area.is_long() && FSRObject::id_to_obj(store_id).area == Area::Minjor {
+            self.set_write_barrier(true);
+        }
+    }
+
     pub fn set_write_barrier(&self, value: bool) {
         self.write_barrier.store(value, Ordering::Relaxed);
     }
@@ -712,11 +718,8 @@ impl<'a> FSRObject<'a> {
             return s.get_attr(name);
         }
 
-        // if let FSRValue::Module(m) = &self.value {
-        //     return m.get_object(name);
-        // }
-
-        None
+        // Inner objects like module, we can get object from module
+        self.cls.get_attr(name)
     }
 
     #[inline]

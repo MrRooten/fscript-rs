@@ -1,11 +1,14 @@
 use std::{
     any::Any,
     fmt::{Debug, Formatter},
-    sync::{atomic::{AtomicUsize, Ordering}, Arc},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use ahash::AHashMap;
-use indexmap::{map::Iter, IndexMap};
+use indexmap::{IndexMap, map::Iter};
 use smallvec::SmallVec;
 
 use crate::{
@@ -19,10 +22,13 @@ use crate::{
             error::FSRException,
             fn_def::FSRFn,
             iterator::{FSRInnerIterator, FSRIterator, FSRIteratorReferences},
-            list::FSRList, string::FSRInnerString,
+            list::FSRList,
+            string::FSRInnerString,
         },
         vm::{thread::FSRThreadRuntime, virtual_machine::gid},
-    }, to_rs_list, utils::error::FSRError
+    },
+    to_rs_list,
+    utils::error::FSRError,
 };
 
 const MAX_SEGMENT_SIZE: usize = 409600;
@@ -80,7 +86,7 @@ impl SegmentHashMap {
 pub struct FSRHashMap {
     // inner_map: AHashMap<u64, Vec<(AtomicObjId, AtomicObjId)>>,
     segment_map: Vec<SegmentHashMap>,
-    default_value: Option<ObjId>
+    default_value: Option<ObjId>,
 }
 
 impl Debug for FSRHashMap {
@@ -344,25 +350,30 @@ pub fn fsr_fn_hashmap_insert(
     let hashmap = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
     let key = args[1];
     let value = args[2];
-    if hashmap.area.is_long() {
-        let key_obj = FSRObject::id_to_obj(key);
-        if key_obj.area == Area::Minjor {
-            hashmap.set_write_barrier(true);
-        }
+    // if hashmap.area.is_long() {
+    //     let key_obj = FSRObject::id_to_obj(key);
+    //     if key_obj.area == Area::Minjor {
+    //         hashmap.set_write_barrier(true);
+    //     }
 
-        let value_obj = FSRObject::id_to_obj(value);
-        if value_obj.area == Area::Minjor {
-            hashmap.set_write_barrier(true);
-        }
-    }
-    if let FSRValue::Extension(any) = &mut hashmap.value {
-        if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
-            hashmap.insert(key, value, thread)?;
-        } else {
-            unimplemented!()
-        }
-    } else {
+    //     let value_obj = FSRObject::id_to_obj(value);
+    //     if value_obj.area == Area::Minjor {
+    //         hashmap.set_write_barrier(true);
+    //     }
+    // }
+    hashmap.pre_store_obj(key);
+    hashmap.pre_store_obj(value);
+    let FSRValue::Extension(any) = &mut hashmap.value else {
         unimplemented!()
+    };
+
+    if let Some(hashmap) = any.value.as_any_mut().downcast_mut::<FSRHashMap>() {
+        hashmap.insert(key, value, thread)?;
+    } else {
+        return Err(FSRError::new(
+            "not a hashmap",
+            crate::utils::error::FSRErrCode::NotValidArgs,
+        ));
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
@@ -407,12 +418,15 @@ fn hashmap_string(
     let obj_id = args[0];
     let obj = FSRObject::id_to_obj(obj_id);
     if let FSRValue::Extension(l) = &obj.value {
-        let l = l.value.as_any().downcast_ref::<FSRHashMap>()
+        let l = l
+            .value
+            .as_any()
+            .downcast_ref::<FSRHashMap>()
             .ok_or(FSRError::new(
                 "not a hashset",
                 crate::utils::error::FSRErrCode::NotValidArgs,
             ))?;
-        
+
         let mut vs = vec![];
         for seg in l.segment_map.iter() {
             for (hash_id, bucket) in seg.hashmap.iter() {
@@ -452,10 +466,9 @@ fn hashmap_string(
     }
 
     s.push(')');
-    let obj_id = thread.garbage_collect.new_object(
-        FSRValue::String(Arc::new(s)),
-        gid(GlobalObj::StringCls),
-    );
+    let obj_id = thread
+        .garbage_collect
+        .new_object(FSRValue::String(Arc::new(s)), gid(GlobalObj::StringCls));
     Ok(FSRRetValue::GlobalId(obj_id))
 }
 
@@ -473,7 +486,7 @@ pub fn fsr_fn_hashmap_get_reference(
             if let Some(value) = hashmap.get(key, thread) {
                 return Ok(FSRRetValue::GlobalId(value.load(Ordering::Relaxed)));
             } else if let Some(default) = hashmap.default_value {
-                return Ok(FSRRetValue::GlobalId(default))
+                return Ok(FSRRetValue::GlobalId(default));
             }
         }
     } else {
@@ -559,7 +572,7 @@ pub fn fsr_fn_hashmap_len(
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
     let hashmap = FSRObject::id_to_obj(args[0]);
-    
+
     if let FSRValue::Extension(any) = &hashmap.value {
         if let Some(hashmap) = any.value.as_any().downcast_ref::<FSRHashMap>() {
             let len = hashmap.len();
@@ -581,7 +594,7 @@ impl FSRHashMap {
     pub fn new_hashmap() -> Self {
         Self {
             segment_map: vec![SegmentHashMap::new()],
-            default_value: None
+            default_value: None,
         }
     }
 
@@ -651,8 +664,9 @@ impl FSRHashMap {
                 match segment.hashmap.entry(hash) {
                     indexmap::map::Entry::Occupied(occupied_entry) => return None,
                     indexmap::map::Entry::Vacant(vacant_entry) => {
-                        vacant_entry.insert([(AtomicObjId::new(key), AtomicObjId::new(value))].into());
-                    },
+                        vacant_entry
+                            .insert([(AtomicObjId::new(key), AtomicObjId::new(value))].into());
+                    }
                 };
                 // segment.is_dirty = true;
                 return Some(());
@@ -681,10 +695,7 @@ impl FSRHashMap {
         }
     }
 
-    fn call_hash(
-        key: ObjId,
-        thread: &mut FSRThreadRuntime,
-    ) -> Result<u64, FSRError> {
+    fn call_hash(key: ObjId, thread: &mut FSRThreadRuntime) -> Result<u64, FSRError> {
         let obj = FSRObject::id_to_obj(key);
         if let FSRValue::Integer(i) = obj.value {
             return Ok(i as u64);
@@ -736,9 +747,7 @@ impl FSRHashMap {
                     .unwrap()
                     .load(std::sync::atomic::Ordering::Relaxed);
                 let eq_fn = FSRObject::id_to_obj(eq_fn_id);
-                let is_same = eq_fn
-                    .call(&[save_key, value], thread)?
-                    .get_id();
+                let is_same = eq_fn.call(&[save_key, value], thread)?.get_id();
 
                 if is_same == FSRObject::true_id() {
                     // save_item
@@ -784,9 +793,7 @@ impl FSRHashMap {
                     .unwrap()
                     .load(std::sync::atomic::Ordering::Relaxed);
                 let eq_fn = FSRObject::id_to_obj(eq_fn_id);
-                let is_same = eq_fn
-                    .call(&[save_key, value], thread)?
-                    .get_id();
+                let is_same = eq_fn.call(&[save_key, value], thread)?.get_id();
 
                 if is_same == FSRObject::true_id() {
                     save_item
@@ -818,10 +825,7 @@ impl FSRHashMap {
                 .unwrap()
                 .load(std::sync::atomic::Ordering::Relaxed);
             let eq_fn = FSRObject::id_to_obj(eq_fn_id);
-            let is_same = eq_fn
-                .call(&[save_key, key], thread)
-                .unwrap()
-                .get_id();
+            let is_same = eq_fn.call(&[save_key, key], thread).unwrap().get_id();
 
             if is_same == FSRObject::true_id() {
                 return Some(&save_item.1);
@@ -872,10 +876,7 @@ impl FSRHashMap {
                 .unwrap()
                 .load(std::sync::atomic::Ordering::Relaxed);
             let eq_fn = FSRObject::id_to_obj(eq_fn_id);
-            let is_same = eq_fn
-                .call(&[save_key, key], thread)
-                .unwrap()
-                .get_id();
+            let is_same = eq_fn.call(&[save_key, key], thread).unwrap().get_id();
             if is_same == FSRObject::true_id() {
                 res.remove(i);
                 return;

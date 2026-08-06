@@ -83,6 +83,7 @@ pub enum FSRErrCode {
     RuntimeError(ObjId),
     FileError,
     AnyhowError,
+    InvalidObjectId,
 }
 
 #[derive(Debug)]

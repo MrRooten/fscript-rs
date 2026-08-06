@@ -90,17 +90,29 @@ fn join(
     thread: &mut FSRThreadRuntime,
 ) -> Result<FSRRetValue, FSRError> {
     let args = to_rs_list!(args, len);
-    let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    // let self_object = FSRObject::id_to_mut_obj(args[0]).expect("msg: not a any and hashmap");
+    let self_object = FSRObject::id_to_mut_obj(args[0]).ok_or_else(|| {
+        FSRError::new(
+            format!("msg: not a any or hashmap, id: {:?}", args[0]),
+            crate::utils::error::FSRErrCode::InvalidObjectId,
+        )
+    })?;
 
     if let FSRValue::Extension(any) = &mut self_object.value {
         if let Some(handle) = any.value.as_any_mut().downcast_mut::<FSRThreadHandle>() {
             //thread.release();
             let _ = handle.join();
         } else {
-            unimplemented!()
+            return Err(FSRError::new(
+                format!("msg: not a thread handle, id: {:?}", args[0]),
+                crate::utils::error::FSRErrCode::InvalidObjectId,
+            ));
         }
     } else {
-        unimplemented!()
+        return Err(FSRError::new(
+            format!("msg: not a thread handle, id: {:?}", args[0]),
+            crate::utils::error::FSRErrCode::InvalidObjectId,
+        ));
     }
     Ok(FSRRetValue::GlobalId(FSRObject::none_id()))
 }
@@ -117,7 +129,10 @@ impl FSRThreadHandle {
         if let Some(handle) = self.thread.take() {
             handle.join().unwrap();
         } else {
-            unimplemented!()
+            return Err(FSRError::new(
+                format!("msg: not a thread handle, id: {:?}", self.thread),
+                crate::utils::error::FSRErrCode::InvalidObjectId,
+            ));
         }
 
         Ok(())
